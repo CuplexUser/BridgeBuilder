@@ -1,0 +1,56 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "typescript",
+    "unicorn",
+    "oxc",
+    "import",
+    "vitest"
+  ],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "env": {
+    "browser": true,
+    "node": true,
+    "es2024": true
+  },
+  "ignorePatterns": [
+    "dist/**",
+    "node_modules/**",
+    "data/**"
+  ],
+  "rules": {
+    "no-console": [
+      "warn",
+      {
+        "allow": [
+          "error",
+          "log"
+        ]
+      }
+    ],
+    "eqeqeq": "error",
+    "no-var": "error",
+    "prefer-const": "error",
+    "unicorn/no-array-fill-with-reference-type": "off",
+    "import/no-unassigned-import": [
+      "warn",
+      {
+        "allow": [
+          "**/*.css"
+        ]
+      }
+    ],
+    "no-underscore-dangle": [
+      "warn",
+      {
+        "allow": [
+          "__game"
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b1d38" />
+    <title>Bridge Builder</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2310284a'/%3E%3Cpath d='M3 22h26M6 22l5-9 5 9 5-9 5 9M11 13h10' stroke='%23e9f3ff' stroke-width='2.2' fill='none' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <!-- In-game HUD -->
+    <header id="hud" class="hidden">
+      <div class="hud-block">
+        <div class="hud-level"><span id="hud-num">01</span><span id="hud-name">First Crossing</span></div>
+        <div id="hud-lives" class="lives"></div>
+      </div>
+      <div class="hud-block center">
+        <div class="hud-label">SCORE</div>
+        <div id="hud-score" class="hud-score">0</div>
+      </div>
+      <div class="hud-block right">
+        <button id="btn-mute" class="icon-btn" aria-label="Toggle sound" title="Sound (M)">
+          <svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z" /><path class="wave" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11" /></svg>
+        </button>
+        <button id="btn-pause" class="icon-btn" aria-label="Pause" title="Pause (P / Esc)">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" /></svg>
+        </button>
+      </div>
+    </header>
+
+    <footer id="toolbar" class="hidden">
+      <div class="mats" id="mats"></div>
+      <div class="tools">
+        <button id="btn-undo" class="icon-btn" aria-label="Undo" title="Undo (Z)">
+          <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-3" /></svg>
+        </button>
+        <button id="btn-redo" class="icon-btn" aria-label="Redo" title="Redo (Y)">
+          <svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5" /><path d="M20 9H10a6 6 0 0 0 0 12h3" /></svg>
+        </button>
+        <button id="btn-clear" class="icon-btn" aria-label="Clear all" title="Clear (Shift+C)">
+          <svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>
+        </button>
+      </div>
+      <button id="btn-test" class="go-btn"><span class="go-icon">▶</span><span class="go-label">TEST</span><kbd>T</kbd></button>
+    </footer>
+
+    <div id="toast" class="toast"></div>
+
+    <!-- Title -->
+    <section id="scr-title" class="screen">
+      <div class="title-card">
+        <div class="title-tag">PROJECT № 01 · STRUCTURAL DIVISION</div>
+        <h1 class="logo"><span>BRIDGE</span><span class="logo-b">BUILDER</span></h1>
+        <p class="subtitle">Draw the truss. Send the truck. Pray.</p>
+        <div class="menu">
+          <button class="btn primary" data-act="play">PLAY <kbd>Enter</kbd></button>
+          <button class="btn" data-act="levels">LEVELS <kbd>L</kbd></button>
+          <button class="btn" data-act="scores">HIGH SCORES <kbd>H</kbd></button>
+        </div>
+        <div class="title-best" id="title-best"></div>
+        <div class="engineer">
+          <span id="title-engineer"></span>
+          <button class="link-btn" data-act="profiles">Switch engineer</button>
+        </div>
+      </div>
+      <div class="controls-hint">
+        <span><b>Drag</b> from a bolt to build</span><span><b>Tap</b> a beam to remove</span><span><b>T</b> test</span><span><b>Arrows + Space</b> build by keyboard</span>
+      </div>
+    </section>
+
+    <!-- Profile picker -->
+    <section id="scr-profile" class="screen hidden">
+      <div class="panel">
+        <h2>Who's building?</h2>
+        <p class="muted">Your name keeps your unlocked levels, stars, designs and high scores.</p>
+        <form id="profile-form" class="name-form" autocomplete="off">
+          <input id="profile-name" maxlength="16" placeholder="Your name" spellcheck="false" enterkeyhint="go" />
+          <button class="btn primary" type="submit">GO</button>
+        </form>
+        <p id="profile-error" class="form-error"></p>
+        <div id="profile-list" class="profile-list"></div>
+        <p class="storage-note" id="storage-note"></p>
+      </div>
+    </section>
+
+    <!-- Level select -->
+    <section id="scr-levels" class="screen hidden">
+      <div class="panel wide">
+        <h2>Practice</h2>
+        <p class="muted">Replay any unlocked level to perfect your stars. Practice doesn't count toward high scores.</p>
+        <div id="level-grid" class="level-grid"></div>
+        <div class="row"><button class="btn" data-act="back">BACK <kbd>Esc</kbd></button></div>
+      </div>
+    </section>
+
+    <!-- High scores -->
+    <section id="scr-scores" class="screen hidden">
+      <div class="panel">
+        <h2>High Scores</h2>
+        <table class="scores"><tbody id="score-rows"></tbody></table>
+        <div class="row"><button class="btn" data-act="back">BACK <kbd>Esc</kbd></button></div>
+      </div>
+    </section>
+
+    <!-- Pause -->
+    <section id="scr-pause" class="screen dim hidden">
+      <div class="panel">
+        <h2>Paused</h2>
+        <div class="menu">
+          <button class="btn primary" data-act="resume">RESUME <kbd>Esc</kbd></button>
+          <button class="btn" data-act="retry">BACK TO DRAWING BOARD <kbd>R</kbd></button>
+          <button class="btn" data-act="quit">QUIT TO TITLE <kbd>Q</kbd></button>
+        </div>
+        <div class="keys">
+          <div><kbd>Drag</kbd> build from a node</div>
+          <div><kbd>Tap</kbd>/<kbd>Right-click</kbd> remove beam</div>
+          <div><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> material</div>
+          <div><kbd>Arrows</kbd> move cursor · <kbd>Space</kbd> place</div>
+          <div><kbd>X</kbd> delete at cursor</div>
+          <div><kbd>Z</kbd>/<kbd>Y</kbd> undo / redo</div>
+          <div><kbd>Wheel</kbd>/<kbd>Pinch</kbd> zoom · <kbd>F</kbd> refit</div>
+          <div><kbd>T</kbd> test · <kbd>M</kbd> mute</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Success -->
+    <section id="scr-result" class="screen dim hidden">
+      <div class="panel result">
+        <div class="banner good">BRIDGE HOLDS!</div>
+        <div class="stars" id="res-stars"><i></i><i></i><i></i></div>
+        <div class="star-notes" id="res-notes"></div>
+        <table class="breakdown"><tbody id="res-rows"></tbody></table>
+        <div class="total"><span>LEVEL SCORE</span><b id="res-total">0</b></div>
+        <div class="run-total" id="res-run"></div>
+        <div class="row">
+          <button class="btn" data-act="retry" id="res-retry">IMPROVE <kbd>R</kbd></button>
+          <button class="btn primary" data-act="next" id="res-next">NEXT <kbd>Enter</kbd></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Collapse -->
+    <section id="scr-collapse" class="screen dim hidden">
+      <div class="panel">
+        <div class="stamp">COLLAPSED</div>
+        <p id="col-reason" class="reason"></p>
+        <div id="col-lives" class="lives big"></div>
+        <p id="col-note" class="muted"></p>
+        <div class="row">
+          <button class="btn" data-act="quit">MENU <kbd>Esc</kbd></button>
+          <button class="btn primary" data-act="retry">RETRY <kbd>R</kbd></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Game over / run complete -->
+    <section id="scr-over" class="screen dim hidden">
+      <div class="panel">
+        <div class="stamp" id="over-title">GAME OVER</div>
+        <div class="over-score"><span>RUN SCORE</span><b id="over-score">0</b></div>
+        <p class="muted" id="over-sub"></p>
+        <p id="over-rank" class="over-rank"></p>
+        <table class="scores small"><tbody id="over-rows"></tbody></table>
+        <div class="row">
+          <button class="btn" data-act="quit">MENU <kbd>Esc</kbd></button>
+          <button class="btn primary" data-act="restart">PLAY AGAIN <kbd>R</kbd></button>
+        </div>
+      </div>
+    </section>
+
+    <div id="fps" class="fps hidden"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
