@@ -7,6 +7,7 @@ import { VEHICLES, type VehicleDef } from '../physics/vehicles';
 import type { Link, TestRun } from '../physics/world';
 import type { Camera } from './camera';
 import { MATERIAL_CHALK, PAL, stressColor } from './palette';
+import { drawBody, drawWheel } from './vehicles';
 
 export interface FloatText {
   x: number;
@@ -37,19 +38,6 @@ export interface SceneView {
 
 const TAU = Math.PI * 2;
 const MEMBER_WIDTH: Record<MaterialId, number> = { road: 0.3, heavy: 0.36, wood: 0.17, steel: 0.15, cable: 0.06 };
-
-function rr(p: Path2D, x: number, y: number, w: number, h: number, r: number): void {
-  p.moveTo(x + r, y);
-  p.lineTo(x + w - r, y);
-  p.quadraticCurveTo(x + w, y, x + w, y + r);
-  p.lineTo(x + w, y + h - r);
-  p.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  p.lineTo(x + r, y + h);
-  p.quadraticCurveTo(x, y + h, x, y + h - r);
-  p.lineTo(x, y + r);
-  p.quadraticCurveTo(x, y, x + r, y);
-  p.closePath();
-}
 
 /** Deterministic 0..1 noise so scenery stays put between frames. */
 function hash(n: number): number {
@@ -1242,125 +1230,16 @@ export class Renderer {
     ctx.rotate(-ang);
     ctx.scale(s, -s);
     ctx.lineJoin = 'round';
-    const lw = 2 / s;
-    const wb = def.wheelbase;
-    const body = new Path2D();
-    const win = new Path2D();
-    let accent: Path2D | null = null;
-    const R = def.wheelR;
-    if (def.id === 'car') {
-      rr(body, -0.75, -0.05, wb + 1.5, 0.55, 0.2);
-      body.moveTo(0.05, 0.5);
-      body.lineTo(0.45, 0.98);
-      body.lineTo(wb - 0.35, 0.98);
-      body.lineTo(wb + 0.1, 0.5);
-      body.closePath();
-      win.moveTo(0.3, 0.56);
-      win.lineTo(0.58, 0.9);
-      win.lineTo(wb * 0.5 - 0.05, 0.9);
-      win.lineTo(wb * 0.5 - 0.05, 0.56);
-      win.closePath();
-      win.moveTo(wb * 0.5 + 0.05, 0.56);
-      win.lineTo(wb * 0.5 + 0.05, 0.9);
-      win.lineTo(wb - 0.42, 0.9);
-      win.lineTo(wb - 0.12, 0.56);
-      win.closePath();
-    } else if (def.id === 'van') {
-      body.moveTo(-0.65, -0.05);
-      body.lineTo(wb + 0.85, -0.05);
-      body.lineTo(wb + 0.85, 0.65);
-      body.lineTo(wb + 0.35, 1.45);
-      body.lineTo(-0.65, 1.45);
-      body.closePath();
-      win.moveTo(wb + 0.05, 0.75);
-      win.lineTo(wb + 0.72, 0.75);
-      win.lineTo(wb + 0.3, 1.32);
-      win.lineTo(wb + 0.05, 1.32);
-      win.closePath();
-      accent = new Path2D();
-      accent.rect(-0.65, 0.45, wb + 0.6, 0.18);
-    } else if (def.id === 'truck') {
-      rr(body, wb - 0.7, -0.05, 1.65, 1.6, 0.15);
-      rr(body, -1.0, 0.1, wb - 0.35, 0.95, 0.06);
-      win.moveTo(wb + 0.1, 0.85);
-      win.lineTo(wb + 0.8, 0.85);
-      win.lineTo(wb + 0.8, 1.4);
-      win.lineTo(wb + 0.1, 1.4);
-      win.closePath();
-      accent = new Path2D();
-      accent.moveTo(-0.9, 1.0);
-      accent.quadraticCurveTo(0.4, 1.7, wb - 0.8, 1.0);
-      accent.closePath();
-    } else if (def.id === 'semi') {
-      rr(body, wb - 0.85, -0.05, 1.8, 1.95, 0.2);
-      rr(body, -1.5, 0.15, wb + 0.55, 2.2, 0.06);
-      win.moveTo(wb + 0.25, 1.05);
-      win.lineTo(wb + 0.9, 1.05);
-      win.lineTo(wb + 0.9, 1.7);
-      win.lineTo(wb + 0.25, 1.7);
-      win.closePath();
-      accent = new Path2D();
-      accent.rect(-1.5, 1.05, wb + 0.55, 0.22);
-      accent.rect(wb - 0.85, 0.35, 1.8, 0.12);
-    } else {
-      rr(body, -1.05, -0.05, wb + 2.1, 1.95, 0.22);
-      for (let x = -0.8; x < wb + 0.6; x += 0.62) win.rect(x, 1.0, 0.46, 0.55);
-      win.rect(wb + 0.65, 0.8, 0.32, 0.8);
-      accent = new Path2D();
-      accent.rect(-1.05, 0.5, wb + 2.1, 0.12);
-    }
-
-    if (chalk) {
-      ctx.strokeStyle = PAL.chalkDim;
-      ctx.lineWidth = lw;
-      ctx.setLineDash([4 / s, 3 / s]);
-      ctx.stroke(body);
-      ctx.stroke(win);
-      ctx.setLineDash([]);
-    } else {
-      ctx.fillStyle = 'rgba(0,0,0,0.25)';
-      ctx.save();
-      ctx.translate(0.06, -0.06);
-      ctx.fill(body);
-      ctx.restore();
-      ctx.fillStyle = def.color;
-      ctx.fill(body);
-      if (accent) {
-        ctx.fillStyle = def.trim;
-        ctx.fill(accent);
-      }
-      ctx.fillStyle = '#9fd3f0';
-      ctx.fill(win);
-      ctx.fillStyle = 'rgba(255,255,255,0.35)';
-      ctx.fillRect(-0.5, 0.35, wb + 1, 0.05);
-      ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-      ctx.lineWidth = lw;
-      ctx.stroke(body);
-      // Headlight with a soft beam, and a tail light.
-      const hx = def.id === 'car' ? wb + 0.68 : def.id === 'bus' ? wb + 0.98 : def.id === 'semi' ? wb + 0.92 : wb + 0.86;
-      const beam = ctx.createLinearGradient(hx, 0, hx + 2.4, 0);
-      beam.addColorStop(0, 'rgba(255,240,190,0.35)');
-      beam.addColorStop(1, 'rgba(255,240,190,0)');
-      ctx.fillStyle = beam;
-      ctx.beginPath();
-      ctx.moveTo(hx, 0.34);
-      ctx.lineTo(hx + 2.4, 0.75);
-      ctx.lineTo(hx + 2.4, -0.25);
-      ctx.lineTo(hx, 0.2);
-      ctx.fill();
-      ctx.fillStyle = '#fff6c8';
-      ctx.fillRect(hx - 0.1, 0.2, 0.1, 0.14);
-      const tx = def.id === 'car' ? -0.75 : def.id === 'van' ? -0.65 : def.id === 'truck' ? -1.0 : def.id === 'semi' ? -1.5 : -1.05;
-      ctx.fillStyle = '#ff4a3d';
-      ctx.fillRect(tx, 0.3, 0.08, 0.16);
-    }
+    drawBody(ctx, def, 1 / s, chalk);
     ctx.restore();
 
-    this.wheel(rwx, rwy, R, angles[0], chalk);
-    this.wheel(fwx, fwy, R, angles[1], chalk);
+    const R = def.wheelR;
+    const heavy = def.id === 'truck' || def.id === 'bus' || def.id === 'semi';
+    this.wheel(rwx, rwy, R, angles[0], chalk, heavy);
+    this.wheel(fwx, fwy, R, angles[1], chalk, heavy);
   }
 
-  private wheel(x: number, y: number, r: number, angle: number, chalk: boolean): void {
+  private wheel(x: number, y: number, r: number, angle: number, chalk: boolean, heavy = false): void {
     const { ctx, cam } = this;
     const sx = cam.sx(x);
     const sy = cam.sy(y);
@@ -1373,27 +1252,7 @@ export class Renderer {
       ctx.stroke();
       return;
     }
-    ctx.fillStyle = '#1d1e22';
-    ctx.beginPath();
-    ctx.arc(sx, sy, R, 0, TAU);
-    ctx.fill();
-    ctx.fillStyle = '#c9ced6';
-    ctx.beginPath();
-    ctx.arc(sx, sy, R * 0.52, 0, TAU);
-    ctx.fill();
-    ctx.strokeStyle = '#5c6068';
-    ctx.lineWidth = Math.max(1, R * 0.12);
-    ctx.beginPath();
-    for (let i = 0; i < 5; i++) {
-      const a = angle + (i * TAU) / 5;
-      ctx.moveTo(sx + Math.cos(a) * R * 0.14, sy + Math.sin(a) * R * 0.14);
-      ctx.lineTo(sx + Math.cos(a) * R * 0.5, sy + Math.sin(a) * R * 0.5);
-    }
-    ctx.stroke();
-    ctx.fillStyle = '#5c6068';
-    ctx.beginPath();
-    ctx.arc(sx, sy, R * 0.14, 0, TAU);
-    ctx.fill();
+    drawWheel(ctx, sx, sy, R, angle, heavy);
   }
 
   // ───────────────────────────── FX ─────────────────────────────

@@ -150,6 +150,45 @@ describe('Editor', () => {
   });
 });
 
+function splitDiagonal() {
+  const ed = editorFor(2);
+  ed.begin(ed.design.findNode(0, 0));
+  ed.aim(4, 0);
+  ed.commit();
+  ed.setMaterial('wood');
+  ed.begin(ed.design.findNode(0, 0));
+  ed.aim(2, 2);
+  ed.commit();
+  ed.beginAt(1, 1, 0.1, 0.3);
+  ed.aim(2, 0);
+  ed.commit();
+  return ed;
+}
+
+describe('removing split beams', () => {
+  it('removes every piece of a split beam and refunds the part', () => {
+    const ed = splitDiagonal();
+    const wood = ed.remaining('wood');
+    const piece = ed.design.members.findIndex((m) => m.mat === 'wood' && m.part !== undefined);
+    ed.removeMember(piece);
+    expect(ed.design.members.filter((m) => m.part !== undefined)).toHaveLength(0);
+    expect(ed.remaining('wood')).toBe(wood + 1);
+    // The beam that hung off the split joint stays, with its joint.
+    expect(ed.design.findNode(1, 1)).toBeGreaterThanOrEqual(0);
+    ed.undo();
+    expect(ed.remaining('wood')).toBe(wood);
+  });
+
+  it('finds a short beam by its body even though its joints are within tap range', () => {
+    const ed = splitDiagonal();
+    // The upper half of the split diagonal, (1,1)–(2,2), is only 1.4 m long.
+    const i = ed.memberBodyAt(1.5, 1.4, 0.2);
+    expect(i).toBeGreaterThanOrEqual(0);
+    // Right on a joint there is no body to pick, so a tap there still starts a drag.
+    expect(ed.memberBodyAt(1, 1, 0.2)).toBe(-1);
+  });
+});
+
 describe('Design parts', () => {
   it('counts split pieces as one part', () => {
     const d = new Design().add([0, 0], [4, 0], 'steel');

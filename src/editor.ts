@@ -100,6 +100,10 @@ export class Editor {
     if (x < -1e-9 || x > L.width + 1e-9) return false;
     if (y > this.topY || y <= L.waterY + 0.5) return false;
     for (const [px, py] of L.piers) if (Math.abs(x - px) < 0.6 && y < py) return false;
+    for (const o of L.overhangs ?? []) {
+      const inside = o.side === 'left' ? x <= o.reach + 0.3 : x >= L.width - o.reach - 0.3;
+      if (inside && y > o.bottom - 0.3) return false;
+    }
     return true;
   }
 
@@ -126,6 +130,30 @@ export class Editor {
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const t = Math.max(0, Math.min(1, ((wx - a.x) * dx + (wy - a.y) * dy) / (dx * dx + dy * dy)));
+      const d = Math.hypot(a.x + dx * t - wx, a.y + dy * t - wy);
+      if (d < bd) {
+        bd = d;
+        best = i;
+      }
+    });
+    return best;
+  }
+
+  /**
+   * Member whose middle half lies under the pointer. Short beams sit entirely inside their joints'
+   * pick circles, so this is how a tap on one still reaches the beam rather than a joint.
+   */
+  memberBodyAt(wx: number, wy: number, radius: number): number {
+    let best = -1;
+    let bd = radius;
+    const { nodes, members } = this.design;
+    members.forEach((m, i) => {
+      const a = nodes[m.a];
+      const b = nodes[m.b];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const t = ((wx - a.x) * dx + (wy - a.y) * dy) / (dx * dx + dy * dy);
+      if (t < 0.25 || t > 0.75) return;
       const d = Math.hypot(a.x + dx * t - wx, a.y + dy * t - wy);
       if (d < bd) {
         bd = d;
@@ -304,15 +332,21 @@ export class Editor {
     this.drag = null;
   }
 
+  /** Removes a member. A piece of a split beam takes the whole beam with it, so the part is refunded. */
   removeMember(i: number): void {
     if (i < 0) return;
     this.snapshot();
-    const m = this.design.members[i];
-    const a = this.design.nodes[m.a];
-    const b = this.design.nodes[m.b];
-    this.ev.remove(a.x, a.y, b.x, b.y, m.mat);
-    this.ages.splice(i, 1);
-    this.design.removeMember(i);
+    const { nodes, members } = this.design;
+    // pieces() lists indices in ascending order; remove from the back so they stay valid.
+    const pieces = this.design.pieces(i);
+    for (let j = pieces.length - 1; j >= 0; j--) {
+      const k = pieces[j];
+      const m = members[k];
+      this.ev.remove(nodes[m.a].x, nodes[m.a].y, nodes[m.b].x, nodes[m.b].y, m.mat);
+      this.ages.splice(k, 1);
+      members.splice(k, 1);
+    }
+    this.design.pruneNodes();
   }
 
   clear(): void {

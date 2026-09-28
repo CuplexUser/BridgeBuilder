@@ -112,19 +112,24 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
   },
   13: (l) => {
     const d = deck(new Design(l), 0, 14);
-    hang(d, [0, 6], [[2, 0], [4, 0], [6, 0]]);
-    return hang(d, [14, 6], [[8, 0], [10, 0], [12, 0]]);
+    hang(d, [0, 6], [[4, 0], [6, 0]]);
+    hang(d, [14, 6], [[8, 0], [10, 0]]);
+    return d.add([0, -2], [2, 0], 'wood').add([14, -2], [12, 0], 'wood');
   },
   14: (l) => {
     const d = deck(new Design(l), 0, 18);
-    return hang(d, [9, 7], [2, 4, 6, 8, 10, 12, 14, 16].map((x): GridPt => [x, 0]));
+    hang(d, [9, 7], [[4, 0], [8, 0], [10, 0], [14, 0]]);
+    d.add([0, -2], [2, 0], 'wood').add([18, -2], [16, 0], 'wood');
+    // King-post trusses under the two joints the cables can't spare.
+    return kingPost(kingPost(d, 4, 8, -1, 'wood'), 10, 14, -1, 'wood');
   },
   15: (l) => {
     const d = deck(new Design(l), 0, 16);
-    hang(d, [1, 7], [[6, 0], [8, 0]]);
-    hang(d, [1, 4], [[2, 0], [4, 0]]);
-    hang(d, [15, 7], [[10, 0], [8, 0]]);
-    return hang(d, [15, 4], [[14, 0], [12, 0]]);
+    hang(d, [1, 9], [[2, 0], [4, 0]]);
+    hang(d, [15, 9], [[12, 0], [14, 0]]);
+    // Out of reach: a joint in mid-air, held from both cliffs.
+    d.add([1, 9], [8, 5], 'cable').add([15, 9], [8, 5], 'cable');
+    return hang(d, [8, 5], [[6, 0], [8, 0], [10, 0]]);
   },
   16: (l) => {
     const d = deck(new Design(l), 0, 16);
@@ -148,24 +153,40 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
   18: (l) => {
     const a: GridPt = [0, 0];
     const b: GridPt = [24, -3];
+    const p = (x: number) => on(a, b, x);
     const d = new Design(l);
     roadRun(d, a, b);
-    hang(d, [8, 6], [2, 4, 6, 8, 10, 12].map((x) => on(a, b, x)));
-    return hang(d, [16, 5], [14, 16, 18, 20, 22].map((x) => on(a, b, x)));
+    // Left half hangs from the tall pylon; the right half stands on the short one.
+    hang(d, [8, 7], [4, 6, 8, 10, 12].map(p));
+    d.add([0, -3], p(2), 'steel').add([24, -6], p(22), 'steel');
+    for (const x of [14, 16, 18]) d.add([16, -5], p(x), 'steel');
+    return d.add(p(18), [20, -4], 'wood').add(p(22), [20, -4], 'wood').add([20, -4], p(20), 'wood');
   },
   19: (l) => {
     const d = new Design(l);
     roadRun(d, [0, 0], [28, 0], 'heavy');
-    hang(d, [6, 8], [2, 4, 6, 8, 10, 12].map((x): GridPt => [x, 0]));
-    hang(d, [22, 8], [16, 18, 20, 22, 24, 26].map((x): GridPt => [x, 0]));
-    d.add([6, 8], [14, 3], 'cable').add([22, 8], [14, 3], 'cable');
-    return d.add([14, 3], [14, 0], 'cable');
+    suspend(d, [[6, 12], [10, 7], [14, 5], [18, 7], [22, 12]]);
+    hang(d, [10, 7], [[8, 0], [10, 0]]);
+    hang(d, [14, 5], [[12, 0], [14, 0], [16, 0]]);
+    hang(d, [18, 7], [[18, 0], [20, 0]]);
+    // Side spans: a strut from the low bolt, then a king post up to the tower.
+    d.add([0, -3], [2, 0], 'steel').add([28, -3], [26, 0], 'steel');
+    return kingPost(kingPost(d, 2, 6, -2, 'wood', 'steel'), 22, 26, -2, 'wood', 'steel');
   },
   20: (l) => {
     const d = new Design(l);
     roadRun(d, [0, 0], [32, 0], 'heavy');
-    hang(d, [8, 7], [2, 4, 6, 8, 10, 12, 14].map((x): GridPt => [x, 0]));
-    hang(d, [24, 7], [18, 20, 22, 24, 26, 28, 30].map((x): GridPt => [x, 0]));
+    const vertical = (pts: GridPt[], skip = -1) => {
+      suspend(d, pts);
+      for (const [x, y] of pts.slice(1, -1)) if (x !== skip) d.add([x, y], [x, 0], 'cable');
+    };
+    // Main span over the pier, and a sagging backstay span on each side.
+    vertical([11, 7, 5, 4, 4, 4, 5, 7, 11].map((y, i): GridPt => [8 + 2 * i, y]), 16);
+    vertical([4, 3, 4, 6, 11].map((y, i): GridPt => [2 * i, y]));
+    vertical([4, 3, 4, 6, 11].map((y, i): GridPt => [32 - 2 * i, y]));
+    // The joints under the pylons hang from both neighbours.
+    d.add([6, 6], [8, 0], 'cable').add([10, 7], [8, 0], 'cable');
+    d.add([26, 6], [24, 0], 'cable').add([22, 7], [24, 0], 'cable');
     return d.add([16, -4], [16, 0], 'steel');
   },
 };
@@ -173,6 +194,18 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
 /** Five 2 m deck panels starting at x0. */
 function panels(x0: number): GridPt[] {
   return [0, 2, 4, 6, 8, 10].map((k): GridPt => [x0 + k, 0]);
+}
+
+/** A cable chain through the given points: a main cable. */
+export function suspend(d: Design, pts: GridPt[]): Design {
+  for (let i = 0; i < pts.length - 1; i++) d.add(pts[i], pts[i + 1], 'cable');
+  return d;
+}
+
+/** King-post truss under the deck joint midway between x0 and x1: two struts to a low joint and a post up. */
+function kingPost(d: Design, x0: number, x1: number, depth: number, mat: MaterialId, post: MaterialId = mat): Design {
+  const mid = (x0 + x1) / 2;
+  return d.add([x0, 0], [mid, depth], mat).add([x1, 0], [mid, depth], mat).add([mid, depth], [mid, 0], post);
 }
 
 /** Cables from one anchor down to each of the given deck joints. */

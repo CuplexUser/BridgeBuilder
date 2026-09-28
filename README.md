@@ -2,7 +2,7 @@
 
 A physics bridge-building game for the browser. Draw a bridge with a limited budget of road, heavy deck, wood, steel and cable, then send a vehicle across it. The bridge either holds, sags, or snaps into the river.
 
-The 20 levels run from a 4 m brook to a 32 m crossing for a semi truck. Along the way they introduce piers, sloped banks, heavy decks, lattice pylons, rock overhangs and suspension cables. `TODO.md` lists planned features and improvements by priority.
+The 20 levels run from a 4 m brook to a 32 m suspension crossing. Along the way they introduce piers, sloped banks, heavy decks, lattice pylons, rock overhangs and cables. Each cable level is built around one idea, and the obvious "hang every joint" answer either runs out of cable or out of reach. Those guarantees are covered by tests. `TODO.md` lists planned features and improvements by priority.
 
 ## Run
 
@@ -66,7 +66,7 @@ A beam split into pieces still counts as one part toward the budget and par.
 ## How it works
 
 - `src/physics/world.ts` is a small-step XPBD solver. Members are compliant distance constraints. Stress is axial force over the member's capacity; compression capacity falls off with length, like buckling. A member breaks when its smoothed stress reaches 100%. The vehicle is four particles in the same world, and its wheel contacts push load into the road members' nodes.
-- `src/solutions.ts` holds a reference design per level, including the sloped levels. `tests/physics.test.ts` drives the real vehicle over each one, which guarantees all 20 levels are beatable within budget. Each level's par equals its reference solution's part count.
+- `src/solutions.ts` holds a reference design per level, including the sloped levels. `tests/physics.test.ts` drives the real vehicle over each one, which guarantees all 20 levels are beatable within budget. Each level's par equals its reference solution's part count. The same file checks that the obvious shortcut designs on the cable levels fail.
 - `tests/storage.test.ts` runs the same behavior contract against both storage backends. The SQLite one runs against a real HTTP server on an in-memory database.
 - Rendering is Canvas 2D (`src/render/`). The UI is DOM overlays (`index.html`, `src/ui/ui.ts`). All sound is synthesized with WebAudio (`src/audio.ts`).
 

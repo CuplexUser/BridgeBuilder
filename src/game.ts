@@ -942,8 +942,9 @@ export class Game {
         ed.aim(wx, wy);
         this.dragging = true;
         this.hoverNode = ed.drag!.from;
-        // A tap on a beam attach point that never moves still deletes the beam.
-        this.pendingDelete = picked === 'split' ? ed.drag!.fromSplit : -1;
+        // A tap that never moves still deletes the beam under it: from an attach point, or on
+        // the body of a beam too short to tap clear of its joints.
+        this.pendingDelete = picked === 'split' ? ed.drag!.fromSplit : ed.memberBodyAt(wx, wy, this.pickRadius(touch ? 16 : 10, 0.2));
         sfx.tick();
         return;
       }
@@ -997,7 +998,7 @@ export class Game {
     }
     if (this.state === 'build' && ed && e.pointerType === 'mouse' && !p) {
       this.hoverNode = ed.nodeAt(wx, wy, this.pickRadius(18, 0.4));
-      this.hoverMember = this.hoverNode < 0 ? ed.memberAt(wx, wy, this.pickRadius(10, 0.2)) : -1;
+      this.hoverMember = this.hoverNode < 0 ? ed.memberAt(wx, wy, this.pickRadius(10, 0.2)) : ed.memberBodyAt(wx, wy, this.pickRadius(10, 0.2));
       this.hoverAttach = this.hoverNode < 0 ? ed.attachAt(wx, wy, this.pickRadius(12, 0.3)) : null;
     }
   }

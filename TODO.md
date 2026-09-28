@@ -10,7 +10,8 @@ Features and improvements, by priority. Finished items stay checked for a releas
 - [x] Beam splitting: attach new members anywhere along a beam, with no extra part cost.
 - [x] New materials: heavy deck (drivable, strong, heavy) and cable (tension only, 10 m reach).
 - [x] Supporting structures: lattice pylons (`towers`) and rock overhangs (`overhangs`) as anchor points.
-- [x] Levels 13–20: cable-stayed, cliff-hung, suspension and 32 m spans, plus a semi truck.
+- [x] Levels 13–20, each built around one idea: struts plus cables (13), a stiffened deck with scarce cables (14), mid-air cable joints (15), split joints (16), a semi on a truss (17), pull on one half and push on the other (18), a main cable between out-of-reach pylon tops (19), a full suspension bridge (20). Tests check that the obvious shortcuts fail.
+- [x] Vehicle detail pass: shaded paint, wheel arches, glass with reflections and people, doors, bumpers and lights. The dump truck's load sits inside its ribbed bed. The bus has a stop arm, and the semi has a hood, stacks and a ribbed trailer. Wheels have tread, rims and lug nuts.
 - [x] Budget and par rebalance. Par equals the reference part count, and slack over par shrinks from +1 early to +3 late.
 - [x] Scene pass: drifting clouds, mountain range, trees and grass, bridge reflections on the water.
 - [x] Member pass: deck slab edges, continuous lane dashes, guard rails, wood grain, steel I-beam flanges and rivets, braided cables that sag when slack, gusset plates, a pulsing glow near failure.
@@ -23,7 +24,8 @@ Features and improvements, by priority. Finished items stay checked for a releas
 - [ ] **Chapters with themes.** Group the 20 levels into 4 chapters (River, Canyon, Coast, Mountain pass), each with its own sky, palette, water and tree set. Show chapter headers on the level select.
 - [ ] **Tutorial ghosts for new mechanics.** Level 1 has a ghost hint. Add the same kind of hint for the first cable (13) and the first split (16).
 - [ ] **Per-level challenge goals** (optional fourth star), such as "under 12 parts", "no steel", or "peak stress below 50%".
-- [ ] **Harder cable levels.** The cable reference solutions peak near 20–40% stress, so they are about finding the right geometry, not strength. Add wind gusts, heavier traffic or tighter cable budgets on 18–20.
+- [ ] **Semi on a suspension bridge.** In testing, the semi only crossed level 20's reference at 99% stress. It would need stiffer cable physics, or deck bending stiffness, before it can be the finale vehicle.
+- [ ] **Level 16 without splits.** Check whether a Warren or K-truss can reach 26 parts without splitting beams. If so, tighten the budget so splitting stays the key idea.
 - [ ] **Retune level 5.** With the even grade, its reference peak dropped from 86% to 32%. Tighten its steel budget, or raise the far bank.
 - [ ] **Weather and time of day** per chapter: rain streaks, snow, night with working headlights.
 - [ ] **Better break effects.** Heavy deck crumbles into chunks, and a snapped cable whips.

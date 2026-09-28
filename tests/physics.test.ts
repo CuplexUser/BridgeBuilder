@@ -3,7 +3,7 @@ import { Design } from '../src/design';
 import { budgetOf, LEVELS } from '../src/levels';
 import { MATERIAL_ORDER, MATERIALS } from '../src/physics/materials';
 import { TestRun, World } from '../src/physics/world';
-import { deck, SOLUTIONS } from '../src/solutions';
+import { deck, hang, roadRun, SOLUTIONS } from '../src/solutions';
 
 function drive(design: Design, levelIdx: number, seconds = 25) {
   const run = new TestRun(design, LEVELS[levelIdx]);
@@ -49,6 +49,55 @@ describe('failures', () => {
   it('a bare 8 m deck on level 3 fails', () => {
     const run = drive(deck(new Design(LEVELS[2]), 0, 8), 2);
     expect(run.status).toBe('fail');
+  });
+});
+
+/** The obvious cable-everything answers must not work: each cable level needs an idea. */
+const L = (id: number) => LEVELS[id - 1];
+
+describe('cable levels resist the obvious answer', () => {
+  const reach = MATERIALS.cable.maxLen;
+
+  it('13: hanging every joint needs more cables than the budget, and cables alone fail', () => {
+    expect(budgetOf(L(13), 'cable')).toBeLessThan(6);
+    const d = hang(hang(deck(new Design(L(13)), 0, 14), [0, 6], [[2, 0], [4, 0]]), [14, 6], [[10, 0], [12, 0]]);
+    expect(drive(d, 12).status).toBe('fail');
+  });
+
+  it('14: four cables plus end struts is not enough', () => {
+    const d = hang(deck(new Design(L(14)), 0, 18), [9, 7], [[4, 0], [8, 0], [10, 0], [14, 0]]);
+    d.add([0, -2], [2, 0], 'wood').add([18, -2], [16, 0], 'wood');
+    expect(drive(d, 13).status).toBe('fail');
+  });
+
+  it('15: the middle joints are out of reach, and the reachable cables alone fail', () => {
+    for (const x of [6, 8, 10]) expect(Math.min(Math.hypot(x - 1, 9), Math.hypot(x - 15, 9))).toBeGreaterThan(reach);
+    const d = hang(hang(deck(new Design(L(15)), 0, 16), [1, 9], [[2, 0], [4, 0]]), [15, 9], [[12, 0], [14, 0]]);
+    expect(drive(d, 14).status).toBe('fail');
+  });
+
+  it('18: cables from the tall pylon cannot carry the whole deck', () => {
+    const d = new Design(L(18));
+    const pts = roadRun(d, [0, 0], [24, -3]);
+    hang(d, [8, 7], pts.slice(1, 7));
+    expect(drive(d, 17).status).toBe('fail');
+  });
+
+  it('19 and 20: no deck joint is within one cable of a pylon top', () => {
+    for (const id of [19, 20]) {
+      const level = L(id);
+      for (const [tx, , top] of level.towers!.filter((t) => t[2] > 5)) {
+        for (let x = 0; x <= level.width; x += 2) expect(Math.hypot(x - tx, top)).toBeGreaterThan(reach);
+      }
+    }
+  });
+
+  it('20: bank posts and the pier alone drop the bus', () => {
+    const d = new Design(L(20));
+    roadRun(d, [0, 0], [32, 0], 'heavy');
+    hang(hang(d, [0, 4], [[2, 0], [4, 0], [6, 0]]), [32, 4], [[26, 0], [28, 0], [30, 0]]);
+    d.add([16, -4], [16, 0], 'steel');
+    expect(drive(d, 19).status).toBe('fail');
   });
 });
 

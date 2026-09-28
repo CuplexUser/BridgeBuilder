@@ -191,6 +191,15 @@ export class Design {
     return mid;
   }
 
+  /** Member i and every other piece split from the same beam. */
+  pieces(i: number): number[] {
+    const part = this.members[i].part;
+    if (part === undefined) return [i];
+    const out: number[] = [];
+    this.members.forEach((m, k) => m.part === part && out.push(k));
+    return out;
+  }
+
   removeMember(i: number): void {
     this.members.splice(i, 1);
     this.pruneNodes();
