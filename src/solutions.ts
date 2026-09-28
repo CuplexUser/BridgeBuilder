@@ -53,6 +53,7 @@ export function prattAbove(d: Design, x0: number, x1: number, h: number, m: Trus
 
 const WOOD: TrussMats = { chord: 'wood', web: 'wood', vert: 'wood' };
 const HEAVY: TrussMats = { chord: 'steel', web: 'wood', vert: 'wood', end: 'steel', endWeb: 'steel' };
+const STEELY: TrussMats = { chord: 'steel', web: 'steel', vert: 'steel', end: 'steel', endWeb: 'steel' };
 
 /** Known-good designs, used by the physics tests to prove every level is solvable. */
 export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
@@ -189,7 +190,88 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
     d.add([26, 6], [24, 0], 'cable').add([22, 7], [24, 0], 'cable');
     return d.add([16, -4], [16, 0], 'steel');
   },
+  21: (l) => deck(new Design(l), 0, 8).add([4, -2], [2, 0], 'wood').add([4, -2], [6, 0], 'wood').add([4, -2], [4, 0], 'wood'),
+  22: (l) => {
+    const d = deck(new Design(l), 0, 18);
+    for (const x of [6, 12]) d.add([x, -2], [x - 2, 0], 'wood').add([x, -2], [x, 0], 'steel').add([x, -2], [x + 2, 0], 'wood');
+    return d.add([0, -2], [2, 0], 'wood').add([18, -2], [16, 0], 'wood');
+  },
+  23: (l) => prattAbove(deck(new Design(l), 0, 14), 0, 14, 2, HEAVY),
+  24: (l) => {
+    const d = new Design(l);
+    // Up over the channel, across, and back down.
+    const up = roadRun(d, [0, 0], [8, 2]);
+    roadRun(d, [8, 2], [16, 2]);
+    const down = roadRun(d, [16, 2], [24, 0]);
+    hang(d, [7, 10], [up[2], up[3], [8, 2], [10, 2], [12, 2]]);
+    hang(d, [17, 10], [[12, 2], [14, 2], [16, 2], down[1], down[2]]);
+    // The first and last ramp joints are out of cable reach: strut them from the banks.
+    return d.add([0, -2], up[1], 'steel').add([24, -2], down[3], 'steel');
+  },
+  25: (l) => {
+    const d = new Design(l);
+    const pts = roadRun(d, [0, 0], [20, 4]);
+    trussOver(d, pts.slice(0, 6), 2, HEAVY);
+    trussOver(d, pts.slice(5), 2, HEAVY);
+    return d.add([10, -2], pts[5], 'steel').add([0, -2], pts[1], 'steel').add([20, 2], pts[pts.length - 2], 'steel');
+  },
+  26: (l) => {
+    const d = deck(new Design(l), 0, 22);
+    hang(d, [1, 8], [[2, 0], [4, 0], [6, 0]]);
+    hang(d, [16, 8], [[12, 0], [14, 0], [16, 0], [18, 0], [20, 0]]);
+    // The middle is out of reach of both: meet in mid-air.
+    d.add([1, 8], [9, 5], 'cable').add([16, 8], [9, 5], 'cable');
+    return hang(d, [9, 5], [[8, 0], [10, 0]]);
+  },
+  27: (l) => {
+    const d = new Design(l);
+    roadRun(d, [0, 0], [26, 0], 'heavy');
+    // A braced steel trestle up from each deep pier.
+    for (const px of [9, 17]) {
+      const [a, b] = [px - 1, px + 1];
+      d.add([px, -6], [a, -3], 'steel').add([px, -6], [b, -3], 'steel').add([a, -3], [b, -3], 'steel');
+      d.add([a, -3], [a, 0], 'steel').add([b, -3], [b, 0], 'steel').add([a, -3], [b, 0], 'steel');
+    }
+    trussOver(d, span(0, 8), 2, HEAVY);
+    trussOver(d, span(10, 16), 2, HEAVY);
+    trussOver(d, span(18, 26), 2, HEAVY);
+    return d.add([0, -3], [2, 0], 'steel').add([26, -3], [24, 0], 'steel');
+  },
+  28: (l) => {
+    const d = new Design(l);
+    roadRun(d, [0, 0], [24, 0], 'heavy');
+    trussOver(d, span(0, 12), 2, STEELY);
+    trussOver(d, span(12, 24), 2, STEELY);
+    return d.add([12, -4], [12, 0], 'steel').add([0, -3], [2, 0], 'steel').add([24, -3], [22, 0], 'steel');
+  },
+  29: (l) => {
+    const d = new Design(l);
+    roadRun(d, [0, 0], [30, 0], 'heavy');
+    suspend(d, [[8, 12], [11, 8], [15, 6], [19, 8], [22, 12]]);
+    hang(d, [11, 8], [[10, 0], [12, 0]]);
+    hang(d, [15, 6], [[14, 0], [16, 0]]);
+    hang(d, [19, 8], [[18, 0], [20, 0]]);
+    trussOver(d, span(0, 8), 2, HEAVY);
+    return trussOver(d, span(22, 30), 2, HEAVY);
+  },
+  30: (l) => {
+    const d = new Design(l);
+    // Three runs so every span's joints land on even meters.
+    for (const x0 of [0, 12, 24]) roadRun(d, [x0, 0], [x0 + 12, 0], 'heavy');
+    trussOver(d, span(0, 12), 2, { ...HEAVY, vert: 'steel' });
+    trussOver(d, span(12, 24), 2, STEELY);
+    trussOver(d, span(24, 36), 2, { ...HEAVY, vert: 'steel' });
+    for (const px of [12, 24]) d.add([px, -3], [px, 0], 'steel').add([px, -3], [px - 2, 0], 'steel').add([px, -3], [px + 2, 0], 'steel');
+    return d.add([0, -3], [2, 0], 'steel').add([36, -3], [34, 0], 'steel');
+  },
 };
+
+/** Deck joints every 2 m from x0 to x1 on the flat. */
+function span(x0: number, x1: number): GridPt[] {
+  const pts: GridPt[] = [];
+  for (let x = x0; x <= x1; x += 2) pts.push([x, 0]);
+  return pts;
+}
 
 /** Five 2 m deck panels starting at x0. */
 function panels(x0: number): GridPt[] {

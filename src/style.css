@@ -143,7 +143,9 @@ kbd {
 .hud-score {
   font-family: var(--mono);
   font-weight: 700;
-  font-size: 22px;
+  font-size: 12px;
+  color: var(--gold);
+  letter-spacing: 0.06em;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
@@ -433,6 +435,39 @@ kbd {
 }
 
 @media (max-width: 560px) {
+  /* The budget meter gets its own row under the level name and buttons. */
+  #hud {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+  .hud-block.center {
+    position: static;
+    transform: none;
+    order: 3;
+    flex: 1 0 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  }
+  .hud-block.center .hud-label {
+    display: none;
+  }
+  /* By id so it outranks the base .toast rule further down. */
+  #toast {
+    top: calc(112px + var(--safe-t));
+  }
+  .meter {
+    flex: 1;
+    min-width: 90px;
+    max-width: 200px;
+  }
+  .budget b {
+    font-size: 16px;
+  }
+  .budget span {
+    font-size: 11px;
+  }
   #toolbar {
     gap: 6px;
     padding-left: 8px;
@@ -556,6 +591,305 @@ kbd {
 
 .panel.wide {
   width: min(760px, 100%);
+}
+
+.panel.xwide {
+  width: min(980px, 100%);
+}
+
+/* ───────── Title: career card and continue ───────── */
+
+.career-card {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin: 18px auto 4px;
+  max-width: 420px;
+}
+
+.career-card:empty {
+  display: none;
+}
+
+.career-card div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 6px;
+  border-radius: 12px;
+  background: rgba(11, 29, 56, 0.7);
+  border: 1px solid var(--line);
+}
+
+.career-card span {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--muted);
+}
+
+.career-card b {
+  font-family: var(--mono);
+  font-size: 18px;
+  color: var(--gold);
+}
+
+.career-card small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.btn.continue {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.btn.continue small {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
+
+.btn.small {
+  min-height: 34px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+/* ───────── Chapters ───────── */
+
+.chapter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  margin: 14px 0 6px;
+  text-align: left;
+}
+
+.ch-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  background: #173764;
+  border: 1px solid var(--line);
+  overflow: hidden;
+  transition: transform 0.1s, background 0.15s;
+}
+
+.ch-card:hover {
+  background: #1e4579;
+  transform: translateY(-2px);
+}
+
+.ch-card.done {
+  border-color: rgba(57, 217, 138, 0.55);
+}
+
+.ch-card.locked {
+  opacity: 0.55;
+}
+
+.ch-card.locked:hover {
+  transform: none;
+  background: #173764;
+}
+
+.ch-open {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  width: 100%;
+  padding: 14px 16px 12px;
+  text-align: left;
+}
+
+.ch-no {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--bolt);
+}
+
+.ch-name {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.ch-blurb {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.ch-effort {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--cyan);
+}
+
+.ch-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--gold);
+}
+
+.ch-progress .bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.ch-progress .bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--ok), var(--gold));
+}
+
+.ch-lock {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--chalk);
+}
+
+.ch-challenge {
+  margin: 0 16px 14px;
+  align-self: flex-start;
+}
+
+.pips {
+  display: inline-flex;
+  gap: 3px;
+  vertical-align: middle;
+}
+
+.pips i {
+  width: 12px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(233, 243, 255, 0.18);
+}
+
+.pips i.on {
+  background: var(--bolt);
+}
+
+.ch-head {
+  margin-bottom: 14px;
+}
+
+.ch-kicker {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--bolt);
+}
+
+.ch-head h2 {
+  margin: 4px 0;
+}
+
+/* ───────── Leaderboards ───────── */
+
+.chapter-pills {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 4px 0 8px;
+}
+
+.pill {
+  width: 34px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font: 700 12px/1 var(--mono);
+}
+
+.pill.on {
+  color: var(--paper-deep);
+  background: var(--cyan);
+  border-color: var(--cyan);
+}
+
+/* ───────── HUD budget meter ───────── */
+
+.budget {
+  font-family: var(--mono);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.budget b {
+  font-size: 20px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.budget span {
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+.meter {
+  position: relative;
+  width: 100%;
+  min-width: 150px;
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--line);
+}
+
+.meter i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 3px;
+  background: var(--ok);
+  transition: width 0.25s, background 0.25s;
+}
+
+.meter.over-target i {
+  background: var(--gold);
+}
+
+.meter.nearly-out i {
+  background: var(--bolt);
+}
+
+.meter em {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--chalk);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+}
+
+.hud-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 18px;
 }
 
 @keyframes pop {
@@ -715,7 +1049,7 @@ h2 {
 
 .level-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
   gap: 10px;
 }
 
@@ -755,6 +1089,23 @@ h2 {
   color: var(--gold);
   letter-spacing: 2px;
   margin-top: auto;
+}
+
+.lvl-card .n kbd {
+  margin-left: 6px;
+  font-size: 9px;
+  padding: 0 3px;
+  vertical-align: middle;
+}
+
+.lvl-card .meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--cyan);
+}
+
+.lvl-card.done {
+  border-color: rgba(57, 217, 138, 0.55);
 }
 
 .lvl-card .b {

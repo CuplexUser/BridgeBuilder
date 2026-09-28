@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { Design } from '../src/design';
-import { budgetOf, LEVELS } from '../src/levels';
-import { MATERIAL_ORDER, MATERIALS } from '../src/physics/materials';
+import { Design, segmentHitsRect } from '../src/design';
+import { Editor } from '../src/editor';
+import { LEVELS } from '../src/levels';
+import { MATERIALS } from '../src/physics/materials';
 import { TestRun, World } from '../src/physics/world';
 import { deck, hang, roadRun, SOLUTIONS } from '../src/solutions';
 
@@ -21,14 +22,28 @@ describe('reference solutions', () => {
         const b = design.nodes[m.b];
         expect(Math.hypot(b.x - a.x, b.y - a.y)).toBeLessThanOrEqual(MATERIALS[m.mat].maxLen);
       }
-      for (const mat of MATERIAL_ORDER) {
-        expect(design.count(mat), `${mat} count`).toBeLessThanOrEqual(budgetOf(level, mat));
-      }
+      for (const m of design.members) expect(level.materials).toContain(m.mat);
+      expect(design.cost()).toBeLessThanOrEqual(level.target);
       const run = drive(design, level.id - 1);
       const broken = run.world.links.filter((l) => l.bridge && l.broken).length;
       expect({ status: run.status, reason: run.reason, broken }).toEqual({ status: 'success', reason: '', broken: 0 });
       expect(run.peakStress).toBeLessThan(1);
-      console.log(`level ${level.id}: ${design.parts()} parts, peak stress ${run.peakStress.toFixed(2)}, ${run.time.toFixed(1)}s`);
+      console.log(`level ${level.id}: $${design.cost()} of $${level.money} (target $${level.target}), ${design.parts()} parts, peak stress ${run.peakStress.toFixed(2)}, ${run.time.toFixed(1)}s`);
+    });
+  }
+});
+
+describe('reference designs obey the build rules', () => {
+  for (const level of LEVELS) {
+    it(`level ${level.id} "${level.name}"`, () => {
+      const design = SOLUTIONS[level.id](level);
+      const ed = new Editor(level, { place() {}, remove() {}, invalid() {} });
+      for (const n of design.nodes) expect(ed.pointAllowed(n.x, n.y), `joint ${n.x},${n.y}`).toBe(true);
+      for (const m of design.members) {
+        const a = design.nodes[m.a];
+        const b = design.nodes[m.b];
+        for (const [x0, x1, top] of level.channels ?? []) expect(segmentHitsRect(a.x, a.y, b.x, b.y, x0, level.waterY - 10, x1, top)).toBe(false);
+      }
     });
   }
 });
@@ -58,10 +73,16 @@ const L = (id: number) => LEVELS[id - 1];
 describe('cable levels resist the obvious answer', () => {
   const reach = MATERIALS.cable.maxLen;
 
-  it('13: hanging every joint needs more cables than the budget, and cables alone fail', () => {
-    expect(budgetOf(L(13), 'cable')).toBeLessThan(6);
+  it('13: hanging every joint costs more than the target, and cables alone fail', () => {
+    const all = hang(hang(deck(new Design(L(13)), 0, 14), [0, 6], [[2, 0], [4, 0], [6, 0]]), [14, 6], [[8, 0], [10, 0], [12, 0]]);
+    expect(all.cost()).toBeGreaterThan(L(13).target);
     const d = hang(hang(deck(new Design(L(13)), 0, 14), [0, 6], [[2, 0], [4, 0]]), [14, 6], [[10, 0], [12, 0]]);
     expect(drive(d, 12).status).toBe('fail');
+  });
+
+  it('14: hanging every joint from the pylon blows the budget', () => {
+    const all = hang(deck(new Design(L(14)), 0, 18), [9, 7], [2, 4, 6, 8, 10, 12, 14, 16].map((x): [number, number] => [x, 0]));
+    expect(all.cost()).toBeGreaterThan(L(14).money);
   });
 
   it('14: four cables plus end struts is not enough', () => {

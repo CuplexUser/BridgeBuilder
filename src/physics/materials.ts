@@ -5,6 +5,8 @@ export interface Material {
   name: string;
   /** Label for narrow toolbars. */
   short: string;
+  /** Cost per meter of member, in dollars. */
+  price: number;
   /** Longest member the player may place, in meters. */
   maxLen: number;
   /** Mass per meter of member, kg/m. */
@@ -29,6 +31,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
   road: {
     id: 'road',
     name: 'Road',
+    price: 180,
     short: 'Road',
     maxLen: 2.25,
     density: 50,
@@ -43,6 +46,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
   heavy: {
     id: 'heavy',
     name: 'Heavy deck',
+    price: 380,
     short: 'Heavy',
     maxLen: 2.25,
     density: 70,
@@ -57,6 +61,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
   wood: {
     id: 'wood',
     name: 'Wood',
+    price: 90,
     short: 'Wood',
     maxLen: 3.2,
     density: 22,
@@ -71,6 +76,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
   steel: {
     id: 'steel',
     name: 'Steel',
+    price: 240,
     short: 'Steel',
     maxLen: 4.25,
     density: 45,
@@ -85,6 +91,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
   cable: {
     id: 'cable',
     name: 'Cable',
+    price: 140,
     short: 'Cable',
     maxLen: 10,
     density: 6,

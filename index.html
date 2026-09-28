@@ -17,11 +17,12 @@
     <header id="hud" class="hidden">
       <div class="hud-block">
         <div class="hud-level"><span id="hud-num">01</span><span id="hud-name">First Crossing</span></div>
-        <div id="hud-lives" class="lives"></div>
+        <div class="hud-sub"><span id="hud-lives" class="lives"></span><span id="hud-score" class="hud-score"></span></div>
       </div>
       <div class="hud-block center">
-        <div class="hud-label">SCORE</div>
-        <div id="hud-score" class="hud-score">0</div>
+        <div class="hud-label">BUDGET</div>
+        <div class="budget"><b id="hud-spent">$0</b><span id="hud-money">/ $0</span></div>
+        <div class="meter" id="hud-meter"><i id="hud-bar"></i><em id="hud-target" title="Target"></em></div>
       </div>
       <div class="hud-block right">
         <button id="btn-mute" class="icon-btn" aria-label="Toggle sound" title="Sound (M)">
@@ -57,12 +58,12 @@
         <div class="title-tag">PROJECT № 01 · STRUCTURAL DIVISION</div>
         <h1 class="logo"><span>BRIDGE</span><span class="logo-b">BUILDER</span></h1>
         <p class="subtitle">Draw the truss. Send the truck. Pray.</p>
+        <div class="career-card" id="title-career"></div>
         <div class="menu">
-          <button class="btn primary" data-act="play">PLAY <kbd>Enter</kbd></button>
-          <button class="btn" data-act="levels">LEVELS <kbd>L</kbd></button>
-          <button class="btn" data-act="scores">HIGH SCORES <kbd>H</kbd></button>
+          <button class="btn primary continue" data-act="continue"><span>CONTINUE <kbd>Enter</kbd></span><small id="continue-sub"></small></button>
+          <button class="btn" data-act="chapters">CHAPTERS <kbd>C</kbd></button>
+          <button class="btn" data-act="scores">LEADERBOARDS <kbd>H</kbd></button>
         </div>
-        <div class="title-best" id="title-best"></div>
         <div class="engineer">
           <span id="title-engineer"></span>
           <button class="link-btn" data-act="profiles">Switch engineer</button>
@@ -88,24 +89,43 @@
       </div>
     </section>
 
-    <!-- Level select -->
-    <section id="scr-levels" class="screen hidden">
-      <div class="panel wide">
-        <h2>Practice</h2>
-        <p class="muted">Replay any unlocked level to perfect your stars. Practice doesn't count toward high scores.</p>
-        <div id="level-grid" class="level-grid"></div>
+    <!-- Chapter select -->
+    <section id="scr-chapters" class="screen hidden">
+      <div class="panel xwide">
+        <h2>Chapters</h2>
+        <p class="muted">Cross every level in a chapter to open the next. A finished chapter unlocks its challenge: all five levels in a row, from scratch, with three lives.</p>
+        <div id="chapter-grid" class="chapter-grid"></div>
         <div class="row"><button class="btn" data-act="back">BACK <kbd>Esc</kbd></button></div>
       </div>
     </section>
 
-    <!-- High scores -->
-    <section id="scr-scores" class="screen hidden">
-      <div class="panel">
-        <h2>High Scores</h2>
-        <div class="tabs" role="tablist">
-          <button class="tab on" role="tab" data-act="board-runs" id="tab-runs">RUNS</button>
-          <button class="tab" role="tab" data-act="board-levels" id="tab-levels">LEVEL RECORDS</button>
+    <!-- One chapter's levels -->
+    <section id="scr-chapter" class="screen hidden">
+      <div class="panel xwide">
+        <div class="ch-head">
+          <div class="ch-kicker" id="ch-kicker"></div>
+          <h2 id="ch-title"></h2>
+          <p class="muted" id="ch-blurb"></p>
         </div>
+        <div id="level-grid" class="level-grid"></div>
+        <div class="row">
+          <button class="btn" data-act="back">CHAPTERS <kbd>Esc</kbd></button>
+          <button class="btn" data-act="challenge" id="ch-challenge">CHALLENGE</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Leaderboards -->
+    <section id="scr-scores" class="screen hidden">
+      <div class="panel wide">
+        <h2>Leaderboards</h2>
+        <div class="tabs" role="tablist">
+          <button class="tab on" role="tab" data-act="board" data-board="career" id="tab-career">CAREER</button>
+          <button class="tab" role="tab" data-act="board" data-board="chapter" id="tab-chapter">CHAPTER</button>
+          <button class="tab" role="tab" data-act="board" data-board="levels" id="tab-levels">LEVELS</button>
+          <button class="tab" role="tab" data-act="board" data-board="challenge" id="tab-challenge">CHALLENGES</button>
+        </div>
+        <div class="chapter-pills" id="board-chapters"></div>
         <p class="board-note" id="board-note"></p>
         <div class="board-scroll"><table class="scores"><tbody id="score-rows"></tbody></table></div>
         <div class="row"><button class="btn" data-act="back">BACK <kbd>Esc</kbd></button></div>
@@ -119,12 +139,12 @@
         <div class="menu">
           <button class="btn primary" data-act="resume">RESUME <kbd>Esc</kbd></button>
           <button class="btn" data-act="retry">BACK TO DRAWING BOARD <kbd>R</kbd></button>
-          <button class="btn" data-act="quit">QUIT TO TITLE <kbd>Q</kbd></button>
+          <button class="btn" data-act="quit">QUIT TO MENU <kbd>Q</kbd></button>
         </div>
         <div class="keys">
           <div><kbd>Drag</kbd> build from a node</div>
           <div><kbd>Tap</kbd>/<kbd>Right-click</kbd> remove beam</div>
-          <div><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> material</div>
+          <div><kbd>1</kbd>–<kbd>5</kbd> material · <kbd>Q</kbd>/<kbd>E</kbd> cycle</div>
           <div><kbd>Arrows</kbd> move cursor · <kbd>Space</kbd> place</div>
           <div><kbd>X</kbd> delete at cursor</div>
           <div><kbd>Z</kbd>/<kbd>Y</kbd> undo / redo</div>
@@ -168,13 +188,13 @@
     <section id="scr-over" class="screen dim hidden">
       <div class="panel">
         <div class="stamp" id="over-title">GAME OVER</div>
-        <div class="over-score"><span>RUN SCORE</span><b id="over-score">0</b></div>
+        <div class="over-score"><span>CHALLENGE SCORE</span><b id="over-score">0</b></div>
         <p class="muted" id="over-sub"></p>
         <p id="over-rank" class="over-rank"></p>
         <table class="scores small"><tbody id="over-rows"></tbody></table>
         <div class="row">
           <button class="btn" data-act="quit">MENU <kbd>Esc</kbd></button>
-          <button class="btn primary" data-act="restart">PLAY AGAIN <kbd>R</kbd></button>
+          <button class="btn primary" data-act="restart">TRY AGAIN <kbd>R</kbd></button>
         </div>
       </div>
     </section>

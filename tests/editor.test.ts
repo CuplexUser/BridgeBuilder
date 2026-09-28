@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Design, roadPath, segmentsOverlap } from '../src/design';
 import { Editor } from '../src/editor';
 import { LEVELS } from '../src/levels';
+import { MATERIALS } from '../src/physics/materials';
 
 const noop = { place() {}, remove() {}, invalid() {} };
 
@@ -86,14 +87,34 @@ describe('Editor', () => {
     expect(ed.drag!.valid).toBe(true);
   });
 
-  it('refuses a road run longer than the remaining budget allows', () => {
+  it('refuses a member the remaining money cannot pay for', () => {
+    // 4 m of road costs 4 × $180 = $720.
+    const ed = new Editor({ ...LEVELS[0], money: 500 }, noop);
+    ed.begin(ed.design.findNode(0, 0));
+    ed.aim(4, 0);
+    expect(ed.drag!.cost).toBe(720);
+    expect(ed.drag!.reason).toBe('Over budget by $220');
+    ed.aim(2, 0);
+    expect(ed.drag!.valid).toBe(true);
+  });
+
+  it('charges members by length and material', () => {
     const ed = editorFor(0);
     ed.begin(ed.design.findNode(0, 0));
     ed.aim(4, 0);
     ed.commit();
-    ed.begin(ed.design.findNode(4, 0));
-    ed.aim(2, -1);
-    expect(ed.drag!.valid).toBe(false);
+    ed.setMaterial('wood');
+    ed.begin(ed.design.findNode(0, -2));
+    ed.aim(2, 0);
+    ed.commit();
+    expect(ed.spent()).toBe(Math.round(4 * MATERIALS.road.price + Math.hypot(2, 2) * MATERIALS.wood.price));
+    expect(ed.left()).toBe(LEVELS[0].money - ed.spent());
+  });
+
+  it('only offers the level\'s materials', () => {
+    const ed = editorFor(0);
+    expect(ed.setMaterial('steel')).toBe(false);
+    expect(ed.setMaterial('wood')).toBe(true);
   });
 
   it('snaps a beam to an off-grid road joint', () => {
@@ -109,7 +130,7 @@ describe('Editor', () => {
     expect(ed.drag!.valid).toBe(true);
   });
 
-  it('splits a beam mid-span without spending budget, and undoes in one step', () => {
+  it('splits a beam mid-span for free, and undoes in one step', () => {
     const ed = editorFor(2);
     ed.begin(ed.design.findNode(0, 0));
     ed.aim(4, 0);
@@ -118,18 +139,19 @@ describe('Editor', () => {
     ed.begin(ed.design.findNode(0, 0));
     ed.aim(2, 2);
     ed.commit();
-    const woodBefore = ed.remaining('wood');
+    const before = ed.spent();
     // Start a new beam from the middle of the diagonal.
     expect(ed.beginAt(1, 1, 0.1, 0.3)).toBe('split');
     ed.aim(2, 0);
     expect(ed.drag!.valid).toBe(true);
     ed.commit();
     expect(ed.design.findNode(1, 1)).toBeGreaterThanOrEqual(0);
-    expect(ed.remaining('wood')).toBe(woodBefore - 1);
+    // Only the new √2 m beam is paid for; splitting the diagonal costs nothing.
+    expect(Math.abs(ed.spent() - before - Math.SQRT2 * MATERIALS.wood.price)).toBeLessThanOrEqual(1);
     expect(ed.design.members.filter((m) => m.mat === 'wood').length).toBe(3);
     ed.undo();
     expect(ed.design.members.filter((m) => m.mat === 'wood').length).toBe(1);
-    expect(ed.remaining('wood')).toBe(woodBefore);
+    expect(ed.spent()).toBe(before);
   });
 
   it('ends a beam on a point along another beam', () => {
@@ -166,17 +188,17 @@ function splitDiagonal() {
 }
 
 describe('removing split beams', () => {
-  it('removes every piece of a split beam and refunds the part', () => {
+  it('removes every piece of a split beam and refunds it', () => {
     const ed = splitDiagonal();
-    const wood = ed.remaining('wood');
+    const spent = ed.spent();
     const piece = ed.design.members.findIndex((m) => m.mat === 'wood' && m.part !== undefined);
     ed.removeMember(piece);
     expect(ed.design.members.filter((m) => m.part !== undefined)).toHaveLength(0);
-    expect(ed.remaining('wood')).toBe(wood + 1);
+    expect(ed.spent()).toBe(Math.round(spent - Math.hypot(2, 2) * MATERIALS.wood.price));
     // The beam that hung off the split joint stays, with its joint.
     expect(ed.design.findNode(1, 1)).toBeGreaterThanOrEqual(0);
     ed.undo();
-    expect(ed.remaining('wood')).toBe(wood);
+    expect(ed.spent()).toBe(spent);
   });
 
   it('finds a short beam by its body even though its joints are within tap range', () => {

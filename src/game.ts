@@ -1,18 +1,33 @@
 import { sfx } from './audio';
-import { Editor, type AttachPick } from './editor';
+import { Editor, money, type AttachPick } from './editor';
 import { DebrisField, Particles, PK, Shake } from './fx/particles';
-import { bankY, budgetOf, goalX, LEVELS, START_X, type LevelDef } from './levels';
+import { bankY, goalX, LEVELS, START_X, type LevelDef } from './levels';
 import { MATERIAL_ORDER, type MaterialId } from './physics/materials';
 import { STEP, TestRun } from './physics/world';
 import { Camera, type Rect } from './render/camera';
 import { MATERIAL_CHALK, PAL } from './render/palette';
 import { Renderer, type FloatText } from './render/renderer';
+import {
+  chapterComplete,
+  chapterOf,
+  chapterUnlocked,
+  CHAPTERS,
+  continueLevel,
+  highestUnlocked,
+  levelById,
+  levelCode,
+  levelUnlocked,
+  nextInChapter,
+  totals,
+  type ChapterDef,
+} from './chapters';
 import { scoreLevel, type LevelScore } from './scoring';
-import { blankProgress, loadPrefs, savePrefs, type HighScore, type Prefs, type Profile, type Progress, type Store } from './storage';
+import { bestPerLevel, blankProgress, loadPrefs, rankProfiles, savePrefs, type Prefs, type Profile, type Progress, type Store } from './storage';
 import { SOLUTIONS } from './solutions';
 import { Ui } from './ui/ui';
 
-type State = 'title' | 'profile' | 'levels' | 'scores' | 'build' | 'test' | 'result' | 'collapse' | 'over';
+type State = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'build' | 'test' | 'result' | 'collapse' | 'over';
+export type Board = 'career' | 'chapter' | 'levels' | 'challenge';
 
 const MAX_LIVES = 5;
 const START_LIVES = 3;
@@ -39,13 +54,15 @@ export class Game {
   private prefs: Prefs = loadPrefs();
   private profile: Profile | null = null;
   private data: Progress = blankProgress();
-  private highs: HighScore[] = [];
   private saveTimer = 0;
 
   private state: State = 'title';
   private paused = false;
-  private mode: 'run' | 'practice' = 'run';
+  /** Free play from the chapter screens, or a chapter challenge: its levels in a row, with lives. */
+  private mode: 'play' | 'challenge' = 'play';
   private levelIdx = 0;
+  /** Chapter shown on the chapter screen, and the one a challenge is running on. */
+  private chapter: ChapterDef = CHAPTERS[0];
   private lives = START_LIVES;
   private runScore = 0;
   private levelsCleared = 0;
@@ -56,7 +73,8 @@ export class Game {
   private demoEnd = 0;
   private splashed = new WeakSet<TestRun>();
   private attempts = 0;
-  private board: 'runs' | 'levels' = 'runs';
+  private board: Board = 'career';
+  private boardChapter = 1;
 
   private time = 0;
   private develop = 0;
@@ -131,11 +149,6 @@ export class Game {
     }
   }
 
-  private async refreshHighs(): Promise<HighScore[]> {
-    this.highs = await this.store.highScores().catch(() => this.highs);
-    return this.highs;
-  }
-
   /** Progress saves are debounced so a burst of edits costs one write. */
   private persist(): void {
     clearTimeout(this.saveTimer);
@@ -155,24 +168,26 @@ export class Game {
   // ───────────────────────────── Flow ─────────────────────────────
 
   private enterTitle(): void {
+    this.leavePlay();
     this.state = 'title';
+    this.ui.title(this.profile, this.data, continueLevel(this.data.best));
+    this.ui.show('title');
+  }
+
+  /** Stops whatever was being built or driven and brings the demo back behind the menus. */
+  private leavePlay(): void {
     this.paused = false;
     this.stopEngine();
     this.editor = null;
     this.run = null;
     this.ui.setPlaying(false);
     this.ui.hideToast();
-    this.ui.titleInfo(this.highs[0], this.profile);
-    this.ui.show('title');
     if (!this.demo) this.startDemo();
-    void this.refreshHighs().then((h) => {
-      if (this.state === 'title') this.ui.titleInfo(h[0], this.profile);
-    });
   }
 
   private startDemo(): void {
-    const level = LEVELS[2];
-    this.levelIdx = 2;
+    const level = levelById(3);
+    this.levelIdx = LEVELS.indexOf(level);
     this.demo = new TestRun(SOLUTIONS[level.id](level), level);
     this.demoTimer = 0;
     this.demoEnd = 0;
@@ -183,12 +198,45 @@ export class Game {
     this.fitCamera(true);
   }
 
-  private startRun(): void {
-    this.mode = 'run';
+  private enterChapters(): void {
+    this.leavePlay();
+    this.state = 'chapters';
+    this.ui.chapters(this.data.best);
+    this.ui.show('chapters');
+  }
+
+  private enterChapter(ch: ChapterDef): void {
+    this.leavePlay();
+    this.chapter = ch;
+    this.state = 'chapter';
+    this.ui.chapter(ch, this.data.best);
+    this.ui.show('chapter');
+  }
+
+  /** Free play: any open level, starting from your saved design. */
+  private playLevel(id: number): void {
+    if (!levelUnlocked(id, this.data.best)) {
+      sfx.invalid();
+      return;
+    }
+    this.mode = 'play';
+    this.chapter = chapterOf(id);
+    this.loadLevel(LEVELS.indexOf(levelById(id)));
+  }
+
+  /** A finished chapter played again in a row, from blank designs, with lives: one score for the board. */
+  private startChallenge(ch: ChapterDef): void {
+    if (!chapterComplete(ch, this.data.best)) {
+      sfx.invalid();
+      this.ui.showToast(`Finish every level in ${ch.name} to unlock its challenge.`);
+      return;
+    }
+    this.mode = 'challenge';
+    this.chapter = ch;
     this.lives = START_LIVES;
     this.runScore = 0;
     this.levelsCleared = 0;
-    this.loadLevel(0);
+    this.loadLevel(LEVELS.indexOf(levelById(ch.levels[0])));
   }
 
   private loadLevel(idx: number): void {
@@ -198,12 +246,11 @@ export class Game {
     this.run = null;
     this.paused = false;
     this.attempts = 0;
-    const saved = this.mode === 'practice' ? this.data.designs[level.id] : undefined;
+    const saved = this.mode === 'play' ? this.data.designs[level.id] : undefined;
     this.editor = new Editor(level, this.editorEvents(), saved);
     this.editor.cursorX = 0;
     this.editor.cursorY = 0;
-    const first = MATERIAL_ORDER.find((m) => budgetOf(level, m) > 0);
-    if (first) this.editor.setMaterial(first);
+    this.editor.setMaterial(level.materials[0]);
     this.state = 'build';
     this.developTarget = 0;
     this.develop = 0;
@@ -212,7 +259,7 @@ export class Game {
     this.floats.length = 0;
     this.ui.show(null);
     this.ui.setPlaying(true);
-    this.ui.setLevel(level);
+    this.ui.setLevel(level, levelCode(level.id));
     this.ui.setTesting(false);
     this.refreshHud();
     this.fitCamera(true);
@@ -262,40 +309,54 @@ export class Game {
   private finishSuccess(): void {
     const run = this.run!;
     const level = this.level;
+    const ch = this.chapter;
+    const best = this.data.best;
     const score = scoreLevel(level, this.editor!.design, run.peakStress);
-    const prev = this.data.best[level.id];
-    this.data.best[level.id] = {
+    const prev = best[level.id];
+    const careerBefore = totals(best).score;
+    const wasComplete = chapterComplete(ch, best);
+    best[level.id] = {
       score: Math.max(prev?.score ?? 0, score.total),
       stars: Math.max(prev?.stars ?? 0, score.stars),
     };
-    this.data.unlocked = Math.max(this.data.unlocked, Math.min(LEVELS.length, level.id + 1));
-    this.data.designs[level.id] = this.editor!.design.serialize();
+    this.data.unlocked = highestUnlocked(best);
+    // Challenge runs start from scratch; they never overwrite your saved free-play design.
+    if (this.mode === 'play') this.data.designs[level.id] = this.editor!.design.serialize();
     this.flushSave();
 
-    let runLine = '';
-    if (this.mode === 'run') {
+    const lines: string[] = [];
+    if (this.mode === 'challenge') {
       this.runScore += score.total;
       this.levelsCleared++;
+      lines.push(`CHALLENGE ${this.runScore.toLocaleString('en-US')}`);
       if (score.stars === 3 && this.lives < MAX_LIVES) {
         this.lives++;
         this.ui.setLives(this.lives, MAX_LIVES, 'gained');
-        runLine = `RUN ${this.runScore.toLocaleString('en-US')} · PERFECT: +1 LIFE`;
-      } else runLine = `RUN ${this.runScore.toLocaleString('en-US')}`;
-      this.ui.setScore(this.runScore, true);
-    } else if (prev && score.total > prev.score) runLine = 'NEW PERSONAL BEST';
-    else if (prev) runLine = `BEST ${prev.score.toLocaleString('en-US')}`;
+        lines.push('PERFECT: +1 LIFE');
+      }
+      this.ui.setScore(`CHALLENGE ${this.runScore.toLocaleString('en-US')}`, true);
+    } else if (!prev) lines.push('FIRST CROSSING');
+    else if (score.total > prev.score) lines.push('NEW PERSONAL BEST');
+    else lines.push(`BEST ${prev.score.toLocaleString('en-US')}`);
+    const gain = totals(best).score - careerBefore;
+    if (gain > 0) lines.push(`CAREER +${gain.toLocaleString('en-US')}`);
+    if (!wasComplete && chapterComplete(ch, best)) {
+      const next = CHAPTERS[CHAPTERS.indexOf(ch) + 1];
+      lines.push(next ? `CHAPTER COMPLETE · ${next.name.toUpperCase()} UNLOCKED` : 'EVERY CHAPTER COMPLETE');
+    }
 
     this.state = 'result';
     this.stopEngine();
-    const isLast = this.levelIdx === LEVELS.length - 1;
-    this.ui.result(level, score, run.peakStress, runLine, this.mode === 'practice', this.mode === 'run' && isLast);
+    const next = nextInChapter(level.id);
+    const nextLabel = next ? 'NEXT' : this.mode === 'challenge' ? 'FINISH' : 'CHAPTERS';
+    this.ui.result(level, score, run.peakStress, lines.join(' · '), this.mode === 'play', nextLabel);
     this.resultAnim = { t: 0, score, shown: 0, stars: 0 };
   }
 
   private finishCollapse(): void {
     this.state = 'collapse';
     this.stopEngine();
-    if (this.mode === 'run') {
+    if (this.mode === 'challenge') {
       this.lives--;
       this.ui.setLives(this.lives, MAX_LIVES, 'lost');
       if (this.lives <= 0) {
@@ -307,12 +368,12 @@ export class Game {
   }
 
   private nextLevel(): void {
-    if (this.mode === 'run' && this.levelIdx === LEVELS.length - 1) {
-      this.gameOver(true);
-      return;
-    }
-    if (this.levelIdx < LEVELS.length - 1) this.loadLevel(this.levelIdx + 1);
-    else this.enterLevels();
+    const next = nextInChapter(this.level.id);
+    if (this.mode === 'challenge') {
+      if (next) this.loadLevel(LEVELS.indexOf(levelById(next)));
+      else this.gameOver(true);
+    } else if (next) this.playLevel(next);
+    else this.enterChapters();
   }
 
   private gameOver(victory: boolean): void {
@@ -320,20 +381,21 @@ export class Game {
     this.stopEngine();
     if (victory) sfx.success();
     else sfx.gameOver();
-    this.ui.over(victory, this.runScore, this.levelsCleared);
-    this.ui.scoreTable(this.highs, 'over-rows');
+    this.ui.over(victory, this.runScore, this.levelsCleared, this.chapter);
+    this.ui.challengeTable([], 'over-rows', this.profile?.name ?? '');
     if (victory) this.confetti(this.cam.wx(this.renderer.w / 2), this.cam.wy(this.renderer.h * 0.3), 120);
     void this.recordRun();
   }
 
-  /** Runs are filed under the current profile's name; no initials prompt needed. */
+  /** Challenge runs are filed under the current profile's name on that chapter's board. */
   private async recordRun(): Promise<void> {
     if (!this.profile) return;
+    const chapter = this.chapter.id;
     try {
-      const rank = await this.store.submitScore(this.profile.id, this.runScore, this.levelsCleared);
-      const highs = await this.refreshHighs();
+      const rank = await this.store.submitScore(this.profile.id, this.runScore, this.levelsCleared, chapter);
+      const highs = await this.store.highScores(chapter);
       if (this.state !== 'over') return;
-      this.ui.scoreTable(highs, 'over-rows', rank);
+      this.ui.challengeTable(highs, 'over-rows', this.profile.name, rank);
       this.ui.overRank(rank);
       if (rank >= 0) sfx.star(2);
     } catch {
@@ -341,51 +403,47 @@ export class Game {
     }
   }
 
-  private enterLevels(): void {
-    if (this.state === 'build' || this.state === 'test' || this.state === 'result') {
-      this.stopEngine();
-      this.ui.setPlaying(false);
-      this.startDemo();
-    }
-    this.state = 'levels';
-    this.ui.levelGrid(LEVELS, this.data);
-    this.ui.show('levels');
-  }
-
   private enterScores(): void {
+    this.leavePlay();
     this.state = 'scores';
     this.ui.show('scores');
     this.showBoard(this.board);
   }
 
-  private showBoard(tab: 'runs' | 'levels'): void {
+  /** Every board is computed from the same per-level bests, except challenges, which have their own table. */
+  private showBoard(tab: Board, chapter = this.boardChapter): void {
     this.board = tab;
+    this.boardChapter = chapter;
     const me = this.profile?.name ?? '';
-    if (tab === 'runs') {
-      this.ui.scoreTable(this.highs, 'score-rows', -1, me);
-      void this.refreshHighs().then((h) => {
-        if (this.state === 'scores' && this.board === 'runs') this.ui.scoreTable(h, 'score-rows', -1, me);
-      });
-    } else {
-      this.ui.levelRecordTable(LEVELS, [], this.data, me);
+    const ch = CHAPTERS[chapter - 1];
+    this.ui.boardTabs(tab, chapter);
+    const still = () => this.state === 'scores' && this.board === tab && this.boardChapter === chapter;
+    if (tab === 'challenge') {
       void this.store
-        .levelRecords()
+        .highScores(chapter)
         .catch(() => [])
-        .then((r) => {
-          if (this.state === 'scores' && this.board === 'levels') this.ui.levelRecordTable(LEVELS, r, this.data, me);
-        });
+        .then((h) => still() && this.ui.challengeTable(h, 'score-rows', me));
+      return;
     }
+    void this.store
+      .levelScores()
+      .catch(() => [])
+      .then((rows) => {
+        if (!still()) return;
+        if (tab === 'career') this.ui.rankTable(rankProfiles(rows), me, 'career');
+        else if (tab === 'chapter') this.ui.rankTable(rankProfiles(rows, ch.levels), me, 'chapter');
+        else this.ui.levelRecordTable(ch.levels.map(levelById), bestPerLevel(rows), this.data, me);
+      });
   }
 
-  /** Quitting mid-run still banks the score earned so far on the high-score table. */
+  /** Quitting a challenge mid-way still banks the score earned so far on that chapter's board. */
   private async bankAbandonedRun(): Promise<void> {
-    if (this.mode !== 'run' || this.runScore <= 0 || !this.profile) return;
+    if (this.mode !== 'challenge' || this.runScore <= 0 || !this.profile) return;
     const score = this.runScore;
     this.runScore = 0;
     try {
-      const rank = await this.store.submitScore(this.profile.id, score, this.levelsCleared);
-      await this.refreshHighs();
-      this.ui.showToast(rank >= 0 ? `Run banked: ${score.toLocaleString('en-US')} points, #${rank + 1} on the board.` : `Run banked: ${score.toLocaleString('en-US')} points.`, 3200);
+      const rank = await this.store.submitScore(this.profile.id, score, this.levelsCleared, this.chapter.id);
+      this.ui.showToast(rank >= 0 ? `Challenge banked: ${score.toLocaleString('en-US')} points, #${rank + 1} on the board.` : `Challenge banked: ${score.toLocaleString('en-US')} points.`, 3200);
       if (rank >= 0) sfx.star(2);
     } catch {
       this.ui.showToast('Could not save the score.');
@@ -420,24 +478,56 @@ export class Game {
 
   // ───────────────────────────── Actions ─────────────────────────────
 
+  /** Opens a chapter's level list, or explains what unlocks it. */
+  private openChapter(ch: ChapterDef): void {
+    if (chapterUnlocked(ch, this.data.best)) {
+      sfx.select();
+      this.enterChapter(ch);
+    } else {
+      sfx.invalid();
+      this.ui.showToast(`Finish ${CHAPTERS[CHAPTERS.indexOf(ch) - 1].name} to open ${ch.name}.`);
+    }
+  }
+
   private act(a: string, el?: HTMLElement): void {
     sfx.unlock();
+    const chapterArg = () => CHAPTERS[Number(el?.dataset.chapter) - 1] ?? this.chapter;
     switch (a) {
-      case 'play':
+      case 'continue':
         sfx.select();
-        this.startRun();
+        this.playLevel(continueLevel(this.data.best));
         break;
-      case 'levels':
+      case 'chapters':
         sfx.ui();
-        this.enterLevels();
+        this.enterChapters();
+        break;
+      case 'chapter':
+        this.openChapter(chapterArg());
+        break;
+      case 'pick':
+        sfx.select();
+        this.playLevel(Number(el?.dataset.level));
+        break;
+      case 'challenge':
+        sfx.select();
+        this.startChallenge(chapterArg());
         break;
       case 'scores':
         sfx.ui();
         this.enterScores();
         break;
+      case 'board':
+        sfx.ui();
+        this.showBoard((el?.dataset.board as Board) ?? 'career');
+        break;
+      case 'board-chapter':
+        sfx.ui();
+        this.showBoard(this.board === 'career' ? 'chapter' : this.board, Number(el?.dataset.chapter) || 1);
+        break;
       case 'back':
         sfx.ui();
-        this.enterTitle();
+        if (this.state === 'chapter') this.enterChapters();
+        else this.enterTitle();
         break;
       case 'profiles':
         sfx.ui();
@@ -446,16 +536,6 @@ export class Game {
       case 'profile':
         if (el?.dataset.name) void this.useProfile(el.dataset.name);
         break;
-      case 'pick': {
-        const id = Number(el?.dataset.level);
-        const idx = LEVELS.findIndex((l) => l.id === id);
-        if (idx >= 0) {
-          sfx.select();
-          this.mode = 'practice';
-          this.loadLevel(idx);
-        }
-        break;
-      }
       case 'resume':
         sfx.ui();
         this.setPaused(false);
@@ -471,19 +551,12 @@ export class Game {
       case 'quit':
         sfx.ui();
         if (this.state !== 'over') void this.bankAbandonedRun();
-        this.enterTitle();
-        break;
-      case 'board-runs':
-        sfx.ui();
-        this.showBoard('runs');
-        break;
-      case 'board-levels':
-        sfx.ui();
-        this.showBoard('levels');
+        if (this.mode === 'play') this.enterChapter(this.chapter);
+        else this.enterChapters();
         break;
       case 'restart':
         sfx.select();
-        this.startRun();
+        this.startChallenge(this.chapter);
         break;
     }
   }
@@ -501,7 +574,7 @@ export class Game {
 
   private cycleMaterial(dir: number): void {
     if (!this.editor) return;
-    const avail = MATERIAL_ORDER.filter((m) => budgetOf(this.level, m) > 0);
+    const avail = this.level.materials;
     const i = avail.indexOf(this.editor.mat);
     this.selectMaterial(avail[(i + dir + avail.length) % avail.length]);
   }
@@ -517,8 +590,8 @@ export class Game {
         this.shake.add(count > 1 ? 0.04 : 0.06);
         if (index < count - 1) return;
         if (count > 1) sfx.place(mat);
-        const left = this.editor!.remaining(mat);
-        if (left <= 2) this.float((ax + bx) / 2, (ay + by) / 2 + 0.6, left === 0 ? 'LAST ONE' : `${left} left`, left === 0 ? PAL.bolt : PAL.gold, 15);
+        const left = this.editor!.left();
+        if (left < this.level.money * 0.15) this.float((ax + bx) / 2, (ay + by) / 2 + 0.6, `${money(left)} left`, left < this.level.money * 0.05 ? PAL.bolt : PAL.gold, 15);
         this.refreshHud();
       },
       remove: (ax: number, ay: number, bx: number, by: number, mat: MaterialId) => {
@@ -532,7 +605,7 @@ export class Game {
       invalid: (reason: string, x: number, y: number) => {
         sfx.invalid();
         this.float(x, y + 0.5, reason, PAL.bolt, 15);
-        if (reason.startsWith('Out of') && this.editor) this.ui.shakeMat(this.editor.mat);
+        if (reason.startsWith('Over budget') && this.editor) this.ui.shakeMat(this.editor.mat);
       },
     };
   }
@@ -540,13 +613,15 @@ export class Game {
   private refreshHud(): void {
     const ed = this.editor;
     if (!ed) return;
-    this.ui.setMaterials(this.level, (m) => ed.remaining(m), ed.mat);
-    if (this.mode === 'run') {
+    this.ui.setMaterials(this.level, ed.mat, ed.left());
+    this.ui.setBudget(ed.spent(), this.level.money, this.level.target);
+    if (this.mode === 'challenge') {
       this.ui.setLives(this.lives, MAX_LIVES);
-      this.ui.setScore(this.runScore);
+      this.ui.setScore(`CHALLENGE ${this.runScore.toLocaleString('en-US')}`);
     } else {
       this.ui.hudLives.innerHTML = '';
-      this.ui.setScore(this.data.best[this.level.id]?.score ?? 0);
+      const best = this.data.best[this.level.id];
+      this.ui.setScore(best ? `BEST ${best.score.toLocaleString('en-US')} ${'★'.repeat(best.stars)}${'☆'.repeat(3 - best.stars)}` : 'NOT YET CROSSED');
     }
     // Nudge first-timers toward the test button once the hint is complete.
     const hint = this.level.hint;
@@ -776,7 +851,8 @@ export class Game {
     const w = this.renderer.w;
     const h = this.renderer.h;
     const playing = this.state === 'build' || this.state === 'test';
-    const top = playing ? 70 : 20;
+    // Phones stack the budget meter under the HUD's top row.
+    const top = playing ? (w < 560 ? 104 : 70) : 20;
     const bottom = playing ? (w < 560 ? 86 : 96) : 20;
     return { x: 12, y: top, w: w - 24, h: Math.max(100, h - top - bottom) };
   }
@@ -1058,27 +1134,35 @@ export class Game {
       case 'title':
         if (k === 'Enter' || k === ' ') {
           e.preventDefault();
-          this.act('play');
-        } else if (lower === 'l') this.act('levels');
+          this.act('continue');
+        } else if (lower === 'c') this.act('chapters');
         else if (lower === 'h') this.act('scores');
         return;
       case 'profile':
         return;
-      case 'levels':
+      case 'chapters':
         if (k === 'Escape' || k === 'Backspace') this.act('back');
+        else if (k >= '1' && k <= String(CHAPTERS.length) && k.length === 1) this.openChapter(CHAPTERS[Number(k) - 1]);
         return;
-      case 'scores':
+      case 'chapter':
+        if (k === 'Escape' || k === 'Backspace') this.act('back');
+        else if (k >= '1' && k <= String(this.chapter.levels.length) && k.length === 1) this.playLevel(this.chapter.levels[Number(k) - 1]);
+        return;
+      case 'scores': {
+        const tabs: Board[] = ['career', 'chapter', 'levels', 'challenge'];
         if (k === 'Escape' || k === 'Backspace') this.act('back');
         else if (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'Tab') {
           e.preventDefault();
-          this.act(this.board === 'runs' ? 'board-levels' : 'board-runs');
-        }
+          const d = k === 'ArrowLeft' || (k === 'Tab' && e.shiftKey) ? -1 : 1;
+          this.showBoard(tabs[(tabs.indexOf(this.board) + d + tabs.length) % tabs.length]);
+        } else if (k >= '1' && k <= String(CHAPTERS.length) && k.length === 1) this.showBoard(this.board === 'career' ? 'chapter' : this.board, Number(k));
         return;
+      }
       case 'result':
         if (k === 'Enter' || k === ' ' || lower === 'n') {
           e.preventDefault();
           this.act('next');
-        } else if (lower === 'r' && this.mode === 'practice') this.act('retry');
+        } else if (lower === 'r' && this.mode === 'play') this.act('retry');
         else if (k === 'Escape') this.act('quit');
         return;
       case 'collapse':

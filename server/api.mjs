@@ -38,6 +38,10 @@ export function openDb(file) {
     );
     CREATE INDEX IF NOT EXISTS scores_by_score ON scores(score DESC);
   `);
+  // Challenge runs are ranked per chapter. Older databases predate the column; their runs become chapter 0.
+  if (!db.prepare('PRAGMA table_info(scores)').all().some((c) => c.name === 'chapter')) {
+    db.exec('ALTER TABLE scores ADD COLUMN chapter INTEGER NOT NULL DEFAULT 0');
+  }
   return db;
 }
 
@@ -53,14 +57,14 @@ function int(v, lo, hi) {
 export function createApi(db) {
   const q = {
     listProfiles: db.prepare(`
-      SELECT p.id, p.name, p.unlocked, COALESCE(SUM(l.stars), 0) AS stars
+      SELECT p.id, p.name, p.unlocked, COALESCE(SUM(l.stars), 0) AS stars, COALESCE(SUM(l.best_score), 0) AS score
       FROM profiles p LEFT JOIN level_progress l ON l.profile_id = p.id
       GROUP BY p.id ORDER BY p.played_at DESC`),
     findProfile: db.prepare('SELECT id, name, unlocked FROM profiles WHERE name = ?'),
     getProfile: db.prepare('SELECT id, name, unlocked FROM profiles WHERE id = ?'),
     insertProfile: db.prepare('INSERT INTO profiles (name) VALUES (?)'),
     touchProfile: db.prepare("UPDATE profiles SET played_at = datetime('now') WHERE id = ?"),
-    starsFor: db.prepare('SELECT COALESCE(SUM(stars), 0) AS stars FROM level_progress WHERE profile_id = ?'),
+    totalsFor: db.prepare('SELECT COALESCE(SUM(stars), 0) AS stars, COALESCE(SUM(best_score), 0) AS score FROM level_progress WHERE profile_id = ?'),
     levels: db.prepare('SELECT level_id, best_score, stars, design FROM level_progress WHERE profile_id = ?'),
     setUnlocked: db.prepare('UPDATE profiles SET unlocked = MAX(unlocked, ?) WHERE id = ?'),
     upsertLevel: db.prepare(`
@@ -70,18 +74,19 @@ export function createApi(db) {
         stars      = MAX(stars, excluded.stars),
         design     = COALESCE(excluded.design, design)`),
     topScores: db.prepare(`
-      SELECT s.id, p.name, s.score, s.levels, substr(s.created_at, 1, 10) AS date
+      SELECT s.id, p.name, s.score, s.levels, s.chapter, substr(s.created_at, 1, 10) AS date
       FROM scores s JOIN profiles p ON p.id = s.profile_id
+      WHERE s.chapter = ?
       ORDER BY s.score DESC, s.id ASC LIMIT ${MAX_HIGHS}`),
-    insertScore: db.prepare('INSERT INTO scores (profile_id, score, levels) VALUES (?, ?, ?)'),
-    levelRecords: db.prepare(`
+    insertScore: db.prepare('INSERT INTO scores (profile_id, score, levels, chapter) VALUES (?, ?, ?, ?)'),
+    levelScores: db.prepare(`
       SELECT l.level_id AS level, p.name, l.best_score AS score, l.stars
       FROM level_progress l JOIN profiles p ON p.id = l.profile_id
       WHERE l.best_score > 0
       ORDER BY l.level_id, l.best_score DESC, l.stars DESC, p.id ASC`),
   };
 
-  const profileOut = (p) => ({ id: String(p.id), name: p.name, unlocked: p.unlocked, stars: q.starsFor.get(p.id).stars });
+  const profileOut = (p) => ({ id: String(p.id), name: p.name, unlocked: p.unlocked, ...q.totalsFor.get(p.id) });
 
   const routes = [
     ['GET', /^health$/, () => ({ ok: true, storage: 'sqlite' })],
@@ -137,21 +142,8 @@ export function createApi(db) {
         return { ok: true };
       },
     ],
-    ['GET', /^scores$/, () => q.topScores.all().map(({ id: _id, ...s }) => s)],
-    [
-      'GET',
-      /^level-records$/,
-      () => {
-        const seen = new Set();
-        const out = [];
-        for (const r of q.levelRecords.all()) {
-          if (seen.has(r.level)) continue;
-          seen.add(r.level);
-          out.push({ level: r.level, name: r.name, score: r.score, stars: r.stars });
-        }
-        return out;
-      },
-    ],
+    ['GET', /^scores$/, (_m, _b, query) => q.topScores.all(int(query.get('chapter'), 0, 99)).map(({ id: _id, ...s }) => s)],
+    ['GET', /^level-scores$/, () => q.levelScores.all().map((r) => ({ level: r.level, name: r.name, score: r.score, stars: r.stars }))],
     [
       'POST',
       /^scores$/,
@@ -159,8 +151,9 @@ export function createApi(db) {
         const p = mustProfile(q, body?.profileId);
         const score = int(body?.score, 0, 1e7);
         if (score <= 0) return { rank: -1 };
-        const id = Number(q.insertScore.run(p.id, score, int(body?.levels, 0, 99)).lastInsertRowid);
-        const rank = q.topScores.all().findIndex((s) => s.id === id);
+        const chapter = int(body?.chapter, 0, 99);
+        const id = Number(q.insertScore.run(p.id, score, int(body?.levels, 0, 99), chapter).lastInsertRowid);
+        const rank = q.topScores.all(chapter).findIndex((s) => s.id === id);
         return { rank };
       },
     ],
@@ -176,7 +169,7 @@ export function createApi(db) {
     try {
       if (!route) throw httpError(404, 'Not found');
       const body = req.method === 'POST' || req.method === 'PUT' ? await readJson(req) : undefined;
-      send(res, 200, route[2](path.match(route[1]), body));
+      send(res, 200, route[2](path.match(route[1]), body, url.searchParams));
     } catch (e) {
       send(res, e.status ?? 500, { error: e.status ? e.message : 'Server error' });
       if (!e.status) console.error(e);

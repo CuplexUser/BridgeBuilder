@@ -3,7 +3,7 @@ import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 // @ts-expect-error plain JS server module
 import { createApi, openDb } from '../server/api.mjs';
-import { LocalStore, ServerStore, type KeyValue, type Store } from '../src/storage';
+import { bestPerLevel, LocalStore, rankProfiles, ServerStore, type KeyValue, type Store } from '../src/storage';
 
 function memoryKv(): KeyValue & { data: Map<string, string> } {
   const data = new Map<string, string>();
@@ -38,17 +38,20 @@ function contract(name: string, make: () => Store) {
       expect((await s.loadProgress(b.id)).unlocked).toBe(1);
       const listed = (await s.listProfiles()).find((p) => p.id === a.id)!;
       expect(listed.stars).toBe(5);
+      expect(listed.score).toBe(1600);
     });
 
-    it('keeps a sorted high-score table with profile names', async () => {
+    it('keeps a sorted challenge table per chapter', async () => {
       const s = make();
       const p = await s.openProfile('Scorer');
-      expect(await s.submitScore(p.id, 500, 1)).toBeGreaterThanOrEqual(0);
-      const rank = await s.submitScore(p.id, 999999, 12);
-      expect(rank).toBe(0);
-      const highs = await s.highScores();
-      expect(highs[0]).toMatchObject({ name: 'Scorer', score: 999999, levels: 12 });
-      expect(await s.submitScore(p.id, 0, 0)).toBe(-1);
+      expect(await s.submitScore(p.id, 500, 1, 3)).toBeGreaterThanOrEqual(0);
+      expect(await s.submitScore(p.id, 999999, 5, 3)).toBe(0);
+      await s.submitScore(p.id, 777, 2, 4);
+      const highs = await s.highScores(3);
+      expect(highs[0]).toMatchObject({ name: 'Scorer', score: 999999, levels: 5, chapter: 3 });
+      expect(highs.every((h) => h.chapter === 3)).toBe(true);
+      expect((await s.highScores(4)).map((h) => h.score)).toContain(777);
+      expect(await s.submitScore(p.id, 0, 0, 3)).toBe(-1);
     });
 
     it('reports the record holder for each level', async () => {
@@ -57,7 +60,7 @@ function contract(name: string, make: () => Store) {
       const b = await s.openProfile('Recorder B');
       await s.saveProgress(a.id, { unlocked: 3, best: { 41: { score: 900, stars: 2 }, 42: { score: 500, stars: 1 } }, designs: {} });
       await s.saveProgress(b.id, { unlocked: 3, best: { 41: { score: 1200, stars: 3 } }, designs: {} });
-      const recs = (await s.levelRecords()).filter((r) => r.level >= 41 && r.level <= 42);
+      const recs = bestPerLevel((await s.levelScores()).filter((r) => r.level >= 41 && r.level <= 42));
       expect(recs).toEqual([
         { level: 41, name: 'Recorder B', score: 1200, stars: 3 },
         { level: 42, name: 'Recorder A', score: 500, stars: 1 },
@@ -106,5 +109,28 @@ describe('local store migration', () => {
     expect((await s.loadProgress(p.id)).unlocked).toBe(5);
     const q = await s.openProfile('Second');
     expect((await s.loadProgress(q.id)).unlocked).toBe(1);
+  });
+});
+
+describe('leaderboards', () => {
+  const rows = [
+    { level: 1, name: 'Ada', score: 900, stars: 3 },
+    { level: 2, name: 'Ada', score: 800, stars: 2 },
+    { level: 1, name: 'Bo', score: 1000, stars: 3 },
+    { level: 3, name: 'Bo', score: 100, stars: 1 },
+  ];
+
+  it('ranks careers by summed best scores', () => {
+    expect(rankProfiles(rows).map((r) => [r.name, r.score, r.stars, r.levels])).toEqual([
+      ['Ada', 1700, 5, 2],
+      ['Bo', 1100, 4, 2],
+    ]);
+  });
+
+  it('ranks a chapter over its own levels only', () => {
+    expect(rankProfiles(rows, [1, 3]).map((r) => [r.name, r.score])).toEqual([
+      ['Bo', 1100],
+      ['Ada', 900],
+    ]);
   });
 });

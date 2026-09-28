@@ -1,9 +1,13 @@
-import { budgetOf, type LevelDef } from '../levels';
+import { chapterComplete, chapterUnlocked, CHAPTERS, crossed, levelById, levelCode, levelUnlocked, totals, type BestMap, type ChapterDef } from '../chapters';
+import { money } from '../editor';
+import type { LevelDef } from '../levels';
 import { MATERIAL_ORDER, MATERIALS, type MaterialId } from '../physics/materials';
+import { VEHICLES } from '../physics/vehicles';
 import type { LevelScore } from '../scoring';
-import type { HighScore, LevelRecord, Profile, Progress } from '../storage';
+import type { BoardRow, HighScore, LevelRecord, Profile, Progress } from '../storage';
 
-export type ScreenId = 'title' | 'profile' | 'levels' | 'scores' | 'pause' | 'result' | 'collapse' | 'over';
+export type ScreenId = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'pause' | 'result' | 'collapse' | 'over';
+type BoardTab = 'career' | 'chapter' | 'levels' | 'challenge';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -27,7 +31,8 @@ export class Ui {
   private screens: Record<ScreenId, HTMLElement> = {
     title: $('scr-title'),
     profile: $('scr-profile'),
-    levels: $('scr-levels'),
+    chapters: $('scr-chapters'),
+    chapter: $('scr-chapter'),
     scores: $('scr-scores'),
     pause: $('scr-pause'),
     result: $('scr-result'),
@@ -47,6 +52,16 @@ export class Ui {
       mats.appendChild(b);
       this.matBtns.set(id, b);
     });
+    const pills = $('board-chapters');
+    for (const c of CHAPTERS) {
+      const b = document.createElement('button');
+      b.className = 'pill';
+      b.dataset.act = 'board-chapter';
+      b.dataset.chapter = String(c.id);
+      b.textContent = String(c.id);
+      b.title = c.name;
+      pills.appendChild(b);
+    }
   }
 
   onAction(handler: (act: string, el: HTMLElement) => void): void {
@@ -70,8 +85,8 @@ export class Ui {
     this.toolbar.classList.toggle('hidden', !on);
   }
 
-  setLevel(level: LevelDef): void {
-    this.hudNum.textContent = String(level.id).padStart(2, '0');
+  setLevel(level: LevelDef, code: string): void {
+    this.hudNum.textContent = code;
     this.hudName.textContent = level.name;
   }
 
@@ -86,8 +101,9 @@ export class Ui {
     }
   }
 
-  setScore(score: number, bump = false): void {
-    this.hudScore.textContent = score.toLocaleString('en-US');
+  /** The line under the level name: a challenge total, or your best on this level. */
+  setScore(text: string, bump = false): void {
+    this.hudScore.textContent = text;
     if (bump) {
       this.hudScore.classList.remove('bump');
       void this.hudScore.offsetWidth;
@@ -95,16 +111,27 @@ export class Ui {
     }
   }
 
-  setMaterials(level: LevelDef, remaining: (m: MaterialId) => number, active: MaterialId): void {
+  setMaterials(level: LevelDef, active: MaterialId, left: number): void {
     for (const [id, b] of this.matBtns) {
-      const r = remaining(id);
-      const budget = budgetOf(level, id);
-      b.querySelector('b')!.textContent = budget > 0 ? `${r}/${budget}` : '—';
+      const price = MATERIALS[id].price;
+      b.querySelector('b')!.textContent = `$${price}/m`;
       b.classList.toggle('active', id === active);
       // Materials a level doesn't offer are hidden so the toolbar stays compact on phones.
-      b.classList.toggle('hidden', budget <= 0);
-      b.classList.toggle('empty', r <= 0);
+      b.classList.toggle('hidden', !level.materials.includes(id));
+      // Can't afford even a one-meter piece.
+      b.classList.toggle('empty', left < price);
     }
+  }
+
+  /** Budget meter: spent against the budget, with the star target marked. */
+  setBudget(spent: number, budget: number, target: number): void {
+    $('hud-spent').textContent = money(spent);
+    $('hud-money').textContent = `/ ${money(budget)}`;
+    $('hud-bar').style.width = `${Math.min(100, (spent / budget) * 100)}%`;
+    const meter = $('hud-meter');
+    meter.classList.toggle('over-target', spent > target);
+    meter.classList.toggle('nearly-out', spent > budget * 0.9);
+    $('hud-target').style.left = `${(target / budget) * 100}%`;
   }
 
   shakeMat(id: MaterialId): void {
@@ -138,8 +165,20 @@ export class Ui {
     this.toast.classList.remove('show');
   }
 
-  titleInfo(top: HighScore | undefined, profile: Profile | null): void {
-    $('title-best').textContent = top ? `BEST RUN · ${top.name} · ${top.score.toLocaleString('en-US')}` : '';
+  // ───────────────────────────── Menus ─────────────────────────────
+
+  /** Title screen: who is playing, their career so far, and where Continue will go. */
+  title(profile: Profile | null, save: Progress, next: number): void {
+    const t = totals(save.best);
+    const allStars = CHAPTERS.reduce((n, c) => n + c.levels.length * 3, 0);
+    const open = CHAPTERS.filter((c) => chapterUnlocked(c, save.best)).length;
+    $('title-career').innerHTML = profile
+      ? `<div><span>CAREER</span><b>${t.score.toLocaleString('en-US')}</b></div>` +
+        `<div><span>STARS</span><b>★ ${t.stars}<small>/${allStars}</small></b></div>` +
+        `<div><span>CHAPTERS</span><b>${open}<small>/${CHAPTERS.length}</small></b></div>`
+      : '';
+    const level = levelById(next);
+    $('continue-sub').textContent = crossed(save.best, next) ? `Replay ${levelCode(next)} · ${level.name}` : `${levelCode(next)} · ${level.name}`;
     $('title-engineer').innerHTML = profile ? `Engineer: <b>${escapeHtml(profile.name)}</b>` : '';
   }
 
@@ -151,7 +190,7 @@ export class Ui {
       b.className = 'profile-card';
       b.dataset.act = 'profile';
       b.dataset.name = p.name;
-      b.innerHTML = `<b>${escapeHtml(p.name)}</b><span>★ ${p.stars} · L${p.unlocked}</span>`;
+      b.innerHTML = `<b>${escapeHtml(p.name)}</b><span>★ ${p.stars} · ${p.score.toLocaleString('en-US')}</span>`;
       box.appendChild(b);
     }
     $('profile-error').textContent = error;
@@ -166,43 +205,116 @@ export class Ui {
     $('profile-error').textContent = msg;
   }
 
-  levelGrid(levels: LevelDef[], save: Progress): void {
-    const grid = $('level-grid');
+  /** The chapter map: one card per chapter, with progress, difficulty and lock state. */
+  chapters(best: BestMap): void {
+    const grid = $('chapter-grid');
     grid.innerHTML = '';
-    for (const l of levels) {
-      const best = save.best[l.id];
-      const locked = l.id > save.unlocked;
-      const b = document.createElement('button');
-      b.className = `lvl-card${locked ? ' locked' : ''}`;
-      b.dataset.act = 'pick';
-      b.dataset.level = String(l.id);
-      const stars = best ? '★'.repeat(best.stars) + '☆'.repeat(3 - best.stars) : '☆☆☆';
-      b.innerHTML = `<span class="n">${String(l.id).padStart(2, '0')}</span><span class="t">${locked ? 'Locked' : l.name}</span><span class="s">${stars}</span><span class="b">${best ? best.score.toLocaleString('en-US') : '—'}</span>`;
-      grid.appendChild(b);
+    for (const c of CHAPTERS) {
+      const open = chapterUnlocked(c, best);
+      const done = chapterComplete(c, best);
+      const t = totals(best, c.levels);
+      const card = document.createElement('div');
+      card.className = `ch-card${open ? '' : ' locked'}${done ? ' done' : ''}`;
+      const prev = CHAPTERS[CHAPTERS.indexOf(c) - 1];
+      card.innerHTML = `
+        <button class="ch-open" data-act="chapter" data-chapter="${c.id}" ${open ? '' : 'aria-disabled="true"'}>
+          <span class="ch-no">CHAPTER ${c.id}</span>
+          <span class="ch-name">${c.name}</span>
+          ${pips(c.difficulty)}
+          <span class="ch-blurb">${c.blurb}</span>
+          <span class="ch-effort">${c.effort}</span>
+          <span class="ch-progress"><span class="bar"><i style="width:${(t.crossed / c.levels.length) * 100}%"></i></span><span>${t.crossed}/${c.levels.length} · ★ ${t.stars}/${c.levels.length * 3}</span></span>
+          ${open ? '' : `<span class="ch-lock">🔒 Finish ${prev.name} to unlock</span>`}
+        </button>
+        ${done ? `<button class="btn small ch-challenge" data-act="challenge" data-chapter="${c.id}">CHALLENGE</button>` : ''}`;
+      grid.appendChild(card);
     }
   }
 
-  scoreTable(highs: HighScore[], tbodyId: 'score-rows' | 'over-rows', highlight = -1, me = ''): void {
+  /** One chapter's levels, in play order. */
+  chapter(c: ChapterDef, best: BestMap): void {
+    $('ch-kicker').innerHTML = `CHAPTER ${c.id} ${pips(c.difficulty)}`;
+    $('ch-title').textContent = c.name;
+    $('ch-blurb').textContent = `${c.blurb} ${c.effort}.`;
+    const grid = $('level-grid');
+    grid.innerHTML = '';
+    c.levels.forEach((id, i) => {
+      const l = levelById(id);
+      const b = best[id];
+      const open = levelUnlocked(id, best);
+      const card = document.createElement('button');
+      card.className = `lvl-card${open ? '' : ' locked'}${b && b.stars > 0 ? ' done' : ''}`;
+      card.dataset.act = 'pick';
+      card.dataset.level = String(id);
+      card.innerHTML = `
+        <span class="n">${levelCode(id)}<kbd>${i + 1}</kbd></span>
+        <span class="t">${open ? l.name : 'Locked'}</span>
+        <span class="meta">${open ? `${VEHICLES[l.vehicle].name} · ${l.width} m · ${money(l.money)}` : 'Cross the level before'}</span>
+        <span class="s">${starText(b?.stars ?? 0)}</span>
+        <span class="b">${b ? b.score.toLocaleString('en-US') : '—'}</span>`;
+      grid.appendChild(card);
+    });
+    const ch = $<HTMLButtonElement>('ch-challenge');
+    ch.dataset.chapter = String(c.id);
+    ch.classList.toggle('hidden', !chapterComplete(c, best));
+  }
+
+  // ───────────────────────────── Leaderboards ─────────────────────────────
+
+  boardTabs(tab: BoardTab, chapter: number): void {
+    for (const t of ['career', 'chapter', 'levels', 'challenge'] as const) {
+      const el = $(`tab-${t}`);
+      el.classList.toggle('on', t === tab);
+      el.setAttribute('aria-selected', String(t === tab));
+    }
+    const pills = $('board-chapters');
+    pills.classList.toggle('hidden', tab === 'career');
+    for (const p of pills.querySelectorAll<HTMLElement>('.pill')) p.classList.toggle('on', Number(p.dataset.chapter) === chapter);
+    const name = CHAPTERS[chapter - 1].name;
+    $('board-note').textContent = {
+      career: 'Every engineer, ranked by the sum of their best score on every level.',
+      chapter: `Ranked by best scores on the five levels of ${name}.`,
+      levels: `The best single-level score on each level of ${name}.`,
+      challenge: `${name} played in a row, from scratch, with three lives.`,
+    }[tab];
+    $('score-rows').innerHTML = '<tr><td class="empty" colspan="4">Loading…</td></tr>';
+  }
+
+  /** Career or chapter ranking. */
+  rankTable(rows: BoardRow[], me: string, kind: 'career' | 'chapter'): void {
+    const body = $('score-rows');
+    body.innerHTML = '';
+    if (rows.length === 0) {
+      body.innerHTML = `<tr><td class="empty" colspan="4">No one has crossed ${kind === 'career' ? 'a level' : 'this chapter'} yet.</td></tr>`;
+      return;
+    }
+    rows.slice(0, 50).forEach((r, i) => {
+      const tr = document.createElement('tr');
+      if (r.name.toLowerCase() === me.toLowerCase()) tr.className = 'mine';
+      tr.innerHTML = `<td>${i + 1}.</td><td>${escapeHtml(r.name)}<small>${r.levels} level${r.levels === 1 ? '' : 's'}</small></td><td class="st">★ ${r.stars}</td><td>${r.score.toLocaleString('en-US')}</td>`;
+      body.appendChild(tr);
+    });
+  }
+
+  /** Challenge runs for one chapter; also used on the challenge-over screen. */
+  challengeTable(highs: HighScore[], tbodyId: 'score-rows' | 'over-rows', me: string, highlight = -1): void {
     const body = $(tbodyId);
     body.innerHTML = '';
-    if (tbodyId === 'score-rows') this.boardTab('runs', 'Campaign runs. A run is banked when it ends, including when you quit.');
     if (highs.length === 0) {
-      body.innerHTML = '<tr><td class="empty" colspan="4">No runs yet. Press PLAY and be the first engineer on the board.</td></tr>';
+      body.innerHTML = '<tr><td class="empty" colspan="4">No challenge runs yet. Finish the chapter, then take it on.</td></tr>';
       return;
     }
     highs.forEach((h, i) => {
       const tr = document.createElement('tr');
       if (i === highlight) tr.className = 'me';
       else if (me && h.name.toLowerCase() === me.toLowerCase()) tr.className = 'mine';
-      tr.innerHTML = `<td>${i + 1}.</td><td>${escapeHtml(h.name)}</td><td>L${h.levels}</td><td>${h.score.toLocaleString('en-US')}</td>`;
-      tr.title = h.date;
+      tr.innerHTML = `<td>${i + 1}.</td><td>${escapeHtml(h.name)}<small>${h.date}</small></td><td>${h.levels}/5</td><td>${h.score.toLocaleString('en-US')}</td>`;
       body.appendChild(tr);
     });
   }
 
   /** One row per level: the record holder, plus your own best when someone else holds it. */
   levelRecordTable(levels: LevelDef[], records: LevelRecord[], mine: Progress, me: string): void {
-    this.boardTab('levels', 'Best single-level score across every profile. Beat a record in practice or in a run.');
     const body = $('score-rows');
     body.innerHTML = '';
     for (const l of levels) {
@@ -213,34 +325,28 @@ export class Ui {
       if (holder) tr.className = 'mine';
       const you = own && !holder ? `<small>you ${own.score.toLocaleString('en-US')}</small>` : '';
       tr.innerHTML = r
-        ? `<td>${String(l.id).padStart(2, '0')}</td><td>${escapeHtml(r.name)}${you}</td><td class="st">${starText(r.stars)}</td><td>${r.score.toLocaleString('en-US')}</td>`
-        : `<td>${String(l.id).padStart(2, '0')}</td><td class="open">${escapeHtml(l.name)}: open</td><td></td><td>—</td>`;
+        ? `<td>${levelCode(l.id)}</td><td>${escapeHtml(r.name)}${you}</td><td class="st">${starText(r.stars)}</td><td>${r.score.toLocaleString('en-US')}</td>`
+        : `<td>${levelCode(l.id)}</td><td class="open">${escapeHtml(l.name)}: open</td><td></td><td>—</td>`;
       body.appendChild(tr);
     }
   }
 
-  private boardTab(tab: 'runs' | 'levels', note: string): void {
-    $('tab-runs').classList.toggle('on', tab === 'runs');
-    $('tab-levels').classList.toggle('on', tab === 'levels');
-    $('tab-runs').setAttribute('aria-selected', String(tab === 'runs'));
-    $('tab-levels').setAttribute('aria-selected', String(tab === 'levels'));
-    $('board-note').textContent = note;
-  }
+  // ───────────────────────────── Results ─────────────────────────────
 
-  result(level: LevelDef, s: LevelScore, peak: number, runLine: string, canRetry: boolean, isLast: boolean): void {
+  result(level: LevelDef, s: LevelScore, peak: number, runLine: string, canRetry: boolean, nextLabel: string): void {
     const rows = $('res-rows');
     const lines: [string, string][] = [
       ['Bridge held', `${s.base}`],
-      [`Unused parts × ${s.unused}`, `+${s.partsBonus}`],
+      [`Budget left ${money(level.money - s.spent)}`, `+${s.savingsBonus}`],
       [`Safety (peak ${Math.round(peak * 100)}%)`, `+${s.safetyBonus}`],
     ];
     rows.innerHTML = lines.map(([a, b], i) => `<tr style="animation-delay:${0.25 + i * 0.18}s"><td>${a}</td><td>${b}</td></tr>`).join('');
     $('res-total').textContent = '0';
     $('res-run').textContent = runLine;
     for (const star of $('res-stars').querySelectorAll('i')) star.classList.remove('on');
-    $('res-notes').innerHTML = `<span class="yes">★ Crossed</span><span class="${s.underPar ? 'yes' : ''}">★ ≤ ${level.par} parts (${s.used})</span><span class="${s.safe ? 'yes' : ''}">★ Peak stress &lt; 75%</span>`;
+    $('res-notes').innerHTML = `<span class="yes">★ Crossed</span><span class="${s.underTarget ? 'yes' : ''}">★ Built for ≤ ${money(level.target)} (${money(s.spent)})</span><span class="${s.safe ? 'yes' : ''}">★ Peak stress &lt; 75%</span>`;
     $('res-retry').classList.toggle('hidden', !canRetry);
-    $('res-next').innerHTML = `${isLast ? 'FINISH' : 'NEXT'} <kbd>Enter</kbd>`;
+    $('res-next').innerHTML = `${nextLabel} <kbd>Enter</kbd>`;
     this.show('result');
   }
 
@@ -257,7 +363,7 @@ export class Ui {
     const livesEl = $('col-lives');
     if (lives === null) {
       livesEl.innerHTML = '';
-      $('col-note').textContent = 'Practice mode: no lives lost. Tweak and try again.';
+      $('col-note').textContent = 'No penalty in free play. Tweak the design and try again.';
     } else {
       this.setLives(lives, maxLives, 'lost', livesEl);
       $('col-note').textContent = lives === 1 ? 'Last life. Make it count.' : `${lives} lives left.`;
@@ -265,12 +371,14 @@ export class Ui {
     this.show('collapse');
   }
 
-  over(victory: boolean, score: number, levels: number): void {
+  over(victory: boolean, score: number, levels: number, chapter: ChapterDef): void {
     const t = $('over-title');
-    t.textContent = victory ? 'RUN COMPLETE' : 'GAME OVER';
+    t.textContent = victory ? 'CHALLENGE COMPLETE' : 'CHALLENGE OVER';
     t.classList.toggle('win', victory);
     $('over-score').textContent = score.toLocaleString('en-US');
-    $('over-sub').textContent = victory ? 'Every crossing held. The county thanks you.' : `You cleared ${levels} level${levels === 1 ? '' : 's'}.`;
+    $('over-sub').textContent = victory
+      ? `Every crossing in ${chapter.name} held.`
+      : `You cleared ${levels} of ${chapter.levels.length} level${levels === 1 ? '' : 's'} in ${chapter.name}.`;
     $('over-rank').textContent = '';
     this.show('over');
   }
@@ -278,6 +386,11 @@ export class Ui {
   overRank(rank: number): void {
     $('over-rank').textContent = rank >= 0 ? `New high score! #${rank + 1} on the board.` : '';
   }
+}
+
+/** Difficulty as filled and empty pips. */
+function pips(n: number): string {
+  return `<span class="pips" aria-label="Difficulty ${n} of ${CHAPTERS.length}">${'<i class="on"></i>'.repeat(n)}${'<i></i>'.repeat(CHAPTERS.length - n)}</span>`;
 }
 
 function starText(n: number): string {

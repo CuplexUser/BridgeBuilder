@@ -1,6 +1,6 @@
-import { Design, roadPath, segmentsOverlap, type GridPt } from './design';
-import { budgetOf, totalBudget, type LevelDef } from './levels';
-import { MATERIAL_ORDER, MATERIALS, type MaterialId } from './physics/materials';
+import { Design, roadPath, segmentHitsRect, segmentsOverlap, type GridPt } from './design';
+import type { LevelDef } from './levels';
+import { MATERIALS, type MaterialId } from './physics/materials';
 
 export interface DragState {
   /** Start node index, or -1 when the drag starts from a point on a beam that will be split. */
@@ -15,6 +15,8 @@ export interface DragState {
   toSplit: number;
   /** Points from the start to the target; a road run spans several members. */
   path: GridPt[];
+  /** What placing this would cost, in dollars. */
+  cost: number;
   valid: boolean;
   reason: string;
 }
@@ -36,6 +38,13 @@ export interface EditorEvents {
 const JOINT_BONUS = 0.2;
 /** A new joint this close to an existing one is refused as too fiddly. */
 const MIN_JOINT_GAP = 0.2;
+/** Most pieces one deck run may lay. */
+const MAX_RUN = 40;
+
+/** Formats dollars the way the whole UI shows them, e.g. $12,500. */
+export function money(v: number): string {
+  return `$${Math.round(v).toLocaleString('en-US')}`;
+}
 
 /** Build-mode rules: snapping, budgets, validity and undo. */
 export class Editor {
@@ -58,8 +67,8 @@ export class Editor {
         const d = Design.deserialize(saved);
         const anchors = d.nodes.filter((n) => n.anchor);
         const same = anchors.length === level.anchors.length && level.anchors.every(([x, y]) => anchors.some((n) => n.x === x && n.y === y));
-        // Budgets may have been rebalanced since the design was saved.
-        const affordable = MATERIAL_ORDER.every((m) => d.count(m) <= budgetOf(level, m));
+        // Prices, budgets and materials may have changed since the design was saved.
+        const affordable = d.cost() <= level.money && d.members.every((m) => level.materials.includes(m.mat));
         if (same && affordable) this.design = d;
       } catch {
         // Corrupt save: start fresh.
@@ -75,12 +84,14 @@ export class Editor {
     return Math.max(4, ...this.level.anchors.map((a) => a[1] + 3), ...towers);
   }
 
-  remaining(mat: MaterialId): number {
-    return budgetOf(this.level, mat) - this.design.count(mat);
+  /** Money spent on the current design. */
+  spent(): number {
+    return this.design.cost();
   }
 
-  totalBudget(): number {
-    return totalBudget(this.level);
+  /** Money left to spend. */
+  left(): number {
+    return this.level.money - this.spent();
   }
 
   tick(dt: number): void {
@@ -88,7 +99,7 @@ export class Editor {
   }
 
   setMaterial(mat: MaterialId): boolean {
-    if (budgetOf(this.level, mat) <= 0) return false;
+    if (!this.level.materials.includes(mat)) return false;
     this.mat = mat;
     if (this.drag) this.aim(this.drag.tx, this.drag.ty);
     return true;
@@ -104,6 +115,7 @@ export class Editor {
       const inside = o.side === 'left' ? x <= o.reach + 0.3 : x >= L.width - o.reach - 0.3;
       if (inside && y > o.bottom - 0.3) return false;
     }
+    for (const [x0, x1, top] of L.channels ?? []) if (x > x0 && x < x1 && y < top) return false;
     return true;
   }
 
@@ -182,12 +194,12 @@ export class Editor {
 
   begin(node: number): void {
     const n = this.design.nodes[node];
-    this.drag = { from: node, sx: n.x, sy: n.y, fromSplit: -1, tx: n.x, ty: n.y, toSplit: -1, path: [[n.x, n.y]], valid: false, reason: '' };
+    this.drag = { from: node, sx: n.x, sy: n.y, fromSplit: -1, tx: n.x, ty: n.y, toSplit: -1, path: [[n.x, n.y]], cost: 0, valid: false, reason: '' };
   }
 
   /** Starts a drag from a point on a beam; the beam is split there when the member is placed. */
   beginSplit(p: AttachPick): void {
-    this.drag = { from: -1, sx: p.x, sy: p.y, fromSplit: p.member, tx: p.x, ty: p.y, toSplit: -1, path: [[p.x, p.y]], valid: false, reason: '' };
+    this.drag = { from: -1, sx: p.x, sy: p.y, fromSplit: p.member, tx: p.x, ty: p.y, toSplit: -1, path: [[p.x, p.y]], cost: 0, valid: false, reason: '' };
   }
 
   /** Starts a drag at a node, or failing that at a beam attach point. Returns what was picked. */
@@ -205,7 +217,7 @@ export class Editor {
     return null;
   }
 
-  /** Deck materials are laid in runs: one drag can span as many pieces as the budget allows. */
+  /** Deck materials are laid in runs: one drag can span many pieces. */
   private get runs(): boolean {
     return MATERIALS[this.mat].runs;
   }
@@ -217,7 +229,7 @@ export class Editor {
     const fx = drag.sx;
     const fy = drag.sy;
     const maxLen = MATERIALS[this.mat].maxLen;
-    const pieces = this.runs ? Math.max(1, this.remaining(this.mat)) : 1;
+    const pieces = this.runs ? MAX_RUN : 1;
     const reach = maxLen * pieces;
     const dx = wx - fx;
     const dy = wy - fy;
@@ -259,6 +271,9 @@ export class Editor {
       [fx, fy],
       [bx, by],
     ];
+    let len = 0;
+    for (let i = 1; i < drag.path.length; i++) len += Math.hypot(drag.path[i][0] - drag.path[i - 1][0], drag.path[i][1] - drag.path[i - 1][1]);
+    drag.cost = Math.round(len * MATERIALS[this.mat].price);
     drag.reason = this.problem(drag);
     drag.valid = drag.reason === '';
   }
@@ -269,11 +284,9 @@ export class Editor {
     const [ex, ey] = path[path.length - 1];
     if (sx === ex && sy === ey) return 'Too short';
     const segs = path.length - 1;
-    const left = this.remaining(this.mat);
     const mat = MATERIALS[this.mat];
-    const name = mat.name.toLowerCase();
-    if (left <= 0) return `Out of ${name}`;
-    if (segs > left) return `Only ${left} ${name} left`;
+    const left = this.left();
+    if (drag.cost > left) return `Over budget by ${money(drag.cost - left)}`;
     const { nodes, members } = this.design;
     for (let i = 0; i < segs; i++) {
       const [ax, ay] = path[i];
@@ -289,6 +302,9 @@ export class Editor {
         const c = nodes[m.a];
         const e = nodes[m.b];
         if (segmentsOverlap(ax, ay, bx, by, c.x, c.y, e.x, e.y)) return MATERIALS[m.mat].drivable ? 'Overlaps the road' : 'Overlaps a beam';
+      }
+      for (const [x0, x1, top] of this.level.channels ?? []) {
+        if (segmentHitsRect(ax, ay, bx, by, x0, this.level.waterY - 10, x1, top)) return 'Keep the channel clear';
       }
     }
     return '';

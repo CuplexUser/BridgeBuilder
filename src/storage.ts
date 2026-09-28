@@ -5,14 +5,18 @@
  * The game picks the server when `api/health` answers, and falls back to local otherwise.
  */
 
+/** A finished chapter challenge: a chapter played in a row, with lives. */
 export interface HighScore {
   name: string;
   score: number;
+  /** Levels cleared in the run. */
   levels: number;
+  /** Chapter the run was played on; 0 for runs from the old full-campaign mode. */
+  chapter: number;
   date: string;
 }
 
-/** The best score anyone has on one level. */
+/** One profile's best result on one level. */
 export interface LevelRecord {
   level: number;
   name: string;
@@ -25,6 +29,8 @@ export interface Profile {
   name: string;
   unlocked: number;
   stars: number;
+  /** Career score: the sum of the profile's best score on every level. */
+  score: number;
 }
 
 export interface Progress {
@@ -40,11 +46,12 @@ export interface Store {
   openProfile(name: string): Promise<Profile>;
   loadProgress(profileId: string): Promise<Progress>;
   saveProgress(profileId: string, p: Progress): Promise<void>;
-  highScores(): Promise<HighScore[]>;
-  /** Record holder per level across all profiles, sorted by level. */
-  levelRecords(): Promise<LevelRecord[]>;
-  /** Records a finished run. Returns its rank (0-based) in the top table, or -1. */
-  submitScore(profileId: string, score: number, levels: number): Promise<number>;
+  /** Top challenge runs on one chapter. */
+  highScores(chapter: number): Promise<HighScore[]>;
+  /** Every profile's best on every level it has crossed: the source for career, chapter and level boards. */
+  levelScores(): Promise<LevelRecord[]>;
+  /** Records a finished chapter challenge. Returns its rank (0-based) on that chapter's board, or -1. */
+  submitScore(profileId: string, score: number, levels: number, chapter: number): Promise<number>;
 }
 
 export const MAX_HIGHS = 10;
@@ -60,6 +67,34 @@ export function cleanName(name: string): string {
 
 export function totalStars(p: Progress): number {
   return Object.values(p.best).reduce((s, b) => s + b.stars, 0);
+}
+
+export function totalScore(p: Progress): number {
+  return Object.values(p.best).reduce((s, b) => s + b.score, 0);
+}
+
+export interface BoardRow {
+  name: string;
+  score: number;
+  stars: number;
+  /** Levels crossed among those counted. */
+  levels: number;
+}
+
+/** Ranks profiles by their summed best scores over the given levels (all levels when omitted). */
+export function rankProfiles(rows: LevelRecord[], levelIds?: number[]): BoardRow[] {
+  const by = new Map<string, BoardRow>();
+  for (const r of rows) {
+    if (levelIds && !levelIds.includes(r.level)) continue;
+    const row = by.get(r.name) ?? { name: r.name, score: 0, stars: 0, levels: 0 };
+    row.score += r.score;
+    row.stars += r.stars;
+    row.levels += r.stars > 0 ? 1 : 0;
+    by.set(r.name, row);
+  }
+  const out = [...by.values()].filter((r) => r.score > 0);
+  out.sort((a, b) => b.score - a.score || b.stars - a.stars || a.name.localeCompare(b.name));
+  return out;
 }
 
 /** Keeps the best entry per level (higher score, then more stars; first seen wins ties). */
@@ -127,7 +162,7 @@ export class LocalStore implements Store {
     const d = this.read();
     return d.profiles.map((p) => {
       const prog = d.progress[p.id] ?? blankProgress();
-      return { id: p.id, name: p.name, unlocked: prog.unlocked, stars: totalStars(prog) };
+      return { id: p.id, name: p.name, unlocked: prog.unlocked, stars: totalStars(prog), score: totalScore(prog) };
     });
   }
 
@@ -144,7 +179,7 @@ export class LocalStore implements Store {
       this.write(d);
     }
     const prog = d.progress[p.id] ?? blankProgress();
-    return { id: p.id, name: p.name, unlocked: prog.unlocked, stars: totalStars(prog) };
+    return { id: p.id, name: p.name, unlocked: prog.unlocked, stars: totalStars(prog), score: totalScore(prog) };
   }
 
   private legacyProgress(): Progress {
@@ -170,24 +205,27 @@ export class LocalStore implements Store {
     this.write(d);
   }
 
-  async highScores(): Promise<HighScore[]> {
-    return this.read().highs;
+  async highScores(chapter: number): Promise<HighScore[]> {
+    return this.read().highs.filter((h) => (h.chapter ?? 0) === chapter);
   }
 
-  async levelRecords(): Promise<LevelRecord[]> {
+  async levelScores(): Promise<LevelRecord[]> {
     const d = this.read();
     const all: LevelRecord[] = [];
     for (const p of d.profiles) {
       for (const [level, b] of Object.entries(d.progress[p.id]?.best ?? {})) all.push({ level: Number(level), name: p.name, score: b.score, stars: b.stars });
     }
-    return bestPerLevel(all);
+    return all;
   }
 
-  async submitScore(profileId: string, score: number, levels: number): Promise<number> {
+  async submitScore(profileId: string, score: number, levels: number, chapter: number): Promise<number> {
     const d = this.read();
     const p = d.profiles.find((x) => x.id === profileId);
     if (!p || score <= 0) return -1;
-    const rank = insertHigh(d.highs, { name: p.name, score, levels, date: new Date().toISOString().slice(0, 10) });
+    // Each chapter keeps its own top table.
+    const board = d.highs.filter((h) => (h.chapter ?? 0) === chapter);
+    const rank = insertHigh(board, { name: p.name, score, levels, chapter, date: new Date().toISOString().slice(0, 10) });
+    d.highs = [...d.highs.filter((h) => (h.chapter ?? 0) !== chapter), ...board];
     this.write(d);
     return rank;
   }
@@ -234,16 +272,16 @@ export class ServerStore implements Store {
     await this.req('PUT', `profiles/${encodeURIComponent(id)}/progress`, p);
   }
 
-  highScores(): Promise<HighScore[]> {
-    return this.req('GET', 'scores');
+  highScores(chapter: number): Promise<HighScore[]> {
+    return this.req('GET', `scores?chapter=${chapter}`);
   }
 
-  levelRecords(): Promise<LevelRecord[]> {
-    return this.req('GET', 'level-records');
+  levelScores(): Promise<LevelRecord[]> {
+    return this.req('GET', 'level-scores');
   }
 
-  async submitScore(profileId: string, score: number, levels: number): Promise<number> {
-    const r = await this.req<{ rank: number }>('POST', 'scores', { profileId, score, levels });
+  async submitScore(profileId: string, score: number, levels: number, chapter: number): Promise<number> {
+    const r = await this.req<{ rank: number }>('POST', 'scores', { profileId, score, levels, chapter });
     return r.rank;
   }
 }

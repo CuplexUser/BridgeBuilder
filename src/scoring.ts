@@ -1,40 +1,39 @@
 import type { Design } from './design';
-import { totalBudget, type LevelDef } from './levels';
+import type { LevelDef } from './levels';
 
 export interface LevelScore {
-  used: number;
-  unused: number;
+  /** Dollars spent on the bridge. */
+  spent: number;
   base: number;
-  partsBonus: number;
+  /** Bonus for money left in the budget. */
+  savingsBonus: number;
   safetyBonus: number;
   total: number;
   stars: number;
-  underPar: boolean;
+  underTarget: boolean;
   safe: boolean;
 }
 
 export const BASE_SCORE = 500;
-export const PART_BONUS = 100;
+/** Savings bonus for a bridge that cost nothing; scales down linearly to 0 at the full budget. */
+export const SAVINGS_MAX = 1000;
 export const SAFETY_MAX = 400;
 export const SAFE_STRESS = 0.75;
 
 export function scoreLevel(level: LevelDef, design: Design, peakStress: number): LevelScore {
-  const used = design.parts();
-  const budget = totalBudget(level);
-  const unused = Math.max(0, budget - used);
-  const partsBonus = unused * PART_BONUS;
+  const spent = design.cost();
+  const savingsBonus = Math.round(SAVINGS_MAX * Math.max(0, Math.min(1, 1 - spent / level.money)));
   const safetyBonus = Math.round(SAFETY_MAX * Math.max(0, Math.min(1, 1 - peakStress)));
-  const underPar = used <= level.par;
+  const underTarget = spent <= level.target;
   const safe = peakStress < SAFE_STRESS;
   return {
-    used,
-    unused,
+    spent,
     base: BASE_SCORE,
-    partsBonus,
+    savingsBonus,
     safetyBonus,
-    total: BASE_SCORE + partsBonus + safetyBonus,
-    stars: 1 + (underPar ? 1 : 0) + (safe ? 1 : 0),
-    underPar,
+    total: BASE_SCORE + savingsBonus + safetyBonus,
+    stars: 1 + (underTarget ? 1 : 0) + (safe ? 1 : 0),
+    underTarget,
     safe,
   };
 }

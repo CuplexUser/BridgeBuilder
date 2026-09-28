@@ -310,6 +310,7 @@ export class Renderer {
     }
 
     for (const t of L.towers ?? []) this.tower(t[0], t[1], t[2], true);
+    for (const [cx0, cx1, top] of L.channels ?? []) this.channelBlueprint(cx0, cx1, top, L.waterY);
 
     // Dimension line across the gap.
     const dimY = cam.sy((v.editor?.topY ?? 4) - 0.4);
@@ -434,6 +435,7 @@ export class Renderer {
     }
 
     for (const t of L.towers ?? []) this.tower(t[0], t[1], t[2], false);
+    for (const [x0, x1, top] of L.channels ?? []) this.channelScene(x0, x1, top, L.waterY, v.time);
 
     // Finish flag.
     const fx = cam.sx(goalX(L));
@@ -581,6 +583,86 @@ export class Renderer {
     ctx.beginPath();
     poly.slice(2, 7).forEach(([x, y], i) => (i ? ctx.lineTo(cam.sx(x), cam.sy(y)) : ctx.moveTo(cam.sx(x), cam.sy(y))));
     ctx.stroke();
+  }
+
+  /** A ship channel in the blueprint: a hatched keep-clear zone with its clearance height. */
+  private channelBlueprint(x0: number, x1: number, top: number, waterY: number): void {
+    const { ctx, cam } = this;
+    const l = cam.sx(x0);
+    const r = cam.sx(x1);
+    const t = cam.sy(top);
+    const b = cam.sy(waterY);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(l, t, r - l, b - t);
+    ctx.clip();
+    ctx.fillStyle = 'rgba(255,90,78,0.08)';
+    ctx.fillRect(l, t, r - l, b - t);
+    ctx.strokeStyle = 'rgba(255,90,78,0.3)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = l - (b - t); x < r; x += 12) {
+      ctx.moveTo(x, b);
+      ctx.lineTo(x + (b - t), t);
+    }
+    ctx.stroke();
+    ctx.restore();
+    ctx.strokeStyle = PAL.invalid;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 5]);
+    ctx.strokeRect(l, t, r - l, b - t);
+    ctx.setLineDash([]);
+    // Near the water, where it can't hide under a deck laid along the top of the zone.
+    this.label(`SHIP CHANNEL · KEEP CLEAR TO +${top} m`, (l + r) / 2, b - 16, PAL.invalid);
+  }
+
+  /** The channel in the painted scene: marker buoys and a moored sailboat whose mast shows the clearance. */
+  private channelScene(x0: number, x1: number, top: number, waterY: number, time: number): void {
+    const { ctx, cam } = this;
+    const s = cam.scale;
+    const bob = Math.sin(time * 1.6) * 0.06;
+    for (const [x, color] of [
+      [x0 + 0.3, '#d7263d'],
+      [x1 - 0.3, '#2e9e4f'],
+    ] as const) {
+      const bx = cam.sx(x);
+      const by = cam.sy(waterY + 0.1 + bob);
+      ctx.fillStyle = color;
+      ctx.fillRect(bx - 0.18 * s, by - 0.7 * s, 0.36 * s, 0.7 * s);
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.fillRect(bx - 0.18 * s, by - 0.45 * s, 0.36 * s, 0.1 * s);
+    }
+    // Sailboat: hull, mast up to the clearance line, and a sail.
+    const cx = (x0 + x1) / 2 + Math.sin(time * 0.25) * ((x1 - x0) / 2 - 2.2);
+    const hy = waterY + 0.05 + bob;
+    const mastTop = top - 0.25;
+    ctx.save();
+    ctx.translate(cam.sx(cx), cam.sy(hy));
+    ctx.rotate(Math.sin(time * 1.1) * 0.03);
+    ctx.fillStyle = '#f2efe6';
+    ctx.beginPath();
+    ctx.moveTo(-1.6 * s, -0.5 * s);
+    ctx.lineTo(1.8 * s, -0.5 * s);
+    ctx.lineTo(1.2 * s, 0.15 * s);
+    ctx.lineTo(-1.3 * s, 0.15 * s);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#2d5d8f';
+    ctx.fillRect(-1.5 * s, -0.25 * s, 3.1 * s, 0.1 * s);
+    ctx.strokeStyle = '#3b3e46';
+    ctx.lineWidth = Math.max(1.5, 0.07 * s);
+    ctx.beginPath();
+    ctx.moveTo(0, -0.5 * s);
+    ctx.lineTo(0, -(mastTop - hy) * s);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,250,240,0.92)';
+    ctx.beginPath();
+    ctx.moveTo(0.08 * s, -(mastTop - hy - 0.2) * s);
+    ctx.lineTo(0.08 * s, -0.75 * s);
+    ctx.lineTo(1.4 * s, -0.75 * s);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
   }
 
   /** Lattice pylon: two legs with cross bracing and a cap. `chalk` draws the blueprint version. */

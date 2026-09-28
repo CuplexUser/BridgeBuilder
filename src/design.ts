@@ -1,5 +1,5 @@
 import type { LevelDef } from './levels';
-import type { MaterialId } from './physics/materials';
+import { MATERIALS, type MaterialId } from './physics/materials';
 
 export interface DNode {
   x: number;
@@ -82,6 +82,36 @@ export function segmentsOverlap(ax: number, ay: number, bx: number, by: number, 
   return Math.min(1, Math.max(tc, td)) - Math.max(0, Math.min(tc, td)) > 1e-4;
 }
 
+/**
+ * True when segment ab passes through the open rectangle (x0, x1) × (y0, y1).
+ * Touching an edge or corner doesn't count, so a deck can run along the top of a channel.
+ */
+export function segmentHitsRect(ax: number, ay: number, bx: number, by: number, x0: number, y0: number, x1: number, y1: number): boolean {
+  const e = 1e-6;
+  // Liang–Barsky clip against the slightly shrunk rectangle.
+  let t0 = 0;
+  let t1 = 1;
+  const dx = bx - ax;
+  const dy = by - ay;
+  const edges: [number, number][] = [
+    [-dx, ax - (x0 + e)],
+    [dx, x1 - e - ax],
+    [-dy, ay - (y0 + e)],
+    [dy, y1 - e - ay],
+  ];
+  for (const [p, dist] of edges) {
+    if (p === 0) {
+      if (dist < 0) return false;
+    } else {
+      const r = dist / p;
+      if (p < 0) t0 = Math.max(t0, r);
+      else t1 = Math.min(t1, r);
+      if (t0 > t1) return false;
+    }
+  }
+  return t1 - t0 > e;
+}
+
 function gcd(a: number, b: number): number {
   while (b) [a, b] = [b, a % b];
   return a;
@@ -132,6 +162,21 @@ export class Design {
       }
     }
     return c;
+  }
+
+  /** Length of member i, in meters. */
+  length(i: number): number {
+    const m = this.members[i];
+    const a = this.nodes[m.a];
+    const b = this.nodes[m.b];
+    return Math.hypot(b.x - a.x, b.y - a.y);
+  }
+
+  /** What the design costs to build. Splitting a beam doesn't change its length, so it is free. */
+  cost(): number {
+    let c = 0;
+    for (let i = 0; i < this.members.length; i++) c += this.length(i) * MATERIALS[this.members[i].mat].price;
+    return Math.round(c);
   }
 
   /** Total parts across all materials. */

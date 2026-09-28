@@ -1,8 +1,8 @@
 # Bridge Builder
 
-A physics bridge-building game for the browser. Draw a bridge with a limited budget of road, heavy deck, wood, steel and cable, then send a vehicle across it. The bridge either holds, sags, or snaps into the river.
+A physics bridge-building game for the browser. Build a bridge within a cash budget from road, heavy deck, wood, steel and cable, then send a vehicle across it. The bridge either holds, sags, or snaps into the river.
 
-The 20 levels run from a 4 m brook to a 32 m suspension crossing. Along the way they introduce piers, sloped banks, heavy decks, lattice pylons, rock overhangs and cables. Each cable level is built around one idea, and the obvious "hang every joint" answer either runs out of cable or out of reach. Those guarantees are covered by tests. `TODO.md` lists planned features and improvements by priority.
+There are 30 levels in six chapters that get harder as you go: from a 4 m brook in *Groundwork* to a 36 m, forty-tonne crossing in *Master Works*. Along the way the game introduces piers, slopes, heavy decks, lattice pylons, rock overhangs, cables, flood water and ship channels. `TODO.md` lists planned features and improvements by priority.
 
 ## Run
 
@@ -21,7 +21,7 @@ npm start        # production: serves dist/ + the SQLite API on :3000
 
 ## Saving: SQLite or browser
 
-On first launch you enter your name, which creates a profile (or continues an existing one with that name). Each profile keeps its unlocked levels, best scores and stars, and practice designs. Finished runs go into a shared top-10 table under the profile name.
+On first launch you enter your name, which creates a profile (or continues an existing one with that name). Each profile keeps its best score and stars per level, and its saved design for each level. Chapter challenge runs go into a shared top-10 table per chapter, under the profile name.
 
 At startup the game probes `api/health`:
 
@@ -47,34 +47,44 @@ The profile screen tells you which storage is in use. The last-used profile resu
 | Test / back to edit | TEST button | T |
 | Zoom / pan | Wheel, pinch, drag empty space | F refits |
 | Pause | II button | P / Esc |
+| Menus | Buttons | Title: Enter continue, C chapters, H leaderboards. Chapters: 1–6. Chapter: 1–5 plays a level. Leaderboards: ←/→ tabs, 1–6 chapter. |
 | Mute | Speaker button | M |
 
 Members can cross each other (X-bracing), but they can't lie along an existing member. For example, a wood beam can't run on top of the road.
 
 ## Materials
 
-| Material | Reach | Notes |
-| --- | --- | --- |
-| Road | 2.25 m | Drivable, laid in runs. |
-| Heavy deck | 2.25 m | Drivable, laid in runs. About twice as strong and stiff as road, but heavier. For trucks and long spans. |
-| Wood | 3.2 m | Light and cheap. Buckles early in compression. |
-| Steel | 4.25 m | Strong in tension and compression. |
-| Cable | 10 m | Tension only: it goes slack instead of pushing. Hang decks from pylons and overhangs. |
+| Material | Price | Reach | Notes |
+| --- | --- | --- | --- |
+| Road | $180/m | 2.25 m | Drivable, laid in runs. |
+| Heavy deck | $380/m | 2.25 m | Drivable, laid in runs. About twice as strong and stiff as road, but heavier. For trucks and long spans. |
+| Wood | $90/m | 3.2 m | Light and cheap. Buckles early in compression. |
+| Steel | $240/m | 4.25 m | Strong in tension and compression. |
+| Cable | $140/m | 10 m | Tension only: it goes slack instead of pushing. Hang decks from pylons and overhangs. |
 
-A beam split into pieces still counts as one part toward the budget and par.
+You pay by length, so splitting a beam to add a joint costs nothing. Each level lists the materials it offers.
 
 ## How it works
 
 - `src/physics/world.ts` is a small-step XPBD solver. Members are compliant distance constraints. Stress is axial force over the member's capacity; compression capacity falls off with length, like buckling. A member breaks when its smoothed stress reaches 100%. The vehicle is four particles in the same world, and its wheel contacts push load into the road members' nodes.
-- `src/solutions.ts` holds a reference design per level, including the sloped levels. `tests/physics.test.ts` drives the real vehicle over each one, which guarantees all 20 levels are beatable within budget. Each level's par equals its reference solution's part count. The same file checks that the obvious shortcut designs on the cable levels fail.
+- `src/levels.ts` defines the levels; `src/chapters.ts` groups them into chapters and holds the unlock rules. Level ids are stable, and chapters list them in play order, so saved progress survives reordering.
+- `src/solutions.ts` holds a reference design per level. `tests/physics.test.ts` drives the real vehicle over each one. That guarantees all 30 levels are beatable within their target cost, and that every reference design follows the editor's build rules. Each level's budget is the reference cost times a slack factor that shrinks by chapter (×1.6 down to ×1.22), and the target is about 5% above the reference cost. The same file checks that the obvious shortcut designs on the cable levels fail.
 - `tests/storage.test.ts` runs the same behavior contract against both storage backends. The SQLite one runs against a real HTTP server on an in-memory database.
 - Rendering is Canvas 2D (`src/render/`). The UI is DOM overlays (`index.html`, `src/ui/ui.ts`). All sound is synthesized with WebAudio (`src/audio.ts`).
 
-## Scoring
+## Chapters, scoring and leaderboards
 
-Each level scores 500 for crossing, plus 100 per unused part, plus up to 400 for safety (low peak stress). You earn stars for crossing, for staying at or under par, and for a peak stress below 75%. A run starts with 3 lives, and each collapse costs one. A 3-star level earns a life back.
+**Chapters.** The first chapter is open from the start. A chapter opens once every level of the previous one has been crossed, and inside a chapter the levels open one after another. **Continue** on the title screen takes you to the first level you haven't crossed yet.
 
-The high-score screen has two boards:
+**Level score.** 500 for crossing, plus up to 1,000 for money left in the budget, plus up to 400 for safety (low peak stress). You earn stars for crossing, for building at or under the target cost, and for a peak stress below 75%. Free play has no lives: collapse, tweak and try again. Your saved design for each level comes back when you return.
 
-- **Runs**: campaign runs. A run is banked when it ends, whether you clear every level, lose your last life, or quit mid-run.
-- **Level records**: the best single-level score on each level across every profile, with your own best shown when someone else holds the record.
+**Career.** Your career score is the sum of your best score on every level. Improving any level raises it, so you never need to replay from the start.
+
+**Chapter challenges.** A finished chapter unlocks its challenge: all five levels in a row, from blank designs, with three lives. Each collapse costs a life, and a 3-star crossing earns one back. The run's total goes on that chapter's challenge board, even if you quit part-way.
+
+**Leaderboards** have four tabs:
+
+- **Career**: every engineer, ranked by career score.
+- **Chapter**: ranked by best scores on one chapter's five levels.
+- **Levels**: the record holder on each level of a chapter, with your own best when someone else holds it.
+- **Challenges**: the top challenge runs on one chapter.

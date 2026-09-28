@@ -1,24 +1,31 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS } from '../src/levels';
-import { scoreLevel } from '../src/scoring';
+import { BASE_SCORE, SAVINGS_MAX, scoreLevel } from '../src/scoring';
 import { SOLUTIONS } from '../src/solutions';
 import { insertHigh, MAX_HIGHS, type HighScore } from '../src/storage';
 
 describe('scoreLevel', () => {
   const level = LEVELS[0];
   const design = SOLUTIONS[1](level);
+  const spent = design.cost();
 
-  it('adds base, unused-part and safety bonuses', () => {
+  it('adds base, savings and safety bonuses', () => {
     const s = scoreLevel(level, design, 0.25);
-    expect(s.used).toBe(4);
-    expect(s.unused).toBe(1);
-    expect(s.partsBonus).toBe(100);
+    expect(s.spent).toBe(spent);
+    expect(s.savingsBonus).toBe(Math.round(SAVINGS_MAX * (1 - spent / level.money)));
     expect(s.safetyBonus).toBe(300);
-    expect(s.total).toBe(500 + 100 + 300);
+    expect(s.total).toBe(BASE_SCORE + s.savingsBonus + 300);
   });
 
-  it('awards three stars for an under-par, low-stress bridge', () => {
+  it('awards three stars for an on-target, low-stress bridge', () => {
+    expect(spent).toBeLessThanOrEqual(level.target);
     expect(scoreLevel(level, design, 0.3).stars).toBe(3);
+  });
+
+  it('drops the cost star when the bridge runs over target', () => {
+    const s = scoreLevel({ ...level, target: spent - 1 }, design, 0.3);
+    expect(s.underTarget).toBe(false);
+    expect(s.stars).toBe(2);
   });
 
   it('drops the safety star when stress runs hot', () => {
@@ -27,12 +34,14 @@ describe('scoreLevel', () => {
     expect(s.safetyBonus).toBe(40);
   });
 
-  it('never gives a negative safety bonus', () => {
-    expect(scoreLevel(level, design, 1.2).safetyBonus).toBe(0);
+  it('never gives a negative bonus', () => {
+    const s = scoreLevel({ ...level, money: spent / 2 }, design, 1.2);
+    expect(s.savingsBonus).toBe(0);
+    expect(s.safetyBonus).toBe(0);
   });
 });
 
-const mk = (score: number): HighScore => ({ name: 'AAA', score, levels: 1, date: '' });
+const mk = (score: number): HighScore => ({ name: 'AAA', score, levels: 1, chapter: 1, date: '' });
 
 describe('high-score table', () => {
 
