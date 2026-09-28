@@ -1,6 +1,8 @@
 # Bridge Builder
 
-A physics bridge-building game for the browser. Draw a truss with a limited budget of road, wood and steel, then send a vehicle across it. The bridge either holds, sags, or snaps into the river.
+A physics bridge-building game for the browser. Draw a bridge with a limited budget of road, heavy deck, wood, steel and cable, then send a vehicle across it. The bridge either holds, sags, or snaps into the river.
+
+The 20 levels run from a 4 m brook to a 32 m crossing for a semi truck. Along the way they introduce piers, sloped banks, heavy decks, lattice pylons, rock overhangs and suspension cables. `TODO.md` lists planned features and improvements by priority.
 
 ## Run
 
@@ -37,9 +39,10 @@ The profile screen tells you which storage is in use. The last-used profile resu
 | Action | Mouse / touch | Keyboard |
 | --- | --- | --- |
 | Build a member | Drag from a bolt or node | Arrows/WASD move cursor, Space/Enter to start and place (chains) |
-| Lay road | One drag lays a whole run; it splits into grid pieces automatically | Same |
+| Lay road | One drag lays a whole run of road or heavy deck. The pieces follow one straight, even grade, even between banks at different heights. | Same |
+| Add a joint mid-beam | Drag from (or onto) a point along an existing beam. The beam is split there at no extra cost. | Space with the cursor on the beam point |
 | Remove a member | Tap it / right-click | X or Delete at cursor |
-| Material | Toolbar | 1 / 2 / 3, Q / E to cycle |
+| Material | Toolbar | 1–5, Q / E to cycle |
 | Undo / redo | Toolbar | Z / Y (or Ctrl+Z / Ctrl+Y) |
 | Test / back to edit | TEST button | T |
 | Zoom / pan | Wheel, pinch, drag empty space | F refits |
@@ -48,13 +51,30 @@ The profile screen tells you which storage is in use. The last-used profile resu
 
 Members can cross each other (X-bracing), but they can't lie along an existing member. For example, a wood beam can't run on top of the road.
 
+## Materials
+
+| Material | Reach | Notes |
+| --- | --- | --- |
+| Road | 2.25 m | Drivable, laid in runs. |
+| Heavy deck | 2.25 m | Drivable, laid in runs. About twice as strong and stiff as road, but heavier. For trucks and long spans. |
+| Wood | 3.2 m | Light and cheap. Buckles early in compression. |
+| Steel | 4.25 m | Strong in tension and compression. |
+| Cable | 10 m | Tension only: it goes slack instead of pushing. Hang decks from pylons and overhangs. |
+
+A beam split into pieces still counts as one part toward the budget and par.
+
 ## How it works
 
 - `src/physics/world.ts` is a small-step XPBD solver. Members are compliant distance constraints. Stress is axial force over the member's capacity; compression capacity falls off with length, like buckling. A member breaks when its smoothed stress reaches 100%. The vehicle is four particles in the same world, and its wheel contacts push load into the road members' nodes.
-- `src/solutions.ts` holds a reference design per level, including the sloped levels. `tests/physics.test.ts` drives the real vehicle over each one, which guarantees all 12 levels are beatable within budget.
+- `src/solutions.ts` holds a reference design per level, including the sloped levels. `tests/physics.test.ts` drives the real vehicle over each one, which guarantees all 20 levels are beatable within budget. Each level's par equals its reference solution's part count.
 - `tests/storage.test.ts` runs the same behavior contract against both storage backends. The SQLite one runs against a real HTTP server on an in-memory database.
 - Rendering is Canvas 2D (`src/render/`). The UI is DOM overlays (`index.html`, `src/ui/ui.ts`). All sound is synthesized with WebAudio (`src/audio.ts`).
 
 ## Scoring
 
 Each level scores 500 for crossing, plus 100 per unused part, plus up to 400 for safety (low peak stress). You earn stars for crossing, for staying at or under par, and for a peak stress below 75%. A run starts with 3 lives, and each collapse costs one. A 3-star level earns a life back.
+
+The high-score screen has two boards:
+
+- **Runs**: campaign runs. A run is banked when it ends, whether you clear every level, lose your last life, or quit mid-run.
+- **Level records**: the best single-level score on each level across every profile, with your own best shown when someone else holds the record.

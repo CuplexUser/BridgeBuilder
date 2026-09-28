@@ -20,6 +20,10 @@ export interface Link {
   /** Bridge members come from the design; vehicle links hold the chassis together. */
   bridge: boolean;
   mat: MaterialId | null;
+  /** Cables: pushes nothing, so the constraint only acts when stretched. */
+  tensionOnly: boolean;
+  /** Vehicles drive on it. */
+  drivable: boolean;
   /** Index into Design.members, or -1. */
   member: number;
   broken: boolean;
@@ -107,6 +111,8 @@ export class World {
       compliance,
       bridge: false,
       mat: null,
+      tensionOnly: false,
+      drivable: false,
       member: -1,
       broken: false,
       strain: 0,
@@ -151,6 +157,7 @@ export class World {
         const len = Math.sqrt(dx * dx + dy * dy);
         if (len < 1e-9) continue;
         const C = len - l.rest;
+        if (C < 0 && l.tensionOnly) continue;
         const alpha = l.compliance * invH2;
         const dl = -C / (w + alpha);
         const nx = dx / len;
@@ -196,7 +203,7 @@ export class World {
       contact[p] = 0;
       for (let k = 0; k < links.length; k++) {
         const l = links[k];
-        if (l.broken || l.mat !== 'road') continue;
+        if (l.broken || !l.drivable) continue;
         this.contactSegment(p, r, x[l.a], y[l.a], x[l.b], y[l.b], l.a, l.b);
       }
       for (let k = 0; k < t.length; k += 4) {
@@ -282,6 +289,7 @@ export class World {
       let nx = x[b] - x[a];
       let ny = y[b] - y[a];
       const len = Math.hypot(nx, ny) || 1;
+      if (l.tensionOnly && len < l.rest) continue;
       nx /= len;
       ny /= len;
       const rel = (vx[b] - vx[a]) * nx + (vy[b] - vy[a]) * ny;
@@ -300,6 +308,7 @@ export class World {
       if (l.broken || !l.bridge) continue;
       const len = Math.hypot(x[l.b] - x[l.a], y[l.b] - y[l.a]);
       l.strain = (len - l.rest) / l.rest;
+      if (l.tensionOnly && l.strain < 0) l.strain = 0;
       const force = MATERIALS[l.mat!].EA * l.strain;
       const ratio = force >= 0 ? force / l.tensionLimit : force / l.compressionLimit;
       l.stress += (ratio - l.stress) * STRESS_SMOOTHING;
@@ -352,6 +361,8 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
     world.addLink(m.a, m.b, len / mat.EA, {
       bridge: true,
       mat: m.mat,
+      tensionOnly: mat.tensionOnly,
+      drivable: mat.drivable,
       member: i,
       tensionLimit: mat.tension,
       compressionLimit: compressionLimit(mat, len),
@@ -366,6 +377,12 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
   for (const [px, py] of level.piers) {
     world.terrain.push(px - 0.45, py, px + 0.45, py);
     world.terrain.push(px - 0.45, py, px - 0.45, deep, px + 0.45, py, px + 0.45, deep);
+  }
+  // Overhang undersides, in case a bouncing vehicle reaches them.
+  for (const o of level.overhangs ?? []) {
+    const edge = o.side === 'left' ? o.reach : W - o.reach;
+    const back = o.side === 'left' ? -60 : W + 60;
+    world.terrain.push(back, o.bottom, edge, o.bottom);
   }
 
   const vehicle = addVehicle(world, VEHICLES[level.vehicle]);

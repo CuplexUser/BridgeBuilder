@@ -12,6 +12,14 @@ export interface HighScore {
   date: string;
 }
 
+/** The best score anyone has on one level. */
+export interface LevelRecord {
+  level: number;
+  name: string;
+  score: number;
+  stars: number;
+}
+
 export interface Profile {
   id: string;
   name: string;
@@ -33,6 +41,8 @@ export interface Store {
   loadProgress(profileId: string): Promise<Progress>;
   saveProgress(profileId: string, p: Progress): Promise<void>;
   highScores(): Promise<HighScore[]>;
+  /** Record holder per level across all profiles, sorted by level. */
+  levelRecords(): Promise<LevelRecord[]>;
   /** Records a finished run. Returns its rank (0-based) in the top table, or -1. */
   submitScore(profileId: string, score: number, levels: number): Promise<number>;
 }
@@ -50,6 +60,19 @@ export function cleanName(name: string): string {
 
 export function totalStars(p: Progress): number {
   return Object.values(p.best).reduce((s, b) => s + b.stars, 0);
+}
+
+/** Keeps the best entry per level (higher score, then more stars; first seen wins ties). */
+export function bestPerLevel(entries: LevelRecord[]): LevelRecord[] {
+  const best = new Map<number, LevelRecord>();
+  for (const e of entries) {
+    const cur = best.get(e.level);
+    if (e.score <= 0) continue;
+    if (!cur || e.score > cur.score || (e.score === cur.score && e.stars > cur.stars)) best.set(e.level, e);
+  }
+  const out = [...best.values()];
+  out.sort((a, b) => a.level - b.level);
+  return out;
 }
 
 /** Inserts a score, keeps the table sorted and trimmed, returns its rank (0-based) or -1. */
@@ -151,6 +174,15 @@ export class LocalStore implements Store {
     return this.read().highs;
   }
 
+  async levelRecords(): Promise<LevelRecord[]> {
+    const d = this.read();
+    const all: LevelRecord[] = [];
+    for (const p of d.profiles) {
+      for (const [level, b] of Object.entries(d.progress[p.id]?.best ?? {})) all.push({ level: Number(level), name: p.name, score: b.score, stars: b.stars });
+    }
+    return bestPerLevel(all);
+  }
+
   async submitScore(profileId: string, score: number, levels: number): Promise<number> {
     const d = this.read();
     const p = d.profiles.find((x) => x.id === profileId);
@@ -204,6 +236,10 @@ export class ServerStore implements Store {
 
   highScores(): Promise<HighScore[]> {
     return this.req('GET', 'scores');
+  }
+
+  levelRecords(): Promise<LevelRecord[]> {
+    return this.req('GET', 'level-records');
   }
 
   async submitScore(profileId: string, score: number, levels: number): Promise<number> {

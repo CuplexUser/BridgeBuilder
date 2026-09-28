@@ -20,6 +20,10 @@ export const PAL = {
   sun: '#fff1c4',
   hillFar: '#6b4f7a',
   hillNear: '#3f3a5c',
+  mountain: '#8a6a8e',
+  tree: '#2c2a45',
+  tower: '#c86b4a',
+  towerDark: '#7a3a2a',
   grass: '#4f9d58',
   grassDark: '#2f6b3e',
   rock: '#6e5a52',
@@ -37,6 +41,10 @@ export const PAL = {
   woodDark: '#8a5a2b',
   steel: '#9fb4c8',
   steelDark: '#52667a',
+  heavy: '#2a2d33',
+  heavyEdge: '#8d939c',
+  cable: '#3b4450',
+  cableHi: '#c9d3de',
 
   // Stress
   ok: '#39d98a',
@@ -52,6 +60,8 @@ export const MATERIAL_CHALK: Record<string, string> = {
   road: '#f4f8ff',
   wood: '#ffc98a',
   steel: '#9fdcff',
+  heavy: '#d6dbe3',
+  cable: '#c7a6ff',
 };
 
 function hexToRgb(h: string): [number, number, number] {

@@ -1,15 +1,28 @@
-import { Design, gridPath, segmentsOverlap, type GridPt } from './design';
-import type { LevelDef } from './levels';
-import { MATERIALS, type MaterialId } from './physics/materials';
+import { Design, roadPath, segmentsOverlap, type GridPt } from './design';
+import { budgetOf, totalBudget, type LevelDef } from './levels';
+import { MATERIAL_ORDER, MATERIALS, type MaterialId } from './physics/materials';
 
 export interface DragState {
+  /** Start node index, or -1 when the drag starts from a point on a beam that will be split. */
   from: number;
+  sx: number;
+  sy: number;
+  /** Member split at the start point, or -1. */
+  fromSplit: number;
   tx: number;
   ty: number;
-  /** Grid points from the start node to the target; a road run spans several members. */
+  /** Member split at the target point, or -1. */
+  toSplit: number;
+  /** Points from the start to the target; a road run spans several members. */
   path: GridPt[];
   valid: boolean;
   reason: string;
+}
+
+export interface AttachPick {
+  member: number;
+  x: number;
+  y: number;
 }
 
 export interface EditorEvents {
@@ -18,6 +31,11 @@ export interface EditorEvents {
   remove(ax: number, ay: number, bx: number, by: number, mat: MaterialId): void;
   invalid(reason: string, x: number, y: number): void;
 }
+
+/** Existing joints and beam attach points win ties against bare grid points by this much. */
+const JOINT_BONUS = 0.2;
+/** A new joint this close to an existing one is refused as too fiddly. */
+const MIN_JOINT_GAP = 0.2;
 
 /** Build-mode rules: snapping, budgets, validity and undo. */
 export class Editor {
@@ -40,7 +58,9 @@ export class Editor {
         const d = Design.deserialize(saved);
         const anchors = d.nodes.filter((n) => n.anchor);
         const same = anchors.length === level.anchors.length && level.anchors.every(([x, y]) => anchors.some((n) => n.x === x && n.y === y));
-        if (same) this.design = d;
+        // Budgets may have been rebalanced since the design was saved.
+        const affordable = MATERIAL_ORDER.every((m) => d.count(m) <= budgetOf(level, m));
+        if (same && affordable) this.design = d;
       } catch {
         // Corrupt save: start fresh.
       }
@@ -51,16 +71,16 @@ export class Editor {
   }
 
   get topY(): number {
-    return Math.max(4, ...this.level.anchors.map((a) => a[1] + 3));
+    const towers = (this.level.towers ?? []).map((t) => t[2] + 1.5);
+    return Math.max(4, ...this.level.anchors.map((a) => a[1] + 3), ...towers);
   }
 
   remaining(mat: MaterialId): number {
-    return this.level.budget[mat] - this.design.count(mat);
+    return budgetOf(this.level, mat) - this.design.count(mat);
   }
 
   totalBudget(): number {
-    const b = this.level.budget;
-    return b.road + b.wood + b.steel;
+    return totalBudget(this.level);
   }
 
   tick(dt: number): void {
@@ -68,17 +88,18 @@ export class Editor {
   }
 
   setMaterial(mat: MaterialId): boolean {
-    if (this.level.budget[mat] <= 0) return false;
+    if (budgetOf(this.level, mat) <= 0) return false;
     this.mat = mat;
     if (this.drag) this.aim(this.drag.tx, this.drag.ty);
     return true;
   }
 
   pointAllowed(x: number, y: number): boolean {
+    const L = this.level;
     if (this.design.findNode(x, y) >= 0) return true;
-    if (x < 0 || x > this.level.width) return false;
-    if (y > this.topY || y <= this.level.waterY + 0.5) return false;
-    for (const [px, py] of this.level.piers) if (Math.abs(x - px) < 0.6 && y < py) return false;
+    if (x < -1e-9 || x > L.width + 1e-9) return false;
+    if (y > this.topY || y <= L.waterY + 0.5) return false;
+    for (const [px, py] of L.piers) if (Math.abs(x - px) < 0.6 && y < py) return false;
     return true;
   }
 
@@ -114,81 +135,132 @@ export class Editor {
     return best;
   }
 
+  /** Nearest point where a beam could be split to take a new joint. */
+  attachAt(wx: number, wy: number, radius: number, skip = -1): AttachPick | null {
+    let best: AttachPick | null = null;
+    let bd = radius;
+    this.design.members.forEach((_, i) => {
+      if (i === skip) return;
+      for (const [x, y] of this.design.attachPoints(i)) {
+        const d = Math.hypot(x - wx, y - wy);
+        if (d < bd && this.design.findNode(x, y) < 0) {
+          bd = d;
+          best = { member: i, x, y };
+        }
+      }
+    });
+    return best;
+  }
+
   begin(node: number): void {
     const n = this.design.nodes[node];
-    this.drag = { from: node, tx: n.x, ty: n.y, path: [[n.x, n.y]], valid: false, reason: '' };
+    this.drag = { from: node, sx: n.x, sy: n.y, fromSplit: -1, tx: n.x, ty: n.y, toSplit: -1, path: [[n.x, n.y]], valid: false, reason: '' };
   }
 
-  /** Road is laid in runs: one drag can span as many pieces as the budget allows. */
+  /** Starts a drag from a point on a beam; the beam is split there when the member is placed. */
+  beginSplit(p: AttachPick): void {
+    this.drag = { from: -1, sx: p.x, sy: p.y, fromSplit: p.member, tx: p.x, ty: p.y, toSplit: -1, path: [[p.x, p.y]], valid: false, reason: '' };
+  }
+
+  /** Starts a drag at a node, or failing that at a beam attach point. Returns what was picked. */
+  beginAt(wx: number, wy: number, nodeRadius: number, attachRadius: number): 'node' | 'split' | null {
+    const node = this.nodeAt(wx, wy, nodeRadius);
+    if (node >= 0) {
+      this.begin(node);
+      return 'node';
+    }
+    const p = this.attachAt(wx, wy, attachRadius);
+    if (p) {
+      this.beginSplit(p);
+      return 'split';
+    }
+    return null;
+  }
+
+  /** Deck materials are laid in runs: one drag can span as many pieces as the budget allows. */
   private get runs(): boolean {
-    return this.mat === 'road';
+    return MATERIALS[this.mat].runs;
   }
 
-  /** Snaps a raw world position to the best reachable grid point for the current drag. */
+  /** Snaps a raw world position to the best reachable grid point, joint or beam attach point. */
   aim(wx: number, wy: number): void {
     const drag = this.drag;
     if (!drag) return;
-    const f = this.design.nodes[drag.from];
+    const fx = drag.sx;
+    const fy = drag.sy;
     const maxLen = MATERIALS[this.mat].maxLen;
     const pieces = this.runs ? Math.max(1, this.remaining(this.mat)) : 1;
     const reach = maxLen * pieces;
-    const dx = wx - f.x;
-    const dy = wy - f.y;
+    const dx = wx - fx;
+    const dy = wy - fy;
     const d = Math.hypot(dx, dy);
     let px = wx;
     let py = wy;
     if (d > reach) {
-      px = f.x + (dx / d) * reach;
-      py = f.y + (dy / d) * reach;
+      px = fx + (dx / d) * reach;
+      py = fy + (dy / d) * reach;
     }
-    let bx = f.x;
-    let by = f.y;
+    let bx = fx;
+    let by = fy;
+    let split = -1;
     let best = Infinity;
-    for (let gx = Math.floor(px) - 1; gx <= Math.ceil(px) + 1; gx++) {
-      for (let gy = Math.floor(py) - 1; gy <= Math.ceil(py) + 1; gy++) {
-        const len = Math.hypot(gx - f.x, gy - f.y);
-        if (len > reach + 1e-9 || len === 0) continue;
-        const score = Math.hypot(gx - px, gy - py);
-        if (score < best) {
-          best = score;
-          bx = gx;
-          by = gy;
-        }
+    const consider = (x: number, y: number, bonus: number, member: number) => {
+      const len = Math.hypot(x - fx, y - fy);
+      if (len > reach + 1e-9 || len < 1e-6) return;
+      const score = Math.hypot(x - px, y - py) - bonus;
+      if (score < best) {
+        best = score;
+        bx = x;
+        by = y;
+        split = member;
       }
+    };
+    for (let gx = Math.floor(px) - 1; gx <= Math.ceil(px) + 1; gx++) {
+      for (let gy = Math.floor(py) - 1; gy <= Math.ceil(py) + 1; gy++) consider(gx, gy, 0, -1);
     }
+    for (const n of this.design.nodes) {
+      if (Math.abs(n.x - px) < 1.5 && Math.abs(n.y - py) < 1.5) consider(n.x, n.y, JOINT_BONUS, -1);
+    }
+    const near = this.attachAt(px, py, 1.5, drag.fromSplit);
+    if (near) consider(near.x, near.y, JOINT_BONUS, near.member);
     drag.tx = bx;
     drag.ty = by;
-    const run = this.runs ? gridPath(f.x, f.y, bx, by, maxLen, pieces) : null;
+    drag.toSplit = split;
+    const run = this.runs ? roadPath(fx, fy, bx, by, maxLen, pieces) : null;
     drag.path = run ?? [
-      [f.x, f.y],
+      [fx, fy],
       [bx, by],
     ];
-    drag.reason = this.problem(drag.path);
+    drag.reason = this.problem(drag);
     drag.valid = drag.reason === '';
   }
 
-  private problem(path: GridPt[]): string {
+  private problem(drag: DragState): string {
+    const path = drag.path;
     const [sx, sy] = path[0];
     const [ex, ey] = path[path.length - 1];
     if (sx === ex && sy === ey) return 'Too short';
     const segs = path.length - 1;
     const left = this.remaining(this.mat);
-    const name = MATERIALS[this.mat].name.toLowerCase();
+    const mat = MATERIALS[this.mat];
+    const name = mat.name.toLowerCase();
     if (left <= 0) return `Out of ${name}`;
     if (segs > left) return `Only ${left} ${name} left`;
     const { nodes, members } = this.design;
     for (let i = 0; i < segs; i++) {
       const [ax, ay] = path[i];
       const [bx, by] = path[i + 1];
-      if (Math.hypot(bx - ax, by - ay) > MATERIALS[this.mat].maxLen + 1e-9) return 'Too long';
-      if (!this.pointAllowed(bx, by)) return 'Out of bounds';
+      const last = i === segs - 1;
+      if (Math.hypot(bx - ax, by - ay) > mat.maxLen + 1e-9) return 'Too long';
+      if (!(last && drag.toSplit >= 0) && !this.pointAllowed(bx, by)) return 'Out of bounds';
       const ia = this.design.findNode(ax, ay);
       const ib = this.design.findNode(bx, by);
+      if (ib < 0 && nodes.some((n) => Math.hypot(n.x - bx, n.y - by) < MIN_JOINT_GAP)) return 'Too close to a joint';
       if (ia >= 0 && ib >= 0 && this.design.findMember(ia, ib) >= 0) return 'Already joined';
       for (const m of members) {
         const c = nodes[m.a];
         const e = nodes[m.b];
-        if (segmentsOverlap(ax, ay, bx, by, c.x, c.y, e.x, e.y)) return m.mat === 'road' ? 'Overlaps the road' : 'Overlaps a beam';
+        if (segmentsOverlap(ax, ay, bx, by, c.x, c.y, e.x, e.y)) return MATERIALS[m.mat].drivable ? 'Overlaps the road' : 'Overlaps a beam';
       }
     }
     return '';
@@ -198,16 +270,22 @@ export class Editor {
   commit(): number {
     const drag = this.drag;
     if (!drag) return -1;
-    const f = this.design.nodes[drag.from];
     if (!drag.valid) {
-      if (drag.tx !== f.x || drag.ty !== f.y) this.ev.invalid(drag.reason, drag.tx, drag.ty);
+      if (drag.tx !== drag.sx || drag.ty !== drag.sy) this.ev.invalid(drag.reason, drag.tx, drag.ty);
       this.drag = null;
       return -1;
     }
     this.snapshot();
+    // Splits keep existing member indices stable: the second piece is appended.
+    const split = (member: number, x: number, y: number) => {
+      const node = this.design.splitMember(member, x, y);
+      this.ages.push(this.ages[member] ?? 10);
+      return node;
+    };
+    let from = drag.fromSplit >= 0 ? split(drag.fromSplit, drag.sx, drag.sy) : drag.from;
+    if (drag.toSplit >= 0) split(drag.toSplit, drag.tx, drag.ty);
     const path = drag.path;
     const count = path.length - 1;
-    let from = drag.from;
     for (let i = 0; i < count; i++) {
       const [ax, ay] = path[i];
       const [bx, by] = path[i + 1];

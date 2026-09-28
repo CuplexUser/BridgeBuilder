@@ -1,7 +1,7 @@
-import type { LevelDef } from '../levels';
+import { budgetOf, type LevelDef } from '../levels';
 import { MATERIAL_ORDER, MATERIALS, type MaterialId } from '../physics/materials';
 import type { LevelScore } from '../scoring';
-import type { HighScore, Profile, Progress } from '../storage';
+import type { HighScore, LevelRecord, Profile, Progress } from '../storage';
 
 export type ScreenId = 'title' | 'profile' | 'levels' | 'scores' | 'pause' | 'result' | 'collapse' | 'over';
 
@@ -43,7 +43,7 @@ export class Ui {
       const b = document.createElement('button');
       b.className = 'mat';
       b.dataset.mat = id;
-      b.innerHTML = `<kbd>${i + 1}</kbd><i></i><span>${MATERIALS[id].name}</span><b>0</b>`;
+      b.innerHTML = `<kbd>${i + 1}</kbd><i></i><span class="full">${MATERIALS[id].name}</span><span class="short">${MATERIALS[id].short}</span><b>0</b>`;
       mats.appendChild(b);
       this.matBtns.set(id, b);
     });
@@ -98,9 +98,11 @@ export class Ui {
   setMaterials(level: LevelDef, remaining: (m: MaterialId) => number, active: MaterialId): void {
     for (const [id, b] of this.matBtns) {
       const r = remaining(id);
-      b.querySelector('b')!.textContent = level.budget[id] > 0 ? `${r}/${level.budget[id]}` : '—';
+      const budget = budgetOf(level, id);
+      b.querySelector('b')!.textContent = budget > 0 ? `${r}/${budget}` : '—';
       b.classList.toggle('active', id === active);
-      b.classList.toggle('locked', level.budget[id] <= 0);
+      // Materials a level doesn't offer are hidden so the toolbar stays compact on phones.
+      b.classList.toggle('hidden', budget <= 0);
       b.classList.toggle('empty', r <= 0);
     }
   }
@@ -180,19 +182,49 @@ export class Ui {
     }
   }
 
-  scoreTable(highs: HighScore[], tbodyId: 'score-rows' | 'over-rows', highlight = -1): void {
+  scoreTable(highs: HighScore[], tbodyId: 'score-rows' | 'over-rows', highlight = -1, me = ''): void {
     const body = $(tbodyId);
     body.innerHTML = '';
+    if (tbodyId === 'score-rows') this.boardTab('runs', 'Campaign runs. A run is banked when it ends, including when you quit.');
     if (highs.length === 0) {
-      body.innerHTML = '<tr><td class="empty" colspan="4">No runs yet. Be the first engineer on the board.</td></tr>';
+      body.innerHTML = '<tr><td class="empty" colspan="4">No runs yet. Press PLAY and be the first engineer on the board.</td></tr>';
       return;
     }
     highs.forEach((h, i) => {
       const tr = document.createElement('tr');
       if (i === highlight) tr.className = 'me';
+      else if (me && h.name.toLowerCase() === me.toLowerCase()) tr.className = 'mine';
       tr.innerHTML = `<td>${i + 1}.</td><td>${escapeHtml(h.name)}</td><td>L${h.levels}</td><td>${h.score.toLocaleString('en-US')}</td>`;
+      tr.title = h.date;
       body.appendChild(tr);
     });
+  }
+
+  /** One row per level: the record holder, plus your own best when someone else holds it. */
+  levelRecordTable(levels: LevelDef[], records: LevelRecord[], mine: Progress, me: string): void {
+    this.boardTab('levels', 'Best single-level score across every profile. Beat a record in practice or in a run.');
+    const body = $('score-rows');
+    body.innerHTML = '';
+    for (const l of levels) {
+      const r = records.find((x) => x.level === l.id);
+      const own = mine.best[l.id];
+      const tr = document.createElement('tr');
+      const holder = !!r && r.name.toLowerCase() === me.toLowerCase();
+      if (holder) tr.className = 'mine';
+      const you = own && !holder ? `<small>you ${own.score.toLocaleString('en-US')}</small>` : '';
+      tr.innerHTML = r
+        ? `<td>${String(l.id).padStart(2, '0')}</td><td>${escapeHtml(r.name)}${you}</td><td class="st">${starText(r.stars)}</td><td>${r.score.toLocaleString('en-US')}</td>`
+        : `<td>${String(l.id).padStart(2, '0')}</td><td class="open">${escapeHtml(l.name)}: open</td><td></td><td>—</td>`;
+      body.appendChild(tr);
+    }
+  }
+
+  private boardTab(tab: 'runs' | 'levels', note: string): void {
+    $('tab-runs').classList.toggle('on', tab === 'runs');
+    $('tab-levels').classList.toggle('on', tab === 'levels');
+    $('tab-runs').setAttribute('aria-selected', String(tab === 'runs'));
+    $('tab-levels').setAttribute('aria-selected', String(tab === 'levels'));
+    $('board-note').textContent = note;
   }
 
   result(level: LevelDef, s: LevelScore, peak: number, runLine: string, canRetry: boolean, isLast: boolean): void {
@@ -246,6 +278,10 @@ export class Ui {
   overRank(rank: number): void {
     $('over-rank').textContent = rank >= 0 ? `New high score! #${rank + 1} on the board.` : '';
   }
+}
+
+function starText(n: number): string {
+  return '★'.repeat(n) + '☆'.repeat(3 - n);
 }
 
 function escapeHtml(s: string): string {

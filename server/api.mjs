@@ -74,6 +74,11 @@ export function createApi(db) {
       FROM scores s JOIN profiles p ON p.id = s.profile_id
       ORDER BY s.score DESC, s.id ASC LIMIT ${MAX_HIGHS}`),
     insertScore: db.prepare('INSERT INTO scores (profile_id, score, levels) VALUES (?, ?, ?)'),
+    levelRecords: db.prepare(`
+      SELECT l.level_id AS level, p.name, l.best_score AS score, l.stars
+      FROM level_progress l JOIN profiles p ON p.id = l.profile_id
+      WHERE l.best_score > 0
+      ORDER BY l.level_id, l.best_score DESC, l.stars DESC, p.id ASC`),
   };
 
   const profileOut = (p) => ({ id: String(p.id), name: p.name, unlocked: p.unlocked, stars: q.starsFor.get(p.id).stars });
@@ -133,6 +138,20 @@ export function createApi(db) {
       },
     ],
     ['GET', /^scores$/, () => q.topScores.all().map(({ id: _id, ...s }) => s)],
+    [
+      'GET',
+      /^level-records$/,
+      () => {
+        const seen = new Set();
+        const out = [];
+        for (const r of q.levelRecords.all()) {
+          if (seen.has(r.level)) continue;
+          seen.add(r.level);
+          out.push({ level: r.level, name: r.name, score: r.score, stars: r.stars });
+        }
+        return out;
+      },
+    ],
     [
       'POST',
       /^scores$/,

@@ -50,6 +50,19 @@ function contract(name: string, make: () => Store) {
       expect(highs[0]).toMatchObject({ name: 'Scorer', score: 999999, levels: 12 });
       expect(await s.submitScore(p.id, 0, 0)).toBe(-1);
     });
+
+    it('reports the record holder for each level', async () => {
+      const s = make();
+      const a = await s.openProfile('Recorder A');
+      const b = await s.openProfile('Recorder B');
+      await s.saveProgress(a.id, { unlocked: 3, best: { 41: { score: 900, stars: 2 }, 42: { score: 500, stars: 1 } }, designs: {} });
+      await s.saveProgress(b.id, { unlocked: 3, best: { 41: { score: 1200, stars: 3 } }, designs: {} });
+      const recs = (await s.levelRecords()).filter((r) => r.level >= 41 && r.level <= 42);
+      expect(recs).toEqual([
+        { level: 41, name: 'Recorder B', score: 1200, stars: 3 },
+        { level: 42, name: 'Recorder A', score: 500, stars: 1 },
+      ]);
+    });
   });
 }
 

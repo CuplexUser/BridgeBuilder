@@ -1,5 +1,5 @@
 import type { Design } from './design';
-import type { LevelDef } from './levels';
+import { totalBudget, type LevelDef } from './levels';
 
 export interface LevelScore {
   used: number;
@@ -19,8 +19,8 @@ export const SAFETY_MAX = 400;
 export const SAFE_STRESS = 0.75;
 
 export function scoreLevel(level: LevelDef, design: Design, peakStress: number): LevelScore {
-  const used = design.members.length;
-  const budget = level.budget.road + level.budget.wood + level.budget.steel;
+  const used = design.parts();
+  const budget = totalBudget(level);
   const unused = Math.max(0, budget - used);
   const partsBonus = unused * PART_BONUS;
   const safetyBonus = Math.round(SAFETY_MAX * Math.max(0, Math.min(1, 1 - peakStress)));

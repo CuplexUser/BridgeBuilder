@@ -102,7 +102,12 @@
     <section id="scr-scores" class="screen hidden">
       <div class="panel">
         <h2>High Scores</h2>
-        <table class="scores"><tbody id="score-rows"></tbody></table>
+        <div class="tabs" role="tablist">
+          <button class="tab on" role="tab" data-act="board-runs" id="tab-runs">RUNS</button>
+          <button class="tab" role="tab" data-act="board-levels" id="tab-levels">LEVEL RECORDS</button>
+        </div>
+        <p class="board-note" id="board-note"></p>
+        <div class="board-scroll"><table class="scores"><tbody id="score-rows"></tbody></table></div>
         <div class="row"><button class="btn" data-act="back">BACK <kbd>Esc</kbd></button></div>
       </div>
     </section>

@@ -1,7 +1,7 @@
 import { sfx } from './audio';
-import { Editor } from './editor';
+import { Editor, type AttachPick } from './editor';
 import { DebrisField, Particles, PK, Shake } from './fx/particles';
-import { bankY, goalX, LEVELS, START_X, type LevelDef } from './levels';
+import { bankY, budgetOf, goalX, LEVELS, START_X, type LevelDef } from './levels';
 import { MATERIAL_ORDER, type MaterialId } from './physics/materials';
 import { STEP, TestRun } from './physics/world';
 import { Camera, type Rect } from './render/camera';
@@ -56,6 +56,7 @@ export class Game {
   private demoEnd = 0;
   private splashed = new WeakSet<TestRun>();
   private attempts = 0;
+  private board: 'runs' | 'levels' = 'runs';
 
   private time = 0;
   private develop = 0;
@@ -67,11 +68,14 @@ export class Game {
   private anyBreak = false;
   private wheelAngles: [number, number] = [0, 0];
   private lastWheelX: [number, number] = [0, 0];
+  /** Fastest downward speed of each wheel since it last touched something. */
+  private wheelFall: [number, number] = [0, 0];
   private floats: FloatText[] = [];
   private resultAnim: { t: number; score: LevelScore; shown: number; stars: number } | null = null;
 
   private hoverNode = -1;
   private hoverMember = -1;
+  private hoverAttach: AttachPick | null = null;
   private keyboardMode = false;
   private pointers = new Map<number, PointerInfo>();
   private dragging = false;
@@ -198,7 +202,8 @@ export class Game {
     this.editor = new Editor(level, this.editorEvents(), saved);
     this.editor.cursorX = 0;
     this.editor.cursorY = 0;
-    if (level.budget.road > 0) this.editor.setMaterial('road');
+    const first = MATERIAL_ORDER.find((m) => budgetOf(level, m) > 0);
+    if (first) this.editor.setMaterial(first);
     this.state = 'build';
     this.developTarget = 0;
     this.develop = 0;
@@ -349,11 +354,42 @@ export class Game {
 
   private enterScores(): void {
     this.state = 'scores';
-    this.ui.scoreTable(this.highs, 'score-rows');
     this.ui.show('scores');
-    void this.refreshHighs().then((h) => {
-      if (this.state === 'scores') this.ui.scoreTable(h, 'score-rows');
-    });
+    this.showBoard(this.board);
+  }
+
+  private showBoard(tab: 'runs' | 'levels'): void {
+    this.board = tab;
+    const me = this.profile?.name ?? '';
+    if (tab === 'runs') {
+      this.ui.scoreTable(this.highs, 'score-rows', -1, me);
+      void this.refreshHighs().then((h) => {
+        if (this.state === 'scores' && this.board === 'runs') this.ui.scoreTable(h, 'score-rows', -1, me);
+      });
+    } else {
+      this.ui.levelRecordTable(LEVELS, [], this.data, me);
+      void this.store
+        .levelRecords()
+        .catch(() => [])
+        .then((r) => {
+          if (this.state === 'scores' && this.board === 'levels') this.ui.levelRecordTable(LEVELS, r, this.data, me);
+        });
+    }
+  }
+
+  /** Quitting mid-run still banks the score earned so far on the high-score table. */
+  private async bankAbandonedRun(): Promise<void> {
+    if (this.mode !== 'run' || this.runScore <= 0 || !this.profile) return;
+    const score = this.runScore;
+    this.runScore = 0;
+    try {
+      const rank = await this.store.submitScore(this.profile.id, score, this.levelsCleared);
+      await this.refreshHighs();
+      this.ui.showToast(rank >= 0 ? `Run banked: ${score.toLocaleString('en-US')} points, #${rank + 1} on the board.` : `Run banked: ${score.toLocaleString('en-US')} points.`, 3200);
+      if (rank >= 0) sfx.star(2);
+    } catch {
+      this.ui.showToast('Could not save the score.');
+    }
   }
 
   private setPaused(p: boolean): void {
@@ -434,7 +470,16 @@ export class Game {
         break;
       case 'quit':
         sfx.ui();
+        if (this.state !== 'over') void this.bankAbandonedRun();
         this.enterTitle();
+        break;
+      case 'board-runs':
+        sfx.ui();
+        this.showBoard('runs');
+        break;
+      case 'board-levels':
+        sfx.ui();
+        this.showBoard('levels');
         break;
       case 'restart':
         sfx.select();
@@ -456,7 +501,7 @@ export class Game {
 
   private cycleMaterial(dir: number): void {
     if (!this.editor) return;
-    const avail = MATERIAL_ORDER.filter((m) => this.level.budget[m] > 0);
+    const avail = MATERIAL_ORDER.filter((m) => budgetOf(this.level, m) > 0);
     const i = avail.indexOf(this.editor.mat);
     this.selectMaterial(avail[(i + dir + avail.length) % avail.length]);
   }
@@ -590,6 +635,21 @@ export class Game {
       this.lastWheelX[i] = w.x[p];
     });
 
+    // Dust kicked up by the tires, and a puff when a wheel lands hard.
+    [v.rearWheel, v.frontWheel].forEach((p, i) => {
+      const onGround = w.contact[p] === 1;
+      const speed = Math.abs(w.vx[p]);
+      const r = v.def.wheelR;
+      if (onGround && this.wheelFall[i] < -3) {
+        this.particles.burst(PK.Dust, w.x[p], w.y[p] - r, 10, 2.2, 0.8, 0.14, ['#d9cbb8', '#efe4d2']);
+        if (!this.demo) this.shake.add(0.08);
+      }
+      if (onGround && speed > 1.5 && Math.random() < dt * 5) {
+        this.particles.spawn(PK.Dust, w.x[p] - r * 0.8, w.y[p] - r * 0.8, -0.6 - Math.random(), 0.3 + Math.random() * 0.4, 0.7, 0.1, '#e3d6c2');
+      }
+      this.wheelFall[i] = onGround ? 0 : Math.min(this.wheelFall[i], w.vy[p]);
+    });
+
     if (sim.splashed && !this.splashed.has(sim)) {
       this.splashed.add(sim);
       const x = (w.x[v.rearWheel] + w.x[v.frontWheel]) / 2;
@@ -614,8 +674,10 @@ export class Game {
       this.debris.add(b.ax, b.ay, b.bx, b.by, b.vx, b.vy, mat);
       if (mat === 'wood') {
         this.particles.burst(PK.Splinter, b.x, b.y, 22, 7, 1.2, 0.18, [PAL.wood, PAL.woodDark, '#e8b27a'], 2);
-      } else if (mat === 'steel') {
-        this.particles.burst(PK.Spark, b.x, b.y, 30, 12, 0.6, 0.04, ['#fff3b0', PAL.gold, '#ff9d3b'], 2);
+      } else if (mat === 'steel' || mat === 'cable') {
+        this.particles.burst(PK.Spark, b.x, b.y, mat === 'cable' ? 18 : 30, 12, 0.6, 0.04, ['#fff3b0', PAL.gold, '#ff9d3b'], 2);
+      } else if (mat === 'heavy') {
+        this.particles.burst(PK.Splinter, b.x, b.y, 22, 6, 1.3, 0.22, [PAL.concrete, PAL.concreteDark, PAL.heavy], 2);
       } else {
         this.particles.burst(PK.Splinter, b.x, b.y, 16, 5, 1.2, 0.2, [PAL.road, '#555a63', PAL.roadLine], 2);
       }
@@ -625,7 +687,7 @@ export class Game {
         sfx.crack(mat);
         this.shake.add(0.45);
         this.flash = Math.max(this.flash, 0.25);
-        this.float(b.x, b.y + 0.8, mat === 'steel' ? 'CLANG!' : 'SNAP!', PAL.bad, 24, 0.9);
+        this.float(b.x, b.y + 0.8, mat === 'steel' ? 'CLANG!' : mat === 'cable' ? 'PING!' : mat === 'heavy' ? 'CRUNCH!' : 'SNAP!', PAL.bad, 24, 0.9);
         if (!this.anyBreak) this.slowmo = 0.7;
       }
       this.anyBreak = true;
@@ -700,7 +762,7 @@ export class Game {
   }
 
   private engineBase(): number {
-    return { car: 70, van: 58, truck: 44, bus: 40 }[this.level.vehicle];
+    return { car: 70, van: 58, truck: 44, bus: 40, semi: 34 }[this.level.vehicle];
   }
 
   private resetWheels(run: TestRun): void {
@@ -775,6 +837,7 @@ export class Game {
       develop: this.develop,
       hoverNode: this.state === 'build' ? this.hoverNode : -1,
       hoverMember: this.state === 'build' ? this.hoverMember : -1,
+      hoverAttach: this.state === 'build' ? this.hoverAttach : null,
       showCursor: this.keyboardMode && this.state === 'build' && !this.paused,
       showHint: this.state === 'build' && !!this.level.hint && this.attempts === 0,
       time: this.time,
@@ -820,6 +883,7 @@ export class Game {
     c.addEventListener('pointercancel', (e) => this.pointerUp(e, true));
     c.addEventListener('pointerleave', () => {
       this.hoverNode = this.hoverMember = -1;
+      this.hoverAttach = null;
     });
     c.addEventListener('contextmenu', (e) => e.preventDefault());
     c.addEventListener(
@@ -873,12 +937,13 @@ export class Game {
         return;
       }
       const touch = e.pointerType === 'touch';
-      const node = ed.nodeAt(wx, wy, this.pickRadius(touch ? 26 : 18, 0.4));
-      if (node >= 0) {
-        ed.begin(node);
+      const picked = ed.beginAt(wx, wy, this.pickRadius(touch ? 26 : 18, 0.4), this.pickRadius(touch ? 18 : 12, 0.3));
+      if (picked) {
         ed.aim(wx, wy);
         this.dragging = true;
-        this.hoverNode = node;
+        this.hoverNode = ed.drag!.from;
+        // A tap on a beam attach point that never moves still deletes the beam.
+        this.pendingDelete = picked === 'split' ? ed.drag!.fromSplit : -1;
         sfx.tick();
         return;
       }
@@ -916,6 +981,7 @@ export class Game {
     const [wx, wy] = this.worldAt(e.clientX, e.clientY);
     const ed = this.editor;
     if (this.dragging && ed?.drag) {
+      if (this.pendingDelete >= 0 && p && Math.hypot(e.clientX - p.startX, e.clientY - p.startY) > 10) this.pendingDelete = -1;
       const before = `${ed.drag.tx},${ed.drag.ty}`;
       ed.aim(wx, wy);
       if (`${ed.drag.tx},${ed.drag.ty}` !== before) sfx.tick();
@@ -932,6 +998,7 @@ export class Game {
     if (this.state === 'build' && ed && e.pointerType === 'mouse' && !p) {
       this.hoverNode = ed.nodeAt(wx, wy, this.pickRadius(18, 0.4));
       this.hoverMember = this.hoverNode < 0 ? ed.memberAt(wx, wy, this.pickRadius(10, 0.2)) : -1;
+      this.hoverAttach = this.hoverNode < 0 ? ed.attachAt(wx, wy, this.pickRadius(12, 0.3)) : null;
     }
   }
 
@@ -947,7 +1014,7 @@ export class Game {
     }
     const ed = this.editor;
     if (this.dragging && ed) {
-      if (cancelled) ed.cancel();
+      if (cancelled || this.pendingDelete >= 0) ed.cancel();
       else ed.commit();
       this.dragging = false;
       if (e.pointerType !== 'mouse') this.hoverNode = -1;
@@ -997,8 +1064,14 @@ export class Game {
       case 'profile':
         return;
       case 'levels':
+        if (k === 'Escape' || k === 'Backspace') this.act('back');
+        return;
       case 'scores':
         if (k === 'Escape' || k === 'Backspace') this.act('back');
+        else if (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'Tab') {
+          e.preventDefault();
+          this.act(this.board === 'runs' ? 'board-levels' : 'board-runs');
+        }
         return;
       case 'result':
         if (k === 'Enter' || k === ' ' || lower === 'n') {
@@ -1101,9 +1174,7 @@ export class Game {
           ed.aim(ed.cursorX, ed.cursorY);
         }
       } else {
-        const n = ed.design.findNode(ed.cursorX, ed.cursorY);
-        if (n >= 0) {
-          ed.begin(n);
+        if (ed.beginAt(ed.cursorX, ed.cursorY, 0.05, 0.45)) {
           ed.aim(ed.cursorX, ed.cursorY);
           sfx.tick();
         } else {
@@ -1126,7 +1197,7 @@ export class Game {
       else sfx.invalid();
       return;
     }
-    if (k === '1' || k === '2' || k === '3') {
+    if (k >= '1' && k <= String(MATERIAL_ORDER.length) && k.length === 1) {
       this.selectMaterial(MATERIAL_ORDER[Number(k) - 1]);
       return;
     }
