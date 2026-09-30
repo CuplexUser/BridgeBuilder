@@ -34,11 +34,21 @@ function contract(name: string, make: () => Store) {
       const got = await s.loadProgress(a.id);
       expect(got.unlocked).toBe(4);
       expect(got.best[1]).toEqual({ score: 900, stars: 3 });
+      expect(got.best[2].bonus).toBeFalsy();
       expect(got.designs[1]).toBe('{"n":[],"m":[]}');
       expect((await s.loadProgress(b.id)).unlocked).toBe(1);
       const listed = (await s.listProfiles()).find((p) => p.id === a.id)!;
       expect(listed.stars).toBe(5);
       expect(listed.score).toBe(1600);
+    });
+
+    it('round-trips a met bonus goal', async () => {
+      const s = make();
+      const p = await s.openProfile('Bonus Hunter');
+      await s.saveProgress(p.id, { unlocked: 1, best: { 3: { score: 1800, stars: 3, bonus: true }, 4: { score: 900, stars: 1 } }, designs: {} });
+      const got = await s.loadProgress(p.id);
+      expect(got.best[3]).toEqual({ score: 1800, stars: 3, bonus: true });
+      expect(got.best[4].bonus).toBeFalsy();
     });
 
     it('keeps a sorted challenge table per chapter', async () => {

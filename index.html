@@ -17,7 +17,10 @@
     <header id="hud" class="hidden">
       <div class="hud-block">
         <div class="hud-level"><span id="hud-num">01</span><span id="hud-name">First Crossing</span></div>
-        <div class="hud-sub"><span id="hud-lives" class="lives"></span><span id="hud-score" class="hud-score"></span></div>
+        <div class="hud-sub">
+          <span id="hud-lives" class="lives"></span><span id="hud-score" class="hud-score"></span
+          ><span class="hud-goal" id="hud-goal" title="Bonus goal: meet it for the bonus star"></span>
+        </div>
       </div>
       <div class="hud-block center">
         <div class="hud-label">BUDGET</div>
@@ -158,7 +161,7 @@
     <section id="scr-result" class="screen dim hidden">
       <div class="panel result">
         <div class="banner good">BRIDGE HOLDS!</div>
-        <div class="stars" id="res-stars"><i></i><i></i><i></i></div>
+        <div class="stars" id="res-stars"><i></i><i></i><i></i><i class="bonus" title="Bonus goal"></i></div>
         <div class="star-notes" id="res-notes"></div>
         <table class="breakdown"><tbody id="res-rows"></tbody></table>
         <div class="total"><span>LEVEL SCORE</span><b id="res-total">0</b></div>

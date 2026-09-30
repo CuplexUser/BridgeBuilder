@@ -1,12 +1,13 @@
 import type { AttachPick, Editor } from '../editor';
-import type { Debris, DebrisField, Particles } from '../fx/particles';
-import { PK } from '../fx/particles';
+import type { Debris, DebrisField, Particles, Whip } from '../fx/particles';
+import { PK, WHIP_LIFE } from '../fx/particles';
 import { bankY, goalX, START_X, type LevelDef, type Overhang } from '../levels';
 import { MATERIALS, type MaterialId } from '../physics/materials';
 import { VEHICLES, type VehicleDef } from '../physics/vehicles';
 import type { Link, TestRun } from '../physics/world';
 import type { Camera } from './camera';
 import { MATERIAL_CHALK, PAL, stressColor } from './palette';
+import { THEMES, type Land, type Theme } from './themes';
 import { drawBody, drawWheel } from './vehicles';
 
 export interface FloatText {
@@ -37,6 +38,8 @@ export interface SceneView {
 }
 
 const TAU = Math.PI * 2;
+/** Shades of broken concrete deck. */
+const CHUNK_SHADES = ['#8d939c', '#6f757e', '#a4a9b1', '#5d6168'];
 const MEMBER_WIDTH: Record<MaterialId, number> = { road: 0.3, heavy: 0.36, wood: 0.17, steel: 0.15, cable: 0.06 };
 
 /** Deterministic 0..1 noise so scenery stays put between frames. */
@@ -66,6 +69,47 @@ function overhangPoly(o: Overhang, W: number): [number, number][] {
   ];
 }
 
+/** Profile of one land layer. */
+type Ridge = 'round' | 'peaks' | 'mesa' | 'dunes' | 'city';
+
+/** Per land type: the shapes of the far, middle and near layers, and how tall each is. */
+const LAND_LAYERS: Record<Land, [Ridge, Ridge, Ridge, number, number, number]> = {
+  hills: ['peaks', 'round', 'round', 1, 1, 1],
+  mesa: ['mesa', 'mesa', 'round', 1.1, 0.9, 0.55],
+  flat: ['round', 'round', 'round', 0.45, 0.35, 0.3],
+  dunes: ['round', 'round', 'dunes', 0.7, 0.5, 0.8],
+  peaks: ['peaks', 'peaks', 'round', 1.7, 1.25, 0.9],
+  city: ['city', 'city', 'city', 1.3, 1, 0.55],
+};
+
+/** Height of a land layer at u, in units of its amplitude. */
+function ridge(shape: Ridge, u: number, seed: number): number {
+  const round = 0.6 + 0.4 * Math.sin(u + seed) + 0.5 * Math.sin(u * 2.3 + seed * 2);
+  switch (shape) {
+    case 'peaks':
+      // Sharper ridges from a folded sine.
+      return round + 0.35 * (1 - Math.abs(Math.sin(u * 3.1 + seed)));
+    case 'mesa': {
+      // Flat tops and steep sides: a clipped, steepened wave.
+      const w = Math.sin(u * 0.9 + seed) + 0.35 * Math.sin(u * 2.1 + seed * 3);
+      return 0.25 + 1.05 * Math.min(1, Math.max(0, (w - 0.1) * 3)) + 0.03 * Math.sin(u * 9 + seed);
+    }
+    case 'dunes':
+      return 0.45 + 0.35 * Math.sin(u * 0.7 + seed) + 0.12 * Math.sin(u * 1.9 + seed * 2);
+    default:
+      return round;
+  }
+}
+
+/** True when p lies on segment a→b strictly between its ends. */
+function inside(p: [number, number], a: [number, number], b: [number, number]): boolean {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const L2 = dx * dx + dy * dy;
+  const t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2;
+  return Math.abs((p[0] - a[0]) * dy - (p[1] - a[1]) * dx) < 1e-6 && t > 1e-6 && t < 1 - 1e-6;
+}
+
 /** Paint order for a bridge link: cables, then truss, then deck. */
 function drawLayer(l: Link): number {
   return l.tensionOnly ? 0 : l.drivable ? 2 : 1;
@@ -82,9 +126,14 @@ export class Renderer {
   /** Pre-rendered full-screen layers: redrawing big gradients every frame is costly on mobile. */
   private skyLayer: HTMLCanvasElement = document.createElement('canvas');
   private vignetteLayer: HTMLCanvasElement = document.createElement('canvas');
+  /** At night the bridge and vehicle are drawn here first, then shaded down as one layer. */
+  private shadeLayer: HTMLCanvasElement = document.createElement('canvas');
+  private shadeCtx: CanvasRenderingContext2D | null = null;
   private hatch: CanvasPattern | null = null;
   private sunX = 0;
   private sunY = 0;
+  private dpr = 1;
+  private look: Theme = THEMES[0];
   w = 0;
   h = 0;
 
@@ -107,13 +156,24 @@ export class Renderer {
     this.canvas.style.height = `${this.h}px`;
     this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.cam.resize(this.w, this.h);
+    this.dpr = dpr;
     this.buildLayers(dpr);
+  }
+
+  get theme(): Theme {
+    return this.look;
+  }
+
+  /** Switches the painted scene's look; the cached sky is redrawn to match. */
+  setTheme(t: Theme): void {
+    if (t === this.look) return;
+    this.look = t;
+    if (this.w > 0) this.buildLayers(this.dpr);
   }
 
   private buildLayers(dpr: number): void {
     const { w, h } = this;
-    this.sunX = w * 0.72;
-    this.sunY = h * 0.4;
+    const T = this.look;
     const prep = (c: HTMLCanvasElement) => {
       c.width = Math.round(w * dpr);
       c.height = Math.round(h * dpr);
@@ -123,28 +183,58 @@ export class Renderer {
     };
     const sx = prep(this.skyLayer);
     const g = sx.createLinearGradient(0, 0, 0, h);
-    g.addColorStop(0, PAL.skyTop);
-    g.addColorStop(0.55, PAL.skyMid);
-    g.addColorStop(1, PAL.skyLow);
+    g.addColorStop(0, T.sky[0]);
+    g.addColorStop(0.55, T.sky[1]);
+    g.addColorStop(1, T.sky[2]);
     sx.fillStyle = g;
     sx.fillRect(0, 0, w, h);
-    const glow = sx.createRadialGradient(this.sunX, this.sunY, 0, this.sunX, this.sunY, h * 0.45);
-    glow.addColorStop(0, 'rgba(255,241,196,0.85)');
-    glow.addColorStop(0.15, 'rgba(255,210,140,0.35)');
-    glow.addColorStop(1, 'rgba(255,180,120,0)');
-    sx.fillStyle = glow;
-    sx.fillRect(0, 0, w, h);
-    sx.fillStyle = PAL.sun;
-    sx.beginPath();
-    sx.arc(this.sunX, this.sunY, Math.max(18, h * 0.06), 0, TAU);
-    sx.fill();
+    if (T.stars) {
+      for (let i = 0; i < 170; i++) {
+        sx.fillStyle = `rgba(255,255,255,${0.25 + hash(i + 1700) * 0.65})`;
+        sx.beginPath();
+        sx.arc(hash(i + 500) * w, hash(i + 900) ** 1.7 * h * 0.8, 0.4 + hash(i + 1300) * 1.1, 0, TAU);
+        sx.fill();
+      }
+    }
+    // Where the light glints on the water comes from, even with the sun hidden behind cloud.
+    this.sunX = w * (T.sun?.x ?? 0.6);
+    this.sunY = h * (T.sun?.y ?? 0.3);
+    if (T.sun) {
+      const glow = sx.createRadialGradient(this.sunX, this.sunY, 0, this.sunX, this.sunY, h * T.sun.r * 7.5);
+      glow.addColorStop(0, `rgba(${T.sun.glow},0.85)`);
+      glow.addColorStop(0.15, `rgba(${T.sun.glow},0.35)`);
+      glow.addColorStop(1, `rgba(${T.sun.glow},0)`);
+      sx.fillStyle = glow;
+      sx.fillRect(0, 0, w, h);
+      const r = Math.max(12, h * T.sun.r);
+      sx.fillStyle = T.sun.color;
+      sx.beginPath();
+      sx.arc(this.sunX, this.sunY, r, 0, TAU);
+      sx.fill();
+      if (T.night) {
+        // Moon seas.
+        sx.fillStyle = 'rgba(120,130,160,0.18)';
+        for (const [dx, dy, k] of [[-0.3, -0.2, 0.32], [0.25, 0.1, 0.22], [-0.05, 0.4, 0.18]]) {
+          sx.beginPath();
+          sx.arc(this.sunX + dx * r, this.sunY + dy * r, k * r, 0, TAU);
+          sx.fill();
+        }
+      }
+    }
 
     const vx = prep(this.vignetteLayer);
     const v = vx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.75);
     v.addColorStop(0, 'rgba(0,0,0,0)');
-    v.addColorStop(1, 'rgba(10,5,30,0.45)');
+    v.addColorStop(1, T.vignette);
     vx.fillStyle = v;
     vx.fillRect(0, 0, w, h);
+
+    if (T.night) this.shadeCtx = prep(this.shadeLayer);
+    else {
+      // Free the memory until a night chapter needs it again.
+      this.shadeLayer.width = this.shadeLayer.height = 0;
+      this.shadeCtx = null;
+    }
 
     const tile = document.createElement('canvas');
     tile.width = tile.height = 10;
@@ -196,9 +286,29 @@ export class Renderer {
 
     if (v.run) {
       if (v.develop > 0) this.drawReflection(v.run, v);
+      // At night the bridge, debris and vehicle go on their own layer, shaded down together.
+      const shade = this.look.night && v.develop > 0 ? this.shadeCtx : null;
+      if (shade) {
+        shade.save();
+        shade.setTransform(1, 0, 0, 1, 0, 0);
+        shade.clearRect(0, 0, this.shadeLayer.width, this.shadeLayer.height);
+        shade.restore();
+        this.ctx = shade;
+      }
       this.drawRunMembers(v.run, v.time);
       this.drawDebris(this.debris.items);
       this.drawVehicleRun(v.run, v.wheelAngles);
+      if (shade) {
+        this.ctx = ctx;
+        shade.globalCompositeOperation = 'source-atop';
+        shade.fillStyle = `rgba(6,12,38,${0.5 * v.develop})`;
+        shade.fillRect(0, 0, this.w, this.h);
+        shade.globalCompositeOperation = 'source-over';
+        ctx.drawImage(this.shadeLayer, 0, 0, this.w, this.h);
+        this.drawLights(v.run, v.develop);
+      }
+      // Snapping cables stay bright even at night: the eye should catch them.
+      this.drawWhips(v.run, this.debris.whips);
       this.drawWaterFront(v);
     } else if (v.editor) {
       this.drawVehicleParked(v.level);
@@ -207,6 +317,7 @@ export class Renderer {
     }
 
     this.drawParticles();
+    if (v.develop > 0) this.drawWeather(v);
     this.drawFloats(v.floats);
 
     if (v.develop > 0) {
@@ -366,24 +477,27 @@ export class Renderer {
 
   private drawScene(v: SceneView): void {
     const { ctx, cam } = this;
+    const T = this.look;
     const L = v.level;
     const W = L.width;
     ctx.drawImage(this.skyLayer, 0, 0, this.w, this.h);
     const sunX = this.sunX;
 
     this.clouds(v.time);
+    if (T.birds) this.birds(v.time);
 
-    // Parallax ranges: hazy mountains, then two layers of hills.
+    // Parallax land: a distant range, then two nearer layers, shaped by the chapter.
     const horizon = cam.sy(L.waterY + 0.5);
-    this.hills(horizon - 70, 0.06, 95, PAL.mountain, 0.0022, 7.7, true);
-    this.hills(horizon - 30, 0.15, 60, PAL.hillFar, 0.004, 1.3);
-    this.hills(horizon - 5, 0.3, 40, PAL.hillNear, 0.007, 4.1);
+    const [s0, s1, s2, a0, a1, a2] = LAND_LAYERS[T.land];
+    this.hills(horizon - 70, 0.06, 95 * a0, T.mountain, 0.0022, 7.7, s0, T.snowCaps);
+    this.hills(horizon - 30, 0.15, 60 * a1, T.hillFar, 0.004, 1.3, s1, T.snowCaps && s1 === 'peaks');
+    this.hills(horizon - 5, 0.3, 40 * a2, T.hillNear, 0.007, 4.1, s2, false);
 
     // Water body.
     const wy = cam.sy(L.waterY);
     const wg = ctx.createLinearGradient(0, wy, 0, this.h);
-    wg.addColorStop(0, PAL.waterTop);
-    wg.addColorStop(1, PAL.waterDeep);
+    wg.addColorStop(0, T.waterTop);
+    wg.addColorStop(1, T.waterDeep);
     ctx.fillStyle = wg;
     ctx.beginPath();
     ctx.moveTo(0, this.h);
@@ -392,8 +506,8 @@ export class Renderer {
     }
     ctx.lineTo(this.w, this.h);
     ctx.fill();
-    // Sun glints on the water.
-    ctx.fillStyle = 'rgba(255,230,180,0.5)';
+    // Light glinting on the water.
+    ctx.fillStyle = T.glint;
     for (let i = 0; i < 14; i++) {
       const gx = sunX + Math.sin(i * 7.3 + v.time * 0.7) * 50 * (1 + i * 0.15);
       const gy = wy + 8 + i * 7;
@@ -401,22 +515,24 @@ export class Renderer {
       ctx.fillRect(gx - 12 + Math.sin(v.time * 3 + i) * 4, gy, 24 - i, 2);
     }
 
-    // Banks: rock with a grass lip.
+    // Banks: rock with a lip of grass, sand, snow or curb.
     const deep = L.waterY - 30;
     this.bank([[-80, 0], [0, 0], [0.15, -0.8], [-0.1, -2.2], [0.2, -3.5], [0, deep], [-80, deep]]);
     const rY = bankY(L);
     this.bank([[W, rY], [W + 80, rY], [W + 80, deep], [W, deep], [W - 0.2, rY - 3.5], [W + 0.1, rY - 2.2], [W - 0.15, rY - 0.8]]);
     const gs = Math.max(3, 0.28 * cam.scale);
-    ctx.fillStyle = PAL.grass;
+    ctx.fillStyle = T.grass;
     ctx.fillRect(cam.sx(-80), cam.sy(0) - 1, cam.sx(0.1) - cam.sx(-80), gs);
     ctx.fillRect(cam.sx(W - 0.1), cam.sy(rY) - 1, cam.sx(W + 80) - cam.sx(W - 0.1), gs);
-    ctx.fillStyle = PAL.grassDark;
+    ctx.fillStyle = T.grassDark;
     ctx.fillRect(cam.sx(-80), cam.sy(0) - 1 + gs, cam.sx(0.1) - cam.sx(-80), 2);
     ctx.fillRect(cam.sx(W - 0.1), cam.sy(rY) - 1 + gs, cam.sx(W + 80) - cam.sx(W - 0.1), 2);
-    this.trees(-2.5, -45, 0, 1);
-    this.trees(goalX(L) + 2, W + 45, rY, 2);
-    this.tufts(-40, -0.3, 0);
-    this.tufts(W + 0.3, W + 40, rY);
+    this.flora(-2.5, -45, 0, 1);
+    this.flora(goalX(L) + 2, W + 45, rY, 2);
+    if (T.tufts) {
+      this.tufts(-40, -0.3, 0);
+      this.tufts(W + 0.3, W + 40, rY);
+    }
 
     for (const o of L.overhangs ?? []) this.overhang(o, W);
 
@@ -459,33 +575,82 @@ export class Renderer {
     }
   }
 
-  private hills(base: number, parallax: number, amp: number, color: string, freq: number, seed: number, peaks = false): void {
+  /** One parallax land layer. City layers are skylines; the rest are ridgelines, optionally snow-capped. */
+  private hills(base: number, parallax: number, amp: number, color: string, freq: number, seed: number, shape: Ridge, snow: boolean): void {
     const { ctx, cam } = this;
     const off = cam.cx * cam.scale * parallax;
+    if (shape === 'city') {
+      this.skyline(base, off, amp, color, seed);
+      return;
+    }
+    const path = new Path2D();
+    path.moveTo(0, this.h);
+    for (let x = 0; x <= this.w + 16; x += 16) path.lineTo(x, base - amp * ridge(shape, (x + off) * freq, seed));
+    path.lineTo(this.w, this.h);
+    path.closePath();
     ctx.fillStyle = color;
+    ctx.fill(path);
+    if (!snow) return;
+    // Snow above a wavy snowline, clipped to the ridge.
+    ctx.save();
+    ctx.clip(path);
+    ctx.fillStyle = 'rgba(246,250,255,0.9)';
     ctx.beginPath();
-    ctx.moveTo(0, this.h);
+    ctx.moveTo(0, 0);
     for (let x = 0; x <= this.w + 16; x += 16) {
       const u = (x + off) * freq;
-      let y = base - amp * (0.6 + 0.4 * Math.sin(u + seed)) - amp * 0.5 * Math.sin(u * 2.3 + seed * 2);
-      // Mountains get sharper ridges from a folded sine.
-      if (peaks) y -= amp * 0.35 * (1 - Math.abs(Math.sin(u * 3.1 + seed)));
-      ctx.lineTo(x, y);
+      ctx.lineTo(x, base - amp * (1.12 + 0.08 * Math.sin(u * 7 + seed)));
     }
-    ctx.lineTo(this.w, this.h);
+    ctx.lineTo(this.w, 0);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /** A city skyline: blocks of buildings, with lit windows at night. */
+  private skyline(base: number, off: number, amp: number, color: string, seed: number): void {
+    const { ctx } = this;
+    const slot = 26 + seed * 3;
+    const k0 = Math.floor(off / slot) - 1;
+    const k1 = Math.ceil((off + this.w) / slot) + 1;
+    const tops: [number, number, number][] = [];
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (let k = k0; k <= k1; k++) {
+      const r = hash(k * 7.13 + seed * 101);
+      const hgt = amp * (0.35 + r * r * 1.4);
+      const bw = slot * (0.72 + 0.28 * hash(k + seed * 17));
+      const x = k * slot - off;
+      ctx.rect(x, base - hgt, bw, hgt + this.h);
+      if (r > 0.86) ctx.rect(x + bw / 2 - 1, base - hgt - 14, 2, 14);
+      tops.push([x, bw, base - hgt]);
+    }
+    ctx.fill();
+    if (!this.look.night) return;
+    ctx.fillStyle = `rgba(255,214,140,${0.45 + seed * 0.04})`;
+    ctx.beginPath();
+    for (const [x, bw, top] of tops) {
+      // Window pattern keyed to the building, so it stays put while panning.
+      const key = Math.round(x + off);
+      for (let wy = top + 6, row = 0; wy < base - 4; wy += 8, row++) {
+        for (let wx = 4, col = 0; wx < bw - 5; wx += 7, col++) {
+          if (hash(key * 0.37 + row * 1.91 + col * 5.3 + seed * 13) > 0.64) ctx.rect(x + wx, wy, 3, 4);
+        }
+      }
+    }
     ctx.fill();
   }
 
-  /** Soft drifting clouds, lit from the low sun. */
+  /** Soft drifting clouds, colored by the chapter's light. */
   private clouds(time: number): void {
     const { ctx, cam } = this;
+    const C = this.look.clouds;
     const span = this.w + 500;
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < C.count; i++) {
       const speed = 6 + hash(i) * 10;
       const x = ((((hash(i + 10) * span + time * speed - cam.cx * cam.scale * 0.04) % span) + span) % span) - 250;
       const y = this.h * (0.07 + 0.22 * hash(i + 20));
-      const s = 0.6 + hash(i + 30) * 0.9;
-      ctx.fillStyle = `rgba(255,214,190,${0.16 + 0.12 * hash(i + 40)})`;
+      const s = (0.6 + hash(i + 30) * 0.9) * C.scale;
+      ctx.fillStyle = `rgba(${C.rgb},${C.alpha + 0.12 * hash(i + 40)})`;
       ctx.beginPath();
       for (let k = 0; k < 5; k++) {
         const cx = x + (k - 2) * 38 * s;
@@ -497,44 +662,174 @@ export class Renderer {
     }
   }
 
-  /** Silhouette trees along a bank, from x0 toward x1, rooted at height y. */
-  private trees(x0: number, x1: number, y: number, seed: number): void {
+  /** Gulls wheeling over the water. */
+  private birds(time: number): void {
+    const { ctx } = this;
+    const span = this.w + 200;
+    ctx.strokeStyle = 'rgba(40,52,64,0.75)';
+    ctx.lineWidth = 1.6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const x = ((hash(i + 60) * span + time * (14 + 8 * hash(i + 61))) % span) - 100;
+      const y = this.h * (0.14 + 0.2 * hash(i + 62)) + Math.sin(time * 0.9 + i * 2) * 10;
+      const flap = Math.sin(time * 7 + i * 1.7);
+      const s = 5 + 3 * hash(i + 63);
+      ctx.moveTo(x - s, y - s * 0.5 * flap);
+      ctx.quadraticCurveTo(x - s * 0.4, y - s * 0.6, x, y);
+      ctx.quadraticCurveTo(x + s * 0.4, y - s * 0.6, x + s, y - s * 0.5 * flap);
+    }
+    ctx.stroke();
+  }
+
+  /** Whatever grows or stands along a bank, from x0 toward x1, rooted at height y. */
+  private flora(x0: number, x1: number, y: number, seed: number): void {
     const { ctx, cam } = this;
+    const T = this.look;
     const dir = Math.sign(x1 - x0);
     const s = cam.scale;
     const sy = cam.sy(y);
-    ctx.fillStyle = PAL.tree;
-    ctx.beginPath();
+    const path = new Path2D();
+    const snow = new Path2D();
+    const glows: [number, number][] = [];
     for (let i = 0, x = x0; (x1 - x) * dir > 0 && i < 40; i++) {
       const r = hash(seed * 100 + i);
       const h = 1.8 + r * 2.6;
       const sx = cam.sx(x);
-      x += dir * (1.4 + hash(seed * 50 + i) * 2.6);
+      const gap = T.flora === 'lamps' ? 5 : T.flora === 'cactus' ? 2.4 + hash(seed * 50 + i) * 4 : 1.4 + hash(seed * 50 + i) * 2.6;
+      x += dir * gap;
       if (sx < -80 || sx > this.w + 80) continue;
-      ctx.rect(sx - 0.07 * s, sy - h * 0.35 * s, 0.14 * s, h * 0.35 * s);
-      if (r < 0.55) {
-        // Pine: stacked triangles.
-        for (let k = 0; k < 3; k++) {
-          const w = (0.95 - k * 0.22) * s * (0.7 + h * 0.12);
-          const top = sy - (h * (0.45 + k * 0.2) + 0.9) * s;
-          ctx.moveTo(sx, top);
-          ctx.lineTo(sx + w, top + h * 0.42 * s);
-          ctx.lineTo(sx - w, top + h * 0.42 * s);
-          ctx.closePath();
+      switch (T.flora) {
+        case 'mixed':
+        case 'pine':
+          path.rect(sx - 0.07 * s, sy - h * 0.35 * s, 0.14 * s, h * 0.35 * s);
+          if (T.flora === 'pine' || r < 0.55) {
+            // Pine: stacked triangles, with snowy tips in the mountains.
+            for (let k = 0; k < 3; k++) {
+              const w = (0.95 - k * 0.22) * s * (0.7 + h * 0.12);
+              const top = sy - (h * (0.45 + k * 0.2) + 0.9) * s;
+              path.moveTo(sx, top);
+              path.lineTo(sx + w, top + h * 0.42 * s);
+              path.lineTo(sx - w, top + h * 0.42 * s);
+              path.closePath();
+              if (T.snowCaps) {
+                snow.moveTo(sx, top);
+                snow.lineTo(sx + w * 0.35, top + h * 0.15 * s);
+                snow.lineTo(sx - w * 0.35, top + h * 0.15 * s);
+                snow.closePath();
+              }
+            }
+          } else {
+            const rx = 0.75 * s * (0.8 + r * 0.4);
+            path.moveTo(sx + rx, sy - h * 0.62 * s);
+            path.ellipse(sx, sy - h * 0.62 * s, rx, h * 0.42 * s, 0, 0, TAU);
+          }
+          break;
+        case 'cactus':
+          this.cactus(sx, sy, h * 0.75, r, s);
+          break;
+        case 'willow': {
+          path.rect(sx - 0.09 * s, sy - h * 0.55 * s, 0.18 * s, h * 0.55 * s);
+          const rx = 1.2 * s * (0.8 + r * 0.4);
+          const cy = sy - h * 0.72 * s;
+          path.moveTo(sx + rx, cy);
+          path.ellipse(sx, cy, rx, 0.75 * s, 0, 0, TAU);
+          // A drooping curtain of leaves.
+          path.moveTo(sx - rx, cy);
+          for (let k = 0; k <= 8; k++) {
+            const px = sx - rx + (k / 8) * rx * 2;
+            path.lineTo(px, sy - (h * 0.2 + 0.25 * hash(i * 9 + k)) * s);
+            path.lineTo(Math.min(sx + rx, px + rx * 0.12), cy + 0.2 * s);
+          }
+          path.closePath();
+          break;
         }
-      } else {
-        const rx = 0.75 * s * (0.8 + r * 0.4);
-        ctx.moveTo(sx + rx, sy - h * 0.62 * s);
-        ctx.ellipse(sx, sy - h * 0.62 * s, rx, h * 0.42 * s, 0, 0, TAU);
+        case 'palm':
+          this.palm(sx, sy, h, r, s);
+          break;
+        case 'lamps': {
+          // Street lamp: a post, an arm reaching toward the water, and the lamp head.
+          const top = sy - 2.8 * s;
+          const reach = -dir * 0.5 * s;
+          path.rect(sx - 0.05 * s, top, 0.1 * s, 2.8 * s);
+          path.rect(Math.min(sx, sx + reach), top, Math.abs(reach), 0.08 * s);
+          path.rect(sx + reach - 0.14 * s, top, 0.28 * s, 0.14 * s);
+          glows.push([sx + reach, top + 0.14 * s]);
+          break;
+        }
       }
     }
-    ctx.fill();
+    ctx.fillStyle = T.tree;
+    ctx.fill(path);
+    if (T.snowCaps) {
+      ctx.fillStyle = 'rgba(245,250,255,0.9)';
+      ctx.fill(snow);
+    }
+    if (glows.length === 0) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const [gx, gy] of glows) {
+      const g = ctx.createRadialGradient(gx, gy, 0, gx, gy, 1.8 * s);
+      g.addColorStop(0, 'rgba(255,214,150,0.55)');
+      g.addColorStop(1, 'rgba(255,190,120,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(gx - 1.8 * s, gy - 1.8 * s, 3.6 * s, 3.6 * s);
+      ctx.fillStyle = 'rgba(255,240,200,0.9)';
+      ctx.fillRect(gx - 0.1 * s, gy, 0.2 * s, 0.06 * s);
+    }
+    ctx.restore();
+  }
+
+  /** A saguaro: a trunk with one or two upturned arms. */
+  private cactus(sx: number, sy: number, h: number, r: number, s: number): void {
+    const { ctx } = this;
+    ctx.strokeStyle = this.look.tree;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = Math.max(2, 0.32 * s);
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(sx, sy - h * s);
+    ctx.moveTo(sx, sy - h * 0.45 * s);
+    ctx.lineTo(sx - 0.45 * s, sy - h * 0.45 * s);
+    ctx.lineTo(sx - 0.45 * s, sy - h * 0.75 * s);
+    if (r > 0.4) {
+      ctx.moveTo(sx, sy - h * 0.6 * s);
+      ctx.lineTo(sx + 0.42 * s, sy - h * 0.6 * s);
+      ctx.lineTo(sx + 0.42 * s, sy - h * 0.85 * s);
+    }
+    ctx.stroke();
+  }
+
+  /** A leaning palm with drooping fronds. */
+  private palm(sx: number, sy: number, h: number, r: number, s: number): void {
+    const { ctx } = this;
+    const lean = (r - 0.5) * 1.6;
+    const tx = sx + lean * s;
+    const ty = sy - h * 1.1 * s;
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#6e5a3e';
+    ctx.lineWidth = Math.max(1.5, 0.16 * s);
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.quadraticCurveTo(sx + lean * 0.1 * s, sy - h * 0.6 * s, tx, ty);
+    ctx.stroke();
+    ctx.strokeStyle = this.look.tree;
+    ctx.lineWidth = Math.max(1.5, 0.2 * s);
+    ctx.beginPath();
+    for (let k = 0; k < 6; k++) {
+      const a = (k / 5) * Math.PI;
+      const dx = Math.cos(a) * 1.4 * s;
+      ctx.moveTo(tx, ty);
+      ctx.quadraticCurveTo(tx + dx * 0.6, ty - (0.5 + Math.sin(a) * 0.4) * s, tx + dx, ty + (0.45 - Math.sin(a) * 0.3) * s);
+    }
+    ctx.stroke();
   }
 
   /** Grass tufts along a bank top. */
   private tufts(x0: number, x1: number, y: number): void {
     const { ctx, cam } = this;
-    ctx.strokeStyle = PAL.grassDark;
+    ctx.strokeStyle = this.look.grassDark;
     ctx.lineWidth = Math.max(1, cam.scale * 0.035);
     ctx.beginPath();
     const sy = cam.sy(y) + 1;
@@ -550,6 +845,125 @@ export class Renderer {
     ctx.stroke();
   }
 
+  /** Rain streaks with rings on the water, or drifting snow. Screen space, with no allocation. */
+  private drawWeather(v: SceneView): void {
+    const kind = this.look.weather;
+    if (kind === 'clear') return;
+    const { ctx, cam } = this;
+    const t = v.time;
+    const W = this.w + 120;
+    const H = this.h + 60;
+    const pan = cam.cx * cam.scale;
+    ctx.save();
+    ctx.globalAlpha = v.develop;
+    if (kind === 'rain') {
+      ctx.strokeStyle = 'rgba(205,218,232,0.38)';
+      ctx.lineWidth = 1.2;
+      ctx.lineCap = 'butt';
+      ctx.beginPath();
+      for (let i = 0; i < 150; i++) {
+        const depth = 0.5 + hash(i + 3000);
+        const speed = 850 * depth;
+        const y = ((hash(i + 3100) * H + t * speed) % H) - 30;
+        const x = ((((hash(i + 3200) * W - t * speed * 0.22 - pan * 0.4 * depth) % W) + W) % W) - 60;
+        const len = 12 * depth;
+        ctx.moveTo(x, y);
+        ctx.lineTo(x - len * 0.22, y + len);
+      }
+      ctx.stroke();
+      // Rings where drops hit the water.
+      const wy = cam.sy(v.level.waterY);
+      if (wy < this.h) {
+        ctx.strokeStyle = 'rgba(225,232,240,0.5)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let i = 0; i < 22; i++) {
+          const cycle = t * 1.6 + hash(i + 3300);
+          const p = cycle % 1;
+          const n = Math.floor(cycle);
+          const x = hash(i * 13 + n * 7.7) * this.w;
+          const y = wy + 6 + hash(i * 5 + n * 3.1) * Math.min(80, this.h - wy);
+          const r = 2 + p * 9;
+          ctx.moveTo(x + r, y);
+          ctx.ellipse(x, y, r, r * 0.3, 0, 0, TAU);
+        }
+        ctx.globalAlpha = v.develop * 0.8;
+        ctx.stroke();
+      }
+    } else {
+      ctx.fillStyle = 'rgba(250,252,255,0.85)';
+      ctx.beginPath();
+      for (let i = 0; i < 120; i++) {
+        const depth = 0.4 + hash(i + 4000) * 0.9;
+        const y = ((hash(i + 4100) * H + t * 45 * depth) % H) - 30;
+        const sway = Math.sin(t * (0.8 + depth) + i) * 18 * depth;
+        const x = ((((hash(i + 4200) * W - t * 12 * depth - pan * 0.35 * depth + sway) % W) + W) % W) - 60;
+        const r = 1 + depth * 1.8;
+        ctx.moveTo(x + r, y);
+        ctx.arc(x, y, r, 0, TAU);
+      }
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  /** Night: headlights and taillights on the vehicle, added as light. */
+  private drawLights(run: TestRun, develop: number): void {
+    const { ctx, cam } = this;
+    const w = run.world;
+    const v = run.vehicle;
+    const def = v.def;
+    let dx = w.x[v.frontTop] - w.x[v.rearTop];
+    let dy = w.y[v.frontTop] - w.y[v.rearTop];
+    const len = Math.hypot(dx, dy) || 1;
+    dx /= len;
+    dy /= len;
+    // Up, square to the chassis.
+    const ux = -dy;
+    const uy = dx;
+    const R = def.wheelR;
+    const lift = def.height * 0.22 + R * 0.25;
+    const hx = w.x[v.frontWheel] + dx * R * 1.35 + ux * lift;
+    const hy = w.y[v.frontWheel] + dy * R * 1.35 + uy * lift;
+    const tx = w.x[v.rearWheel] - dx * R * 1.3 + ux * lift * 1.2;
+    const ty = w.y[v.rearWheel] - dy * R * 1.3 + uy * lift * 1.2;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = develop;
+    // The beam: a cone angled slightly down the road.
+    const reach = 7;
+    const ang = Math.atan2(dy, dx) - 0.07;
+    const spread = 0.2;
+    const sx = cam.sx(hx);
+    const sy = cam.sy(hy);
+    const far = (a: number): [number, number] => [cam.sx(hx + Math.cos(a) * reach), cam.sy(hy + Math.sin(a) * reach)];
+    const [ax, ay] = far(ang + spread);
+    const [bx, by] = far(ang - spread);
+    const [cx, cy] = far(ang);
+    const beam = ctx.createLinearGradient(sx, sy, cx, cy);
+    beam.addColorStop(0, 'rgba(255,238,190,0.42)');
+    beam.addColorStop(1, 'rgba(255,238,190,0)');
+    ctx.fillStyle = beam;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(ax, ay);
+    ctx.lineTo(bx, by);
+    ctx.closePath();
+    ctx.fill();
+    for (const [x, y, rgb, r] of [
+      [sx, sy, '255,240,200', 0.7],
+      [cam.sx(tx), cam.sy(ty), '255,40,30', 0.45],
+    ] as const) {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r * cam.scale);
+      g.addColorStop(0, `rgba(${rgb},0.95)`);
+      g.addColorStop(0.25, `rgba(${rgb},0.35)`);
+      g.addColorStop(1, `rgba(${rgb},0)`);
+      ctx.fillStyle = g;
+      ctx.fillRect(x - r * cam.scale, y - r * cam.scale, r * 2 * cam.scale, r * 2 * cam.scale);
+    }
+    ctx.restore();
+  }
+
   /** Rock overhang above an approach road, with strata lines and a sunlit rim. */
   private overhang(o: Overhang, W: number): void {
     const { ctx, cam } = this;
@@ -558,8 +972,8 @@ export class Renderer {
     poly.forEach(([x, y], i) => (i ? path.lineTo(cam.sx(x), cam.sy(y)) : path.moveTo(cam.sx(x), cam.sy(y))));
     path.closePath();
     const g = ctx.createLinearGradient(0, cam.sy(o.top), 0, cam.sy(o.bottom));
-    g.addColorStop(0, PAL.rock);
-    g.addColorStop(1, PAL.rockDark);
+    g.addColorStop(0, this.look.rock);
+    g.addColorStop(1, this.look.rockDark);
     ctx.fillStyle = g;
     ctx.fill(path);
     ctx.save();
@@ -718,8 +1132,8 @@ export class Renderer {
   private bank(poly: [number, number][]): void {
     const { ctx, cam } = this;
     const g = ctx.createLinearGradient(0, cam.sy(0), 0, cam.sy(-8));
-    g.addColorStop(0, PAL.rock);
-    g.addColorStop(1, PAL.rockDark);
+    g.addColorStop(0, this.look.rock);
+    g.addColorStop(1, this.look.rockDark);
     ctx.fillStyle = g;
     ctx.beginPath();
     poly.forEach(([x, y], i) => (i ? ctx.lineTo(cam.sx(x), cam.sy(y)) : ctx.moveTo(cam.sx(x), cam.sy(y))));
@@ -731,7 +1145,7 @@ export class Renderer {
     // A translucent front water layer so sinking things look submerged.
     const { ctx, cam } = this;
     const wy = cam.sy(v.level.waterY);
-    ctx.fillStyle = 'rgba(40,110,150,0.55)';
+    ctx.fillStyle = this.look.waterFront;
     ctx.beginPath();
     ctx.moveTo(0, this.h);
     for (let x = 0; x <= this.w + 12; x += 12) {
@@ -739,7 +1153,8 @@ export class Renderer {
     }
     ctx.lineTo(this.w, this.h);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(207,239,255,0.7)';
+    ctx.strokeStyle = this.look.foam;
+    ctx.globalAlpha = 0.7;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     for (let x = 0; x <= this.w + 12; x += 12) {
@@ -1083,14 +1498,12 @@ export class Renderer {
     const ed = v.editor;
     if (!hint || !ed) return;
     const { ctx, cam } = this;
+    const d = ed.design;
     const pulse = 0.25 + 0.15 * Math.sin(v.time * 4);
     let firstTodo = -1;
     hint.forEach(([a, b, mat], i) => {
-      const ia = ed.design.findNode(a[0], a[1]);
-      const ib = ed.design.findNode(b[0], b[1]);
-      const done = ia >= 0 && ib >= 0 && ed.design.findMember(ia, ib) >= 0;
-      if (done) return;
-      const reachable = ia >= 0 || ib >= 0;
+      if (d.covers(a, b)) return;
+      const reachable = d.findNode(a[0], a[1]) >= 0 || d.findNode(b[0], b[1]) >= 0;
       if (firstTodo < 0 && reachable) firstTodo = i;
       ctx.strokeStyle = MATERIAL_CHALK[mat];
       ctx.globalAlpha = pulse;
@@ -1102,10 +1515,15 @@ export class Renderer {
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.globalAlpha = 1;
+      // A ghost ending partway along another beam: that beam gets split there.
+      for (const p of [a, b]) {
+        const splits = hint.some(([c, e], j) => j !== i && inside(p, c, e));
+        if (splits) this.splitMark(cam.sx(p[0]), cam.sy(p[1]), `rgba(125,255,176,${0.5 + pulse})`);
+      }
     });
     if (firstTodo >= 0 && !ed.drag) {
       let [a, b] = hint[firstTodo];
-      if (ed.design.findNode(a[0], a[1]) < 0) [a, b] = [b, a];
+      if (d.findNode(a[0], a[1]) < 0) [a, b] = [b, a];
       const t = (v.time * 0.8) % 1.4;
       const u = Math.min(1, t);
       const e = u * u * (3 - 2 * u);
@@ -1238,12 +1656,100 @@ export class Renderer {
   }
 
   private drawDebris(items: Debris[]): void {
-    const { cam } = this;
+    const { ctx, cam } = this;
     for (const d of items) {
+      if (d.kind === 'chunk') {
+        // A lump of broken deck: an irregular polygon, tumbling.
+        const r = d.len * cam.scale * 0.5;
+        const x = cam.sx(d.x);
+        const y = cam.sy(d.y);
+        ctx.globalAlpha = Math.min(1, d.life);
+        ctx.fillStyle = CHUNK_SHADES[Math.floor(d.seed * CHUNK_SHADES.length)];
+        ctx.strokeStyle = '#3a3e45';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let k = 0; k < 6; k++) {
+          const a = d.ang + (k / 6) * TAU;
+          const rr = r * (0.65 + 0.35 * hash(d.seed * 97 + k));
+          if (k) ctx.lineTo(x + Math.cos(a) * rr, y - Math.sin(a) * rr);
+          else ctx.moveTo(x + Math.cos(a) * rr, y - Math.sin(a) * rr);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        continue;
+      }
       const c = Math.cos(d.ang) * d.len * 0.5;
       const s = Math.sin(d.ang) * d.len * 0.5;
       this.memberPaint(cam.sx(d.x - c), cam.sy(d.y - s), cam.sx(d.x + c), cam.sy(d.y + s), d.mat, null, Math.min(1, d.life));
     }
+  }
+
+  /**
+   * Snapped cables: each half recoils toward its joint with a traveling ripple, then hangs
+   * limp and fades.
+   */
+  private drawWhips(run: TestRun, whips: Whip[]): void {
+    if (whips.length === 0) return;
+    const { ctx, cam } = this;
+    const w = run.world;
+    const width = Math.max(2, MEMBER_WIDTH.cable * cam.scale * 1.4) + 1;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (const wh of whips) {
+      const t = wh.t;
+      const u = Math.min(1, t / 0.35);
+      // Most of the cable snaps back; what is left droops under gravity.
+      const len = wh.len * (1 - 0.72 * (1 - (1 - u) * (1 - u)));
+      const droop = Math.min(1, t / 0.9);
+      let dx = wh.dx * (1 - droop);
+      let dy = wh.dy * (1 - droop) - droop;
+      const dl = Math.hypot(dx, dy) || 1;
+      dx /= dl;
+      dy /= dl;
+      const nx = -dy;
+      const ny = dx;
+      const amp = Math.min(0.8, wh.len * 0.16) * (1 - t / WHIP_LIFE);
+      const ax = w.x[wh.node];
+      const ay = w.y[wh.node];
+      ctx.globalAlpha = Math.min(1, (WHIP_LIFE - t) * 3);
+      ctx.beginPath();
+      for (let k = 0; k <= 14; k++) {
+        const sAlong = k / 14;
+        const wave = amp * Math.sin(sAlong * Math.PI * 3 - t * 34) * sAlong;
+        const x = ax + dx * len * sAlong + nx * wave;
+        const y = ay + dy * len * sAlong + ny * wave;
+        if (k) ctx.lineTo(cam.sx(x), cam.sy(y));
+        else ctx.moveTo(cam.sx(x), cam.sy(y));
+      }
+      ctx.strokeStyle = PAL.cable;
+      ctx.lineWidth = width;
+      ctx.stroke();
+      ctx.setLineDash([2.5, 2]);
+      ctx.strokeStyle = PAL.cableHi;
+      ctx.lineWidth = Math.max(0.8, width * 0.4);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      if (t < 0.4) {
+        // The recoil flashes as it lashes back.
+        ctx.strokeStyle = `rgba(255,248,220,${0.85 * (1 - t / 0.4)})`;
+        ctx.lineWidth = width + 3;
+        ctx.stroke();
+      }
+      // The frayed end.
+      const ex = cam.sx(ax + dx * len);
+      const ey = cam.sy(ay + dy * len);
+      ctx.strokeStyle = PAL.cableHi;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (const f of [-0.6, 0, 0.6]) {
+        ctx.moveTo(ex, ey);
+        ctx.lineTo(ex + (dx * 0.9 + nx * f * 0.5) * width * 2.5, ey - (dy * 0.9 + ny * f * 0.5) * width * 2.5);
+      }
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
   }
 
   private bolt(x: number, y: number, scale: number, time: number, pulse: boolean): void {

@@ -42,6 +42,10 @@ export function openDb(file) {
   if (!db.prepare('PRAGMA table_info(scores)').all().some((c) => c.name === 'chapter')) {
     db.exec('ALTER TABLE scores ADD COLUMN chapter INTEGER NOT NULL DEFAULT 0');
   }
+  // Whether the level's bonus goal was ever met. Older databases predate it.
+  if (!db.prepare('PRAGMA table_info(level_progress)').all().some((c) => c.name === 'bonus')) {
+    db.exec('ALTER TABLE level_progress ADD COLUMN bonus INTEGER NOT NULL DEFAULT 0');
+  }
   return db;
 }
 
@@ -65,13 +69,14 @@ export function createApi(db) {
     insertProfile: db.prepare('INSERT INTO profiles (name) VALUES (?)'),
     touchProfile: db.prepare("UPDATE profiles SET played_at = datetime('now') WHERE id = ?"),
     totalsFor: db.prepare('SELECT COALESCE(SUM(stars), 0) AS stars, COALESCE(SUM(best_score), 0) AS score FROM level_progress WHERE profile_id = ?'),
-    levels: db.prepare('SELECT level_id, best_score, stars, design FROM level_progress WHERE profile_id = ?'),
+    levels: db.prepare('SELECT level_id, best_score, stars, bonus, design FROM level_progress WHERE profile_id = ?'),
     setUnlocked: db.prepare('UPDATE profiles SET unlocked = MAX(unlocked, ?) WHERE id = ?'),
     upsertLevel: db.prepare(`
-      INSERT INTO level_progress (profile_id, level_id, best_score, stars, design) VALUES (?, ?, ?, ?, ?)
+      INSERT INTO level_progress (profile_id, level_id, best_score, stars, bonus, design) VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT (profile_id, level_id) DO UPDATE SET
         best_score = MAX(best_score, excluded.best_score),
         stars      = MAX(stars, excluded.stars),
+        bonus      = MAX(bonus, excluded.bonus),
         design     = COALESCE(excluded.design, design)`),
     topScores: db.prepare(`
       SELECT s.id, p.name, s.score, s.levels, s.chapter, substr(s.created_at, 1, 10) AS date
@@ -111,7 +116,7 @@ export function createApi(db) {
         const best = {};
         const designs = {};
         for (const l of q.levels.all(p.id)) {
-          if (l.best_score > 0 || l.stars > 0) best[l.level_id] = { score: l.best_score, stars: l.stars };
+          if (l.best_score > 0 || l.stars > 0) best[l.level_id] = { score: l.best_score, stars: l.stars, ...(l.bonus ? { bonus: true } : {}) };
           if (l.design) designs[l.level_id] = l.design;
         }
         return { unlocked: p.unlocked, best, designs };
@@ -131,7 +136,7 @@ export function createApi(db) {
           for (const id of ids) {
             const b = best[id] ?? {};
             const design = typeof designs[id] === 'string' ? designs[id].slice(0, 64 * 1024) : null;
-            q.upsertLevel.run(p.id, int(id, 1, 99), int(b.score, 0, 1e7), int(b.stars, 0, 3), design);
+            q.upsertLevel.run(p.id, int(id, 1, 99), int(b.score, 0, 1e7), int(b.stars, 0, 3), b.bonus === true ? 1 : 0, design);
           }
           q.touchProfile.run(p.id);
           db.exec('COMMIT');

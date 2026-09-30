@@ -37,6 +37,7 @@ describe('chapters', () => {
   });
 
   it('sum career totals from best results', () => {
-    expect(totals(done([1, 2]))).toEqual({ score: 2000, stars: 4, crossed: 2 });
+    expect(totals(done([1, 2]))).toEqual({ score: 2000, stars: 4, bonus: 0, crossed: 2 });
+    expect(totals({ 1: { score: 1500, stars: 3, bonus: true } }).bonus).toBe(1);
   });
 });

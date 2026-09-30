@@ -6,26 +6,22 @@ Features and improvements, by priority. Finished items stay checked for a releas
 
 ### Done
 
-- [x] **Chapters.** 30 levels in six chapters of rising difficulty (Groundwork → Master Works). A chapter opens when the previous one is finished; levels inside open one by one. There's a chapter map, a per-chapter level list, and Continue on the title screen.
-- [x] **Money budget.** Materials are priced per meter, each level has a budget and a target cost, and every level offers several materials, so there are real design options.
-- [x] **Career scoring.** Your career score is the sum of your best score on every level, so nothing has to be replayed from the start. Chapter challenges (five levels in a row, three lives) have their own boards.
-- [x] **Leaderboards.** Tabs for career, chapter, level records and challenges, with a chapter picker.
-- [x] **Ten new levels (21–30).** They add flood water with no room below the deck, a ship channel the deck must ramp over, a steep 20% climb, a cliff-to-pylon crossing, deep-pier trestles, and 24–36 m semi-truck trusses.
-- [x] **Cable levels built around one idea each.** Tests check that the obvious shortcuts fail or overrun the budget.
-- [x] **Even-grade road runs and beam splitting.** Deleting any piece of a split beam removes the whole beam.
-- [x] **Heavy deck and cable materials; lattice pylons, rock overhangs and ship channels as level features.**
-- [x] **Scene, member and vehicle detail passes.** Clouds, mountains, trees and water reflections. Guard rails, wood grain, steel flanges and joint plates. Detailed bodies and wheels for all five vehicles.
+- [x] **Chapter themes.** Each chapter has its own painted scene: river at golden hour, red-rock canyon with mesas and cacti, rainy flood plain with willows and muddy water, bright coast with dunes, palms and gulls, snowy mountains with capped peaks and pines, and a night city with a lit skyline and street lamps. The title demo cycles through all six.
+- [x] **Weather and time of day.** Rain with rings on the water (chapter 3), falling snow (chapter 5), and night (chapter 6), where the bridge and vehicle are shaded down and headlights and taillights glow.
+- [x] **Tutorial ghosts** for the first cable (4-1), ship channel (4-4) and split (4-5). A ghost may span a whole road run, and a split mark shows where a ghost lands partway along a beam. Tests build every ghost in order with the real editor.
+- [x] **Bonus goals.** Every level has one (✦, worth 250 points): a cost cap, a stress cap, a parts cap or "no <material>". A proof design for each is driven across in the tests.
+- [x] **Semi on a suspension bridge.** Heavy deck now has bending stiffness that yields past a small limit, so it shares a wheel load with neighboring hangers but still can't span a gap on its own. The semi crosses the level 19 suspension design at 89% peak (it was 99%).
+- [x] **Level 16 without splits.** An unsplit Pratt truss costs exactly the same as the split reference: splitting is free and gives the same structure, so no cost target can separate them. Its bonus goal (26 parts or fewer, where a split beam counts once) is what makes splitting pay.
+- [x] **Retune level 2-1.** New reference: a wood truss on steel struts ($5,725, 67% peak). Target $6,000, budget $8,500.
+- [x] **Break effects.** Heavy deck crumbles into slabs and rubble with a dust cloud; a snapped cable whips back toward its joints with a traveling ripple.
+- [x] Chapters, money budgets, career scoring, leaderboards, levels 21–30, cable levels built around one idea each, road runs, beam splitting, heavy deck, and the scene and vehicle detail passes (earlier releases).
 
 ### Next
 
-- [ ] **Chapter themes.** Give each chapter its own sky, palette, water and tree set (river, canyon, flood plain, coast, mountains, night city).
-- [ ] **Tutorial ghosts for new mechanics.** Level 1 has a ghost hint. Add the same kind of hint for the first cable (4-1), the first split (4-5) and the first ship channel (4-4).
-- [ ] **Per-level bonus goals** (optional fourth star), such as "no steel", "under $X" or "peak stress below 50%".
-- [ ] **Semi on a suspension bridge.** In testing, the semi only crossed a suspension design at 99% stress. It needs stiffer cable physics, or deck bending stiffness, before a suspension finale can use it.
-- [ ] **Level 16 without splits.** Check whether a Warren or K-truss comes in under target without splitting beams. If so, tighten the target so splitting stays the key idea.
-- [ ] **Retune level 2-1 (Uphill Climb).** With the even grade, its reference peak stress dropped from 86% to 32%.
-- [ ] **Weather and time of day** per chapter: rain streaks, snow, night with working headlights.
-- [ ] **Better break effects.** Heavy deck crumbles into chunks, and a snapped cable whips.
+- [ ] **Loose cost targets.** Cheaper designs than the reference cross several levels, so the target star is easy: 2-4 (road deck, $8,714 vs $11,750), 2-5 (truss with no end struts, $9,479 vs $12,000), 5-3 ($14,927 vs $17,250), 6-1 (road deck, $26,324 vs $33,250) and 6-2 ($26,899 vs $30,250). Their bonus goals currently reward those designs; consider making them the references and tightening the targets.
+- [ ] **Level 29 without cables.** An all-truss design ($26,790, 89% peak) beats the suspension reference ($28,701) and the target, so "hang the middle from the pylons" is optional. Lengthen the middle span or put a ship channel under it.
+- [ ] **A suspension finale with the semi,** now that the physics carries it.
+- [ ] **Heavy deck on the early cable levels.** With bending, a heavy deck and just two hangers cross 4-1 and 4-2 (over target, under budget). Check that the cheaper intended answers stay the better deal.
 
 ## P2: Gameplay depth
 

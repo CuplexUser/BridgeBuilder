@@ -4,7 +4,8 @@ import { Editor } from '../src/editor';
 import { LEVELS } from '../src/levels';
 import { MATERIALS } from '../src/physics/materials';
 import { TestRun, World } from '../src/physics/world';
-import { deck, hang, roadRun, SOLUTIONS } from '../src/solutions';
+import { bonusLabel, bonusMet } from '../src/scoring';
+import { BONUS_SOLUTIONS, deck, hang, prattAbove, roadRun, SOLUTIONS } from '../src/solutions';
 
 function drive(design: Design, levelIdx: number, seconds = 25) {
   const run = new TestRun(design, LEVELS[levelIdx]);
@@ -29,6 +30,59 @@ describe('reference solutions', () => {
       expect({ status: run.status, reason: run.reason, broken }).toEqual({ status: 'success', reason: '', broken: 0 });
       expect(run.peakStress).toBeLessThan(1);
       console.log(`level ${level.id}: $${design.cost()} of $${level.money} (target $${level.target}), ${design.parts()} parts, peak stress ${run.peakStress.toFixed(2)}, ${run.time.toFixed(1)}s`);
+    });
+  }
+});
+
+describe('bonus goals are reachable', () => {
+  for (const level of LEVELS) {
+    it(`level ${level.id}: ${bonusLabel(level.bonus)}`, () => {
+      const design = (BONUS_SOLUTIONS[level.id] ?? SOLUTIONS[level.id])(level);
+      for (const m of design.members) expect(level.materials).toContain(m.mat);
+      expect(design.cost()).toBeLessThanOrEqual(level.money);
+      const run = drive(design, level.id - 1);
+      expect(run.status).toBe('success');
+      expect(run.world.links.some((l) => l.bridge && l.broken)).toBe(false);
+      expect(bonusMet(level.bonus, design, run.peakStress)).toBe(true);
+    });
+  }
+
+  it('16: the same truss built without splits has too many parts', () => {
+    const d = prattAbove(deck(new Design(LEVELS[15]), 0, 16), 0, 16, 2, { chord: 'steel', web: 'wood', vert: 'wood', end: 'steel', endWeb: 'steel' });
+    expect(d.cost()).toBe(SOLUTIONS[16](LEVELS[15]).cost());
+    expect(bonusMet(LEVELS[15].bonus, d, 0)).toBe(false);
+  });
+});
+
+describe('bonus designs obey the build rules', () => {
+  for (const level of LEVELS.filter((l) => BONUS_SOLUTIONS[l.id])) {
+    it(`level ${level.id} "${level.name}"`, () => {
+      const design = BONUS_SOLUTIONS[level.id](level);
+      const ed = new Editor(level, { place() {}, remove() {}, invalid() {} });
+      for (const n of design.nodes) expect(ed.pointAllowed(n.x, n.y), `joint ${n.x},${n.y}`).toBe(true);
+      for (const m of design.members) {
+        const a = design.nodes[m.a];
+        const b = design.nodes[m.b];
+        expect(Math.hypot(b.x - a.x, b.y - a.y)).toBeLessThanOrEqual(MATERIALS[m.mat].maxLen);
+        for (const [x0, x1, top] of level.channels ?? []) expect(segmentHitsRect(a.x, a.y, b.x, b.y, x0, level.waterY - 10, x1, top)).toBe(false);
+      }
+    });
+  }
+});
+
+describe('reference and bonus designs are fully connected', () => {
+  for (const level of LEVELS) {
+    it(`level ${level.id}: no joint hangs off a single member`, () => {
+      for (const d of [SOLUTIONS[level.id](level), BONUS_SOLUTIONS[level.id]?.(level)]) {
+        if (!d) continue;
+        const degree = new Uint16Array(d.nodes.length);
+        for (const m of d.members) {
+          degree[m.a]++;
+          degree[m.b]++;
+        }
+        const loose = d.nodes.filter((n, i) => !n.anchor && degree[i] < 2).map((n) => `${n.x},${n.y}`);
+        expect(loose).toEqual([]);
+      }
     });
   }
 });
@@ -119,6 +173,45 @@ describe('cable levels resist the obvious answer', () => {
     hang(hang(d, [0, 4], [[2, 0], [4, 0], [6, 0]]), [32, 4], [[26, 0], [28, 0], [30, 0]]);
     d.add([16, -4], [16, 0], 'steel');
     expect(drive(d, 19).status).toBe('fail');
+  });
+});
+
+describe('deck bending', () => {
+  it('stiffens heavy deck joints but leaves road as a hinge chain', () => {
+    const d = new Design(L(7));
+    roadRun(d, [0, 0], [6, 0], 'heavy');
+    roadRun(d, [6, 0], [12, 0]);
+    // Heavy–heavy joints at 2 and 4 m; the heavy–road joint at 6 m and road joints stay hinges.
+    const at = new TestRun(d, L(7)).world.bends.map((b) => d.nodes[b.b].x);
+    expect(at).toHaveLength(2);
+    expect(new Set(at)).toEqual(new Set([2, 4]));
+  });
+
+  it('yields: a bare heavy deck cannot carry the truck across 12 m', () => {
+    const d = new Design(L(7));
+    roadRun(d, [0, 0], [12, 0], 'heavy');
+    d.add([0, -2], [2, 0], 'steel').add([12, -2], [10, 0], 'steel');
+    expect(drive(d, 6).status).toBe('fail');
+  });
+
+  it('27: trestles alone drop the bus', () => {
+    const d = new Design(L(27));
+    roadRun(d, [0, 0], [26, 0], 'heavy');
+    for (const px of [9, 17]) {
+      const [a, b] = [px - 1, px + 1];
+      d.add([px, -6], [a, -3], 'steel').add([px, -6], [b, -3], 'steel').add([a, -3], [b, -3], 'steel');
+      d.add([a, -3], [a, 0], 'steel').add([b, -3], [b, 0], 'steel').add([a, -3], [b, 0], 'steel');
+    }
+    d.add([0, -3], [2, 0], 'steel').add([26, -3], [24, 0], 'steel');
+    expect(drive(d, 26).status).toBe('fail');
+  });
+
+  it('carries a semi across a suspension bridge', () => {
+    const level = { ...L(19), vehicle: 'semi' as const };
+    const run = new TestRun(SOLUTIONS[19](level), level);
+    for (let i = 0; i < 25 * 60 && run.status === 'running'; i++) run.step();
+    expect(run.status).toBe('success');
+    expect(run.peakStress).toBeLessThan(0.95);
   });
 });
 

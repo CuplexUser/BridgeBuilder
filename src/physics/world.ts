@@ -36,6 +36,24 @@ export interface Link {
   age: number;
 }
 
+/**
+ * Bending stiffness across a deck joint: keeps joint b at its rest offset from the line a→c,
+ * so a wheel load at one joint is shared with its neighbors. Yields past `limit` like a hinge.
+ */
+export interface Bend {
+  a: number;
+  b: number;
+  c: number;
+  /** Signed offset of b from the line a→c when built. */
+  rest: number;
+  compliance: number;
+  /** Largest sideways force (N) the joint carries. */
+  limit: number;
+  /** The two deck pieces; the bend is gone once either breaks. */
+  ab: Link;
+  bc: Link;
+}
+
 export interface BreakEvent {
   link: Link;
   x: number;
@@ -69,6 +87,7 @@ export class World {
   cnx: Float64Array;
   cny: Float64Array;
   links: Link[] = [];
+  bends: Bend[] = [];
   /** Static segments (x1, y1, x2, y2) for the banks and piers. */
   terrain: number[] = [];
   breaks: BreakEvent[] = [];
@@ -168,6 +187,7 @@ export class World {
         y[b] += ny * dl * im[b];
       }
 
+      this.solveBends(h);
       this.solveContacts();
 
       const invH = 1 / h;
@@ -191,6 +211,40 @@ export class World {
     }
 
     this.updateStress(dt);
+  }
+
+  private solveBends(h: number): void {
+    const { x, y, im } = this;
+    const h2 = h * h;
+    for (const k of this.bends) {
+      if (k.ab.broken || k.bc.broken) continue;
+      const { a, b, c } = k;
+      const ux = x[c] - x[a];
+      const uy = y[c] - y[a];
+      const L2 = ux * ux + uy * uy;
+      if (L2 < 1e-12) continue;
+      const L = Math.sqrt(L2);
+      // Unit normal to a→c, and where b projects onto it.
+      const nx = -uy / L;
+      const ny = ux / L;
+      const t = ((x[b] - x[a]) * ux + (y[b] - y[a]) * uy) / L2;
+      const C = (x[b] - x[a]) * nx + (y[b] - y[a]) * ny - k.rest;
+      const wa = im[a] * (1 - t) * (1 - t);
+      const wc = im[c] * t * t;
+      const w = im[b] + wa + wc;
+      if (w === 0) continue;
+      let dl = -C / (w + k.compliance / h2);
+      // Past its limit the joint yields: it passes on at most `limit` newtons.
+      const cap = k.limit * h2;
+      if (dl > cap) dl = cap;
+      else if (dl < -cap) dl = -cap;
+      x[b] += nx * dl * im[b];
+      y[b] += ny * dl * im[b];
+      x[a] -= nx * dl * im[a] * (1 - t);
+      y[a] -= ny * dl * im[a] * (1 - t);
+      x[c] -= nx * dl * im[c] * t;
+      y[c] -= ny * dl * im[c] * t;
+    }
   }
 
   private solveContacts(): void {
@@ -370,6 +424,8 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
     });
   });
 
+  addDeckBends(world, design);
+
   const W = level.width;
   const deep = level.waterY - 8;
   const rY = bankY(level);
@@ -387,6 +443,46 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
 
   const vehicle = addVehicle(world, VEHICLES[level.vehicle]);
   return { world, vehicle };
+}
+
+/** Most a deck may kink at a joint and still act as one continuous beam there, radians. */
+const MAX_BEND_KINK = 0.6;
+
+/** Bending stiffness at every joint where two deck pieces continue one another. */
+function addDeckBends(world: World, design: Design): void {
+  const deckAt: number[][] = design.nodes.map(() => []);
+  world.links.forEach((l, i) => {
+    if (!l.drivable) return;
+    deckAt[l.a].push(i);
+    deckAt[l.b].push(i);
+  });
+  const { x, y } = world;
+  deckAt.forEach((ids, b) => {
+    for (let i = 0; i < ids.length; i++) {
+      for (let j = i + 1; j < ids.length; j++) {
+        const ab = world.links[ids[i]];
+        const bc = world.links[ids[j]];
+        const a = ab.a === b ? ab.b : ab.a;
+        const c = bc.a === b ? bc.b : bc.a;
+        const k1 = Math.atan2(y[b] - y[a], x[b] - x[a]);
+        const k2 = Math.atan2(y[c] - y[b], x[c] - x[b]);
+        let kink = Math.abs(k2 - k1);
+        if (kink > Math.PI) kink = 2 * Math.PI - kink;
+        if (kink > MAX_BEND_KINK) continue;
+        // The softer of the two pieces sets the joint's stiffness and strength.
+        const m1 = MATERIALS[ab.mat!];
+        const m2 = MATERIALS[bc.mat!];
+        const stiff = Math.min(m1.bend, m2.bend);
+        const limit = Math.min(m1.bendLimit, m2.bendLimit);
+        if (stiff <= 0 || limit <= 0) continue;
+        const ux = x[c] - x[a];
+        const uy = y[c] - y[a];
+        const L = Math.hypot(ux, uy);
+        const rest = ((x[b] - x[a]) * -uy + (y[b] - y[a]) * ux) / L;
+        world.bends.push({ a, b, c, rest, compliance: 1 / stiff, limit, ab, bc });
+      }
+    }
+  });
 }
 
 function addVehicle(world: World, def: VehicleDef): VehicleHandle {

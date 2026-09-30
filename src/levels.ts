@@ -14,6 +14,17 @@ export interface Overhang {
   reach: number;
 }
 
+/** An optional extra goal on top of the three stars. Meeting it earns the bonus star. */
+export type BonusGoal =
+  /** Build for this many dollars or less. */
+  | { kind: 'cost'; max: number }
+  /** Keep peak stress below this ratio. */
+  | { kind: 'stress'; max: number }
+  /** Use this many parts or fewer. A split beam counts once. */
+  | { kind: 'parts'; max: number }
+  /** Build without this material. */
+  | { kind: 'without'; mat: MaterialId };
+
 export interface LevelDef {
   id: number;
   name: string;
@@ -37,7 +48,12 @@ export interface LevelDef {
   overhangs?: Overhang[];
   /** Ship channels: [x0, x1, top]. Nothing may be built between x0 and x1 from the water up to `top`. */
   channels?: [number, number, number][];
-  /** Ghost members drawn as a hint (level 1 only). */
+  bonus: BonusGoal;
+  /**
+   * Ghost members drawn as a hint until the first test, for levels that introduce a mechanic.
+   * A deck ghost may span a whole road run, and a ghost that ends partway along another shows
+   * where that beam gets split.
+   */
   hint?: [Pt, Pt, MaterialId][];
 }
 
@@ -54,6 +70,7 @@ export const LEVELS: LevelDef[] = [
     target: 1500,
     vehicle: 'car',
     waterY: -4,
+    bonus: { kind: 'parts', max: 4 },
     hint: [
       [[0, 0], [2, 0], 'road'],
       [[2, 0], [4, 0], 'road'],
@@ -73,6 +90,7 @@ export const LEVELS: LevelDef[] = [
     target: 2000,
     vehicle: 'car',
     waterY: -4,
+    bonus: { kind: 'stress', max: 0.5 },
   },
   {
     id: 3,
@@ -86,6 +104,7 @@ export const LEVELS: LevelDef[] = [
     target: 3750,
     vehicle: 'car',
     waterY: -5,
+    bonus: { kind: 'cost', max: 3400 },
   },
   {
     id: 4,
@@ -99,6 +118,7 @@ export const LEVELS: LevelDef[] = [
     target: 6500,
     vehicle: 'van',
     waterY: -5,
+    bonus: { kind: 'stress', max: 0.35 },
   },
   {
     id: 5,
@@ -109,10 +129,11 @@ export const LEVELS: LevelDef[] = [
     anchors: [[0, 0], [10, 2], [0, -2], [10, 0]],
     piers: [],
     materials: ['road', 'wood', 'steel'],
-    money: 12500,
-    target: 9000,
+    money: 8500,
+    target: 6000,
     vehicle: 'van',
     waterY: -5,
+    bonus: { kind: 'cost', max: 5000 },
   },
   {
     id: 6,
@@ -126,6 +147,7 @@ export const LEVELS: LevelDef[] = [
     target: 7750,
     vehicle: 'van',
     waterY: -6,
+    bonus: { kind: 'stress', max: 0.4 },
   },
   {
     id: 7,
@@ -139,6 +161,7 @@ export const LEVELS: LevelDef[] = [
     target: 11750,
     vehicle: 'truck',
     waterY: -5,
+    bonus: { kind: 'without', mat: 'heavy' },
   },
   {
     id: 8,
@@ -152,6 +175,7 @@ export const LEVELS: LevelDef[] = [
     target: 12000,
     vehicle: 'truck',
     waterY: -7,
+    bonus: { kind: 'cost', max: 9500 },
   },
   {
     id: 9,
@@ -166,6 +190,7 @@ export const LEVELS: LevelDef[] = [
     target: 12000,
     vehicle: 'van',
     waterY: -7,
+    bonus: { kind: 'cost', max: 10000 },
   },
   {
     id: 10,
@@ -179,6 +204,7 @@ export const LEVELS: LevelDef[] = [
     target: 13000,
     vehicle: 'truck',
     waterY: -6,
+    bonus: { kind: 'without', mat: 'wood' },
   },
   {
     id: 11,
@@ -192,6 +218,7 @@ export const LEVELS: LevelDef[] = [
     target: 11500,
     vehicle: 'bus',
     waterY: -7,
+    bonus: { kind: 'stress', max: 0.65 },
   },
   {
     id: 12,
@@ -205,6 +232,7 @@ export const LEVELS: LevelDef[] = [
     target: 13500,
     vehicle: 'bus',
     waterY: -7,
+    bonus: { kind: 'stress', max: 0.7 },
   },
   {
     id: 13,
@@ -219,6 +247,12 @@ export const LEVELS: LevelDef[] = [
     target: 8000,
     vehicle: 'van',
     waterY: -6,
+    bonus: { kind: 'stress', max: 0.3 },
+    hint: [
+      [[0, 0], [14, 0], 'road'],
+      [[0, 6], [6, 0], 'cable'],
+      [[14, 6], [8, 0], 'cable'],
+    ],
   },
   {
     id: 14,
@@ -233,6 +267,7 @@ export const LEVELS: LevelDef[] = [
     target: 9750,
     vehicle: 'van',
     waterY: -7,
+    bonus: { kind: 'parts', max: 17 },
   },
   {
     id: 15,
@@ -250,6 +285,7 @@ export const LEVELS: LevelDef[] = [
     target: 13250,
     vehicle: 'truck',
     waterY: -8,
+    bonus: { kind: 'stress', max: 0.4 },
   },
   {
     id: 16,
@@ -263,6 +299,13 @@ export const LEVELS: LevelDef[] = [
     target: 11500,
     vehicle: 'van',
     waterY: -7,
+    bonus: { kind: 'parts', max: 26 },
+    hint: [
+      [[0, 0], [16, 0], 'road'],
+      [[0, 0], [2, 2], 'steel'],
+      [[2, 2], [6, 2], 'steel'],
+      [[4, 0], [4, 2], 'wood'],
+    ],
   },
   {
     id: 17,
@@ -276,6 +319,7 @@ export const LEVELS: LevelDef[] = [
     target: 24250,
     vehicle: 'semi',
     waterY: -7,
+    bonus: { kind: 'without', mat: 'wood' },
   },
   {
     id: 18,
@@ -291,6 +335,7 @@ export const LEVELS: LevelDef[] = [
     target: 16000,
     vehicle: 'truck',
     waterY: -9,
+    bonus: { kind: 'stress', max: 0.4 },
   },
   {
     id: 19,
@@ -305,6 +350,7 @@ export const LEVELS: LevelDef[] = [
     target: 25000,
     vehicle: 'bus',
     waterY: -8,
+    bonus: { kind: 'without', mat: 'wood' },
   },
   {
     id: 20,
@@ -319,6 +365,7 @@ export const LEVELS: LevelDef[] = [
     target: 33500,
     vehicle: 'bus',
     waterY: -9,
+    bonus: { kind: 'without', mat: 'steel' },
   },
   {
     id: 21,
@@ -332,6 +379,7 @@ export const LEVELS: LevelDef[] = [
     target: 2250,
     vehicle: 'car',
     waterY: -5,
+    bonus: { kind: 'cost', max: 2000 },
   },
   {
     id: 22,
@@ -345,6 +393,7 @@ export const LEVELS: LevelDef[] = [
     target: 6250,
     vehicle: 'van',
     waterY: -6,
+    bonus: { kind: 'without', mat: 'steel' },
   },
   {
     id: 23,
@@ -358,6 +407,7 @@ export const LEVELS: LevelDef[] = [
     target: 10000,
     vehicle: 'van',
     waterY: -1.5,
+    bonus: { kind: 'without', mat: 'wood' },
   },
   {
     id: 24,
@@ -373,6 +423,12 @@ export const LEVELS: LevelDef[] = [
     target: 19250,
     vehicle: 'truck',
     waterY: -2,
+    bonus: { kind: 'stress', max: 0.45 },
+    hint: [
+      [[0, 0], [8, 2], 'road'],
+      [[8, 2], [16, 2], 'road'],
+      [[16, 2], [24, 0], 'road'],
+    ],
   },
   {
     id: 25,
@@ -387,6 +443,7 @@ export const LEVELS: LevelDef[] = [
     target: 17250,
     vehicle: 'truck',
     waterY: -6,
+    bonus: { kind: 'cost', max: 15000 },
   },
   {
     id: 26,
@@ -402,6 +459,7 @@ export const LEVELS: LevelDef[] = [
     target: 18250,
     vehicle: 'truck',
     waterY: -8,
+    bonus: { kind: 'stress', max: 0.45 },
   },
   {
     id: 27,
@@ -415,6 +473,7 @@ export const LEVELS: LevelDef[] = [
     target: 33250,
     vehicle: 'bus',
     waterY: -8,
+    bonus: { kind: 'without', mat: 'heavy' },
   },
   {
     id: 28,
@@ -428,6 +487,7 @@ export const LEVELS: LevelDef[] = [
     target: 30250,
     vehicle: 'semi',
     waterY: -7,
+    bonus: { kind: 'cost', max: 27000 },
   },
   {
     id: 29,
@@ -442,6 +502,7 @@ export const LEVELS: LevelDef[] = [
     target: 30250,
     vehicle: 'truck',
     waterY: -8,
+    bonus: { kind: 'without', mat: 'wood' },
   },
   {
     id: 30,
@@ -455,6 +516,7 @@ export const LEVELS: LevelDef[] = [
     target: 46000,
     vehicle: 'semi',
     waterY: -8,
+    bonus: { kind: 'cost', max: 44000 },
   },
 ];
 

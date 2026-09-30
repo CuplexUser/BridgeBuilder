@@ -34,7 +34,8 @@ export interface Profile {
 }
 
 export interface Progress {
-  best: Record<number, { score: number; stars: number }>;
+  /** Best result per level; `bonus` is set once the level's bonus goal has been met. */
+  best: Record<number, { score: number; stars: number; bonus?: boolean }>;
   unlocked: number;
   designs: Record<number, string>;
 }

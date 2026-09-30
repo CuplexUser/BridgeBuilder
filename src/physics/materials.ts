@@ -19,6 +19,13 @@ export interface Material {
   compression: number;
   /** Members longer than this buckle earlier (Euler-style 1/L² falloff). */
   buckleRef: number;
+  /**
+   * Deck bending stiffness: the sideways spring, in N/m, at a joint between two consecutive
+   * deck pieces. It spreads a wheel load onto neighboring joints. 0 means a plain hinge.
+   */
+  bend: number;
+  /** Most sideways force one deck joint's bending carries before it yields like a hinge, N. */
+  bendLimit: number;
   /** Vehicles drive on it. */
   drivable: boolean;
   /** One drag lays a whole run of pieces. */
@@ -39,6 +46,8 @@ export const MATERIALS: Record<MaterialId, Material> = {
     tension: 50000,
     compression: 50000,
     buckleRef: 3,
+    bend: 0,
+    bendLimit: 0,
     drivable: true,
     runs: true,
     tensionOnly: false,
@@ -54,6 +63,8 @@ export const MATERIALS: Record<MaterialId, Material> = {
     tension: 110000,
     compression: 110000,
     buckleRef: 3.4,
+    bend: 1e6,
+    bendLimit: 2000,
     drivable: true,
     runs: true,
     tensionOnly: false,
@@ -69,6 +80,8 @@ export const MATERIALS: Record<MaterialId, Material> = {
     tension: 26000,
     compression: 22000,
     buckleRef: 2.9,
+    bend: 0,
+    bendLimit: 0,
     drivable: false,
     runs: false,
     tensionOnly: false,
@@ -84,6 +97,8 @@ export const MATERIALS: Record<MaterialId, Material> = {
     tension: 80000,
     compression: 64000,
     buckleRef: 4.3,
+    bend: 0,
+    bendLimit: 0,
     drivable: false,
     runs: false,
     tensionOnly: false,
@@ -99,6 +114,8 @@ export const MATERIALS: Record<MaterialId, Material> = {
     tension: 70000,
     compression: Infinity,
     buckleRef: 1,
+    bend: 0,
+    bendLimit: 0,
     drivable: false,
     runs: false,
     tensionOnly: true,

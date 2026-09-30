@@ -122,8 +122,10 @@ export class Particles {
   }
 }
 
-/** A snapped half-member tumbling into the river. */
+/** A snapped piece of member, or a chunk of broken deck, tumbling into the river. */
 export interface Debris {
+  /** A length of member, or a lump of rubble `len` meters across. */
+  kind: 'beam' | 'chunk';
   x: number;
   y: number;
   vx: number;
@@ -134,10 +136,29 @@ export interface Debris {
   mat: MaterialId;
   life: number;
   wet: boolean;
+  /** Picks a chunk's outline and shade. */
+  seed: number;
+}
+
+/** How long a snapped cable whips about, in seconds. */
+export const WHIP_LIFE = 1.3;
+
+/**
+ * One half of a snapped cable, recoiling toward the joint it still hangs from. The joint is a
+ * world particle, so the whip follows it as the bridge moves.
+ */
+export interface Whip {
+  node: number;
+  /** Unit direction from the joint toward the break, when it snapped. */
+  dx: number;
+  dy: number;
+  len: number;
+  t: number;
 }
 
 export class DebrisField {
   items: Debris[] = [];
+  whips: Whip[] = [];
 
   add(ax: number, ay: number, bx: number, by: number, vx: number, vy: number, mat: MaterialId): void {
     const mx = (ax + bx) / 2;
@@ -148,6 +169,7 @@ export class DebrisField {
       const cx = mx + (Math.cos(ang) * len * side) / 2;
       const cy = my + (Math.sin(ang) * len * side) / 2;
       this.items.push({
+        kind: 'beam',
         x: cx,
         y: cy,
         vx: vx + side * (1 + Math.random() * 2) * Math.cos(ang),
@@ -158,8 +180,61 @@ export class DebrisField {
         mat,
         life: 6,
         wet: false,
+        seed: Math.random(),
       });
     }
+  }
+
+  /** A deck slab breaking up: a few short slabs and a spray of rubble. */
+  crumble(ax: number, ay: number, bx: number, by: number, vx: number, vy: number, mat: MaterialId): void {
+    const ang = Math.atan2(by - ay, bx - ax);
+    const len = Math.hypot(bx - ax, by - ay);
+    const slabs = 3;
+    for (let i = 0; i < slabs; i++) {
+      const t = (i + 0.5) / slabs;
+      this.items.push({
+        kind: 'beam',
+        x: ax + (bx - ax) * t,
+        y: ay + (by - ay) * t,
+        vx: vx + (t - 0.5) * 3 + (Math.random() - 0.5) * 1.5,
+        vy: vy + Math.random() * 1.5,
+        ang: ang + (Math.random() - 0.5) * 0.6,
+        spin: (Math.random() - 0.5) * 7,
+        len: (len / slabs) * (0.7 + Math.random() * 0.2),
+        mat,
+        life: 6,
+        wet: false,
+        seed: Math.random(),
+      });
+    }
+    for (let i = 0; i < 9; i++) {
+      const t = Math.random();
+      const a = Math.random() * Math.PI * 2;
+      const sp = 1.5 + Math.random() * 3.5;
+      this.items.push({
+        kind: 'chunk',
+        x: ax + (bx - ax) * t,
+        y: ay + (by - ay) * t,
+        vx: vx + Math.cos(a) * sp,
+        vy: vy + Math.abs(Math.sin(a)) * sp,
+        ang: a,
+        spin: (Math.random() - 0.5) * 14,
+        len: 0.12 + Math.random() * 0.2,
+        mat,
+        life: 5,
+        wet: false,
+        seed: Math.random(),
+      });
+    }
+  }
+
+  /** A snapped cable: both halves whip back toward their joints. */
+  whip(nodeA: number, nodeB: number, ax: number, ay: number, bx: number, by: number): void {
+    const len = Math.hypot(bx - ax, by - ay);
+    if (len < 1e-6) return;
+    const dx = (bx - ax) / len;
+    const dy = (by - ay) / len;
+    this.whips.push({ node: nodeA, dx, dy, len: len / 2, t: 0 }, { node: nodeB, dx: -dx, dy: -dy, len: len / 2, t: 0 });
   }
 
   update(dt: number, waterY: number, onSplash: (x: number, y: number, size: number) => void): void {
@@ -184,10 +259,13 @@ export class DebrisField {
       d.ang += d.spin * dt;
     }
     this.items = this.items.filter((d) => d.life > 0);
+    for (const w of this.whips) w.t += dt;
+    if (this.whips.length) this.whips = this.whips.filter((w) => w.t < WHIP_LIFE);
   }
 
   clear(): void {
     this.items.length = 0;
+    this.whips.length = 0;
   }
 }
 

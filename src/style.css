@@ -14,6 +14,7 @@
   --steel: #9fdcff;
   --heavy: #d6dbe3;
   --cable: #c7a6ff;
+  --bonus: #7fe3ff;
   --font: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
   --safe-b: env(safe-area-inset-bottom, 0px);
@@ -147,6 +148,20 @@ kbd {
   color: var(--gold);
   letter-spacing: 0.06em;
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.hud-goal {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.hud-goal.met {
+  color: var(--bonus);
 }
 
 .hud-score.bump {
@@ -514,6 +529,10 @@ kbd {
     max-width: 34vw;
     font-size: 14px;
   }
+  .hud-goal {
+    max-width: 42vw;
+    font-size: 10px;
+  }
 }
 
 @media (max-width: 380px) {
@@ -604,7 +623,11 @@ kbd {
   justify-content: center;
   gap: 10px;
   margin: 18px auto 4px;
-  max-width: 420px;
+  max-width: 520px;
+}
+
+.career-card b.bonus {
+  color: var(--bonus);
 }
 
 .career-card:empty {
@@ -1104,6 +1127,22 @@ h2 {
   color: var(--cyan);
 }
 
+.lvl-card .goal {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.lvl-card .goal.met,
+.lvl-card .s em {
+  color: var(--bonus);
+  font-style: normal;
+}
+
+.lvl-card .s em {
+  margin-left: 6px;
+}
+
 .lvl-card.done {
   border-color: rgba(57, 217, 138, 0.55);
 }
@@ -1291,6 +1330,19 @@ h2 {
   transform: translateY(-8px) scale(1.15);
 }
 
+.stars i.bonus {
+  width: 40px;
+  height: 40px;
+  align-self: center;
+  margin-left: 6px;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+}
+
+.stars i.bonus.on {
+  background: var(--bonus);
+  filter: drop-shadow(0 0 10px rgba(127, 227, 255, 0.8));
+}
+
 .stars i.on {
   background: var(--gold);
   animation: starpop 0.45s cubic-bezier(0.2, 2, 0.4, 1);
@@ -1314,6 +1366,10 @@ h2 {
 
 .star-notes .yes {
   color: var(--gold);
+}
+
+.star-notes .bonus.yes {
+  color: var(--bonus);
 }
 
 .breakdown {

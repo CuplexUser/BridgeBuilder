@@ -7,6 +7,7 @@ import { STEP, TestRun } from './physics/world';
 import { Camera, type Rect } from './render/camera';
 import { MATERIAL_CHALK, PAL } from './render/palette';
 import { Renderer, type FloatText } from './render/renderer';
+import { THEMES, themeForChapter } from './render/themes';
 import {
   chapterComplete,
   chapterOf,
@@ -21,7 +22,7 @@ import {
   totals,
   type ChapterDef,
 } from './chapters';
-import { scoreLevel, type LevelScore } from './scoring';
+import { bonusLabel, scoreLevel, type LevelScore } from './scoring';
 import { bestPerLevel, blankProgress, loadPrefs, rankProfiles, savePrefs, type Prefs, type Profile, type Progress, type Store } from './storage';
 import { SOLUTIONS } from './solutions';
 import { Ui } from './ui/ui';
@@ -71,6 +72,8 @@ export class Game {
   private demo: TestRun | null = null;
   private demoTimer = 0;
   private demoEnd = 0;
+  /** The title demo shows off a different chapter's look each time it loops. */
+  private demoRound = -1;
   private splashed = new WeakSet<TestRun>();
   private attempts = 0;
   private board: Board = 'career';
@@ -89,7 +92,7 @@ export class Game {
   /** Fastest downward speed of each wheel since it last touched something. */
   private wheelFall: [number, number] = [0, 0];
   private floats: FloatText[] = [];
-  private resultAnim: { t: number; score: LevelScore; shown: number; stars: number } | null = null;
+  private resultAnim: { t: number; score: LevelScore; shown: number; stars: number; bonusShown: boolean } | null = null;
 
   private hoverNode = -1;
   private hoverMember = -1;
@@ -189,6 +192,8 @@ export class Game {
     const level = levelById(3);
     this.levelIdx = LEVELS.indexOf(level);
     this.demo = new TestRun(SOLUTIONS[level.id](level), level);
+    this.demoRound = (this.demoRound + 1) % THEMES.length;
+    this.renderer.setTheme(THEMES[this.demoRound]);
     this.demoTimer = 0;
     this.demoEnd = 0;
     this.develop = this.developTarget = 1;
@@ -251,6 +256,7 @@ export class Game {
     this.editor.cursorX = 0;
     this.editor.cursorY = 0;
     this.editor.setMaterial(level.materials[0]);
+    this.renderer.setTheme(themeForChapter(chapterOf(level.id).id));
     this.state = 'build';
     this.developTarget = 0;
     this.develop = 0;
@@ -318,6 +324,7 @@ export class Game {
     best[level.id] = {
       score: Math.max(prev?.score ?? 0, score.total),
       stars: Math.max(prev?.stars ?? 0, score.stars),
+      ...(prev?.bonus || score.bonus ? { bonus: true } : {}),
     };
     this.data.unlocked = highestUnlocked(best);
     // Challenge runs start from scratch; they never overwrite your saved free-play design.
@@ -338,6 +345,7 @@ export class Game {
     } else if (!prev) lines.push('FIRST CROSSING');
     else if (score.total > prev.score) lines.push('NEW PERSONAL BEST');
     else lines.push(`BEST ${prev.score.toLocaleString('en-US')}`);
+    if (score.bonus && !prev?.bonus) lines.push('BONUS GOAL MET');
     const gain = totals(best).score - careerBefore;
     if (gain > 0) lines.push(`CAREER +${gain.toLocaleString('en-US')}`);
     if (!wasComplete && chapterComplete(ch, best)) {
@@ -350,7 +358,7 @@ export class Game {
     const next = nextInChapter(level.id);
     const nextLabel = next ? 'NEXT' : this.mode === 'challenge' ? 'FINISH' : 'CHAPTERS';
     this.ui.result(level, score, run.peakStress, lines.join(' · '), this.mode === 'play', nextLabel);
-    this.resultAnim = { t: 0, score, shown: 0, stars: 0 };
+    this.resultAnim = { t: 0, score, shown: 0, stars: 0, bonusShown: false };
   }
 
   private finishCollapse(): void {
@@ -623,9 +631,11 @@ export class Game {
       const best = this.data.best[this.level.id];
       this.ui.setScore(best ? `BEST ${best.score.toLocaleString('en-US')} ${'★'.repeat(best.stars)}${'☆'.repeat(3 - best.stars)}` : 'NOT YET CROSSED');
     }
-    // Nudge first-timers toward the test button once the hint is complete.
-    const hint = this.level.hint;
-    this.ui.testBtn.classList.toggle('pulse', !!hint && ed.design.members.length >= hint.length && this.attempts === 0);
+    this.ui.setGoal(bonusLabel(this.level.bonus), !!this.data.best[this.level.id]?.bonus && this.mode === 'play');
+    // Nudge first-timers toward the test button once the hint is built. Only the very first
+    // level's ghost is a whole bridge; later ghosts just show off a new mechanic.
+    const hint = this.level.id === CHAPTERS[0].levels[0] ? this.level.hint : undefined;
+    this.ui.testBtn.classList.toggle('pulse', !!hint && hint.every(([a, b]) => ed.design.covers(a, b)) && this.attempts === 0);
   }
 
   private float(x: number, y: number, text: string, color: string, size = 18, life = 1.1): void {
@@ -670,8 +680,10 @@ export class Game {
       this.editor?.tick(dt);
       this.particles.update(dt * timeScale, this.level.waterY);
       this.debris.update(dt * timeScale, this.level.waterY, (x, y, size) => {
-        this.particles.burst(PK.Water, x, y, 8 + size * 6, 3.5, 0.8, 0.08, [PAL.foam, PAL.waterTop], 3);
-        if (!this.demo) sfx.splash(false);
+        const T = this.renderer.theme;
+        this.particles.burst(PK.Water, x, y, 4 + size * 12, 3.5, 0.8, 0.08, [T.foam, T.waterTop], 3);
+        // Rubble plops silently; only real pieces of bridge get a splash sound.
+        if (!this.demo && size > 0.35) sfx.splash(false);
       });
       for (const f of this.floats) {
         f.life -= dt;
@@ -728,8 +740,9 @@ export class Game {
     if (sim.splashed && !this.splashed.has(sim)) {
       this.splashed.add(sim);
       const x = (w.x[v.rearWheel] + w.x[v.frontWheel]) / 2;
-      this.particles.burst(PK.Water, x, sim.level.waterY, 70, 9, 1.4, 0.12, [PAL.foam, '#ffffff', PAL.waterTop], 7);
-      this.particles.spawn(PK.Ring, x, sim.level.waterY, 0, 0, 0.8, 4, PAL.foam);
+      const T = this.renderer.theme;
+      this.particles.burst(PK.Water, x, sim.level.waterY, 70, 9, 1.4, 0.12, [T.foam, '#ffffff', T.waterTop], 7);
+      this.particles.spawn(PK.Ring, x, sim.level.waterY, 0, 0, 0.8, 4, T.foam);
       this.shake.add(0.7);
       if (!this.demo) sfx.splash(true);
     }
@@ -746,13 +759,16 @@ export class Game {
     if (breaks.length === 0) return;
     for (const b of breaks) {
       const mat = b.link.mat!;
-      this.debris.add(b.ax, b.ay, b.bx, b.by, b.vx, b.vy, mat);
+      if (mat === 'heavy') this.debris.crumble(b.ax, b.ay, b.bx, b.by, b.vx, b.vy, mat);
+      else if (mat === 'cable') this.debris.whip(b.link.a, b.link.b, b.ax, b.ay, b.bx, b.by);
+      else this.debris.add(b.ax, b.ay, b.bx, b.by, b.vx, b.vy, mat);
       if (mat === 'wood') {
         this.particles.burst(PK.Splinter, b.x, b.y, 22, 7, 1.2, 0.18, [PAL.wood, PAL.woodDark, '#e8b27a'], 2);
       } else if (mat === 'steel' || mat === 'cable') {
         this.particles.burst(PK.Spark, b.x, b.y, mat === 'cable' ? 18 : 30, 12, 0.6, 0.04, ['#fff3b0', PAL.gold, '#ff9d3b'], 2);
       } else if (mat === 'heavy') {
         this.particles.burst(PK.Splinter, b.x, b.y, 22, 6, 1.3, 0.22, [PAL.concrete, PAL.concreteDark, PAL.heavy], 2);
+        this.particles.burst(PK.Dust, b.x, b.y, 16, 2.2, 1.4, 0.35, ['#b9b4aa', '#d8d2c6'], 0.6);
       } else {
         this.particles.burst(PK.Splinter, b.x, b.y, 16, 5, 1.2, 0.2, [PAL.road, '#555a63', PAL.roadLine], 2);
       }
@@ -822,6 +838,11 @@ export class Game {
       sfx.star(a.stars);
       a.stars++;
     }
+    if (a.score.bonus && !a.bonusShown && a.t > 1.15) {
+      a.bonusShown = true;
+      this.ui.lightBonus();
+      sfx.star(3);
+    }
     const countT = Math.max(0, Math.min(1, (a.t - 0.5) / 1.0));
     const shown = Math.round(a.score.total * (1 - (1 - countT) ** 3));
     if (shown !== a.shown) {
@@ -829,7 +850,7 @@ export class Game {
       a.shown = shown;
       this.ui.setResultTotal(shown);
     }
-    if (countT >= 1) this.resultAnim = null;
+    if (countT >= 1 && (a.bonusShown || !a.score.bonus)) this.resultAnim = null;
   }
 
   private stopEngine(): void {

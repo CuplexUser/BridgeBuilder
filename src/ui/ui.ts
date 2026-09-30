@@ -3,7 +3,7 @@ import { money } from '../editor';
 import type { LevelDef } from '../levels';
 import { MATERIAL_ORDER, MATERIALS, type MaterialId } from '../physics/materials';
 import { VEHICLES } from '../physics/vehicles';
-import type { LevelScore } from '../scoring';
+import { bonusLabel, GOAL_SCORE, type LevelScore } from '../scoring';
 import type { BoardRow, HighScore, LevelRecord, Profile, Progress } from '../storage';
 
 export type ScreenId = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'pause' | 'result' | 'collapse' | 'over';
@@ -19,6 +19,7 @@ export class Ui {
   hudName = $('hud-name');
   hudLives = $('hud-lives');
   hudScore = $('hud-score');
+  hudGoal = $('hud-goal');
   muteBtn = $<HTMLButtonElement>('btn-mute');
   pauseBtn = $<HTMLButtonElement>('btn-pause');
   undoBtn = $<HTMLButtonElement>('btn-undo');
@@ -111,6 +112,12 @@ export class Ui {
     }
   }
 
+  /** The level's bonus goal under the level name, marked once it has been met. */
+  setGoal(label: string, met: boolean): void {
+    this.hudGoal.textContent = `${BONUS_MARK} ${label}`;
+    this.hudGoal.classList.toggle('met', met);
+  }
+
   setMaterials(level: LevelDef, active: MaterialId, left: number): void {
     for (const [id, b] of this.matBtns) {
       const price = MATERIALS[id].price;
@@ -175,6 +182,7 @@ export class Ui {
     $('title-career').innerHTML = profile
       ? `<div><span>CAREER</span><b>${t.score.toLocaleString('en-US')}</b></div>` +
         `<div><span>STARS</span><b>★ ${t.stars}<small>/${allStars}</small></b></div>` +
+        `<div><span>BONUS</span><b class="bonus">${BONUS_MARK} ${t.bonus}<small>/${allStars / 3}</small></b></div>` +
         `<div><span>CHAPTERS</span><b>${open}<small>/${CHAPTERS.length}</small></b></div>`
       : '';
     const level = levelById(next);
@@ -223,7 +231,7 @@ export class Ui {
           ${pips(c.difficulty)}
           <span class="ch-blurb">${c.blurb}</span>
           <span class="ch-effort">${c.effort}</span>
-          <span class="ch-progress"><span class="bar"><i style="width:${(t.crossed / c.levels.length) * 100}%"></i></span><span>${t.crossed}/${c.levels.length} · ★ ${t.stars}/${c.levels.length * 3}</span></span>
+          <span class="ch-progress"><span class="bar"><i style="width:${(t.crossed / c.levels.length) * 100}%"></i></span><span>${t.crossed}/${c.levels.length} · ★ ${t.stars}/${c.levels.length * 3} · ${BONUS_MARK} ${t.bonus}/${c.levels.length}</span></span>
           ${open ? '' : `<span class="ch-lock">🔒 Finish ${prev.name} to unlock</span>`}
         </button>
         ${done ? `<button class="btn small ch-challenge" data-act="challenge" data-chapter="${c.id}">CHALLENGE</button>` : ''}`;
@@ -250,7 +258,8 @@ export class Ui {
         <span class="n">${levelCode(id)}<kbd>${i + 1}</kbd></span>
         <span class="t">${open ? l.name : 'Locked'}</span>
         <span class="meta">${open ? `${VEHICLES[l.vehicle].name} · ${l.width} m · ${money(l.money)}` : 'Cross the level before'}</span>
-        <span class="s">${starText(b?.stars ?? 0)}</span>
+        ${open ? `<span class="goal${b?.bonus ? ' met' : ''}">${BONUS_MARK} ${bonusLabel(l.bonus)}</span>` : ''}
+        <span class="s">${starText(b?.stars ?? 0)}${b?.bonus ? `<em>${BONUS_MARK}</em>` : ''}</span>
         <span class="b">${b ? b.score.toLocaleString('en-US') : '—'}</span>`;
       grid.appendChild(card);
     });
@@ -339,19 +348,26 @@ export class Ui {
       ['Bridge held', `${s.base}`],
       [`Budget left ${money(level.money - s.spent)}`, `+${s.savingsBonus}`],
       [`Safety (peak ${Math.round(peak * 100)}%)`, `+${s.safetyBonus}`],
+      [`Bonus goal: ${bonusLabel(level.bonus)}`, s.bonus ? `+${GOAL_SCORE}` : 'missed'],
     ];
     rows.innerHTML = lines.map(([a, b], i) => `<tr style="animation-delay:${0.25 + i * 0.18}s"><td>${a}</td><td>${b}</td></tr>`).join('');
     $('res-total').textContent = '0';
     $('res-run').textContent = runLine;
     for (const star of $('res-stars').querySelectorAll('i')) star.classList.remove('on');
-    $('res-notes').innerHTML = `<span class="yes">★ Crossed</span><span class="${s.underTarget ? 'yes' : ''}">★ Built for ≤ ${money(level.target)} (${money(s.spent)})</span><span class="${s.safe ? 'yes' : ''}">★ Peak stress &lt; 75%</span>`;
+    $('res-notes').innerHTML =
+      `<span class="yes">★ Crossed</span><span class="${s.underTarget ? 'yes' : ''}">★ Built for ≤ ${money(level.target)} (${money(s.spent)})</span><span class="${s.safe ? 'yes' : ''}">★ Peak stress &lt; 75%</span>` +
+      `<span class="bonus${s.bonus ? ' yes' : ''}">${BONUS_MARK} ${bonusLabel(level.bonus)}</span>`;
     $('res-retry').classList.toggle('hidden', !canRetry);
     $('res-next').innerHTML = `${nextLabel} <kbd>Enter</kbd>`;
     this.show('result');
   }
 
   lightStar(i: number): void {
-    $('res-stars').querySelectorAll('i')[i]?.classList.add('on');
+    $('res-stars').querySelectorAll('i:not(.bonus)')[i]?.classList.add('on');
+  }
+
+  lightBonus(): void {
+    $('res-stars').querySelector('i.bonus')?.classList.add('on');
   }
 
   setResultTotal(v: number): void {
@@ -387,6 +403,9 @@ export class Ui {
     $('over-rank').textContent = rank >= 0 ? `New high score! #${rank + 1} on the board.` : '';
   }
 }
+
+/** Marks the bonus star wherever it is shown. */
+export const BONUS_MARK = '✦';
 
 /** Difficulty as filled and empty pips. */
 function pips(n: number): string {

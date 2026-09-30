@@ -228,3 +228,60 @@ describe('Design parts', () => {
     expect(pts).toContainEqual([1, 0.5]);
   });
 });
+
+describe('Design.covers', () => {
+  it('counts a run of pieces as one segment', () => {
+    const ed = editorFor(12);
+    ed.setMaterial('road');
+    ed.begin(ed.design.findNode(0, 0));
+    ed.aim(14, 0);
+    ed.commit();
+    expect(ed.design.covers([0, 0], [14, 0])).toBe(true);
+    expect(ed.design.covers([0, 0], [16, 0])).toBe(false);
+    expect(ed.design.covers([0, 0], [4, 2])).toBe(false);
+  });
+
+  it('still covers a beam after it is split', () => {
+    const d = new Design(LEVELS[15]).add([2, 2], [6, 2], 'steel');
+    d.splitMember(0, 4, 2);
+    expect(d.covers([2, 2], [6, 2])).toBe(true);
+    expect(d.covers([4, 2], [6, 2])).toBe(true);
+  });
+});
+
+describe('tutorial ghosts', () => {
+  for (const level of LEVELS.filter((l) => l.hint)) {
+    it(`level ${level.id} "${level.name}" can be built in order with the editor`, () => {
+      const ed = new Editor(level, noop);
+      for (const [a, b, mat] of level.hint!) {
+        expect(ed.setMaterial(mat)).toBe(true);
+        const from = ed.design.findNode(a[0], a[1]) >= 0 ? a : b;
+        const to = from === a ? b : a;
+        expect(ed.beginAt(from[0], from[1], 0.01, 0.01), `start ${from}`).toBe('node');
+        ed.aim(to[0], to[1]);
+        expect([ed.drag!.tx, ed.drag!.ty]).toEqual(to);
+        expect(ed.drag!.reason).toBe('');
+        ed.commit();
+        expect(ed.design.covers(a, b)).toBe(true);
+      }
+      // Ghosts stay built even when a later ghost splits an earlier one.
+      for (const [a, b] of level.hint!) expect(ed.design.covers(a, b)).toBe(true);
+    });
+  }
+
+  it('4-5 teaches splitting: the vertical lands on the middle of the chord', () => {
+    const level = LEVELS[15];
+    const ed = new Editor(level, noop);
+    const [deckRun, end, chord, post] = level.hint!;
+    for (const [a, b, mat] of [deckRun, end, chord]) {
+      ed.setMaterial(mat);
+      ed.begin(ed.design.findNode(a[0], a[1]));
+      ed.aim(b[0], b[1]);
+      ed.commit();
+    }
+    ed.setMaterial(post[2]);
+    ed.begin(ed.design.findNode(post[0][0], post[0][1]));
+    ed.aim(post[1][0], post[1][1]);
+    expect(ed.drag!.toSplit).toBeGreaterThanOrEqual(0);
+  });
+});

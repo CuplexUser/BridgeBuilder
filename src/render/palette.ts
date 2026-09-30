@@ -13,24 +13,9 @@ export const PAL = {
   invalid: '#ff5a4e',
   valid: '#7dffb0',
 
-  // Golden hour (test mode)
-  skyTop: '#2a3a6e',
-  skyMid: '#e46f5c',
-  skyLow: '#ffc27a',
-  sun: '#fff1c4',
-  hillFar: '#6b4f7a',
-  hillNear: '#3f3a5c',
-  mountain: '#8a6a8e',
-  tree: '#2c2a45',
+  // Painted scene (test mode). Sky, land and water come from the chapter theme (themes.ts).
   tower: '#c86b4a',
   towerDark: '#7a3a2a',
-  grass: '#4f9d58',
-  grassDark: '#2f6b3e',
-  rock: '#6e5a52',
-  rockDark: '#43352f',
-  waterTop: '#3d8fb0',
-  waterDeep: '#173a5e',
-  foam: '#cfefff',
   concrete: '#9aa0a8',
   concreteDark: '#646a73',
 

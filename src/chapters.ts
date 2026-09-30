@@ -3,7 +3,10 @@ import { LEVELS, type LevelDef } from './levels';
 /** A level's best result, as stored per profile. */
 export interface Best {
   score: number;
+  /** The three main stars. */
   stars: number;
+  /** The bonus goal was met at least once. */
+  bonus?: boolean;
 }
 export type BestMap = Record<number, Best | undefined>;
 
@@ -130,6 +133,8 @@ export function continueLevel(best: BestMap): number {
 export interface Totals {
   score: number;
   stars: number;
+  /** Bonus goals met. */
+  bonus: number;
   crossed: number;
 }
 
@@ -137,15 +142,17 @@ export interface Totals {
 export function totals(best: BestMap, levelIds: number[] = LEVELS.map((l) => l.id)): Totals {
   let score = 0;
   let stars = 0;
+  let bonus = 0;
   let n = 0;
   for (const id of levelIds) {
     const b = best[id];
     if (!b) continue;
     score += b.score;
     stars += b.stars;
+    if (b.bonus) bonus++;
     if (b.stars > 0) n++;
   }
-  return { score, stars, crossed: n };
+  return { score, stars, bonus, crossed: n };
 }
 
 /** Highest level id currently open, kept for the `unlocked` field older saves and the server still store. */

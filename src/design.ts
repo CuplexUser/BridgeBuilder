@@ -236,6 +236,26 @@ export class Design {
     return mid;
   }
 
+  /** True when members run the whole way from a to b along that straight line, in one piece or several. */
+  covers(a: GridPt, b: GridPt): boolean {
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const L2 = dx * dx + dy * dy;
+    if (L2 === 0) return false;
+    const L = Math.sqrt(L2);
+    const on = (n: DNode) => {
+      const t = ((n.x - a[0]) * dx + (n.y - a[1]) * dy) / L2;
+      return Math.abs((n.x - a[0]) * dy - (n.y - a[1]) * dx) / L < 1e-4 && t > -1e-6 && t < 1 + 1e-6;
+    };
+    let total = 0;
+    for (const m of this.members) {
+      const na = this.nodes[m.a];
+      const nb = this.nodes[m.b];
+      if (on(na) && on(nb)) total += Math.hypot(nb.x - na.x, nb.y - na.y);
+    }
+    return total >= L - 1e-4;
+  }
+
   /** Member i and every other piece split from the same beam. */
   pieces(i: number): number[] {
     const part = this.members[i].part;
