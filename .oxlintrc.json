@@ -52,5 +52,17 @@
         ]
       }
     ]
-  }
+  },
+  "overrides": [
+    {
+      "files": [
+        "tools/**"
+      ],
+      "rules": {
+        "no-await-in-loop": "off",
+        "unicorn/require-post-message-target-origin": "off",
+        "unicorn/no-array-sort": "off"
+      }
+    }
+  ]
 }

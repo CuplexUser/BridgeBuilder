@@ -423,7 +423,7 @@ function semi(p: Painter, def: VehicleDef): void {
   // Underride bar, landing leg and mudflap.
   p.lamp(tL + 0.1, -0.2, 0.08, 0.42, '#3b3e45');
   p.lamp(tL + 0.02, -0.22, 0.34, 0.08, '#3b3e45');
-  p.lamp(tR - 0.9, -0.1, 0.08, 0.34, '#4a4d55');
+  p.lamp(tR - 0.3, -0.1, 0.08, 0.34, '#4a4d55');
   p.lamp(-0.66, -0.3, 0.06, 0.4, '#18191d');
   // Cab with sleeper fairing, long hood and chrome grille.
   const cab = new Path2D();
@@ -439,6 +439,7 @@ function semi(p: Painter, def: VehicleDef): void {
   cab.closePath();
   p.panel(cab, def.color, 2.52, 0.0);
   p.arch(0, R);
+  for (const ax of def.midAxles ?? []) p.arch(ax, R);
   p.arch(wb, R);
   const wind = poly([
     [wb - 0.3, 1.3],

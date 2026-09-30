@@ -30,6 +30,9 @@ export const PAL = {
   heavyEdge: '#8d939c',
   cable: '#3b4450',
   cableHi: '#c9d3de',
+  ram: '#e0a93a',
+  ramDark: '#7a5412',
+  chrome: '#dfe6ee',
 
   // Stress
   ok: '#39d98a',
@@ -47,6 +50,7 @@ export const MATERIAL_CHALK: Record<string, string> = {
   steel: '#9fdcff',
   heavy: '#d6dbe3',
   cable: '#c7a6ff',
+  ram: '#ffd07a',
 };
 
 function hexToRgb(h: string): [number, number, number] {

@@ -119,15 +119,17 @@ export class Ui {
     this.hudGoal.classList.toggle('met', met);
   }
 
-  setMaterials(level: LevelDef, active: MaterialId, left: number): void {
+  /** Toolbar state: prices, the active material, and what's affordable or still allowed. */
+  setMaterials(level: LevelDef, active: MaterialId, left: number, partsLeft: (m: MaterialId) => number | null): void {
     for (const [id, b] of this.matBtns) {
       const price = MATERIALS[id].price;
-      b.querySelector('b')!.textContent = `$${price}/m`;
+      const parts = partsLeft(id);
+      b.querySelector('b')!.textContent = parts === null ? `$${price}/m` : `$${price}/m · ${parts} left`;
       b.classList.toggle('active', id === active);
       // Materials a level doesn't offer are hidden so the toolbar stays compact on phones.
       b.classList.toggle('hidden', !level.materials.includes(id));
-      // Can't afford even a one-meter piece.
-      b.classList.toggle('empty', left < price);
+      // Can't afford even a one-meter piece, or none of this material is left.
+      b.classList.toggle('empty', left < price || parts === 0);
     }
   }
 
@@ -258,7 +260,7 @@ export class Ui {
       card.innerHTML = `
         <span class="n">${levelCode(id)}<kbd>${i + 1}</kbd></span>
         <span class="t">${open ? l.name : 'Locked'}</span>
-        <span class="meta">${open ? `${VEHICLES[l.vehicle].name} · ${VEHICLES[l.vehicle].tonnes} t · ${l.width} m · ${money(l.money)}` : 'Cross the level before'}</span>
+        <span class="meta">${open ? `${traffic(l)} · ${l.width} m · ${money(l.money)}` : 'Cross the level before'}</span>
         ${open ? `<span class="goal${b?.bonus ? ' met' : ''}">${BONUS_MARK} ${bonusLabel(l.bonus)}</span>` : ''}
         <span class="s">${starText(b?.stars ?? 0)}${b?.bonus ? `<em>${BONUS_MARK}</em>` : ''}</span>
         <span class="b">${b ? b.score.toLocaleString('en-US') : '—'}</span>`;
@@ -419,4 +421,11 @@ function starText(n: number): string {
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+}
+
+/** Who crosses a level, e.g. "Semi truck · 40 t" or "Compact car + school bus · 30 t" for a convoy. */
+function traffic(l: LevelDef): string {
+  const defs = [l.vehicle, ...(l.convoy ?? [])].map((v) => VEHICLES[v]);
+  const names = defs.map((d, i) => (i ? d.name.toLowerCase() : d.name)).join(' + ');
+  return `${names} · ${Math.max(...defs.map((d) => d.tonnes))} t`;
 }

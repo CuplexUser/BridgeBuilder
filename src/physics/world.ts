@@ -1,7 +1,13 @@
-import type { Design } from '../design';
+import { segmentHitsRect, type Design } from '../design';
 import { bankY, goalX, START_X, type LevelDef } from '../levels';
 import { compressionLimit, MATERIALS, type MaterialId } from './materials';
 import { VEHICLES, type VehicleDef } from './vehicles';
+
+/**
+ * Bump whenever a change here, or in materials or vehicles, alters how a bridge behaves:
+ * the tuned levels (npm run tune) record it and go stale when it moves.
+ */
+export const PHYSICS_VERSION = 3;
 
 export const GRAVITY = -9.81;
 export const STEP = 1 / 60;
@@ -11,6 +17,20 @@ const AIR_DAMPING = 0.05;
 const JOINT_MASS = 6;
 const STRESS_SMOOTHING = 0.3;
 const SETTLE_TIME = 0.8;
+/**
+ * A joint fails when the stress ratios of the members meeting there, apart from the two
+ * busiest, add up to this. Load passing straight through is fine; a knot of busy members isn't.
+ */
+export const JOINT_LIMIT = 1.8;
+/** Space between one vehicle's front and the next one's back in a convoy, m. */
+const CONVOY_GAP = 3.5;
+
+/** Drawbridge timeline, s: open, let the ship through, close, then traffic may go. */
+export const OPEN_TIME = 3;
+export const SHIP_TIME = 5;
+export const CLOSE_TIME = 3;
+/** Half the tall ship's beam, m: it sails through the bridge's plane, bow on, at the channel's middle. */
+export const SHIP_HALF = 1.2;
 
 export interface Link {
   a: number;
@@ -34,10 +54,16 @@ export interface Link {
   compressionLimit: number;
   /** Seconds since placement, used by the renderer for the settle wobble. */
   age: number;
-  /** A wheel touched this deck piece during the current step. */
-  pressed: boolean;
+  /** Weight of the heaviest vehicle whose wheel touched this deck piece this step, tonnes. */
+  pressTonnes: number;
   /** A vehicle over the deck's rating stood on it, so it is being crushed. */
   crushed: boolean;
+  /** Weight of the vehicle that crushed it, tonnes. */
+  crushedBy: number;
+  /** Length as built; rams change `rest` from it as a drawbridge opens. */
+  base: number;
+  /** Share of its built length a ram extends by when the bridge is fully open. */
+  stroke: number;
 }
 
 /**
@@ -98,8 +124,16 @@ export class World {
   floorY: number;
   /** Scaled 0→1 at the start of a run so the bridge takes its own weight gently. */
   gravityScale = 1;
-  /** Weight of the vehicle on the bridge, in tonnes, checked against each deck's rating. */
-  vehicleTonnes = 0;
+  /** Weight of the vehicle each particle belongs to, tonnes (0 for the bridge), checked against deck ratings. */
+  tonnes: Float64Array;
+  /** How far open a drawbridge is, 0 closed to 1 open; rams follow it. */
+  openness = 0;
+  /** Summed stress ratio of the members meeting at each joint. */
+  jointLoad: Float64Array;
+  /** Particles 0..bridgeCount-1 are the bridge's joints; vehicles come after. */
+  bridgeCount = 0;
+  /** Members meeting at each free joint (anchors are bolted down and never fail). */
+  jointLinks: Link[][] = [];
 
   constructor(capacity: number, floorY: number) {
     this.x = new Float64Array(capacity);
@@ -115,6 +149,8 @@ export class World {
     this.contact = new Uint8Array(capacity);
     this.cnx = new Float64Array(capacity);
     this.cny = new Float64Array(capacity);
+    this.tonnes = new Float64Array(capacity);
+    this.jointLoad = new Float64Array(capacity);
     this.floorY = floorY;
   }
 
@@ -145,8 +181,11 @@ export class World {
       tensionLimit: Infinity,
       compressionLimit: Infinity,
       age: 0,
-      pressed: false,
+      pressTonnes: 0,
       crushed: false,
+      crushedBy: 0,
+      base: rest,
+      stroke: 0,
       ...opts,
     };
     this.links.push(l);
@@ -160,6 +199,7 @@ export class World {
     const links = this.links;
     const air = Math.max(0, 1 - AIR_DAMPING * h);
     const g = GRAVITY * this.gravityScale;
+    for (const l of links) if (l.stroke) l.rest = l.base * (1 + l.stroke * this.openness);
 
     for (let s = 0; s < SUBSTEPS; s++) {
       for (let i = 0; i < n; i++) {
@@ -308,7 +348,7 @@ export class World {
       x[ib] -= nx * s * im[ib] * t;
       y[ib] -= ny * s * im[ib] * t;
     }
-    if (link) link.pressed = true;
+    if (link && this.tonnes[p] > link.pressTonnes) link.pressTonnes = this.tonnes[p];
     this.contact[p] = 1;
     this.cnx[p] += nx;
     this.cny[p] += ny;
@@ -376,17 +416,58 @@ export class World {
       const force = mat.EA * l.strain;
       let ratio = force >= 0 ? force / l.tensionLimit : force / l.compressionLimit;
       // A vehicle over the deck's rating crushes each piece it stands on, within a few frames.
-      if (l.pressed) {
-        l.pressed = false;
-        const over = this.vehicleTonnes / mat.rating;
+      if (l.pressTonnes > 0) {
+        const over = l.pressTonnes / mat.rating;
         if (over > 1) {
           l.crushed = true;
+          l.crushedBy = Math.max(l.crushedBy, l.pressTonnes);
           ratio = -Math.max(Math.abs(ratio), over);
         }
+        l.pressTonnes = 0;
       }
       l.stress += (ratio - l.stress) * STRESS_SMOOTHING;
       if (Math.abs(l.stress) >= 1) this.breakLink(l);
     }
+    this.updateJoints();
+  }
+
+  /** Adds up member stress at every free joint; an overloaded joint lets go of its busiest member. */
+  private updateJoints(): void {
+    const load = this.jointLoad;
+    this.jointLinks.forEach((ls, p) => {
+      let sum = 0;
+      let first: Link | null = null;
+      let s1 = 0;
+      let s2 = 0;
+      for (const l of ls) {
+        if (l.broken) continue;
+        const s = Math.abs(l.stress);
+        sum += s;
+        if (s > s1) {
+          s2 = s1;
+          s1 = s;
+          first = l;
+        } else if (s > s2) s2 = s;
+      }
+      // The two busiest members don't count: load passing straight through a joint, like a
+      // chord, is a clean path. Every other busy member meeting there adds up.
+      load[p] = sum - s1 - s2;
+      if (first && load[p] >= JOINT_LIMIT) this.breakLink(first);
+    });
+  }
+
+  /** Records which members meet at each free joint; call once the bridge is built. */
+  indexJoints(anchor: (p: number) => boolean): void {
+    this.jointLinks = [];
+    for (const l of this.links) {
+      if (!l.bridge) continue;
+      for (const p of [l.a, l.b]) if (!anchor(p)) (this.jointLinks[p] ??= []).push(l);
+    }
+  }
+
+  /** How close a joint is to failing, 0 to 1. */
+  jointRatio(p: number): number {
+    return this.jointLoad[p] / JOINT_LIMIT;
   }
 
   breakLink(l: Link): void {
@@ -408,15 +489,20 @@ export class World {
 
 export interface VehicleHandle {
   def: VehicleDef;
+  /** Particles that are wheels, rear to front. */
+  wheels: number[];
   rearWheel: number;
   frontWheel: number;
   rearTop: number;
   frontTop: number;
+  /** Extra wheels between the rear and front ones, rear to front. */
+  midWheels: number[];
 }
 
 /** Builds the physical bridge from a design; world particle i === design node i. */
-export function buildWorld(design: Design, level: LevelDef): { world: World; vehicle: VehicleHandle } {
-  const world = new World(design.nodes.length + 8, level.waterY - 8);
+export function buildWorld(design: Design, level: LevelDef): { world: World; vehicles: VehicleHandle[] } {
+  const defs = convoyLayout(level).map((c) => c.def);
+  const world = new World(design.nodes.length + 6 * defs.length + 2, level.waterY - 8);
   const mass = new Float64Array(design.nodes.length).fill(JOINT_MASS);
   for (const m of design.members) {
     const a = design.nodes[m.a];
@@ -426,6 +512,7 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
     mass[m.b] += half;
   }
   design.nodes.forEach((n, i) => world.addParticle(n.x, n.y, n.anchor ? 0 : mass[i]));
+  world.bridgeCount = design.nodes.length;
   design.members.forEach((m, i) => {
     const mat = MATERIALS[m.mat];
     const a = design.nodes[m.a];
@@ -434,6 +521,7 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
     world.addLink(m.a, m.b, len / mat.EA, {
       bridge: true,
       mat: m.mat,
+      stroke: mat.stroke,
       tensionOnly: mat.tensionOnly,
       drivable: mat.drivable,
       member: i,
@@ -444,6 +532,7 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
   });
 
   addDeckBends(world, design);
+  world.indexJoints((p) => design.nodes[p].anchor);
 
   const W = level.width;
   const deep = level.waterY - 8;
@@ -460,9 +549,22 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
     world.terrain.push(back, o.bottom, edge, o.bottom);
   }
 
-  const vehicle = addVehicle(world, VEHICLES[level.vehicle]);
-  world.vehicleTonnes = vehicle.def.tonnes;
-  return { world, vehicle };
+  // A convoy keeps to its slowest vehicle's speed, so the gaps hold.
+  const speed = Math.min(...defs.map((d) => d.speed));
+  const vehicles = convoyLayout(level).map(({ def, x }) => addVehicle(world, def, x, speed));
+  return { world, vehicles };
+}
+
+/** Where each vehicle waits at the start: its rear wheel's x, lead vehicle first. */
+export function convoyLayout(level: LevelDef): { def: VehicleDef; x: number }[] {
+  const out: { def: VehicleDef; x: number }[] = [];
+  let x = START_X;
+  for (const [i, id] of [level.vehicle, ...(level.convoy ?? [])].entries()) {
+    const def = VEHICLES[id];
+    if (i > 0) x -= CONVOY_GAP + def.wheelbase + def.wheelR;
+    out.push({ def, x });
+  }
+  return out;
 }
 
 /** Most a deck may kink at a joint and still act as one continuous beam there, radians. */
@@ -505,20 +607,24 @@ function addDeckBends(world: World, design: Design): void {
   });
 }
 
-function addVehicle(world: World, def: VehicleDef): VehicleHandle {
-  const x0 = START_X;
+function addVehicle(world: World, def: VehicleDef, x0: number, speed: number): VehicleHandle {
   const r = def.wheelR;
-  const wheelMass = def.mass * 0.3;
+  const axles = def.midAxles ?? [];
+  // Wheels share 60% of the weight and the body the rest.
+  const wheelMass = (def.mass * 0.6) / (2 + axles.length);
   const bodyMass = def.mass * 0.2;
   const topY = r + def.height * 0.6;
   const rearWheel = world.addParticle(x0, r, wheelMass, r);
   const frontWheel = world.addParticle(x0 + def.wheelbase, r, wheelMass, r);
   const rearTop = world.addParticle(x0, topY, bodyMass, 0.22);
   const frontTop = world.addParticle(x0 + def.wheelbase, topY, bodyMass, 0.22);
-  for (const w of [rearWheel, frontWheel]) {
-    world.drive[w] = def.speed;
+  const midWheels = axles.map((ax) => world.addParticle(x0 + ax, r, wheelMass, r));
+  const wheels = [rearWheel, ...midWheels, frontWheel];
+  for (const w of wheels) {
+    world.drive[w] = speed;
     world.accel[w] = def.accel;
   }
+  for (const p of [...wheels, rearTop, frontTop]) world.tonnes[p] = def.tonnes;
   const rigid = 1e-8;
   const spring = 4e-6 * (1500 / def.mass);
   world.addLink(rearWheel, frontWheel, rigid);
@@ -527,21 +633,34 @@ function addVehicle(world: World, def: VehicleDef): VehicleHandle {
   world.addLink(frontWheel, frontTop, spring);
   world.addLink(rearWheel, frontTop, spring);
   world.addLink(frontWheel, rearTop, spring);
-  return { def, rearWheel, frontWheel, rearTop, frontTop };
+  // A middle axle rides on its own springs, so it takes a share of the load wherever the deck dips.
+  for (const w of midWheels) for (const p of [rearWheel, frontWheel, rearTop, frontTop]) world.addLink(w, p, spring);
+  return { def, wheels, rearWheel, frontWheel, rearTop, frontTop, midWheels };
 }
 
 export type RunStatus = 'running' | 'success' | 'fail';
 
+export type Phase = 'settle' | 'opening' | 'ship' | 'closing' | 'driving';
+
 /** One test drive: steps the world and decides success or failure. */
 export class TestRun {
   world: World;
-  vehicle: VehicleHandle;
+  vehicles: VehicleHandle[];
   level: LevelDef;
   time = 0;
   status: RunStatus = 'running';
   reason = '';
   peakStress = 0;
   splashed = false;
+  phase: Phase = 'settle';
+  /** Where the tall ship passes through, on drawbridge levels: the channel's middle. */
+  shipX = 0;
+  /** The ship's passage: below 0 it's still on its way, 0 to 1 it's passing through, above 1 it's gone. */
+  shipProgress = -1;
+  /** When traffic may start: straight away, or once a drawbridge has closed again. */
+  readonly releaseAt: number;
+  private readonly speeds: number[];
+  private done: boolean[];
   private lastProgressX = START_X;
   private lastProgressT = 0;
 
@@ -549,49 +668,121 @@ export class TestRun {
     this.level = level;
     const built = buildWorld(design, level);
     this.world = built.world;
-    this.vehicle = built.vehicle;
+    this.vehicles = built.vehicles;
+    this.done = this.vehicles.map(() => false);
+    this.releaseAt = level.ship ? SETTLE_TIME + OPEN_TIME + SHIP_TIME + CLOSE_TIME : 0;
+    this.speeds = this.vehicles.flatMap((v) => v.wheels.map((p) => this.world.drive[p]));
+    if (level.ship) {
+      this.hold(true);
+      const [x0, x1] = this.channel();
+      this.shipX = (x0 + x1) / 2;
+    }
+  }
+
+  /** The lead vehicle. */
+  get vehicle(): VehicleHandle {
+    return this.vehicles[0];
   }
 
   get vehicleX(): number {
+    return this.xOf(this.vehicle);
+  }
+
+  /** Middle of the convoy, for the camera. */
+  get convoyX(): number {
+    const xs = this.vehicles.map((v) => this.xOf(v));
+    return (Math.min(...xs) + Math.max(...xs)) / 2;
+  }
+
+  private xOf(v: VehicleHandle): number {
     const w = this.world;
-    return (w.x[this.vehicle.rearWheel] + w.x[this.vehicle.frontWheel]) / 2;
+    return (w.x[v.rearWheel] + w.x[v.frontWheel]) / 2;
+  }
+
+  /** The ship's channel: [x0, x1]. */
+  private channel(): [number, number] {
+    const c = this.level.channels?.[0];
+    return c ? [c[0], c[1]] : [0, this.level.width];
+  }
+
+  /** Brakes every vehicle at the start line, or lets them go. */
+  private hold(on: boolean): void {
+    const w = this.world;
+    let k = 0;
+    for (const v of this.vehicles) for (const p of v.wheels) w.drive[p] = on ? 0 : this.speeds[k++];
+  }
+
+  /** Opens and closes a drawbridge on its timeline and moves the ship through. */
+  private drawbridge(): void {
+    const t = this.time;
+    const w = this.world;
+    const smooth = (u: number) => {
+      const c = Math.max(0, Math.min(1, u));
+      return c * c * (3 - 2 * c);
+    };
+    const openAt = SETTLE_TIME;
+    const shipAt = openAt + OPEN_TIME;
+    const closeAt = shipAt + SHIP_TIME;
+    w.openness = t < closeAt ? smooth((t - openAt) / OPEN_TIME) : 1 - smooth((t - closeAt) / CLOSE_TIME);
+    this.phase = t < openAt ? 'settle' : t < shipAt ? 'opening' : t < closeAt ? 'ship' : t < this.releaseAt ? 'closing' : 'driving';
+    this.shipProgress = (t - shipAt) / SHIP_TIME;
+    if (this.phase === 'ship' && this.status === 'running') {
+      const top = this.level.ship!.mast;
+      const x = this.shipX;
+      const hit = w.links.some((l) => l.bridge && !l.broken && segmentHitsRect(w.x[l.a], w.y[l.a], w.x[l.b], w.y[l.b], x - SHIP_HALF, this.level.waterY - 1, x + SHIP_HALF, top));
+      if (hit) this.fail('The ship hit your bridge.');
+    }
   }
 
   step(dt: number = STEP): void {
     const w = this.world;
     const ramp = Math.min(1, this.time / SETTLE_TIME);
     w.gravityScale = ramp * ramp * (3 - 2 * ramp);
+    const wasHeld = this.time < this.releaseAt;
+    if (this.level.ship) this.drawbridge();
+    else this.phase = this.time < SETTLE_TIME ? 'settle' : 'driving';
     w.step(dt);
     this.time += dt;
+    if (wasHeld && this.time >= this.releaseAt) {
+      this.hold(false);
+      this.lastProgressT = this.time;
+    }
     for (const l of w.links) {
       if (l.bridge && !l.broken) this.peakStress = Math.max(this.peakStress, Math.abs(l.stress));
     }
+    for (const p of w.jointLinks.keys()) if (w.jointLinks[p]) this.peakStress = Math.max(this.peakStress, Math.min(1, w.jointRatio(p)));
     if (this.status !== 'running') return;
 
-    const v = this.vehicle;
-    const lowest = Math.min(w.y[v.rearWheel], w.y[v.frontWheel], w.y[v.rearTop], w.y[v.frontTop]);
-    if (lowest < this.level.waterY) {
-      this.splashed = true;
-      this.fail('Your cargo went for a swim.');
+    for (const v of this.vehicles) {
+      const lowest = Math.min(w.y[v.rearWheel], w.y[v.frontWheel], w.y[v.rearTop], w.y[v.frontTop]);
+      if (lowest < this.level.waterY) {
+        this.splashed = true;
+        this.fail('Your cargo went for a swim.');
+        return;
+      }
+      const upX = w.x[v.frontTop] - w.x[v.rearTop];
+      const upY = w.y[v.frontTop] - w.y[v.rearTop];
+      const bodyAboveWheels = (w.y[v.rearTop] + w.y[v.frontTop]) / 2 - (w.y[v.rearWheel] + w.y[v.frontWheel]) / 2;
+      if (bodyAboveWheels < -0.1 || upX < -0.2 * Math.abs(upY)) {
+        this.fail('The vehicle flipped over.');
+        return;
+      }
+    }
+    this.vehicles.forEach((v, i) => {
+      if (Math.min(w.x[v.rearWheel], w.x[v.frontWheel]) > goalX(this.level)) this.done[i] = true;
+    });
+    if (this.done.every(Boolean)) {
+      this.status = 'success';
       return;
     }
-    const upX = w.x[v.frontTop] - w.x[v.rearTop];
-    const upY = w.y[v.frontTop] - w.y[v.rearTop];
-    const bodyAboveWheels = (w.y[v.rearTop] + w.y[v.frontTop]) / 2 - (w.y[v.rearWheel] + w.y[v.frontWheel]) / 2;
-    if (bodyAboveWheels < -0.1 || upX < -0.2 * Math.abs(upY)) {
-      this.fail('The vehicle flipped over.');
-      return;
-    }
-    const x = this.vehicleX;
+    if (this.time < this.releaseAt) return;
+    // Progress of the last vehicle still on its way.
+    const x = Math.min(...this.vehicles.filter((_, i) => !this.done[i]).map((v) => this.xOf(v)));
     if (x > this.lastProgressX + 0.3) {
       this.lastProgressX = x;
       this.lastProgressT = this.time;
     } else if (this.time - this.lastProgressT > 3.5) {
       this.fail('The vehicle got stuck.');
-      return;
-    }
-    if (Math.min(w.x[v.rearWheel], w.x[v.frontWheel]) > goalX(this.level)) {
-      this.status = 'success';
     }
   }
 
@@ -600,7 +791,7 @@ export class TestRun {
     const crushed = this.world.links.find((l) => l.crushed && l.broken);
     if (crushed) {
       const mat = MATERIALS[crushed.mat!];
-      const def = this.vehicle.def;
+      const def = this.vehicles.map((v) => v.def).find((d) => d.tonnes === crushed.crushedBy) ?? this.vehicle.def;
       reason = `The ${def.name.toLowerCase()} weighs ${def.tonnes} t. ${mat.name} carries only ${mat.rating} t.`;
     }
     this.reason = reason;

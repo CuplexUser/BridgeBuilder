@@ -87,10 +87,13 @@ export class Game {
   private acc = 0;
   private endTimer = -1;
   private anyBreak = false;
-  private wheelAngles: [number, number] = [0, 0];
-  private lastWheelX: [number, number] = [0, 0];
+  /** Drawbridge phase last announced, so each is called out once. */
+  private lastPhase = '';
+  /** Wheel spin and last wheel x per vehicle: rear, front. */
+  private wheelAngles: [number, number][] = [[0, 0]];
+  private lastWheelX: [number, number][] = [[0, 0]];
   /** Fastest downward speed of each wheel since it last touched something. */
-  private wheelFall: [number, number] = [0, 0];
+  private wheelFall: [number, number][] = [[0, 0]];
   private floats: FloatText[] = [];
   private resultAnim: { t: number; score: LevelScore; shown: number; stars: number; bonusShown: boolean } | null = null;
 
@@ -282,6 +285,7 @@ export class Game {
     this.developTarget = 1;
     this.endTimer = -1;
     this.anyBreak = false;
+    this.lastPhase = '';
     this.acc = 0;
     this.attempts++;
     this.particles.clear();
@@ -621,7 +625,7 @@ export class Game {
   private refreshHud(): void {
     const ed = this.editor;
     if (!ed) return;
-    this.ui.setMaterials(this.level, ed.mat, ed.left());
+    this.ui.setMaterials(this.level, ed.mat, ed.left(), (m) => ed.partsLeft(m));
     this.ui.setBudget(ed.spent(), this.level.money, this.level.target);
     if (this.mode === 'challenge') {
       this.ui.setLives(this.lives, MAX_LIVES);
@@ -715,30 +719,37 @@ export class Game {
     if (steps === 4) this.acc = 0;
     // Wheel spin follows the distance each wheel actually traveled.
     const w = sim.world;
-    const v = sim.vehicle;
-    [v.rearWheel, v.frontWheel].forEach((p, i) => {
-      const dx = w.x[p] - this.lastWheelX[i];
-      this.wheelAngles[i] += dx / v.def.wheelR;
-      this.lastWheelX[i] = w.x[p];
+    sim.vehicles.forEach((v, k) => {
+      const angles = (this.wheelAngles[k] ??= [0, 0]);
+      const last = (this.lastWheelX[k] ??= [w.x[v.rearWheel], w.x[v.frontWheel]]);
+      [v.rearWheel, v.frontWheel].forEach((p, i) => {
+        angles[i] += (w.x[p] - last[i]) / v.def.wheelR;
+        last[i] = w.x[p];
+      });
     });
 
     // Dust kicked up by the tires, and a puff when a wheel lands hard.
-    [v.rearWheel, v.frontWheel].forEach((p, i) => {
-      const onGround = w.contact[p] === 1;
-      const speed = Math.abs(w.vx[p]);
-      const r = v.def.wheelR;
-      if (onGround && this.wheelFall[i] < -3) {
-        this.particles.burst(PK.Dust, w.x[p], w.y[p] - r, 10, 2.2, 0.8, 0.14, ['#d9cbb8', '#efe4d2']);
-        if (!this.demo) this.shake.add(0.08);
-      }
-      if (onGround && speed > 1.5 && Math.random() < dt * 5) {
-        this.particles.spawn(PK.Dust, w.x[p] - r * 0.8, w.y[p] - r * 0.8, -0.6 - Math.random(), 0.3 + Math.random() * 0.4, 0.7, 0.1, '#e3d6c2');
-      }
-      this.wheelFall[i] = onGround ? 0 : Math.min(this.wheelFall[i], w.vy[p]);
+    sim.vehicles.forEach((v, k) => {
+      const fall = (this.wheelFall[k] ??= [0, 0]);
+      [v.rearWheel, v.frontWheel].forEach((p, i) => {
+        const onGround = w.contact[p] === 1;
+        const speed = Math.abs(w.vx[p]);
+        const r = v.def.wheelR;
+        if (onGround && fall[i] < -3) {
+          this.particles.burst(PK.Dust, w.x[p], w.y[p] - r, 10, 2.2, 0.8, 0.14, ['#d9cbb8', '#efe4d2']);
+          if (!this.demo) this.shake.add(0.08);
+        }
+        if (onGround && speed > 1.5 && Math.random() < dt * 5) {
+          this.particles.spawn(PK.Dust, w.x[p] - r * 0.8, w.y[p] - r * 0.8, -0.6 - Math.random(), 0.3 + Math.random() * 0.4, 0.7, 0.1, '#e3d6c2');
+        }
+        fall[i] = onGround ? 0 : Math.min(fall[i], w.vy[p]);
+      });
     });
 
     if (sim.splashed && !this.splashed.has(sim)) {
       this.splashed.add(sim);
+      // Splash where the lowest vehicle went in.
+      const v = sim.vehicles.reduce((a, b) => (w.y[b.rearWheel] < w.y[a.rearWheel] ? b : a));
       const x = (w.x[v.rearWheel] + w.x[v.frontWheel]) / 2;
       const T = this.renderer.theme;
       this.particles.burst(PK.Water, x, sim.level.waterY, 70, 9, 1.4, 0.12, [T.foam, '#ffffff', T.waterTop], 7);
@@ -764,7 +775,7 @@ export class Game {
       else this.debris.add(b.ax, b.ay, b.bx, b.by, b.vx, b.vy, mat);
       if (mat === 'wood') {
         this.particles.burst(PK.Splinter, b.x, b.y, 22, 7, 1.2, 0.18, [PAL.wood, PAL.woodDark, '#e8b27a'], 2);
-      } else if (mat === 'steel' || mat === 'cable') {
+      } else if (mat === 'steel' || mat === 'cable' || mat === 'ram') {
         this.particles.burst(PK.Spark, b.x, b.y, mat === 'cable' ? 18 : 30, 12, 0.6, 0.04, ['#fff3b0', PAL.gold, '#ff9d3b'], 2);
       } else if (mat === 'heavy') {
         this.particles.burst(PK.Splinter, b.x, b.y, 22, 6, 1.3, 0.22, [PAL.concrete, PAL.concreteDark, PAL.heavy], 2);
@@ -778,7 +789,7 @@ export class Game {
         sfx.crack(mat);
         this.shake.add(0.45);
         this.flash = Math.max(this.flash, 0.25);
-        const word = b.link.crushed ? 'TOO HEAVY!' : mat === 'steel' ? 'CLANG!' : mat === 'cable' ? 'PING!' : mat === 'heavy' ? 'CRUNCH!' : 'SNAP!';
+        const word = b.link.crushed ? 'TOO HEAVY!' : mat === 'steel' || mat === 'ram' ? 'CLANG!' : mat === 'cable' ? 'PING!' : mat === 'heavy' ? 'CRUNCH!' : 'SNAP!';
         this.float(b.x, b.y + 0.8, word, PAL.bad, 24, 0.9);
         if (!this.anyBreak) this.slowmo = 0.7;
       }
@@ -793,6 +804,16 @@ export class Game {
     const v = run.vehicle;
     const speed = Math.hypot(w.vx[v.rearWheel], w.vy[v.rearWheel]);
     sfx.engineUpdate(this.engineBase(), speed);
+
+    // Drawbridge levels call out each step of the opening.
+    const L = this.level;
+    if (L.ship && run.phase !== this.lastPhase && run.status === 'running') {
+      this.lastPhase = run.phase;
+      const words: Record<string, string> = { opening: 'OPENING!', ship: 'SHIP PASSING', closing: 'CLOSING', driving: 'GO!' };
+      const c = L.channels?.[0];
+      const x = c ? (c[0] + c[1]) / 2 : L.width / 2;
+      if (words[run.phase]) this.float(x, L.ship.mast + 1, words[run.phase], run.phase === 'driving' ? PAL.ok : PAL.gold, 26, 1.4);
+    }
 
     // Creaks and dust from heavily loaded members.
     for (const l of w.links) {
@@ -864,7 +885,8 @@ export class Game {
 
   private resetWheels(run: TestRun): void {
     const w = run.world;
-    this.lastWheelX = [w.x[run.vehicle.rearWheel], w.x[run.vehicle.frontWheel]];
+    this.lastWheelX = run.vehicles.map((v): [number, number] => [w.x[v.rearWheel], w.x[v.frontWheel]]);
+    this.wheelFall = run.vehicles.map((): [number, number] => [0, 0]);
   }
 
   // ───────────────────────────── Camera ─────────────────────────────
@@ -905,7 +927,7 @@ export class Game {
     const s = Math.min(minScale, vr.h / (y1 - y0 + padBottom + padTop));
     this.cam.tscale = s;
     const halfW = this.renderer.w / 2 / s;
-    this.cam.tcx = Math.max(x0 + halfW - 1, Math.min(x1 - halfW + 1, run.vehicleX + 2));
+    this.cam.tcx = Math.max(x0 + halfW - 1, Math.min(x1 - halfW + 1, run.convoyX + 2));
     this.cam.tcy = (y0 - padBottom + y1 + padTop) / 2 + (vr.y + vr.h / 2 - this.renderer.h / 2) / s;
   }
 

@@ -1,0 +1,175 @@
+import { Design, type GridPt } from '../../src/design';
+import type { BonusGoal, GeometryKey, LevelDef } from '../../src/levels';
+import type { MaterialId } from '../../src/physics/materials';
+import { deck, hang, roadRun, SOLUTIONS, trussOver, type TrussMats } from '../../src/solutions';
+
+/** A level's geometry for one choice of its tunable parameters. */
+export type Shape = Partial<Pick<LevelDef, GeometryKey>>;
+export type Params = Record<string, number>;
+
+/** What a level is meant to teach, in terms the optimizer can check. */
+export interface Intent {
+  /** Deck waypoints, when the deck isn't a straight run from bank to bank. */
+  deck?: (l: LevelDef) => GridPt[];
+  /** Tunable geometry: candidate values per parameter, preferred first. */
+  params?: Record<string, number[]>;
+  shape?: (p: Params) => Shape;
+  /** Materials the level is about: the best design without each must fail or blow the budget. */
+  requires?: MaterialId[];
+  /** Specific shortcuts that must fail or cost more than the budget. */
+  shortcuts?: { name: string; build: (l: LevelDef) => Design }[];
+  /** Least share of one-gene variations of the best design that must still cross. */
+  minRoom?: number;
+  /** Bonus kinds to try, best first. Defaults to the level's current kind, then stress, without, parts. */
+  bonus?: BonusGoal['kind'][];
+}
+
+const STEELY: TrussMats = { chord: 'steel', web: 'steel', vert: 'steel', end: 'steel', endWeb: 'steel' };
+const joints = (x0: number, x1: number, y = 0): GridPt[] => Array.from({ length: (x1 - x0) / 2 + 1 }, (_, i): GridPt => [x0 + 2 * i, y]);
+
+/** Level 30's shape: pylons `side` meters in from each bank, the deck raised `clear` meters over the channel between them. */
+function finale(p: Params): Shape {
+  const W = 36;
+  const [a, b] = [p.side, W - p.side];
+  return {
+    anchors: [[0, 0], [W, 0], [a, p.clear], [b, p.clear], [a, p.top], [b, p.top], [0, -3], [W, -3]],
+    towers: [[a, -8, p.top], [b, -8, p.top]],
+    channels: p.clear > 0 ? [[a + 1, b - 1, p.clear]] : [],
+  };
+}
+
+/** Deck bolts on the pylons, as deck waypoints from bank to bank. */
+function overPylons(l: LevelDef): GridPt[] {
+  const bolts = l.anchors.filter(([x, y]) => x > 0 && x < l.width && y >= 0 && (l.towers ?? []).some((t) => t[0] === x && t[2] > y + 5));
+  bolts.sort((p, q) => p[0] - q[0]);
+  return [[0, 0], ...bolts, [l.width, l.rightY ?? 0]];
+}
+
+export const INTENTS: Record<number, Intent> = {
+  7: { bonus: ['stress', 'without', 'parts'] },
+  13: {
+    requires: ['cable'],
+    shortcuts: [
+      { name: 'cables alone', build: (l) => hang(hang(deck(new Design(l), 0, 14), [0, 6], [[2, 0], [4, 0]]), [14, 6], [[10, 0], [12, 0]]) },
+    ],
+  },
+  14: {
+    requires: ['cable'],
+    shortcuts: [
+      {
+        name: 'four cables and end struts',
+        build: (l) => hang(deck(new Design(l), 0, 18), [9, 7], [[4, 0], [8, 0], [10, 0], [14, 0]]).add([0, -2], [2, 0], 'wood').add([18, -2], [16, 0], 'wood'),
+      },
+      { name: 'every joint hung from the pylon', build: (l) => hang(deck(new Design(l), 0, 18), [9, 7], joints(2, 16)) },
+    ],
+  },
+  // Splitting pays through the parts goal: a split beam counts as one part.
+  16: { bonus: ['parts'] },
+  15: {
+    requires: ['cable'],
+    shortcuts: [{ name: 'reachable cables alone', build: (l) => hang(hang(deck(new Design(l), 0, 16), [1, 9], [[2, 0], [4, 0]]), [15, 9], [[12, 0], [14, 0]]) }],
+  },
+  18: {
+    requires: ['cable'],
+    shortcuts: [
+      {
+        name: 'cables from the tall pylon alone',
+        build: (l) => {
+          const d = new Design(l);
+          hang(d, [8, 7], roadRun(d, [0, 0], [24, -3]).slice(1, 7));
+          return d;
+        },
+      },
+    ],
+  },
+  19: { requires: ['cable'] },
+  20: {
+    requires: ['cable'],
+    shortcuts: [
+      {
+        name: 'bank posts and the pier',
+        build: (l) => {
+          const d = new Design(l);
+          roadRun(d, [0, 0], [32, 0], 'heavy');
+          hang(hang(d, [0, 4], [[2, 0], [4, 0], [6, 0]]), [32, 4], [[26, 0], [28, 0], [30, 0]]);
+          return d.add([16, -4], [16, 0], 'steel');
+        },
+      },
+    ],
+  },
+  24: {
+    deck: () => [[0, 0], [8, 2], [16, 2], [24, 0]],
+    requires: ['cable'],
+  },
+  26: { requires: ['cable'] },
+  27: {
+    shortcuts: [
+      {
+        name: 'trestles alone',
+        build: (l) => {
+          const d = new Design(l);
+          roadRun(d, [0, 0], [26, 0], 'heavy');
+          for (const px of [9, 17]) {
+            const [a, b] = [px - 1, px + 1];
+            d.add([px, -6], [a, -3], 'steel').add([px, -6], [b, -3], 'steel').add([a, -3], [b, -3], 'steel');
+            d.add([a, -3], [a, 0], 'steel').add([b, -3], [b, 0], 'steel').add([a, -3], [b, 0], 'steel');
+          }
+          return d.add([0, -3], [2, 0], 'steel').add([26, -3], [24, 0], 'steel');
+        },
+      },
+    ],
+  },
+  29: {
+    requires: ['cable'],
+    shortcuts: [2, 3].map((h) => ({
+      name: `trusses ${h} m deep`,
+      build: (l: LevelDef) => {
+        const d = new Design(l);
+        roadRun(d, [0, 0], [34, 0], 'heavy');
+        for (const [x0, x1] of [[0, 8], [26, 34]]) trussOver(d, joints(x0, x1), 2, STEELY);
+        trussOver(d, joints(8, 26), h, STEELY);
+        return d.add([0, -3], [2, 0], 'steel').add([34, -3], [32, 0], 'steel');
+      },
+    })),
+  },
+  30: {
+    params: { clear: [2, 1.5, 1], side: [8, 10], top: [14, 16, 12] },
+    shape: finale,
+    deck: overPylons,
+    requires: ['cable'],
+    // Players should find more than one way across: at least a third of the one-step variations of the best design still cross.
+    minRoom: 0.33,
+    shortcuts: [2, 3].map((h) => ({
+      name: `trusses ${h} m deep over the channel`,
+      build: (l: LevelDef) => {
+        const d = new Design(l);
+        const pts = overPylons(l);
+        for (let i = 0; i < pts.length - 1; i++) {
+          const run = roadRun(d, pts[i], pts[i + 1], 'heavy');
+          trussOver(d, run, i === 1 ? h : 2, STEELY);
+        }
+        return d;
+      },
+    })),
+  },
+};
+
+/** The hand-made reference for a level, if it still fits the level's (possibly tuned) geometry. */
+export function handSeed(l: LevelDef): Design | null {
+  try {
+    return SOLUTIONS[l.id]?.(l) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Every combination of a level's tunable parameters, closest to the preferred values first. */
+export function paramCombos(intent: Intent): Params[] {
+  const space = intent.params ?? {};
+  const names = Object.keys(space);
+  let combos: { p: Params; dist: number }[] = [{ p: {}, dist: 0 }];
+  for (const n of names) {
+    combos = combos.flatMap((c) => space[n].map((v, i) => ({ p: { ...c.p, [n]: v }, dist: c.dist + i })));
+  }
+  return combos.sort((a, b) => a.dist - b.dist).map((c) => c.p);
+}

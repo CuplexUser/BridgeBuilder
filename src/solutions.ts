@@ -1,10 +1,10 @@
-import { Design, q, roadPath, type GridPt } from './design';
-import { LEVELS, type LevelDef } from './levels';
+import { Design, q, type GridPt } from './design';
+import type { LevelDef } from './levels';
 import { MATERIALS, type MaterialId } from './physics/materials';
 
 /** Road run from a to b, split exactly the way the editor's road tool splits it. */
 export function roadRun(d: Design, a: GridPt, b: GridPt, mat: MaterialId = 'road'): GridPt[] {
-  const path = roadPath(a[0], a[1], b[0], b[1], MATERIALS[mat].maxLen, 50)!;
+  const path = d.runPath(a[0], a[1], b[0], b[1], MATERIALS[mat].maxLen, 50)!;
   for (let i = 0; i < path.length - 1; i++) d.add(path[i], path[i + 1], mat);
   return path;
 }
@@ -57,7 +57,10 @@ const STEELY: TrussMats = { chord: 'steel', web: 'steel', vert: 'steel', end: 's
 /** All steel except the wood diagonals beside the supports: stiff, for a low peak stress. */
 const STIFF: TrussMats = { ...STEELY, endWeb: 'wood' };
 
-/** Known-good designs, used by the physics tests to prove every level is solvable. */
+/**
+ * Hand-made designs, one per level: the tuner (tools/tune) polishes them as a starting point,
+ * and budgets always leave room for them, so the intended answer stays affordable.
+ */
 export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
   1: (l) => deck(new Design(l), 0, 4).add([0, -2], [2, 0], 'wood').add([4, -2], [2, 0], 'wood'),
   2: (l) =>
@@ -218,14 +221,24 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
     return d.add([12, -4], [12, 0], 'steel').add([0, -3], [2, 0], 'steel').add([24, -3], [22, 0], 'steel');
   },
   29: (l) => skyRoad(l, WOOD).add([0, -3], [2, 0], 'steel').add([34, -3], [32, 0], 'steel'),
+  // Built from the level's bolts, since the tuner may move the pylons and raise the deck.
   30: (l) => {
     const d = new Design(l);
-    // Three runs so every span's joints land on even meters.
-    for (const [x0, x1] of [[0, 8], [8, 28], [28, 36]]) roadRun(d, [x0, 0], [x1, 0], 'heavy');
-    // A deep sag keeps the main cable's pull down, so it holds the semi.
-    mainCable(d, alongX(8, [14, 10, 8, 6, 4, 4, 4, 6, 8, 10, 14]));
-    trussOver(d, span(0, 8), 2, STIFF);
-    return trussOver(d, span(28, 36), 2, STIFF);
+    const [a, b] = l.anchors.filter(([x, y]) => x > 0 && x < l.width && y >= 0 && y < 5).sort((p, r) => p[0] - r[0]);
+    const [ta, tb] = l.anchors.filter(([, y]) => y >= 8).sort((p, r) => p[0] - r[0]);
+    // Up the ramp to the pylon, across the channel, and down again.
+    const up = roadRun(d, [0, 0], a, 'heavy');
+    const mid = roadRun(d, a, b, 'heavy');
+    const down = roadRun(d, b, [l.width, 0], 'heavy');
+    // A deep sag keeps the main cable's pull down, so it holds the semi; a hanger at every joint.
+    const sag = ta[1] - a[1] - 2;
+    const cable = mid.slice(1, -1).map(([x]): GridPt => {
+      const t = (x - a[0]) / (b[0] - a[0]);
+      return [x, Math.round(ta[1] - sag * 4 * t * (1 - t))];
+    });
+    mainCable(d, [ta, ...cable, tb], -1, a[1]);
+    trussOver(d, up, 2, STIFF);
+    return trussOver(d, down, 2, STIFF);
   },
 };
 
@@ -268,77 +281,12 @@ function alongX(x0: number, ys: number[], step = 2): GridPt[] {
   return ys.map((y, i): GridPt => [x0 + step * i, y]);
 }
 
-/** A main cable through pts, with a vertical hanger from each inner point down to the deck, except at x = skip. */
-function mainCable(d: Design, pts: GridPt[], skip = -1): Design {
+/** A main cable through pts, with a vertical hanger from each inner point down to a flat deck at deckY, except at x = skip. */
+function mainCable(d: Design, pts: GridPt[], skip = -1, deckY = 0): Design {
   suspend(d, pts);
-  for (const [x, y] of pts.slice(1, -1)) if (x !== skip) d.add([x, y], [x, 0], 'cable');
+  for (const [x, y] of pts.slice(1, -1)) if (x !== skip) d.add([x, y], [x, deckY], 'cable');
   return d;
 }
-
-/** The design with every member of one material rebuilt in another. */
-function recast(d: Design, from: MaterialId, to: MaterialId): Design {
-  for (const m of d.members) if (m.mat === from) m.mat = to;
-  return d;
-}
-
-/**
- * Designs that meet each level's bonus goal, where the reference design doesn't. The physics
- * tests drive these across too, so every bonus star is known to be reachable.
- */
-export const BONUS_SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
-  4: (l) => prattAbove(deck(new Design(l), 0, 10), 0, 10, 2, HEAVY).add([0, -3], [2, 0], 'steel').add([10, -3], [8, 0], 'steel'),
-  5: (l) => {
-    const a: GridPt = [0, 0];
-    const b: GridPt = [10, 2];
-    const d = new Design(l);
-    trussOver(d, roadRun(d, a, b), 2, WOOD);
-    return d.add([0, -2], on(a, b, 2), 'wood').add([10, 0], on(a, b, 8), 'wood');
-  },
-  6: (l) => recast(SOLUTIONS[6](l), 'wood', 'steel'),
-  // Steel webs and end struts keep the stress low.
-  7: (l) => prattAbove(deck(new Design(l), 0, 12), 0, 12, 2, { ...STEELY, end: 'wood' }).add([0, -2], [2, 0], 'steel').add([12, -2], [10, 0], 'steel'),
-  8: (l) => prattAbove(deck(new Design(l), 0, 14), 0, 14, 2, { ...STEELY, end: 'wood' }).add([0, -3], [2, 0], 'steel').add([14, -3], [12, 0], 'steel'),
-  9: (l) => {
-    const a: GridPt = [0, 0];
-    const b: GridPt = [12, -1];
-    const d = new Design(l);
-    trussOver(d, roadRun(d, a, b), 2, HEAVY);
-    return d.add([0, -3], on(a, b, 2), 'steel').add([12, -3], on(a, b, 10), 'steel');
-  },
-  10: (l) => recast(SOLUTIONS[10](l), 'wood', 'steel'),
-  11: (l) => {
-    const d = deck(new Design(l), 0, 16);
-    prattAbove(d, 0, 8, 2, { chord: 'steel', web: 'wood', vert: 'wood', end: 'steel' });
-    prattAbove(d, 8, 16, 2, { chord: 'steel', web: 'wood', vert: 'wood', end: 'steel' });
-    d.add([8, -3], [8, 0], 'steel').add([8, -3], [6, 0], 'steel').add([8, -3], [10, 0], 'steel');
-    return d.add([0, -2], [2, 0], 'steel').add([16, -2], [14, 0], 'steel');
-  },
-  12: (l) => recast(SOLUTIONS[12](l), 'wood', 'steel'),
-  13: (l) => recast(SOLUTIONS[13](l), 'wood', 'steel'),
-  14: (l) => hang(deck(new Design(l), 0, 18), [9, 7], [4, 6, 8, 10, 12, 14].map((x): GridPt => [x, 0])).add([0, -2], [2, 0], 'steel').add([18, -2], [16, 0], 'steel'),
-  15: (l) => recast(SOLUTIONS[15](l), 'road', 'heavy'),
-  17: (l) => recast(SOLUTIONS[17](l), 'wood', 'steel'),
-  18: (l) => recast(SOLUTIONS[18](l), 'wood', 'steel'),
-  19: (l) => recast(SOLUTIONS[19](l), 'wood', 'steel'),
-  // A true suspension bridge: nothing stands on the pier.
-  20: (l) => longWay(l),
-  21: (l) => deck(new Design(l), 0, 8).add([4, -2], [2, 0], 'wood').add([4, -2], [6, 0], 'wood'),
-  22: (l) => recast(SOLUTIONS[22](l), 'steel', 'wood'),
-  23: (l) => prattAbove(deck(new Design(l), 0, 14), 0, 14, 2, STEELY),
-  25: (l) => {
-    const d = new Design(l);
-    const pts = roadRun(d, [0, 0], [20, 4]);
-    trussOver(d, pts.slice(0, 6), 2, { ...HEAVY, web: 'steel' });
-    trussOver(d, pts.slice(5), 2, { ...HEAVY, web: 'steel' });
-    return d.add([10, -2], pts[5], 'steel');
-  },
-  26: (l) => recast(SOLUTIONS[26](l), 'road', 'heavy'),
-  27: (l) => gauntlet(l, STIFF),
-  28: (l) => recast(SOLUTIONS[28](l), 'wood', 'steel'),
-  // Steel chords and end posts on the side spans instead of bank struts.
-  29: (l) => skyRoad(l, { ...HEAVY, endWeb: 'wood' }),
-  30: (l) => recast(SOLUTIONS[30](l), 'wood', 'steel'),
-};
 
 /** Deck joints every 2 m from x0 to x1 on the flat. */
 function span(x0: number, x1: number): GridPt[] {
@@ -374,10 +322,4 @@ export function hang(d: Design, from: GridPt, to: GridPt[]): Design {
 function on(a: GridPt, b: GridPt, x: number): GridPt {
   // Rounded like roadPath's joints, so a strut lands on the deck joint rather than beside it.
   return [x, q(a[1] + ((b[1] - a[1]) * (x - a[0])) / (b[0] - a[0]))];
-}
-
-export function solutionFor(id: number): Design | null {
-  const level = LEVELS.find((l) => l.id === id);
-  const f = SOLUTIONS[id];
-  return level && f ? f(level) : null;
 }

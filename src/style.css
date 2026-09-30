@@ -14,6 +14,7 @@
   --steel: #9fdcff;
   --heavy: #d6dbe3;
   --cable: #c7a6ff;
+  --ram: #ffd07a;
   --bonus: #7fe3ff;
   --font: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
@@ -355,6 +356,14 @@ kbd {
 
 .mat[data-mat='cable'] i {
   height: 3px;
+}
+
+.mat[data-mat='ram'] {
+  --c: var(--ram);
+}
+
+.mat[data-mat='ram'] i {
+  height: 6px;
 }
 
 .mat span {

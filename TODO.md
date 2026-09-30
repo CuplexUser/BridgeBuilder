@@ -6,6 +6,10 @@ Features and improvements, by priority. Finished items stay checked for a releas
 
 ### Done
 
+- [x] **Level optimizer** (`npm run tune`). Genetic search over a structure grammar plus local polishing finds each level's cheapest robust design, then derives target, budget and bonus goal, and checks each level's intent: shortcuts fail, required materials are really needed, and there's room for more than one answer. It can also tune marked geometry. Effort levels, a time budget, live progress with time left, and checkpoints so a crashed or interrupted run resumes.
+- [x] **Semi suspension margins.** The semi rides on three axles, so a hung deck no longer kinks under two concentrated wheel loads. On the finale, hanger-every-joint designs now cross at any sag from 8 to 12 m instead of one. The optimizer's room check keeps it that way.
+- [x] **Level 30 channel.** The ship channel has real clearance, so the deck climbs to the pylons, and road runs snap to any bolt they pass over, so the pylon bolts can be used.
+- [x] **Heavy deck as a lesson.** Heavy deck now arrives in chapter 5 with the semi, where road can't carry the load.
 - [x] **Deck weight ratings.** Road carries up to 30 t and heavy deck 60 t. The 40 t semi crushes road wherever its wheels touch, so the semi levels need heavy deck. Level cards show the vehicle's weight, the material buttons show the rating, and the collapse screen says what happened.
 - [x] **Tight cost targets.** New references from sweeps over truss materials, struts and pier bracing: road trusses on 2-4 ($8,204) and 2-5 ($9,479), no end struts on 5-1 ($18,820) and 6-2 ($23,899), wood end diagonals on 5-3 ($13,222), and a road deck on 6-1 ($21,872). Targets and budgets follow, and each of these levels has a new bonus goal with a tested design.
 - [x] **Level 29 needs cables.** The middle span is now 18 m (34 m overall). Trusses 2 or 3 m deep drop the truck, and one deep enough to hold costs more than the budget.
@@ -23,8 +27,7 @@ Features and improvements, by priority. Finished items stay checked for a releas
 
 ### Next
 
-- [ ] **Semi suspension margins.** The 6-5 reference peaks at 86%, and nearby variants (hangers in pairs, less sag) flip the semi. Consider giving players more room there, in the level or in how the semi rides a hung deck.
-- [ ] **Heavy deck as a lesson.** 2-4 introduces heavy deck, but road is the better deal there; it first pays off on 5-1 with the semi. Consider introducing it closer to the semi, or on a chapter 2 level where its strength pays.
+- [ ] Nothing queued; see P2.
 
 ## P2: Gameplay depth
 

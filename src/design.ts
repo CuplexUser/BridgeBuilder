@@ -5,6 +5,8 @@ export interface DNode {
   x: number;
   y: number;
   anchor: boolean;
+  /** What building from this anchor costs, on levels that charge for anchors. */
+  price?: number;
 }
 
 export interface DMember {
@@ -123,7 +125,26 @@ export class Design {
   members: DMember[] = [];
 
   constructor(level?: LevelDef) {
-    if (level) for (const [x, y] of level.anchors) this.nodes.push({ x, y, anchor: true });
+    if (!level) return;
+    for (const [x, y] of level.anchors) this.nodes.push({ x, y, anchor: true });
+    this.priceAnchors(level);
+  }
+
+  /** Applies the level's anchor price to every anchor but the two road ends. */
+  priceAnchors(level: LevelDef): void {
+    const right = level.rightY ?? 0;
+    for (const n of this.nodes) {
+      if (!n.anchor) continue;
+      const roadEnd = (n.x === 0 && n.y === 0) || (n.x === level.width && n.y === right);
+      if (level.anchorCost && !roadEnd) n.price = level.anchorCost;
+      else delete n.price;
+    }
+  }
+
+  /** Anchors in use that charge for it. */
+  paidAnchors(): number[] {
+    const used = new Set(this.members.flatMap((m) => [m.a, m.b]));
+    return this.nodes.flatMap((n, i) => (n.price && used.has(i) ? [i] : []));
   }
 
   findNode(x: number, y: number): number {
@@ -147,6 +168,31 @@ export class Design {
     if (i >= 0) return i;
     this.nodes.push({ x: q(x), y: q(y), anchor: false });
     return this.nodes.length - 1;
+  }
+
+  /**
+   * A deck run from a to b, split like roadPath but with a joint at every existing joint the
+   * run passes over, so a deck laid across a pylon's bolt connects to it. Null if it needs
+   * more than maxSteps pieces.
+   */
+  runPath(ax: number, ay: number, bx: number, by: number, maxLen: number, maxSteps: number): GridPt[] | null {
+    const dx = bx - ax;
+    const dy = by - ay;
+    const L2 = dx * dx + dy * dy;
+    if (L2 === 0) return null;
+    const L = Math.sqrt(L2);
+    const stops = this.nodes
+      .map((n) => ({ n, t: ((n.x - ax) * dx + (n.y - ay) * dy) / L2 }))
+      .filter(({ n, t }) => t > 1e-6 && t < 1 - 1e-6 && Math.abs((n.x - ax) * dy - (n.y - ay) * dx) / L < 1e-4);
+    stops.sort((s1, s2) => s1.t - s2.t);
+    const out: GridPt[] = [[ax, ay]];
+    for (const [x, y] of [...stops.map(({ n }): GridPt => [n.x, n.y]), [bx, by] as GridPt]) {
+      const [px, py] = out[out.length - 1];
+      const part = roadPath(px, py, x, y, maxLen, maxSteps - (out.length - 1));
+      if (!part) return null;
+      out.push(...part.slice(1));
+    }
+    return out.length - 1 <= maxSteps ? out : null;
   }
 
   /** Parts placed, per material: a beam split into pieces still counts once. */
@@ -176,6 +222,7 @@ export class Design {
   cost(): number {
     let c = 0;
     for (let i = 0; i < this.members.length; i++) c += this.length(i) * MATERIALS[this.members[i].mat].price;
+    for (const i of this.paidAnchors()) c += this.nodes[i].price!;
     return Math.round(c);
   }
 

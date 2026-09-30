@@ -1,0 +1,327 @@
+{
+  "levels": {
+    "1": {
+      "money": 1750,
+      "target": 1250,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.25
+      },
+      "fingerprint": "92736bc0"
+    },
+    "2": {
+      "money": 3000,
+      "target": 2000,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.5
+      }
+    },
+    "3": {
+      "money": 5000,
+      "target": 3750,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.55
+      },
+      "fingerprint": "320e7cc7"
+    },
+    "4": {
+      "money": 7000,
+      "target": 5000,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.5
+      },
+      "fingerprint": "043a6801"
+    },
+    "5": {
+      "money": 7000,
+      "target": 5500,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.45
+      },
+      "fingerprint": "71f35450"
+    },
+    "6": {
+      "money": 8000,
+      "target": 6000,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.4
+      },
+      "fingerprint": "7cbf4dd9"
+    },
+    "7": {
+      "money": 10500,
+      "target": 8000,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.65
+      },
+      "fingerprint": "361eb783"
+    },
+    "8": {
+      "money": 13500,
+      "target": 10500,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.55
+      },
+      "fingerprint": "ea28e865"
+    },
+    "9": {
+      "money": 12000,
+      "target": 7250,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.45
+      },
+      "fingerprint": "297bcaf7"
+    },
+    "10": {
+      "money": 13000,
+      "target": 10250,
+      "bonus": {
+        "kind": "without",
+        "mat": "wood"
+      },
+      "fingerprint": "27b9891b"
+    },
+    "11": {
+      "money": 11500,
+      "target": 9500,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.65
+      },
+      "fingerprint": "60439b00"
+    },
+    "12": {
+      "money": 14000,
+      "target": 11000,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.6
+      },
+      "fingerprint": "e13b6882"
+    },
+    "13": {
+      "money": 10000,
+      "target": 8250,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.4
+      },
+      "fingerprint": "23bd808f"
+    },
+    "14": {
+      "money": 12000,
+      "target": 10250,
+      "bonus": {
+        "kind": "parts",
+        "max": 17
+      },
+      "fingerprint": "85b8a6a9"
+    },
+    "15": {
+      "money": 13500,
+      "target": 10250,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.65
+      },
+      "fingerprint": "5eccb6ea"
+    },
+    "16": {
+      "money": 13500,
+      "target": 11500,
+      "bonus": {
+        "kind": "parts",
+        "max": 26
+      },
+      "fingerprint": "05375518"
+    },
+    "17": {
+      "money": 23000,
+      "target": 20000,
+      "bonus": {
+        "kind": "without",
+        "mat": "wood"
+      },
+      "fingerprint": "f12a012d"
+    },
+    "18": {
+      "money": 17500,
+      "target": 15000,
+      "bonus": {
+        "kind": "without",
+        "mat": "heavy"
+      },
+      "fingerprint": "ea065934"
+    },
+    "19": {
+      "money": 25000,
+      "target": 17750,
+      "bonus": {
+        "kind": "without",
+        "mat": "wood"
+      },
+      "fingerprint": "c461f6ed"
+    },
+    "20": {
+      "money": 33500,
+      "target": 20750,
+      "bonus": {
+        "kind": "without",
+        "mat": "steel"
+      },
+      "fingerprint": "a4393135"
+    },
+    "21": {
+      "money": 3500,
+      "target": 2250,
+      "bonus": {
+        "kind": "cost",
+        "max": 2000
+      }
+    },
+    "22": {
+      "money": 7500,
+      "target": 5750,
+      "bonus": {
+        "kind": "without",
+        "mat": "steel"
+      },
+      "fingerprint": "755f4102"
+    },
+    "23": {
+      "money": 13000,
+      "target": 10500,
+      "bonus": {
+        "kind": "without",
+        "mat": "wood"
+      },
+      "fingerprint": "c7b0fb80"
+    },
+    "24": {
+      "money": 20000,
+      "target": 17000,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.45
+      },
+      "fingerprint": "5ccc3346"
+    },
+    "25": {
+      "money": 16000,
+      "target": 13750,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.65
+      },
+      "fingerprint": "6d33d648"
+    },
+    "26": {
+      "money": 18500,
+      "target": 14500,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.65
+      },
+      "fingerprint": "92d8aa98"
+    },
+    "27": {
+      "money": 24500,
+      "target": 21750,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.65
+      },
+      "fingerprint": "17d0a366"
+    },
+    "28": {
+      "money": 28500,
+      "target": 25500,
+      "bonus": {
+        "kind": "without",
+        "mat": "wood"
+      },
+      "fingerprint": "e449506b"
+    },
+    "29": {
+      "money": 30500,
+      "target": 20000,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.65
+      },
+      "fingerprint": "bfe7d028"
+    },
+    "30": {
+      "money": 37000,
+      "target": 33000,
+      "bonus": {
+        "kind": "without",
+        "mat": "wood"
+      },
+      "geometry": {
+        "anchors": [
+          [
+            0,
+            0
+          ],
+          [
+            36,
+            0
+          ],
+          [
+            8,
+            1.5
+          ],
+          [
+            28,
+            1.5
+          ],
+          [
+            8,
+            12
+          ],
+          [
+            28,
+            12
+          ],
+          [
+            0,
+            -3
+          ],
+          [
+            36,
+            -3
+          ]
+        ],
+        "towers": [
+          [
+            8,
+            -8,
+            12
+          ],
+          [
+            28,
+            -8,
+            12
+          ]
+        ],
+        "channels": [
+          [
+            9,
+            27,
+            1.5
+          ]
+        ]
+      },
+      "fingerprint": "2202f2c2"
+    }
+  }
+}

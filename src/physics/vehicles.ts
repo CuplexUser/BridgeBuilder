@@ -7,6 +7,8 @@ export interface VehicleDef {
   /** Weight as players read it, checked against a deck's rating. */
   tonnes: number;
   wheelbase: number;
+  /** Extra axles between the rear and front wheels, as distances from the rear wheel. */
+  midAxles?: number[];
   wheelR: number;
   /** Height of the body above the wheel centers. */
   height: number;
@@ -22,6 +24,6 @@ export const VEHICLES: Record<VehicleId, VehicleDef> = {
   car: { id: 'car', name: 'Compact car', mass: 900, tonnes: 9, wheelbase: 2.1, wheelR: 0.36, height: 0.9, speed: 5.5, accel: 7, color: '#e8483b', trim: '#ffd5a8' },
   van: { id: 'van', name: 'Delivery van', mass: 1500, tonnes: 15, wheelbase: 2.5, wheelR: 0.42, height: 1.3, speed: 5, accel: 6.5, color: '#f4f1e6', trim: '#3a7bd5' },
   truck: { id: 'truck', name: 'Dump truck', mass: 2200, tonnes: 22, wheelbase: 3.0, wheelR: 0.5, height: 1.5, speed: 4.5, accel: 6, color: '#f29f1f', trim: '#5b4a3a' },
-  semi: { id: 'semi', name: 'Semi truck', mass: 4000, tonnes: 40, wheelbase: 4.6, wheelR: 0.52, height: 1.9, speed: 4, accel: 5, color: '#3a6fd8', trim: '#d8dde6' },
+  semi: { id: 'semi', name: 'Semi truck', mass: 4000, tonnes: 40, wheelbase: 4.6, midAxles: [2.3], wheelR: 0.52, height: 1.9, speed: 4, accel: 5, color: '#3a6fd8', trim: '#d8dde6' },
   bus: { id: 'bus', name: 'School bus', mass: 3000, tonnes: 30, wheelbase: 3.8, wheelR: 0.5, height: 1.8, speed: 4.2, accel: 5.5, color: '#f7c832', trim: '#2b2b2b' },
 };

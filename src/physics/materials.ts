@@ -1,4 +1,4 @@
-export type MaterialId = 'road' | 'heavy' | 'wood' | 'steel' | 'cable';
+export type MaterialId = 'road' | 'heavy' | 'wood' | 'steel' | 'cable' | 'ram';
 
 export interface Material {
   id: MaterialId;
@@ -34,6 +34,8 @@ export interface Material {
   runs: boolean;
   /** Carries no load when pushed: it simply goes slack. */
   tensionOnly: boolean;
+  /** How much longer it gets when a drawbridge opens, as a share of its built length. 0 for fixed members. */
+  stroke: number;
 }
 
 export const MATERIALS: Record<MaterialId, Material> = {
@@ -54,6 +56,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
     drivable: true,
     runs: true,
     tensionOnly: false,
+    stroke: 0,
   },
   heavy: {
     id: 'heavy',
@@ -72,6 +75,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
     drivable: true,
     runs: true,
     tensionOnly: false,
+    stroke: 0,
   },
   wood: {
     id: 'wood',
@@ -90,6 +94,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
     drivable: false,
     runs: false,
     tensionOnly: false,
+    stroke: 0,
   },
   steel: {
     id: 'steel',
@@ -108,6 +113,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
     drivable: false,
     runs: false,
     tensionOnly: false,
+    stroke: 0,
   },
   cable: {
     id: 'cable',
@@ -126,10 +132,32 @@ export const MATERIALS: Record<MaterialId, Material> = {
     drivable: false,
     runs: false,
     tensionOnly: true,
+    stroke: 0,
+  },
+  ram: {
+    id: 'ram',
+    name: 'Hydraulic ram',
+    price: 420,
+    short: 'Ram',
+    maxLen: 4.25,
+    density: 60,
+    EA: 8e6,
+    tension: 90000,
+    compression: 80000,
+    buckleRef: 4.3,
+    bend: 0,
+    bendLimit: 0,
+    rating: 0,
+    drivable: false,
+    runs: false,
+    tensionOnly: false,
+    // Extends by 75% to open a drawbridge. Standing square under the leaf, that raises it about
+    // 75°; based under the hinge instead, it runs out of reach and breaks something.
+    stroke: 0.75,
   },
 };
 
-export const MATERIAL_ORDER: MaterialId[] = ['road', 'heavy', 'wood', 'steel', 'cable'];
+export const MATERIAL_ORDER: MaterialId[] = ['road', 'heavy', 'wood', 'steel', 'cable', 'ram'];
 
 /** Effective compressive capacity for a member of the given rest length. */
 export function compressionLimit(m: Material, len: number): number {

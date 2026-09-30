@@ -1,0 +1,1549 @@
+{
+ "1": {
+  "id": 1,
+  "fingerprint": "92736bc0",
+  "effort": "normal",
+  "ok": true,
+  "notes": [],
+  "params": {},
+  "geometry": {},
+  "money": 1750,
+  "target": 1250,
+  "bonus": {
+   "kind": "stress",
+   "max": 0.25
+  },
+  "reference": {
+   "cost": 975,
+   "peak": 0.415,
+   "parts": 3,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":4,\"y\":0,\"anchor\":true},{\"x\":0,\"y\":-2,\"anchor\":true},{\"x\":4,\"y\":-2,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":1,\"mat\":\"road\"},{\"a\":2,\"b\":4,\"mat\":\"wood\"}]}",
+   "from": "search 1"
+  },
+  "bonusDesign": {
+   "cost": 1664,
+   "peak": 0.197,
+   "parts": 6,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":4,\"y\":0,\"anchor\":true},{\"x\":0,\"y\":-2,\"anchor\":true},{\"x\":4,\"y\":-2,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":5,\"mat\":\"wood\"},{\"a\":5,\"b\":1,\"mat\":\"wood\"},{\"a\":4,\"b\":5,\"mat\":\"wood\"},{\"a\":2,\"b\":4,\"mat\":\"wood\"}]}"
+  },
+  "seed": {
+   "cost": 1229,
+   "peak": 0.202,
+   "parts": 4,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [],
+  "shortcuts": [],
+  "combosTried": 1,
+  "seconds": 2
+ },
+ "3": {
+  "id": 3,
+  "fingerprint": "320e7cc7",
+  "effort": "normal",
+  "ok": true,
+  "notes": [],
+  "params": {},
+  "geometry": {},
+  "money": 5000,
+  "target": 3750,
+  "bonus": {
+   "kind": "stress",
+   "max": 0.55
+  },
+  "reference": {
+   "cost": 3104,
+   "peak": 0.911,
+   "parts": 12,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":8,\"y\":0,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":2,\"anchor\":false},{\"x\":6,\"y\":2,\"anchor\":false},{\"x\":4,\"y\":2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":2,\"mat\":\"road\"},{\"a\":2,\"b\":3,\"mat\":\"road\"},{\"a\":3,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":5,\"mat\":\"wood\"},{\"a\":6,\"b\":1,\"mat\":\"wood\"},{\"a\":2,\"b\":5,\"mat\":\"wood\"},{\"a\":3,\"b\":7,\"mat\":\"wood\"},{\"a\":4,\"b\":6,\"mat\":\"wood\"},{\"a\":5,\"b\":7,\"mat\":\"wood\"},{\"a\":5,\"b\":3,\"mat\":\"wood\"},{\"a\":7,\"b\":6,\"mat\":\"wood\"}]}",
+   "from": "search 1"
+  },
+  "bonusDesign": {
+   "cost": 3178,
+   "peak": 0.506,
+   "parts": 12,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":8,\"y\":0,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":-2,\"anchor\":false},{\"x\":6,\"y\":-2,\"anchor\":false},{\"x\":4,\"y\":-2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":2,\"mat\":\"road\"},{\"a\":2,\"b\":3,\"mat\":\"road\"},{\"a\":3,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":5,\"mat\":\"wood\"},{\"a\":6,\"b\":1,\"mat\":\"wood\"},{\"a\":2,\"b\":5,\"mat\":\"wood\"},{\"a\":4,\"b\":6,\"mat\":\"wood\"},{\"a\":5,\"b\":7,\"mat\":\"wood\"},{\"a\":5,\"b\":3,\"mat\":\"wood\"},{\"a\":7,\"b\":6,\"mat\":\"wood\"},{\"a\":6,\"b\":3,\"mat\":\"wood\"}]}"
+  },
+  "seed": {
+   "cost": 3358,
+   "peak": 0.631,
+   "parts": 13,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [],
+  "shortcuts": [],
+  "combosTried": 1,
+  "seconds": 1
+ },
+ "4": {
+  "id": 4,
+  "fingerprint": "043a6801",
+  "effort": "normal",
+  "ok": true,
+  "notes": [],
+  "params": {},
+  "geometry": {},
+  "money": 7000,
+  "target": 5000,
+  "bonus": {
+   "kind": "stress",
+   "max": 0.5
+  },
+  "reference": {
+   "cost": 4153,
+   "peak": 0.868,
+   "parts": 16,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":10,\"y\":0,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":10,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":-2,\"anchor\":false},{\"x\":8,\"y\":-2,\"anchor\":false},{\"x\":4,\"y\":-2,\"anchor\":false},{\"x\":6,\"y\":-2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":8,\"mat\":\"wood\"},{\"a\":9,\"b\":1,\"mat\":\"wood\"},{\"a\":4,\"b\":8,\"mat\":\"wood\"},{\"a\":5,\"b\":10,\"mat\":\"wood\"},{\"a\":7,\"b\":9,\"mat\":\"wood\"},{\"a\":8,\"b\":10,\"mat\":\"wood\"},{\"a\":8,\"b\":5,\"mat\":\"wood\"},{\"a\":10,\"b\":11,\"mat\":\"wood\"},{\"a\":10,\"b\":6,\"mat\":\"wood\"},{\"a\":11,\"b\":9,\"mat\":\"wood\"},{\"a\":9,\"b\":6,\"mat\":\"wood\"}]}",
+   "from": "search 1"
+  },
+  "bonusDesign": {
+   "cost": 6777,
+   "peak": 0.441,
+   "parts": 17,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":10,\"y\":0,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":10,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":-2,\"anchor\":false},{\"x\":8,\"y\":-2,\"anchor\":false},{\"x\":4,\"y\":-2,\"anchor\":false},{\"x\":6,\"y\":-2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":8,\"mat\":\"wood\"},{\"a\":4,\"b\":8,\"mat\":\"steel\"},{\"a\":5,\"b\":10,\"mat\":\"wood\"},{\"a\":7,\"b\":9,\"mat\":\"wood\"},{\"a\":8,\"b\":10,\"mat\":\"wood\"},{\"a\":8,\"b\":5,\"mat\":\"steel\"},{\"a\":10,\"b\":11,\"mat\":\"wood\"},{\"a\":10,\"b\":6,\"mat\":\"wood\"},{\"a\":11,\"b\":9,\"mat\":\"wood\"},{\"a\":9,\"b\":6,\"mat\":\"steel\"},{\"a\":2,\"b\":4,\"mat\":\"steel\"},{\"a\":3,\"b\":7,\"mat\":\"steel\"}]}"
+  },
+  "seed": {
+   "cost": 6063,
+   "peak": 0.636,
+   "parts": 19,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [],
+  "shortcuts": [],
+  "combosTried": 1,
+  "seconds": 10
+ },
+ "5": {
+  "id": 5,
+  "fingerprint": "71f35450",
+  "effort": "normal",
+  "ok": true,
+  "notes": [],
+  "params": {},
+  "geometry": {},
+  "money": 7000,
+  "target": 5500,
+  "bonus": {
+   "kind": "stress",
+   "max": 0.45
+  },
+  "reference": {
+   "cost": 4692,
+   "peak": 0.906,
+   "parts": 18,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":10,\"y\":2,\"anchor\":true},{\"x\":0,\"y\":-2,\"anchor\":true},{\"x\":10,\"y\":0,\"anchor\":true},{\"x\":2,\"y\":0.4,\"anchor\":false},{\"x\":4,\"y\":0.8,\"anchor\":false},{\"x\":6,\"y\":1.2,\"anchor\":false},{\"x\":8,\"y\":1.6,\"anchor\":false},{\"x\":2,\"y\":2.4,\"anchor\":false},{\"x\":8,\"y\":3.6,\"anchor\":false},{\"x\":4,\"y\":2.8,\"anchor\":false},{\"x\":6,\"y\":3.2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":8,\"mat\":\"wood\"},{\"a\":9,\"b\":1,\"mat\":\"wood\"},{\"a\":5,\"b\":10,\"mat\":\"wood\"},{\"a\":6,\"b\":11,\"mat\":\"wood\"},{\"a\":7,\"b\":9,\"mat\":\"wood\"},{\"a\":8,\"b\":10,\"mat\":\"wood\"},{\"a\":8,\"b\":5,\"mat\":\"wood\"},{\"a\":10,\"b\":11,\"mat\":\"wood\"},{\"a\":10,\"b\":6,\"mat\":\"wood\"},{\"a\":11,\"b\":9,\"mat\":\"wood\"},{\"a\":9,\"b\":6,\"mat\":\"wood\"},{\"a\":2,\"b\":4,\"mat\":\"wood\"},{\"a\":3,\"b\":7,\"mat\":\"wood\"}]}",
+   "from": "search 1"
+  },
+  "bonusDesign": {
+   "cost": 6746,
+   "peak": 0.408,
+   "parts": 19,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":10,\"y\":2,\"anchor\":true},{\"x\":0,\"y\":-2,\"anchor\":true},{\"x\":10,\"y\":0,\"anchor\":true},{\"x\":2,\"y\":0.4,\"anchor\":false},{\"x\":4,\"y\":0.8,\"anchor\":false},{\"x\":6,\"y\":1.2,\"anchor\":false},{\"x\":8,\"y\":1.6,\"anchor\":false},{\"x\":2,\"y\":2.4,\"anchor\":false},{\"x\":8,\"y\":3.6,\"anchor\":false},{\"x\":4,\"y\":2.8,\"anchor\":false},{\"x\":6,\"y\":3.2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":1,\"mat\":\"road\"},{\"a\":9,\"b\":1,\"mat\":\"wood\"},{\"a\":4,\"b\":8,\"mat\":\"wood\"},{\"a\":5,\"b\":10,\"mat\":\"wood\"},{\"a\":6,\"b\":11,\"mat\":\"wood\"},{\"a\":7,\"b\":9,\"mat\":\"steel\"},{\"a\":8,\"b\":10,\"mat\":\"wood\"},{\"a\":8,\"b\":5,\"mat\":\"wood\"},{\"a\":10,\"b\":11,\"mat\":\"wood\"},{\"a\":10,\"b\":6,\"mat\":\"wood\"},{\"a\":11,\"b\":9,\"mat\":\"wood\"},{\"a\":9,\"b\":6,\"mat\":\"wood\"},{\"a\":2,\"b\":4,\"mat\":\"steel\"},{\"a\":3,\"b\":7,\"mat\":\"steel\"},{\"a\":3,\"b\":6,\"mat\":\"steel\"}]}"
+  },
+  "seed": {
+   "cost": 5725,
+   "peak": 0.673,
+   "parts": 19,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [],
+  "shortcuts": [],
+  "combosTried": 1,
+  "seconds": 13
+ },
+ "6": {
+  "id": 6,
+  "fingerprint": "7cbf4dd9",
+  "effort": "normal",
+  "ok": true,
+  "notes": [],
+  "params": {},
+  "geometry": {},
+  "money": 8000,
+  "target": 6000,
+  "bonus": {
+   "kind": "stress",
+   "max": 0.4
+  },
+  "reference": {
+   "cost": 5233,
+   "peak": 0.834,
+   "parts": 18,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":12,\"y\":0,\"anchor\":true},{\"x\":6,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":2,\"anchor\":false},{\"x\":4,\"y\":2,\"anchor\":false},{\"x\":8,\"y\":-2,\"anchor\":false},{\"x\":10,\"y\":-2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":3,\"mat\":\"road\"},{\"a\":3,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":8,\"mat\":\"wood\"},{\"a\":9,\"b\":5,\"mat\":\"wood\"},{\"a\":3,\"b\":8,\"mat\":\"wood\"},{\"a\":4,\"b\":9,\"mat\":\"wood\"},{\"a\":8,\"b\":9,\"mat\":\"wood\"},{\"a\":8,\"b\":4,\"mat\":\"wood\"},{\"a\":5,\"b\":10,\"mat\":\"wood\"},{\"a\":11,\"b\":1,\"mat\":\"wood\"},{\"a\":6,\"b\":10,\"mat\":\"wood\"},{\"a\":7,\"b\":11,\"mat\":\"wood\"},{\"a\":10,\"b\":11,\"mat\":\"wood\"},{\"a\":2,\"b\":5,\"mat\":\"steel\"}]}",
+   "from": "search 1"
+  },
+  "bonusDesign": {
+   "cost": 7671,
+   "peak": 0.358,
+   "parts": 19,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":12,\"y\":0,\"anchor\":true},{\"x\":6,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":2,\"anchor\":false},{\"x\":4,\"y\":2,\"anchor\":false},{\"x\":8,\"y\":2,\"anchor\":false},{\"x\":10,\"y\":2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":3,\"mat\":\"road\"},{\"a\":3,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":8,\"mat\":\"wood\"},{\"a\":3,\"b\":8,\"mat\":\"wood\"},{\"a\":4,\"b\":9,\"mat\":\"wood\"},{\"a\":8,\"b\":9,\"mat\":\"wood\"},{\"a\":8,\"b\":4,\"mat\":\"steel\"},{\"a\":5,\"b\":10,\"mat\":\"steel\"},{\"a\":11,\"b\":1,\"mat\":\"steel\"},{\"a\":6,\"b\":10,\"mat\":\"wood\"},{\"a\":7,\"b\":11,\"mat\":\"wood\"},{\"a\":10,\"b\":11,\"mat\":\"steel\"},{\"a\":10,\"b\":7,\"mat\":\"wood\"},{\"a\":2,\"b\":5,\"mat\":\"steel\"},{\"a\":2,\"b\":4,\"mat\":\"steel\"}]}"
+  },
+  "seed": {
+   "cost": 7184,
+   "peak": 0.487,
+   "parts": 19,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [],
+  "shortcuts": [],
+  "combosTried": 1,
+  "seconds": 37
+ },
+ "7": {
+  "id": 7,
+  "fingerprint": "361eb783",
+  "effort": "normal",
+  "ok": true,
+  "notes": [],
+  "params": {},
+  "geometry": {},
+  "money": 10500,
+  "target": 8000,
+  "bonus": {
+   "kind": "stress",
+   "max": 0.65
+  },
+  "reference": {
+   "cost": 7015,
+   "peak": 0.913,
+   "parts": 23,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":12,\"y\":0,\"anchor\":true},{\"x\":0,\"y\":-2,\"anchor\":true},{\"x\":12,\"y\":-2,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":-2,\"anchor\":false},{\"x\":10,\"y\":-2,\"anchor\":false},{\"x\":4,\"y\":-2,\"anchor\":false},{\"x\":6,\"y\":-2,\"anchor\":false},{\"x\":8,\"y\":-2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":9,\"mat\":\"wood\"},{\"a\":4,\"b\":9,\"mat\":\"wood\"},{\"a\":5,\"b\":11,\"mat\":\"wood\"},{\"a\":7,\"b\":13,\"mat\":\"wood\"},{\"a\":8,\"b\":10,\"mat\":\"wood\"},{\"a\":9,\"b\":11,\"mat\":\"wood\"},{\"a\":9,\"b\":5,\"mat\":\"steel\"},{\"a\":11,\"b\":12,\"mat\":\"wood\"},{\"a\":11,\"b\":6,\"mat\":\"wood\"},{\"a\":12,\"b\":13,\"mat\":\"wood\"},{\"a\":13,\"b\":6,\"mat\":\"wood\"},{\"a\":13,\"b\":10,\"mat\":\"wood\"},{\"a\":10,\"b\":7,\"mat\":\"steel\"},{\"a\":2,\"b\":9,\"mat\":\"wood\"},{\"a\":3,\"b\":10,\"mat\":\"wood\"},{\"a\":2,\"b\":4,\"mat\":\"wood\"},{\"a\":3,\"b\":8,\"mat\":\"steel\"}]}",
+   "from": "search 1"
+  },
+  "bonusDesign": {
+   "cost": 9183,
+   "peak": 0.621,
+   "parts": 22,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":12,\"y\":0,\"anchor\":true},{\"x\":0,\"y\":-2,\"anchor\":true},{\"x\":12,\"y\":-2,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":2,\"anchor\":false},{\"x\":10,\"y\":2,\"anchor\":false},{\"x\":4,\"y\":2,\"anchor\":false},{\"x\":6,\"y\":2,\"anchor\":false},{\"x\":8,\"y\":2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":9,\"mat\":\"steel\"},{\"a\":10,\"b\":1,\"mat\":\"steel\"},{\"a\":4,\"b\":9,\"mat\":\"steel\"},{\"a\":5,\"b\":11,\"mat\":\"wood\"},{\"a\":6,\"b\":12,\"mat\":\"wood\"},{\"a\":7,\"b\":13,\"mat\":\"wood\"},{\"a\":8,\"b\":10,\"mat\":\"wood\"},{\"a\":9,\"b\":11,\"mat\":\"steel\"},{\"a\":9,\"b\":5,\"mat\":\"steel\"},{\"a\":11,\"b\":12,\"mat\":\"steel\"},{\"a\":11,\"b\":6,\"mat\":\"wood\"},{\"a\":12,\"b\":13,\"mat\":\"steel\"},{\"a\":13,\"b\":6,\"mat\":\"wood\"},{\"a\":13,\"b\":10,\"mat\":\"steel\"},{\"a\":10,\"b\":7,\"mat\":\"steel\"},{\"a\":3,\"b\":8,\"mat\":\"steel\"}]}"
+  },
+  "seed": {
+   "cost": 8204,
+   "peak": 0.681,
+   "parts": 21,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [],
+  "shortcuts": [],
+  "combosTried": 1,
+  "seconds": 17
+ },
+ "8": {
+  "id": 8,
+  "fingerprint": "ea28e865",
+  "effort": "normal",
+  "ok": true,
+  "notes": [],
+  "params": {},
+  "geometry": {},
+  "money": 13500,
+  "target": 10500,
+  "bonus": {
+   "kind": "stress",
+   "max": 0.55
+  },
+  "reference": {
+   "cost": 9224,
+   "peak": 0.892,
+   "parts": 24,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":14,\"y\":0,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":14,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":-2,\"anchor\":false},{\"x\":12,\"y\":-2,\"anchor\":false},{\"x\":4,\"y\":-2,\"anchor\":false},{\"x\":6,\"y\":-2,\"anchor\":false},{\"x\":8,\"y\":-2,\"anchor\":false},{\"x\":10,\"y\":-2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":10,\"mat\":\"steel\"},{\"a\":11,\"b\":1,\"mat\":\"steel\"},{\"a\":4,\"b\":10,\"mat\":\"wood\"},{\"a\":5,\"b\":12,\"mat\":\"wood\"},{\"a\":6,\"b\":13,\"mat\":\"wood\"},{\"a\":7,\"b\":14,\"mat\":\"wood\"},{\"a\":8,\"b\":15,\"mat\":\"wood\"},{\"a\":9,\"b\":11,\"mat\":\"wood\"},{\"a\":10,\"b\":12,\"mat\":\"steel\"},{\"a\":10,\"b\":5,\"mat\":\"steel\"},{\"a\":12,\"b\":13,\"mat\":\"steel\"},{\"a\":12,\"b\":6,\"mat\":\"wood\"},{\"a\":13,\"b\":14,\"mat\":\"steel\"},{\"a\":14,\"b\":15,\"mat\":\"steel\"},{\"a\":15,\"b\":7,\"mat\":\"wood\"},{\"a\":15,\"b\":11,\"mat\":\"steel\"},{\"a\":11,\"b\":8,\"mat\":\"steel\"}]}",
+   "from": "search 1"
+  },
+  "bonusDesign": {
+   "cost": 13378,
+   "peak": 0.496,
+   "parts": 26,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":14,\"y\":0,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":14,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":-2,\"anchor\":false},{\"x\":12,\"y\":-2,\"anchor\":false},{\"x\":4,\"y\":-2,\"anchor\":false},{\"x\":6,\"y\":-2,\"anchor\":false},{\"x\":8,\"y\":-2,\"anchor\":false},{\"x\":10,\"y\":-2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":10,\"mat\":\"steel\"},{\"a\":11,\"b\":1,\"mat\":\"wood\"},{\"a\":4,\"b\":10,\"mat\":\"steel\"},{\"a\":5,\"b\":12,\"mat\":\"steel\"},{\"a\":6,\"b\":13,\"mat\":\"steel\"},{\"a\":8,\"b\":15,\"mat\":\"steel\"},{\"a\":9,\"b\":11,\"mat\":\"steel\"},{\"a\":10,\"b\":12,\"mat\":\"steel\"},{\"a\":10,\"b\":5,\"mat\":\"steel\"},{\"a\":12,\"b\":13,\"mat\":\"steel\"},{\"a\":12,\"b\":6,\"mat\":\"steel\"},{\"a\":13,\"b\":14,\"mat\":\"steel\"},{\"a\":13,\"b\":7,\"mat\":\"steel\"},{\"a\":14,\"b\":15,\"mat\":\"steel\"},{\"a\":15,\"b\":7,\"mat\":\"steel\"},{\"a\":15,\"b\":11,\"mat\":\"steel\"},{\"a\":11,\"b\":8,\"mat\":\"steel\"},{\"a\":2,\"b\":4,\"mat\":\"steel\"},{\"a\":3,\"b\":9,\"mat\":\"steel\"}]}"
+  },
+  "seed": {
+   "cost": 9479,
+   "peak": 0.904,
+   "parts": 25,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [],
+  "shortcuts": [],
+  "combosTried": 1,
+  "seconds": 12
+ },
+ "9": {
+  "id": 9,
+  "fingerprint": "297bcaf7",
+  "effort": "normal",
+  "ok": true,
+  "notes": [],
+  "params": {},
+  "geometry": {},
+  "money": 12000,
+  "target": 7250,
+  "bonus": {
+   "kind": "stress",
+   "max": 0.45
+  },
+  "reference": {
+   "cost": 6416,
+   "peak": 0.895,
+   "parts": 23,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":12,\"y\":-1,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":12,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":-0.1667,\"anchor\":false},{\"x\":4,\"y\":-0.3333,\"anchor\":false},{\"x\":6,\"y\":-0.5,\"anchor\":false},{\"x\":8,\"y\":-0.6667,\"anchor\":false},{\"x\":10,\"y\":-0.8333,\"anchor\":false},{\"x\":2,\"y\":1.8333,\"anchor\":false},{\"x\":10,\"y\":1.1667,\"anchor\":false},{\"x\":4,\"y\":1.6667,\"anchor\":false},{\"x\":6,\"y\":1.5,\"anchor\":false},{\"x\":8,\"y\":1.3333,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":9,\"mat\":\"wood\"},{\"a\":10,\"b\":1,\"mat\":\"wood\"},{\"a\":4,\"b\":9,\"mat\":\"wood\"},{\"a\":5,\"b\":11,\"mat\":\"wood\"},{\"a\":6,\"b\":12,\"mat\":\"wood\"},{\"a\":7,\"b\":13,\"mat\":\"wood\"},{\"a\":8,\"b\":10,\"mat\":\"wood\"},{\"a\":9,\"b\":11,\"mat\":\"wood\"},{\"a\":9,\"b\":5,\"mat\":\"wood\"},{\"a\":11,\"b\":12,\"mat\":\"wood\"},{\"a\":11,\"b\":6,\"mat\":\"wood\"},{\"a\":12,\"b\":13,\"mat\":\"wood\"},{\"a\":13,\"b\":6,\"mat\":\"wood\"},{\"a\":13,\"b\":10,\"mat\":\"wood\"},{\"a\":10,\"b\":7,\"mat\":\"wood\"},{\"a\":2,\"b\":4,\"mat\":\"steel\"},{\"a\":3,\"b\":8,\"mat\":\"wood\"}]}",
+   "from": "search 1"
+  },
+  "bonusDesign": {
+   "cost": 10662,
+   "peak": 0.392,
+   "parts": 22,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":12,\"y\":-1,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":12,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":-0.1667,\"anchor\":false},{\"x\":4,\"y\":-0.3333,\"anchor\":false},{\"x\":6,\"y\":-0.5,\"anchor\":false},{\"x\":8,\"y\":-0.6667,\"anchor\":false},{\"x\":10,\"y\":-0.8333,\"anchor\":false},{\"x\":2,\"y\":-2.1667,\"anchor\":false},{\"x\":10,\"y\":-2.8333,\"anchor\":false},{\"x\":4,\"y\":-2.3333,\"anchor\":false},{\"x\":6,\"y\":-2.5,\"anchor\":false},{\"x\":8,\"y\":-2.6667,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":9,\"mat\":\"wood\"},{\"a\":10,\"b\":1,\"mat\":\"steel\"},{\"a\":4,\"b\":9,\"mat\":\"steel\"},{\"a\":5,\"b\":11,\"mat\":\"steel\"},{\"a\":7,\"b\":13,\"mat\":\"wood\"},{\"a\":8,\"b\":10,\"mat\":\"steel\"},{\"a\":9,\"b\":11,\"mat\":\"steel\"},{\"a\":9,\"b\":5,\"mat\":\"steel\"},{\"a\":11,\"b\":12,\"mat\":\"steel\"},{\"a\":11,\"b\":6,\"mat\":\"steel\"},{\"a\":12,\"b\":13,\"mat\":\"steel\"},{\"a\":13,\"b\":6,\"mat\":\"steel\"},{\"a\":13,\"b\":10,\"mat\":\"steel\"},{\"a\":10,\"b\":7,\"mat\":\"steel\"},{\"a\":3,\"b\":10,\"mat\":\"steel\"},{\"a\":2,\"b\":4,\"mat\":\"steel\"}]}"
+  },
+  "seed": {
+   "cost": 11261,
+   "peak": 0.451,
+   "parts": 23,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [],
+  "shortcuts": [],
+  "combosTried": 1,
+  "seconds": 19
+ },
+ "10": {
+  "id": 10,
+  "fingerprint": "27b9891b",
+  "effort": "normal",
+  "ok": true,
+  "notes": [],
+  "params": {},
+  "geometry": {},
+  "money": 13000,
+  "target": 10250,
+  "bonus": {
+   "kind": "without",
+   "mat": "wood"
+  },
+  "reference": {
+   "cost": 9224,
+   "peak": 0.892,
+   "parts": 24,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":14,\"y\":0,\"anchor\":true},{\"x\":0,\"y\":3,\"anchor\":true},{\"x\":14,\"y\":3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":-2,\"anchor\":false},{\"x\":12,\"y\":-2,\"anchor\":false},{\"x\":4,\"y\":-2,\"anchor\":false},{\"x\":6,\"y\":-2,\"anchor\":false},{\"x\":8,\"y\":-2,\"anchor\":false},{\"x\":10,\"y\":-2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":10,\"mat\":\"steel\"},{\"a\":11,\"b\":1,\"mat\":\"steel\"},{\"a\":4,\"b\":10,\"mat\":\"wood\"},{\"a\":5,\"b\":12,\"mat\":\"wood\"},{\"a\":6,\"b\":13,\"mat\":\"wood\"},{\"a\":7,\"b\":14,\"mat\":\"wood\"},{\"a\":8,\"b\":15,\"mat\":\"wood\"},{\"a\":9,\"b\":11,\"mat\":\"wood\"},{\"a\":10,\"b\":12,\"mat\":\"steel\"},{\"a\":10,\"b\":5,\"mat\":\"steel\"},{\"a\":12,\"b\":13,\"mat\":\"steel\"},{\"a\":12,\"b\":6,\"mat\":\"wood\"},{\"a\":13,\"b\":14,\"mat\":\"steel\"},{\"a\":14,\"b\":15,\"mat\":\"steel\"},{\"a\":15,\"b\":7,\"mat\":\"wood\"},{\"a\":15,\"b\":11,\"mat\":\"steel\"},{\"a\":11,\"b\":8,\"mat\":\"steel\"}]}",
+   "from": "search 1"
+  },
+  "bonusDesign": {
+   "cost": 12552,
+   "peak": 0.968,
+   "parts": 25,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":14,\"y\":0,\"anchor\":true},{\"x\":0,\"y\":3,\"anchor\":true},{\"x\":14,\"y\":3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":2,\"anchor\":false},{\"x\":12,\"y\":2,\"anchor\":false},{\"x\":4,\"y\":2,\"anchor\":false},{\"x\":6,\"y\":2,\"anchor\":false},{\"x\":8,\"y\":2,\"anchor\":false},{\"x\":10,\"y\":2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":10,\"mat\":\"steel\"},{\"a\":11,\"b\":1,\"mat\":\"steel\"},{\"a\":4,\"b\":10,\"mat\":\"steel\"},{\"a\":5,\"b\":12,\"mat\":\"steel\"},{\"a\":6,\"b\":13,\"mat\":\"steel\"},{\"a\":7,\"b\":14,\"mat\":\"steel\"},{\"a\":8,\"b\":15,\"mat\":\"steel\"},{\"a\":9,\"b\":11,\"mat\":\"steel\"},{\"a\":10,\"b\":12,\"mat\":\"steel\"},{\"a\":10,\"b\":5,\"mat\":\"steel\"},{\"a\":12,\"b\":13,\"mat\":\"steel\"},{\"a\":12,\"b\":6,\"mat\":\"steel\"},{\"a\":13,\"b\":14,\"mat\":\"steel\"},{\"a\":13,\"b\":7,\"mat\":\"steel\"},{\"a\":14,\"b\":15,\"mat\":\"steel\"},{\"a\":15,\"b\":7,\"mat\":\"steel\"},{\"a\":15,\"b\":11,\"mat\":\"steel\"},{\"a\":11,\"b\":8,\"mat\":\"steel\"}]}"
+  },
+  "seed": {
+   "cost": 12357,
+   "peak": 0.869,
+   "parts": 27,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [],
+  "shortcuts": [],
+  "combosTried": 1,
+  "seconds": 6
+ },
+ "11": {
+  "id": 11,
+  "fingerprint": "60439b00",
+  "effort": "normal",
+  "ok": true,
+  "notes": [],
+  "params": {},
+  "geometry": {},
+  "money": 11500,
+  "target": 9500,
+  "bonus": {
+   "kind": "stress",
+   "max": 0.65
+  },
+  "reference": {
+   "cost": 8463,
+   "peak": 0.887,
+   "parts": 28,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":16,\"y\":0,\"anchor\":true},{\"x\":8,\"y\":-3,\"anchor\":true},{\"x\":0,\"y\":-2,\"anchor\":true},{\"x\":16,\"y\":-2,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":2,\"anchor\":false},{\"x\":6,\"y\":2,\"anchor\":false},{\"x\":4,\"y\":2,\"anchor\":false},{\"x\":10,\"y\":2,\"anchor\":false},{\"x\":14,\"y\":2,\"anchor\":false},{\"x\":12,\"y\":2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":11,\"mat\":\"road\"},{\"a\":11,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":12,\"mat\":\"wood\"},{\"a\":5,\"b\":12,\"mat\":\"wood\"},{\"a\":6,\"b\":14,\"mat\":\"wood\"},{\"a\":7,\"b\":13,\"mat\":\"wood\"},{\"a\":12,\"b\":14,\"mat\":\"wood\"},{\"a\":12,\"b\":6,\"mat\":\"wood\"},{\"a\":14,\"b\":13,\"mat\":\"wood\"},{\"a\":13,\"b\":6,\"mat\":\"wood\"},{\"a\":16,\"b\":1,\"mat\":\"wood\"},{\"a\":9,\"b\":15,\"mat\":\"wood\"},{\"a\":10,\"b\":17,\"mat\":\"wood\"},{\"a\":11,\"b\":16,\"mat\":\"wood\"},{\"a\":15,\"b\":17,\"mat\":\"wood\"},{\"a\":15,\"b\":10,\"mat\":\"wood\"},{\"a\":17,\"b\":16,\"mat\":\"wood\"},{\"a\":16,\"b\":10,\"mat\":\"wood\"},{\"a\":2,\"b\":8,\"mat\":\"wood\"},{\"a\":2,\"b\":7,\"mat\":\"steel\"},{\"a\":2,\"b\":9,\"mat\":\"steel\"},{\"a\":4,\"b\":11,\"mat\":\"wood\"}]}",
+   "from": "search 1"
+  },
+  "bonusDesign": {
+   "cost": 11453,
+   "peak": 0.61,
+   "parts": 29,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":16,\"y\":0,\"anchor\":true},{\"x\":8,\"y\":-3,\"anchor\":true},{\"x\":0,\"y\":-2,\"anchor\":true},{\"x\":16,\"y\":-2,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":2,\"anchor\":false},{\"x\":6,\"y\":2,\"anchor\":false},{\"x\":4,\"y\":2,\"anchor\":false},{\"x\":10,\"y\":2,\"anchor\":false},{\"x\":14,\"y\":2,\"anchor\":false},{\"x\":12,\"y\":2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":11,\"mat\":\"road\"},{\"a\":11,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":12,\"mat\":\"wood\"},{\"a\":13,\"b\":8,\"mat\":\"wood\"},{\"a\":5,\"b\":12,\"mat\":\"wood\"},{\"a\":6,\"b\":14,\"mat\":\"wood\"},{\"a\":7,\"b\":13,\"mat\":\"wood\"},{\"a\":12,\"b\":14,\"mat\":\"wood\"},{\"a\":12,\"b\":6,\"mat\":\"wood\"},{\"a\":14,\"b\":13,\"mat\":\"wood\"},{\"a\":13,\"b\":6,\"mat\":\"wood\"},{\"a\":8,\"b\":15,\"mat\":\"steel\"},{\"a\":16,\"b\":1,\"mat\":\"steel\"},{\"a\":9,\"b\":15,\"mat\":\"steel\"},{\"a\":10,\"b\":17,\"mat\":\"wood\"},{\"a\":11,\"b\":16,\"mat\":\"steel\"},{\"a\":15,\"b\":17,\"mat\":\"steel\"},{\"a\":15,\"b\":10,\"mat\":\"steel\"},{\"a\":17,\"b\":16,\"mat\":\"steel\"},{\"a\":16,\"b\":10,\"mat\":\"wood\"},{\"a\":2,\"b\":8,\"mat\":\"steel\"},{\"a\":2,\"b\":7,\"mat\":\"steel\"},{\"a\":3,\"b\":5,\"mat\":\"steel\"}]}"
+  },
+  "seed": {
+   "cost": 10843,
+   "peak": 0.789,
+   "parts": 29,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [],
+  "shortcuts": [],
+  "combosTried": 1,
+  "seconds": 56
+ },
+ "12": {
+  "id": 12,
+  "fingerprint": "e13b6882",
+  "effort": "normal",
+  "ok": true,
+  "notes": [],
+  "params": {},
+  "geometry": {},
+  "money": 14000,
+  "target": 11000,
+  "bonus": {
+   "kind": "stress",
+   "max": 0.6
+  },
+  "reference": {
+   "cost": 9996,
+   "peak": 0.913,
+   "parts": 32,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":20,\"y\":0,\"anchor\":true},{\"x\":6,\"y\":-3,\"anchor\":true},{\"x\":14,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":16,\"y\":0,\"anchor\":false},{\"x\":18,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":-2,\"anchor\":false},{\"x\":4,\"y\":-2,\"anchor\":false},{\"x\":8,\"y\":-2,\"anchor\":false},{\"x\":12,\"y\":-2,\"anchor\":false},{\"x\":10,\"y\":-2,\"anchor\":false},{\"x\":16,\"y\":-2,\"anchor\":false},{\"x\":18,\"y\":-2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":11,\"mat\":\"road\"},{\"a\":11,\"b\":12,\"mat\":\"road\"},{\"a\":12,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":13,\"mat\":\"wood\"},{\"a\":14,\"b\":6,\"mat\":\"wood\"},{\"a\":4,\"b\":13,\"mat\":\"wood\"},{\"a\":5,\"b\":14,\"mat\":\"wood\"},{\"a\":13,\"b\":14,\"mat\":\"wood\"},{\"a\":13,\"b\":5,\"mat\":\"wood\"},{\"a\":6,\"b\":15,\"mat\":\"wood\"},{\"a\":7,\"b\":15,\"mat\":\"wood\"},{\"a\":9,\"b\":16,\"mat\":\"wood\"},{\"a\":15,\"b\":17,\"mat\":\"wood\"},{\"a\":15,\"b\":8,\"mat\":\"wood\"},{\"a\":17,\"b\":16,\"mat\":\"wood\"},{\"a\":16,\"b\":8,\"mat\":\"wood\"},{\"a\":10,\"b\":18,\"mat\":\"wood\"},{\"a\":19,\"b\":1,\"mat\":\"wood\"},{\"a\":11,\"b\":18,\"mat\":\"wood\"},{\"a\":12,\"b\":19,\"mat\":\"wood\"},{\"a\":18,\"b\":19,\"mat\":\"wood\"},{\"a\":18,\"b\":12,\"mat\":\"wood\"},{\"a\":2,\"b\":6,\"mat\":\"steel\"},{\"a\":3,\"b\":10,\"mat\":\"steel\"},{\"a\":3,\"b\":9,\"mat\":\"steel\"}]}",
+   "from": "search 1"
+  },
+  "bonusDesign": {
+   "cost": 13710,
+   "peak": 0.54,
+   "parts": 31,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":20,\"y\":0,\"anchor\":true},{\"x\":6,\"y\":-3,\"anchor\":true},{\"x\":14,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":16,\"y\":0,\"anchor\":false},{\"x\":18,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":-2,\"anchor\":false},{\"x\":8,\"y\":-2,\"anchor\":false},{\"x\":12,\"y\":-2,\"anchor\":false},{\"x\":10,\"y\":-2,\"anchor\":false},{\"x\":16,\"y\":2,\"anchor\":false},{\"x\":18,\"y\":2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":11,\"mat\":\"road\"},{\"a\":11,\"b\":12,\"mat\":\"road\"},{\"a\":12,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":13,\"mat\":\"wood\"},{\"a\":4,\"b\":13,\"mat\":\"steel\"},{\"a\":13,\"b\":5,\"mat\":\"wood\"},{\"a\":15,\"b\":10,\"mat\":\"wood\"},{\"a\":7,\"b\":14,\"mat\":\"wood\"},{\"a\":9,\"b\":15,\"mat\":\"wood\"},{\"a\":14,\"b\":16,\"mat\":\"wood\"},{\"a\":14,\"b\":8,\"mat\":\"steel\"},{\"a\":16,\"b\":15,\"mat\":\"wood\"},{\"a\":15,\"b\":8,\"mat\":\"steel\"},{\"a\":10,\"b\":17,\"mat\":\"steel\"},{\"a\":18,\"b\":1,\"mat\":\"steel\"},{\"a\":11,\"b\":17,\"mat\":\"steel\"},{\"a\":12,\"b\":18,\"mat\":\"wood\"},{\"a\":17,\"b\":18,\"mat\":\"steel\"},{\"a\":17,\"b\":12,\"mat\":\"wood\"},{\"a\":2,\"b\":6,\"mat\":\"steel\"},{\"a\":2,\"b\":5,\"mat\":\"steel\"},{\"a\":2,\"b\":7,\"mat\":\"steel\"},{\"a\":3,\"b\":10,\"mat\":\"steel\"},{\"a\":3,\"b\":9,\"mat\":\"steel\"}]}"
+  },
+  "seed": {
+   "cost": 12711,
+   "peak": 0.828,
+   "parts": 33,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [],
+  "shortcuts": [],
+  "combosTried": 1,
+  "seconds": 59
+ },
+ "13": {
+  "id": 13,
+  "fingerprint": "23bd808f",
+  "effort": "normal",
+  "ok": false,
+  "notes": [
+   "crosses without cable for $7,151"
+  ],
+  "params": {},
+  "geometry": {},
+  "money": 10000,
+  "target": 8250,
+  "bonus": {
+   "kind": "stress",
+   "max": 0.4
+  },
+  "reference": {
+   "cost": 7424,
+   "peak": 0.64,
+   "parts": 13,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":14,\"y\":0,\"anchor\":true},{\"x\":0,\"y\":6,\"anchor\":true},{\"x\":14,\"y\":6,\"anchor\":true},{\"x\":0,\"y\":-2,\"anchor\":true},{\"x\":14,\"y\":-2,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":11,\"mat\":\"road\"},{\"a\":11,\"b\":1,\"mat\":\"road\"},{\"a\":4,\"b\":6,\"mat\":\"wood\"},{\"a\":5,\"b\":11,\"mat\":\"wood\"},{\"a\":2,\"b\":7,\"mat\":\"cable\"},{\"a\":2,\"b\":8,\"mat\":\"cable\"},{\"a\":3,\"b\":9,\"mat\":\"cable\"},{\"a\":3,\"b\":10,\"mat\":\"cable\"}]}",
+   "from": "search 1"
+  },
+  "bonusDesign": {
+   "cost": 9596,
+   "peak": 0.361,
+   "parts": 27,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":14,\"y\":0,\"anchor\":true},{\"x\":0,\"y\":6,\"anchor\":true},{\"x\":14,\"y\":6,\"anchor\":true},{\"x\":0,\"y\":-2,\"anchor\":true},{\"x\":14,\"y\":-2,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":2,\"anchor\":false},{\"x\":12,\"y\":2,\"anchor\":false},{\"x\":4,\"y\":2,\"anchor\":false},{\"x\":6,\"y\":2,\"anchor\":false},{\"x\":8,\"y\":2,\"anchor\":false},{\"x\":10,\"y\":2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":11,\"mat\":\"road\"},{\"a\":11,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":12,\"mat\":\"wood\"},{\"a\":13,\"b\":1,\"mat\":\"wood\"},{\"a\":6,\"b\":12,\"mat\":\"wood\"},{\"a\":7,\"b\":14,\"mat\":\"wood\"},{\"a\":8,\"b\":15,\"mat\":\"wood\"},{\"a\":9,\"b\":16,\"mat\":\"wood\"},{\"a\":10,\"b\":17,\"mat\":\"wood\"},{\"a\":11,\"b\":13,\"mat\":\"wood\"},{\"a\":12,\"b\":14,\"mat\":\"wood\"},{\"a\":12,\"b\":7,\"mat\":\"wood\"},{\"a\":14,\"b\":8,\"mat\":\"wood\"},{\"a\":15,\"b\":16,\"mat\":\"wood\"},{\"a\":15,\"b\":9,\"mat\":\"wood\"},{\"a\":16,\"b\":17,\"mat\":\"wood\"},{\"a\":17,\"b\":9,\"mat\":\"wood\"},{\"a\":13,\"b\":10,\"mat\":\"wood\"},{\"a\":5,\"b\":11,\"mat\":\"wood\"},{\"a\":2,\"b\":7,\"mat\":\"cable\"},{\"a\":3,\"b\":8,\"mat\":\"cable\"},{\"a\":3,\"b\":10,\"mat\":\"cable\"}]}"
+  },
+  "seed": {
+   "cost": 7424,
+   "peak": 0.64,
+   "parts": 13,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [
+   {
+    "mat": "cable",
+    "best": {
+     "cost": 7151,
+     "peak": 0.997,
+     "parts": 29,
+     "crossed": true,
+     "reason": ""
+    },
+    "ok": false
+   }
+  ],
+  "shortcuts": [
+   {
+    "name": "cables alone",
+    "result": {
+     "cost": 6310,
+     "peak": 0.991,
+     "parts": 11,
+     "crossed": false,
+     "reason": "Your cargo went for a swim."
+    },
+    "ok": true
+   }
+  ],
+  "combosTried": 1,
+  "seconds": 22
+ },
+ "14": {
+  "id": 14,
+  "fingerprint": "85b8a6a9",
+  "effort": "normal",
+  "ok": true,
+  "notes": [],
+  "params": {},
+  "geometry": {},
+  "money": 12000,
+  "target": 10250,
+  "bonus": {
+   "kind": "parts",
+   "max": 17
+  },
+  "reference": {
+   "cost": 9123,
+   "peak": 0.621,
+   "parts": 21,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":18,\"y\":0,\"anchor\":true},{\"x\":9,\"y\":7,\"anchor\":true},{\"x\":0,\"y\":-2,\"anchor\":true},{\"x\":18,\"y\":-2,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":16,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":-1,\"anchor\":false},{\"x\":12,\"y\":-1,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":11,\"mat\":\"road\"},{\"a\":11,\"b\":12,\"mat\":\"road\"},{\"a\":12,\"b\":1,\"mat\":\"road\"},{\"a\":2,\"b\":6,\"mat\":\"cable\"},{\"a\":2,\"b\":8,\"mat\":\"cable\"},{\"a\":2,\"b\":9,\"mat\":\"cable\"},{\"a\":2,\"b\":11,\"mat\":\"cable\"},{\"a\":3,\"b\":5,\"mat\":\"wood\"},{\"a\":4,\"b\":12,\"mat\":\"wood\"},{\"a\":6,\"b\":13,\"mat\":\"wood\"},{\"a\":8,\"b\":13,\"mat\":\"wood\"},{\"a\":13,\"b\":7,\"mat\":\"wood\"},{\"a\":9,\"b\":14,\"mat\":\"wood\"},{\"a\":11,\"b\":14,\"mat\":\"wood\"},{\"a\":14,\"b\":10,\"mat\":\"wood\"}]}",
+   "from": "hand-made design, polished"
+  },
+  "bonusDesign": {
+   "cost": 10270,
+   "peak": 0.621,
+   "parts": 17,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":18,\"y\":0,\"anchor\":true},{\"x\":9,\"y\":7,\"anchor\":true},{\"x\":0,\"y\":-2,\"anchor\":true},{\"x\":18,\"y\":-2,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":16,\"y\":0,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":11,\"mat\":\"road\"},{\"a\":11,\"b\":12,\"mat\":\"road\"},{\"a\":12,\"b\":1,\"mat\":\"road\"},{\"a\":3,\"b\":5,\"mat\":\"wood\"},{\"a\":4,\"b\":12,\"mat\":\"wood\"},{\"a\":2,\"b\":6,\"mat\":\"cable\"},{\"a\":2,\"b\":7,\"mat\":\"cable\"},{\"a\":2,\"b\":8,\"mat\":\"cable\"},{\"a\":2,\"b\":9,\"mat\":\"cable\"},{\"a\":2,\"b\":10,\"mat\":\"cable\"},{\"a\":2,\"b\":11,\"mat\":\"cable\"}]}"
+  },
+  "seed": {
+   "cost": 9123,
+   "peak": 0.621,
+   "parts": 21,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [
+   {
+    "mat": "cable",
+    "best": {
+     "cost": 12357,
+     "peak": 0.942,
+     "parts": 34,
+     "crossed": true,
+     "reason": ""
+    },
+    "ok": true
+   }
+  ],
+  "shortcuts": [
+   {
+    "name": "four cables and end struts",
+    "result": {
+     "cost": 8138,
+     "peak": 0.988,
+     "parts": 15,
+     "crossed": false,
+     "reason": "The vehicle flipped over."
+    },
+    "ok": true
+   },
+   {
+    "name": "every joint hung from the pylon",
+    "result": {
+     "cost": 12533,
+     "peak": 0.257,
+     "parts": 17,
+     "crossed": true,
+     "reason": ""
+    },
+    "ok": true
+   }
+  ],
+  "combosTried": 1,
+  "seconds": 20
+ },
+ "15": {
+  "id": 15,
+  "fingerprint": "5eccb6ea",
+  "effort": "normal",
+  "ok": false,
+  "notes": [
+   "crosses without cable for $10,754"
+  ],
+  "params": {},
+  "geometry": {},
+  "money": 13500,
+  "target": 10250,
+  "bonus": {
+   "kind": "stress",
+   "max": 0.65
+  },
+  "reference": {
+   "cost": 9256,
+   "peak": 0.79,
+   "parts": 22,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":16,\"y\":0,\"anchor\":true},{\"x\":1,\"y\":9,\"anchor\":true},{\"x\":15,\"y\":9,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":7,\"anchor\":false},{\"x\":4,\"y\":3,\"anchor\":false},{\"x\":6,\"y\":1,\"anchor\":false},{\"x\":10,\"y\":1,\"anchor\":false},{\"x\":12,\"y\":3,\"anchor\":false},{\"x\":14,\"y\":7,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":1,\"mat\":\"road\"},{\"a\":2,\"b\":11,\"mat\":\"cable\"},{\"a\":11,\"b\":12,\"mat\":\"cable\"},{\"a\":12,\"b\":13,\"mat\":\"cable\"},{\"a\":13,\"b\":7,\"mat\":\"cable\"},{\"a\":7,\"b\":14,\"mat\":\"cable\"},{\"a\":14,\"b\":15,\"mat\":\"cable\"},{\"a\":15,\"b\":16,\"mat\":\"cable\"},{\"a\":16,\"b\":3,\"mat\":\"cable\"},{\"a\":11,\"b\":4,\"mat\":\"cable\"},{\"a\":12,\"b\":5,\"mat\":\"cable\"},{\"a\":13,\"b\":6,\"mat\":\"cable\"},{\"a\":14,\"b\":8,\"mat\":\"cable\"},{\"a\":15,\"b\":9,\"mat\":\"cable\"},{\"a\":16,\"b\":10,\"mat\":\"cable\"}]}",
+   "from": "search 1"
+  },
+  "bonusDesign": {
+   "cost": 11360,
+   "peak": 0.586,
+   "parts": 22,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":16,\"y\":0,\"anchor\":true},{\"x\":1,\"y\":9,\"anchor\":true},{\"x\":15,\"y\":9,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":7,\"anchor\":false},{\"x\":4,\"y\":3,\"anchor\":false},{\"x\":6,\"y\":1,\"anchor\":false},{\"x\":10,\"y\":1,\"anchor\":false},{\"x\":12,\"y\":3,\"anchor\":false},{\"x\":14,\"y\":7,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":1,\"mat\":\"road\"},{\"a\":2,\"b\":4,\"mat\":\"cable\"},{\"a\":2,\"b\":5,\"mat\":\"cable\"},{\"a\":3,\"b\":9,\"mat\":\"cable\"},{\"a\":2,\"b\":11,\"mat\":\"cable\"},{\"a\":11,\"b\":12,\"mat\":\"cable\"},{\"a\":12,\"b\":13,\"mat\":\"cable\"},{\"a\":13,\"b\":7,\"mat\":\"cable\"},{\"a\":7,\"b\":14,\"mat\":\"cable\"},{\"a\":14,\"b\":15,\"mat\":\"cable\"},{\"a\":15,\"b\":16,\"mat\":\"cable\"},{\"a\":16,\"b\":3,\"mat\":\"cable\"},{\"a\":13,\"b\":6,\"mat\":\"cable\"},{\"a\":14,\"b\":8,\"mat\":\"cable\"},{\"a\":16,\"b\":10,\"mat\":\"cable\"}]}"
+  },
+  "seed": {
+   "cost": 12537,
+   "peak": 0.427,
+   "parts": 17,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [
+   {
+    "mat": "cable",
+    "best": {
+     "cost": 10754,
+     "peak": 0.974,
+     "parts": 29,
+     "crossed": true,
+     "reason": ""
+    },
+    "ok": false
+   }
+  ],
+  "shortcuts": [
+   {
+    "name": "reachable cables alone",
+    "result": {
+     "cost": 8072,
+     "peak": 0.995,
+     "parts": 12,
+     "crossed": false,
+     "reason": "Your cargo went for a swim."
+    },
+    "ok": true
+   }
+  ],
+  "combosTried": 1,
+  "seconds": 11
+ },
+ "16": {
+  "id": 16,
+  "fingerprint": "05375518",
+  "effort": "normal",
+  "ok": true,
+  "notes": [],
+  "params": {},
+  "geometry": {},
+  "money": 13500,
+  "target": 11500,
+  "bonus": {
+   "kind": "parts",
+   "max": 26
+  },
+  "reference": {
+   "cost": 10244,
+   "peak": 0.81,
+   "parts": 27,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":16,\"y\":0,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":16,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":-2,\"anchor\":false},{\"x\":14,\"y\":-2,\"anchor\":false},{\"x\":4,\"y\":-2,\"anchor\":false},{\"x\":6,\"y\":-2,\"anchor\":false},{\"x\":8,\"y\":-2,\"anchor\":false},{\"x\":10,\"y\":-2,\"anchor\":false},{\"x\":12,\"y\":-2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":11,\"mat\":\"steel\"},{\"a\":12,\"b\":1,\"mat\":\"steel\"},{\"a\":4,\"b\":11,\"mat\":\"wood\"},{\"a\":5,\"b\":13,\"mat\":\"wood\"},{\"a\":6,\"b\":14,\"mat\":\"wood\"},{\"a\":7,\"b\":15,\"mat\":\"wood\"},{\"a\":8,\"b\":16,\"mat\":\"wood\"},{\"a\":9,\"b\":17,\"mat\":\"wood\"},{\"a\":10,\"b\":12,\"mat\":\"wood\"},{\"a\":11,\"b\":13,\"mat\":\"steel\"},{\"a\":11,\"b\":5,\"mat\":\"steel\"},{\"a\":13,\"b\":14,\"mat\":\"steel\"},{\"a\":13,\"b\":6,\"mat\":\"wood\"},{\"a\":14,\"b\":15,\"mat\":\"steel\"},{\"a\":15,\"b\":16,\"mat\":\"steel\"},{\"a\":16,\"b\":17,\"mat\":\"steel\"},{\"a\":17,\"b\":8,\"mat\":\"wood\"},{\"a\":17,\"b\":12,\"mat\":\"steel\"},{\"a\":12,\"b\":9,\"mat\":\"steel\"}]}",
+   "from": "search 1"
+  },
+  "bonusDesign": {
+   "cost": 10754,
+   "peak": 0.918,
+   "parts": 26,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":16,\"y\":0,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":16,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":2,\"anchor\":false},{\"x\":6,\"y\":2,\"anchor\":false},{\"x\":10,\"y\":2,\"anchor\":false},{\"x\":14,\"y\":2,\"anchor\":false},{\"x\":4,\"y\":2,\"anchor\":false},{\"x\":8,\"y\":2,\"anchor\":false},{\"x\":12,\"y\":2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":1,\"mat\":\"road\"},{\"a\":11,\"b\":15,\"mat\":\"steel\",\"part\":0},{\"a\":12,\"b\":16,\"mat\":\"steel\",\"part\":1},{\"a\":13,\"b\":17,\"mat\":\"steel\",\"part\":2},{\"a\":15,\"b\":12,\"mat\":\"steel\",\"part\":0},{\"a\":16,\"b\":13,\"mat\":\"steel\",\"part\":1},{\"a\":17,\"b\":14,\"mat\":\"steel\",\"part\":2},{\"a\":0,\"b\":11,\"mat\":\"steel\"},{\"a\":1,\"b\":14,\"mat\":\"steel\"},{\"a\":4,\"b\":11,\"mat\":\"wood\"},{\"a\":5,\"b\":15,\"mat\":\"wood\"},{\"a\":6,\"b\":12,\"mat\":\"wood\"},{\"a\":7,\"b\":16,\"mat\":\"wood\"},{\"a\":8,\"b\":13,\"mat\":\"wood\"},{\"a\":9,\"b\":17,\"mat\":\"wood\"},{\"a\":10,\"b\":14,\"mat\":\"wood\"},{\"a\":11,\"b\":5,\"mat\":\"steel\"},{\"a\":15,\"b\":6,\"mat\":\"wood\"},{\"a\":12,\"b\":7,\"mat\":\"wood\"},{\"a\":13,\"b\":7,\"mat\":\"wood\"},{\"a\":17,\"b\":8,\"mat\":\"wood\"},{\"a\":14,\"b\":9,\"mat\":\"steel\"}]}"
+  },
+  "seed": {
+   "cost": 10754,
+   "peak": 0.918,
+   "parts": 26,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [],
+  "shortcuts": [],
+  "combosTried": 1,
+  "seconds": 6
+ },
+ "17": {
+  "id": 17,
+  "fingerprint": "f12a012d",
+  "effort": "normal",
+  "ok": true,
+  "notes": [],
+  "params": {},
+  "geometry": {},
+  "money": 23000,
+  "target": 20000,
+  "bonus": {
+   "kind": "without",
+   "mat": "wood"
+  },
+  "reference": {
+   "cost": 18297,
+   "peak": 0.908,
+   "parts": 33,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":20,\"y\":0,\"anchor\":true},{\"x\":10,\"y\":-4,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":20,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":16,\"y\":0,\"anchor\":false},{\"x\":18,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":-2,\"anchor\":false},{\"x\":8,\"y\":-2,\"anchor\":false},{\"x\":4,\"y\":-2,\"anchor\":false},{\"x\":6,\"y\":-2,\"anchor\":false},{\"x\":12,\"y\":-2,\"anchor\":false},{\"x\":18,\"y\":-2,\"anchor\":false},{\"x\":14,\"y\":-2,\"anchor\":false},{\"x\":16,\"y\":-2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":5,\"mat\":\"heavy\"},{\"a\":5,\"b\":6,\"mat\":\"heavy\"},{\"a\":6,\"b\":7,\"mat\":\"heavy\"},{\"a\":7,\"b\":8,\"mat\":\"heavy\"},{\"a\":8,\"b\":9,\"mat\":\"heavy\"},{\"a\":9,\"b\":10,\"mat\":\"heavy\"},{\"a\":10,\"b\":11,\"mat\":\"heavy\"},{\"a\":11,\"b\":12,\"mat\":\"heavy\"},{\"a\":12,\"b\":13,\"mat\":\"heavy\"},{\"a\":13,\"b\":1,\"mat\":\"heavy\"},{\"a\":0,\"b\":14,\"mat\":\"wood\"},{\"a\":15,\"b\":9,\"mat\":\"steel\"},{\"a\":5,\"b\":14,\"mat\":\"wood\"},{\"a\":6,\"b\":16,\"mat\":\"wood\"},{\"a\":8,\"b\":15,\"mat\":\"wood\"},{\"a\":14,\"b\":16,\"mat\":\"steel\"},{\"a\":14,\"b\":6,\"mat\":\"steel\"},{\"a\":16,\"b\":17,\"mat\":\"steel\"},{\"a\":16,\"b\":7,\"mat\":\"wood\"},{\"a\":17,\"b\":15,\"mat\":\"steel\"},{\"a\":15,\"b\":7,\"mat\":\"wood\"},{\"a\":9,\"b\":18,\"mat\":\"steel\"},{\"a\":19,\"b\":1,\"mat\":\"steel\"},{\"a\":10,\"b\":18,\"mat\":\"wood\"},{\"a\":11,\"b\":20,\"mat\":\"wood\"},{\"a\":18,\"b\":20,\"mat\":\"steel\"},{\"a\":18,\"b\":11,\"mat\":\"steel\"},{\"a\":20,\"b\":21,\"mat\":\"steel\"},{\"a\":20,\"b\":12,\"mat\":\"wood\"},{\"a\":21,\"b\":19,\"mat\":\"steel\"},{\"a\":19,\"b\":12,\"mat\":\"steel\"},{\"a\":2,\"b\":9,\"mat\":\"steel\"},{\"a\":3,\"b\":5,\"mat\":\"steel\"}]}",
+   "from": "search 1"
+  },
+  "bonusDesign": {
+   "cost": 20628,
+   "peak": 0.952,
+   "parts": 32,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":20,\"y\":0,\"anchor\":true},{\"x\":10,\"y\":-4,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":20,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":16,\"y\":0,\"anchor\":false},{\"x\":18,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":-2,\"anchor\":false},{\"x\":8,\"y\":-2,\"anchor\":false},{\"x\":4,\"y\":-2,\"anchor\":false},{\"x\":6,\"y\":-2,\"anchor\":false},{\"x\":12,\"y\":-2,\"anchor\":false},{\"x\":18,\"y\":-2,\"anchor\":false},{\"x\":14,\"y\":-2,\"anchor\":false},{\"x\":16,\"y\":-2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":5,\"mat\":\"heavy\"},{\"a\":5,\"b\":6,\"mat\":\"heavy\"},{\"a\":6,\"b\":7,\"mat\":\"heavy\"},{\"a\":7,\"b\":8,\"mat\":\"heavy\"},{\"a\":8,\"b\":9,\"mat\":\"heavy\"},{\"a\":9,\"b\":10,\"mat\":\"heavy\"},{\"a\":10,\"b\":11,\"mat\":\"heavy\"},{\"a\":11,\"b\":12,\"mat\":\"heavy\"},{\"a\":12,\"b\":13,\"mat\":\"heavy\"},{\"a\":13,\"b\":1,\"mat\":\"heavy\"},{\"a\":0,\"b\":14,\"mat\":\"steel\"},{\"a\":15,\"b\":9,\"mat\":\"steel\"},{\"a\":5,\"b\":14,\"mat\":\"steel\"},{\"a\":6,\"b\":16,\"mat\":\"steel\"},{\"a\":8,\"b\":15,\"mat\":\"steel\"},{\"a\":14,\"b\":16,\"mat\":\"steel\"},{\"a\":14,\"b\":6,\"mat\":\"steel\"},{\"a\":16,\"b\":17,\"mat\":\"steel\"},{\"a\":16,\"b\":7,\"mat\":\"steel\"},{\"a\":17,\"b\":15,\"mat\":\"steel\"},{\"a\":15,\"b\":7,\"mat\":\"steel\"},{\"a\":9,\"b\":18,\"mat\":\"steel\"},{\"a\":19,\"b\":1,\"mat\":\"steel\"},{\"a\":10,\"b\":18,\"mat\":\"steel\"},{\"a\":11,\"b\":20,\"mat\":\"steel\"},{\"a\":18,\"b\":20,\"mat\":\"steel\"},{\"a\":18,\"b\":11,\"mat\":\"steel\"},{\"a\":20,\"b\":21,\"mat\":\"steel\"},{\"a\":20,\"b\":12,\"mat\":\"steel\"},{\"a\":21,\"b\":19,\"mat\":\"steel\"},{\"a\":19,\"b\":12,\"mat\":\"steel\"},{\"a\":2,\"b\":9,\"mat\":\"steel\"}]}"
+  },
+  "seed": {
+   "cost": 18820,
+   "peak": 0.966,
+   "parts": 35,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [],
+  "shortcuts": [],
+  "combosTried": 1,
+  "seconds": 48
+ },
+ "18": {
+  "id": 18,
+  "fingerprint": "ea065934",
+  "effort": "normal",
+  "ok": false,
+  "notes": [
+   "crosses without cable for $16,290"
+  ],
+  "params": {},
+  "geometry": {},
+  "money": 17500,
+  "target": 15000,
+  "bonus": {
+   "kind": "without",
+   "mat": "heavy"
+  },
+  "reference": {
+   "cost": 13852,
+   "peak": 0.904,
+   "parts": 17,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":24,\"y\":-3,\"anchor\":true},{\"x\":8,\"y\":7,\"anchor\":true},{\"x\":16,\"y\":-5,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":24,\"y\":-6,\"anchor\":true},{\"x\":2,\"y\":-0.25,\"anchor\":false},{\"x\":4,\"y\":-0.5,\"anchor\":false},{\"x\":6,\"y\":-0.75,\"anchor\":false},{\"x\":8,\"y\":-1,\"anchor\":false},{\"x\":10,\"y\":-1.25,\"anchor\":false},{\"x\":12,\"y\":-1.5,\"anchor\":false},{\"x\":14,\"y\":-1.75,\"anchor\":false},{\"x\":16,\"y\":-2,\"anchor\":false},{\"x\":18,\"y\":-2.25,\"anchor\":false},{\"x\":20,\"y\":-2.5,\"anchor\":false},{\"x\":22,\"y\":-2.75,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":6,\"mat\":\"heavy\"},{\"a\":6,\"b\":7,\"mat\":\"heavy\"},{\"a\":7,\"b\":8,\"mat\":\"heavy\"},{\"a\":8,\"b\":9,\"mat\":\"heavy\"},{\"a\":9,\"b\":10,\"mat\":\"heavy\"},{\"a\":10,\"b\":11,\"mat\":\"heavy\"},{\"a\":11,\"b\":12,\"mat\":\"heavy\"},{\"a\":12,\"b\":13,\"mat\":\"heavy\"},{\"a\":13,\"b\":14,\"mat\":\"heavy\"},{\"a\":14,\"b\":15,\"mat\":\"heavy\"},{\"a\":15,\"b\":16,\"mat\":\"heavy\"},{\"a\":16,\"b\":1,\"mat\":\"heavy\"},{\"a\":3,\"b\":13,\"mat\":\"steel\"},{\"a\":3,\"b\":14,\"mat\":\"steel\"},{\"a\":4,\"b\":6,\"mat\":\"steel\"},{\"a\":2,\"b\":9,\"mat\":\"cable\"},{\"a\":2,\"b\":10,\"mat\":\"cable\"}]}",
+   "from": "search 1"
+  },
+  "bonusDesign": {
+   "cost": 13517,
+   "peak": 0.916,
+   "parts": 41,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":24,\"y\":-3,\"anchor\":true},{\"x\":8,\"y\":7,\"anchor\":true},{\"x\":16,\"y\":-5,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":24,\"y\":-6,\"anchor\":true},{\"x\":2,\"y\":-0.25,\"anchor\":false},{\"x\":4,\"y\":-0.5,\"anchor\":false},{\"x\":6,\"y\":-0.75,\"anchor\":false},{\"x\":8,\"y\":-1,\"anchor\":false},{\"x\":10,\"y\":-1.25,\"anchor\":false},{\"x\":12,\"y\":-1.5,\"anchor\":false},{\"x\":14,\"y\":-1.75,\"anchor\":false},{\"x\":16,\"y\":-2,\"anchor\":false},{\"x\":18,\"y\":-2.25,\"anchor\":false},{\"x\":20,\"y\":-2.5,\"anchor\":false},{\"x\":22,\"y\":-2.75,\"anchor\":false},{\"x\":2,\"y\":1.75,\"anchor\":false},{\"x\":6,\"y\":1.25,\"anchor\":false},{\"x\":4,\"y\":1.5,\"anchor\":false},{\"x\":10,\"y\":-3.25,\"anchor\":false},{\"x\":14,\"y\":-3.75,\"anchor\":false},{\"x\":12,\"y\":-3.5,\"anchor\":false},{\"x\":18,\"y\":-4.25,\"anchor\":false},{\"x\":22,\"y\":-4.75,\"anchor\":false},{\"x\":20,\"y\":-4.5,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":11,\"mat\":\"road\"},{\"a\":11,\"b\":12,\"mat\":\"road\"},{\"a\":12,\"b\":13,\"mat\":\"road\"},{\"a\":13,\"b\":14,\"mat\":\"road\"},{\"a\":14,\"b\":15,\"mat\":\"road\"},{\"a\":15,\"b\":16,\"mat\":\"road\"},{\"a\":16,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":17,\"mat\":\"wood\"},{\"a\":18,\"b\":9,\"mat\":\"wood\"},{\"a\":6,\"b\":17,\"mat\":\"wood\"},{\"a\":7,\"b\":19,\"mat\":\"wood\"},{\"a\":8,\"b\":18,\"mat\":\"wood\"},{\"a\":17,\"b\":19,\"mat\":\"wood\"},{\"a\":17,\"b\":7,\"mat\":\"wood\"},{\"a\":19,\"b\":18,\"mat\":\"wood\"},{\"a\":18,\"b\":7,\"mat\":\"wood\"},{\"a\":9,\"b\":20,\"mat\":\"wood\"},{\"a\":21,\"b\":13,\"mat\":\"wood\"},{\"a\":10,\"b\":20,\"mat\":\"wood\"},{\"a\":11,\"b\":22,\"mat\":\"wood\"},{\"a\":12,\"b\":21,\"mat\":\"wood\"},{\"a\":20,\"b\":22,\"mat\":\"wood\"},{\"a\":20,\"b\":11,\"mat\":\"wood\"},{\"a\":22,\"b\":21,\"mat\":\"wood\"},{\"a\":21,\"b\":11,\"mat\":\"wood\"},{\"a\":24,\"b\":1,\"mat\":\"wood\"},{\"a\":14,\"b\":23,\"mat\":\"wood\"},{\"a\":16,\"b\":24,\"mat\":\"wood\"},{\"a\":23,\"b\":25,\"mat\":\"wood\"},{\"a\":23,\"b\":15,\"mat\":\"wood\"},{\"a\":25,\"b\":24,\"mat\":\"wood\"},{\"a\":24,\"b\":15,\"mat\":\"wood\"},{\"a\":3,\"b\":13,\"mat\":\"steel\"},{\"a\":3,\"b\":14,\"mat\":\"steel\"},{\"a\":2,\"b\":8,\"mat\":\"cable\"},{\"a\":2,\"b\":10,\"mat\":\"cable\"}]}"
+  },
+  "seed": {
+   "cost": 15058,
+   "peak": 0.684,
+   "parts": 25,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [
+   {
+    "mat": "cable",
+    "best": {
+     "cost": 16290,
+     "peak": 0.999,
+     "parts": 34,
+     "crossed": true,
+     "reason": ""
+    },
+    "ok": false
+   }
+  ],
+  "shortcuts": [
+   {
+    "name": "cables from the tall pylon alone",
+    "result": {
+     "cost": 11605,
+     "peak": 0.957,
+     "parts": 18,
+     "crossed": false,
+     "reason": "Your cargo went for a swim."
+    },
+    "ok": true
+   }
+  ],
+  "combosTried": 1,
+  "seconds": 61
+ },
+ "19": {
+  "id": 19,
+  "fingerprint": "c461f6ed",
+  "effort": "normal",
+  "ok": false,
+  "notes": [
+   "crosses without cable for $17,218"
+  ],
+  "params": {},
+  "geometry": {},
+  "money": 25000,
+  "target": 17750,
+  "bonus": {
+   "kind": "without",
+   "mat": "wood"
+  },
+  "reference": {
+   "cost": 16211,
+   "peak": 0.907,
+   "parts": 41,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":28,\"y\":0,\"anchor\":true},{\"x\":6,\"y\":0,\"anchor\":true},{\"x\":22,\"y\":0,\"anchor\":true},{\"x\":6,\"y\":12,\"anchor\":true},{\"x\":22,\"y\":12,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":28,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":16,\"y\":0,\"anchor\":false},{\"x\":18,\"y\":0,\"anchor\":false},{\"x\":20,\"y\":0,\"anchor\":false},{\"x\":24,\"y\":0,\"anchor\":false},{\"x\":26,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":-2,\"anchor\":false},{\"x\":4,\"y\":-2,\"anchor\":false},{\"x\":24,\"y\":-2,\"anchor\":false},{\"x\":26,\"y\":-2,\"anchor\":false},{\"x\":8,\"y\":7,\"anchor\":false},{\"x\":10,\"y\":4,\"anchor\":false},{\"x\":12,\"y\":2,\"anchor\":false},{\"x\":14,\"y\":1,\"anchor\":false},{\"x\":16,\"y\":2,\"anchor\":false},{\"x\":18,\"y\":4,\"anchor\":false},{\"x\":20,\"y\":7,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":2,\"mat\":\"road\"},{\"a\":2,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":11,\"mat\":\"road\"},{\"a\":11,\"b\":12,\"mat\":\"road\"},{\"a\":12,\"b\":13,\"mat\":\"road\"},{\"a\":13,\"b\":14,\"mat\":\"road\"},{\"a\":14,\"b\":15,\"mat\":\"road\"},{\"a\":15,\"b\":16,\"mat\":\"road\"},{\"a\":16,\"b\":3,\"mat\":\"road\"},{\"a\":3,\"b\":17,\"mat\":\"road\"},{\"a\":17,\"b\":18,\"mat\":\"road\"},{\"a\":18,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":19,\"mat\":\"wood\"},{\"a\":20,\"b\":2,\"mat\":\"wood\"},{\"a\":8,\"b\":19,\"mat\":\"wood\"},{\"a\":9,\"b\":20,\"mat\":\"wood\"},{\"a\":19,\"b\":20,\"mat\":\"wood\"},{\"a\":19,\"b\":9,\"mat\":\"steel\"},{\"a\":3,\"b\":21,\"mat\":\"wood\"},{\"a\":22,\"b\":1,\"mat\":\"steel\"},{\"a\":17,\"b\":21,\"mat\":\"wood\"},{\"a\":18,\"b\":22,\"mat\":\"wood\"},{\"a\":21,\"b\":22,\"mat\":\"wood\"},{\"a\":21,\"b\":18,\"mat\":\"wood\"},{\"a\":4,\"b\":23,\"mat\":\"cable\"},{\"a\":23,\"b\":24,\"mat\":\"cable\"},{\"a\":24,\"b\":25,\"mat\":\"cable\"},{\"a\":25,\"b\":26,\"mat\":\"cable\"},{\"a\":26,\"b\":27,\"mat\":\"cable\"},{\"a\":27,\"b\":28,\"mat\":\"cable\"},{\"a\":28,\"b\":29,\"mat\":\"cable\"},{\"a\":29,\"b\":5,\"mat\":\"cable\"},{\"a\":23,\"b\":10,\"mat\":\"cable\"},{\"a\":24,\"b\":11,\"mat\":\"cable\"},{\"a\":25,\"b\":12,\"mat\":\"cable\"},{\"a\":26,\"b\":13,\"mat\":\"cable\"},{\"a\":27,\"b\":14,\"mat\":\"cable\"},{\"a\":28,\"b\":15,\"mat\":\"cable\"},{\"a\":29,\"b\":16,\"mat\":\"cable\"}]}",
+   "from": "search 3"
+  },
+  "bonusDesign": {
+   "cost": 19708,
+   "peak": 0.897,
+   "parts": 41,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":28,\"y\":0,\"anchor\":true},{\"x\":6,\"y\":0,\"anchor\":true},{\"x\":22,\"y\":0,\"anchor\":true},{\"x\":6,\"y\":12,\"anchor\":true},{\"x\":22,\"y\":12,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":28,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":16,\"y\":0,\"anchor\":false},{\"x\":18,\"y\":0,\"anchor\":false},{\"x\":20,\"y\":0,\"anchor\":false},{\"x\":24,\"y\":0,\"anchor\":false},{\"x\":26,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":-2,\"anchor\":false},{\"x\":4,\"y\":-2,\"anchor\":false},{\"x\":24,\"y\":-2,\"anchor\":false},{\"x\":26,\"y\":-2,\"anchor\":false},{\"x\":8,\"y\":7,\"anchor\":false},{\"x\":10,\"y\":4,\"anchor\":false},{\"x\":12,\"y\":2,\"anchor\":false},{\"x\":14,\"y\":1,\"anchor\":false},{\"x\":16,\"y\":2,\"anchor\":false},{\"x\":18,\"y\":4,\"anchor\":false},{\"x\":20,\"y\":7,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":2,\"mat\":\"road\"},{\"a\":2,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":11,\"mat\":\"road\"},{\"a\":11,\"b\":12,\"mat\":\"road\"},{\"a\":12,\"b\":13,\"mat\":\"road\"},{\"a\":13,\"b\":14,\"mat\":\"road\"},{\"a\":14,\"b\":15,\"mat\":\"road\"},{\"a\":15,\"b\":16,\"mat\":\"road\"},{\"a\":16,\"b\":3,\"mat\":\"road\"},{\"a\":3,\"b\":17,\"mat\":\"road\"},{\"a\":17,\"b\":18,\"mat\":\"road\"},{\"a\":18,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":19,\"mat\":\"steel\"},{\"a\":20,\"b\":2,\"mat\":\"steel\"},{\"a\":8,\"b\":19,\"mat\":\"steel\"},{\"a\":9,\"b\":20,\"mat\":\"steel\"},{\"a\":19,\"b\":20,\"mat\":\"steel\"},{\"a\":19,\"b\":9,\"mat\":\"steel\"},{\"a\":3,\"b\":21,\"mat\":\"steel\"},{\"a\":22,\"b\":1,\"mat\":\"steel\"},{\"a\":17,\"b\":21,\"mat\":\"steel\"},{\"a\":18,\"b\":22,\"mat\":\"steel\"},{\"a\":21,\"b\":22,\"mat\":\"steel\"},{\"a\":21,\"b\":18,\"mat\":\"steel\"},{\"a\":4,\"b\":23,\"mat\":\"cable\"},{\"a\":23,\"b\":24,\"mat\":\"cable\"},{\"a\":24,\"b\":25,\"mat\":\"cable\"},{\"a\":25,\"b\":26,\"mat\":\"cable\"},{\"a\":26,\"b\":27,\"mat\":\"cable\"},{\"a\":27,\"b\":28,\"mat\":\"cable\"},{\"a\":28,\"b\":29,\"mat\":\"cable\"},{\"a\":29,\"b\":5,\"mat\":\"cable\"},{\"a\":23,\"b\":10,\"mat\":\"cable\"},{\"a\":24,\"b\":11,\"mat\":\"cable\"},{\"a\":25,\"b\":12,\"mat\":\"cable\"},{\"a\":26,\"b\":13,\"mat\":\"cable\"},{\"a\":27,\"b\":14,\"mat\":\"cable\"},{\"a\":28,\"b\":15,\"mat\":\"cable\"},{\"a\":29,\"b\":16,\"mat\":\"cable\"}]}"
+  },
+  "seed": {
+   "cost": 23600,
+   "peak": 0.741,
+   "parts": 33,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [
+   {
+    "mat": "cable",
+    "best": {
+     "cost": 17218,
+     "peak": 0.93,
+     "parts": 47,
+     "crossed": true,
+     "reason": ""
+    },
+    "ok": false
+   }
+  ],
+  "shortcuts": [],
+  "combosTried": 1,
+  "seconds": 161
+ },
+ "20": {
+  "id": 20,
+  "fingerprint": "a4393135",
+  "effort": "normal",
+  "ok": false,
+  "notes": [
+   "crosses without cable for $25,861"
+  ],
+  "params": {},
+  "geometry": {},
+  "money": 33500,
+  "target": 20750,
+  "bonus": {
+   "kind": "without",
+   "mat": "steel"
+  },
+  "reference": {
+   "cost": 19195,
+   "peak": 0.911,
+   "parts": 27,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":32,\"y\":0,\"anchor\":true},{\"x\":16,\"y\":-4,\"anchor\":true},{\"x\":8,\"y\":11,\"anchor\":true},{\"x\":24,\"y\":11,\"anchor\":true},{\"x\":0,\"y\":4,\"anchor\":true},{\"x\":32,\"y\":4,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":32,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":16,\"y\":0,\"anchor\":false},{\"x\":18,\"y\":0,\"anchor\":false},{\"x\":20,\"y\":0,\"anchor\":false},{\"x\":22,\"y\":0,\"anchor\":false},{\"x\":24,\"y\":0,\"anchor\":false},{\"x\":26,\"y\":0,\"anchor\":false},{\"x\":28,\"y\":0,\"anchor\":false},{\"x\":30,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":3,\"anchor\":false},{\"x\":4,\"y\":4,\"anchor\":false},{\"x\":6,\"y\":6,\"anchor\":false},{\"x\":26,\"y\":6,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":9,\"mat\":\"heavy\"},{\"a\":9,\"b\":10,\"mat\":\"heavy\"},{\"a\":10,\"b\":11,\"mat\":\"heavy\"},{\"a\":11,\"b\":12,\"mat\":\"heavy\"},{\"a\":12,\"b\":13,\"mat\":\"heavy\"},{\"a\":13,\"b\":14,\"mat\":\"heavy\"},{\"a\":14,\"b\":15,\"mat\":\"heavy\"},{\"a\":15,\"b\":16,\"mat\":\"heavy\"},{\"a\":16,\"b\":17,\"mat\":\"heavy\"},{\"a\":17,\"b\":18,\"mat\":\"heavy\"},{\"a\":18,\"b\":19,\"mat\":\"heavy\"},{\"a\":19,\"b\":20,\"mat\":\"heavy\"},{\"a\":20,\"b\":21,\"mat\":\"heavy\"},{\"a\":21,\"b\":22,\"mat\":\"heavy\"},{\"a\":22,\"b\":23,\"mat\":\"heavy\"},{\"a\":23,\"b\":1,\"mat\":\"heavy\"},{\"a\":5,\"b\":24,\"mat\":\"cable\"},{\"a\":24,\"b\":25,\"mat\":\"cable\"},{\"a\":25,\"b\":26,\"mat\":\"cable\"},{\"a\":26,\"b\":3,\"mat\":\"cable\"},{\"a\":24,\"b\":9,\"mat\":\"cable\"},{\"a\":25,\"b\":10,\"mat\":\"cable\"},{\"a\":26,\"b\":11,\"mat\":\"cable\"},{\"a\":27,\"b\":4,\"mat\":\"cable\"},{\"a\":27,\"b\":21,\"mat\":\"cable\"},{\"a\":26,\"b\":12,\"mat\":\"cable\"},{\"a\":2,\"b\":16,\"mat\":\"steel\"}]}",
+   "from": "hand-made design, polished"
+  },
+  "bonusDesign": {
+   "cost": 20139,
+   "peak": 0.978,
+   "parts": 29,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":32,\"y\":0,\"anchor\":true},{\"x\":16,\"y\":-4,\"anchor\":true},{\"x\":8,\"y\":11,\"anchor\":true},{\"x\":24,\"y\":11,\"anchor\":true},{\"x\":0,\"y\":4,\"anchor\":true},{\"x\":32,\"y\":4,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":32,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":16,\"y\":0,\"anchor\":false},{\"x\":18,\"y\":0,\"anchor\":false},{\"x\":20,\"y\":0,\"anchor\":false},{\"x\":22,\"y\":0,\"anchor\":false},{\"x\":24,\"y\":0,\"anchor\":false},{\"x\":26,\"y\":0,\"anchor\":false},{\"x\":28,\"y\":0,\"anchor\":false},{\"x\":30,\"y\":0,\"anchor\":false},{\"x\":11,\"y\":6,\"anchor\":false},{\"x\":15,\"y\":2,\"anchor\":false},{\"x\":19,\"y\":3,\"anchor\":false},{\"x\":22,\"y\":7,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":9,\"mat\":\"heavy\"},{\"a\":9,\"b\":10,\"mat\":\"heavy\"},{\"a\":10,\"b\":11,\"mat\":\"heavy\"},{\"a\":11,\"b\":12,\"mat\":\"heavy\"},{\"a\":12,\"b\":13,\"mat\":\"heavy\"},{\"a\":13,\"b\":14,\"mat\":\"heavy\"},{\"a\":14,\"b\":15,\"mat\":\"heavy\"},{\"a\":15,\"b\":16,\"mat\":\"heavy\"},{\"a\":16,\"b\":17,\"mat\":\"heavy\"},{\"a\":17,\"b\":18,\"mat\":\"heavy\"},{\"a\":18,\"b\":19,\"mat\":\"heavy\"},{\"a\":19,\"b\":20,\"mat\":\"heavy\"},{\"a\":20,\"b\":21,\"mat\":\"heavy\"},{\"a\":21,\"b\":22,\"mat\":\"heavy\"},{\"a\":22,\"b\":23,\"mat\":\"heavy\"},{\"a\":23,\"b\":1,\"mat\":\"heavy\"},{\"a\":5,\"b\":9,\"mat\":\"cable\"},{\"a\":6,\"b\":23,\"mat\":\"cable\"},{\"a\":3,\"b\":24,\"mat\":\"cable\"},{\"a\":24,\"b\":25,\"mat\":\"cable\"},{\"a\":25,\"b\":26,\"mat\":\"cable\"},{\"a\":26,\"b\":27,\"mat\":\"cable\"},{\"a\":27,\"b\":4,\"mat\":\"cable\"},{\"a\":24,\"b\":13,\"mat\":\"cable\"},{\"a\":24,\"b\":14,\"mat\":\"cable\"},{\"a\":25,\"b\":15,\"mat\":\"cable\"},{\"a\":25,\"b\":16,\"mat\":\"cable\"},{\"a\":26,\"b\":17,\"mat\":\"cable\"},{\"a\":26,\"b\":18,\"mat\":\"cable\"}]}"
+  },
+  "seed": {
+   "cost": 31832,
+   "peak": 0.807,
+   "parts": 49,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [
+   {
+    "mat": "cable",
+    "best": {
+     "cost": 25861,
+     "peak": 0.955,
+     "parts": 59,
+     "crossed": true,
+     "reason": ""
+    },
+    "ok": false
+   }
+  ],
+  "shortcuts": [
+   {
+    "name": "bank posts and the pier",
+    "result": {
+     "cost": 17975,
+     "peak": 0.999,
+     "parts": 23,
+     "crossed": false,
+     "reason": "Your cargo went for a swim."
+    },
+    "ok": true
+   }
+  ],
+  "combosTried": 1,
+  "seconds": 129
+ },
+ "22": {
+  "id": 22,
+  "fingerprint": "755f4102",
+  "effort": "normal",
+  "ok": true,
+  "notes": [],
+  "params": {},
+  "geometry": {},
+  "money": 7500,
+  "target": 5750,
+  "bonus": {
+   "kind": "without",
+   "mat": "steel"
+  },
+  "reference": {
+   "cost": 5127,
+   "peak": 0.681,
+   "parts": 17,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":18,\"y\":0,\"anchor\":true},{\"x\":6,\"y\":-2,\"anchor\":true},{\"x\":12,\"y\":-2,\"anchor\":true},{\"x\":0,\"y\":-2,\"anchor\":true},{\"x\":18,\"y\":-2,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":16,\"y\":0,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":11,\"mat\":\"road\"},{\"a\":11,\"b\":12,\"mat\":\"road\"},{\"a\":12,\"b\":13,\"mat\":\"road\"},{\"a\":13,\"b\":1,\"mat\":\"road\"},{\"a\":2,\"b\":7,\"mat\":\"wood\"},{\"a\":2,\"b\":8,\"mat\":\"wood\"},{\"a\":2,\"b\":9,\"mat\":\"wood\"},{\"a\":3,\"b\":10,\"mat\":\"wood\"},{\"a\":3,\"b\":11,\"mat\":\"wood\"},{\"a\":3,\"b\":12,\"mat\":\"wood\"},{\"a\":4,\"b\":6,\"mat\":\"wood\"},{\"a\":5,\"b\":13,\"mat\":\"wood\"}]}",
+   "from": "hand-made design, polished"
+  },
+  "bonusDesign": {
+   "cost": 5127,
+   "peak": 0.681,
+   "parts": 17,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":18,\"y\":0,\"anchor\":true},{\"x\":6,\"y\":-2,\"anchor\":true},{\"x\":12,\"y\":-2,\"anchor\":true},{\"x\":0,\"y\":-2,\"anchor\":true},{\"x\":18,\"y\":-2,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":16,\"y\":0,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":11,\"mat\":\"road\"},{\"a\":11,\"b\":12,\"mat\":\"road\"},{\"a\":12,\"b\":13,\"mat\":\"road\"},{\"a\":13,\"b\":1,\"mat\":\"road\"},{\"a\":2,\"b\":7,\"mat\":\"wood\"},{\"a\":2,\"b\":8,\"mat\":\"wood\"},{\"a\":2,\"b\":9,\"mat\":\"wood\"},{\"a\":3,\"b\":10,\"mat\":\"wood\"},{\"a\":3,\"b\":11,\"mat\":\"wood\"},{\"a\":3,\"b\":12,\"mat\":\"wood\"},{\"a\":4,\"b\":6,\"mat\":\"wood\"},{\"a\":5,\"b\":13,\"mat\":\"wood\"}]}"
+  },
+  "seed": {
+   "cost": 5727,
+   "peak": 0.688,
+   "parts": 17,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [],
+  "shortcuts": [],
+  "combosTried": 1,
+  "seconds": 43
+ },
+ "23": {
+  "id": 23,
+  "fingerprint": "c7b0fb80",
+  "effort": "normal",
+  "ok": true,
+  "notes": [],
+  "params": {},
+  "geometry": {},
+  "money": 13000,
+  "target": 10500,
+  "bonus": {
+   "kind": "without",
+   "mat": "wood"
+  },
+  "reference": {
+   "cost": 9479,
+   "peak": 0.726,
+   "parts": 25,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":14,\"y\":0,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":2,\"anchor\":false},{\"x\":12,\"y\":2,\"anchor\":false},{\"x\":4,\"y\":2,\"anchor\":false},{\"x\":6,\"y\":2,\"anchor\":false},{\"x\":8,\"y\":2,\"anchor\":false},{\"x\":10,\"y\":2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":2,\"mat\":\"road\"},{\"a\":2,\"b\":3,\"mat\":\"road\"},{\"a\":3,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":8,\"mat\":\"steel\"},{\"a\":9,\"b\":1,\"mat\":\"steel\"},{\"a\":2,\"b\":8,\"mat\":\"wood\"},{\"a\":3,\"b\":10,\"mat\":\"wood\"},{\"a\":4,\"b\":11,\"mat\":\"wood\"},{\"a\":5,\"b\":12,\"mat\":\"wood\"},{\"a\":6,\"b\":13,\"mat\":\"wood\"},{\"a\":7,\"b\":9,\"mat\":\"wood\"},{\"a\":8,\"b\":10,\"mat\":\"steel\"},{\"a\":8,\"b\":3,\"mat\":\"steel\"},{\"a\":10,\"b\":11,\"mat\":\"steel\"},{\"a\":10,\"b\":4,\"mat\":\"wood\"},{\"a\":11,\"b\":12,\"mat\":\"steel\"},{\"a\":11,\"b\":5,\"mat\":\"wood\"},{\"a\":12,\"b\":13,\"mat\":\"steel\"},{\"a\":13,\"b\":5,\"mat\":\"wood\"},{\"a\":13,\"b\":9,\"mat\":\"steel\"},{\"a\":9,\"b\":6,\"mat\":\"steel\"}]}",
+   "from": "search 1"
+  },
+  "bonusDesign": {
+   "cost": 12552,
+   "peak": 0.791,
+   "parts": 25,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":14,\"y\":0,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":2,\"anchor\":false},{\"x\":12,\"y\":2,\"anchor\":false},{\"x\":4,\"y\":2,\"anchor\":false},{\"x\":6,\"y\":2,\"anchor\":false},{\"x\":8,\"y\":2,\"anchor\":false},{\"x\":10,\"y\":2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":2,\"mat\":\"road\"},{\"a\":2,\"b\":3,\"mat\":\"road\"},{\"a\":3,\"b\":4,\"mat\":\"road\"},{\"a\":4,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":8,\"mat\":\"steel\"},{\"a\":9,\"b\":1,\"mat\":\"steel\"},{\"a\":2,\"b\":8,\"mat\":\"steel\"},{\"a\":3,\"b\":10,\"mat\":\"steel\"},{\"a\":4,\"b\":11,\"mat\":\"steel\"},{\"a\":5,\"b\":12,\"mat\":\"steel\"},{\"a\":6,\"b\":13,\"mat\":\"steel\"},{\"a\":7,\"b\":9,\"mat\":\"steel\"},{\"a\":8,\"b\":10,\"mat\":\"steel\"},{\"a\":8,\"b\":3,\"mat\":\"steel\"},{\"a\":10,\"b\":11,\"mat\":\"steel\"},{\"a\":10,\"b\":4,\"mat\":\"steel\"},{\"a\":11,\"b\":12,\"mat\":\"steel\"},{\"a\":11,\"b\":5,\"mat\":\"steel\"},{\"a\":12,\"b\":13,\"mat\":\"steel\"},{\"a\":13,\"b\":5,\"mat\":\"steel\"},{\"a\":13,\"b\":9,\"mat\":\"steel\"},{\"a\":9,\"b\":6,\"mat\":\"steel\"}]}"
+  },
+  "seed": {
+   "cost": 9479,
+   "peak": 0.726,
+   "parts": 25,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [],
+  "shortcuts": [],
+  "combosTried": 1,
+  "seconds": 2
+ },
+ "24": {
+  "id": 24,
+  "fingerprint": "5ccc3346",
+  "effort": "normal",
+  "ok": true,
+  "notes": [],
+  "params": {},
+  "geometry": {},
+  "money": 20000,
+  "target": 17000,
+  "bonus": {
+   "kind": "stress",
+   "max": 0.45
+  },
+  "reference": {
+   "cost": 15306,
+   "peak": 0.91,
+   "parts": 28,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":24,\"y\":0,\"anchor\":true},{\"x\":7,\"y\":10,\"anchor\":true},{\"x\":17,\"y\":10,\"anchor\":true},{\"x\":0,\"y\":-2,\"anchor\":true},{\"x\":24,\"y\":-2,\"anchor\":true},{\"x\":2,\"y\":0.5,\"anchor\":false},{\"x\":4,\"y\":1,\"anchor\":false},{\"x\":6,\"y\":1.5,\"anchor\":false},{\"x\":8,\"y\":2,\"anchor\":false},{\"x\":10,\"y\":2,\"anchor\":false},{\"x\":12,\"y\":2,\"anchor\":false},{\"x\":14,\"y\":2,\"anchor\":false},{\"x\":16,\"y\":2,\"anchor\":false},{\"x\":18,\"y\":1.5,\"anchor\":false},{\"x\":20,\"y\":1,\"anchor\":false},{\"x\":22,\"y\":0.5,\"anchor\":false},{\"x\":8,\"y\":7,\"anchor\":false},{\"x\":10,\"y\":4,\"anchor\":false},{\"x\":12,\"y\":3,\"anchor\":false},{\"x\":14,\"y\":4,\"anchor\":false},{\"x\":16,\"y\":7,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":11,\"mat\":\"road\"},{\"a\":11,\"b\":12,\"mat\":\"road\"},{\"a\":12,\"b\":13,\"mat\":\"road\"},{\"a\":13,\"b\":14,\"mat\":\"road\"},{\"a\":14,\"b\":15,\"mat\":\"road\"},{\"a\":15,\"b\":16,\"mat\":\"road\"},{\"a\":16,\"b\":1,\"mat\":\"road\"},{\"a\":4,\"b\":6,\"mat\":\"steel\"},{\"a\":5,\"b\":16,\"mat\":\"steel\"},{\"a\":2,\"b\":7,\"mat\":\"cable\"},{\"a\":2,\"b\":8,\"mat\":\"cable\"},{\"a\":3,\"b\":14,\"mat\":\"cable\"},{\"a\":3,\"b\":15,\"mat\":\"cable\"},{\"a\":2,\"b\":17,\"mat\":\"cable\"},{\"a\":17,\"b\":18,\"mat\":\"cable\"},{\"a\":19,\"b\":20,\"mat\":\"cable\"},{\"a\":20,\"b\":21,\"mat\":\"cable\"},{\"a\":21,\"b\":3,\"mat\":\"cable\"},{\"a\":17,\"b\":9,\"mat\":\"cable\"},{\"a\":18,\"b\":10,\"mat\":\"cable\"},{\"a\":19,\"b\":11,\"mat\":\"cable\"},{\"a\":20,\"b\":12,\"mat\":\"cable\"},{\"a\":21,\"b\":13,\"mat\":\"cable\"}]}",
+   "from": "search 1"
+  },
+  "bonusDesign": {
+   "cost": 19787,
+   "peak": 0.413,
+   "parts": 38,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":24,\"y\":0,\"anchor\":true},{\"x\":7,\"y\":10,\"anchor\":true},{\"x\":17,\"y\":10,\"anchor\":true},{\"x\":0,\"y\":-2,\"anchor\":true},{\"x\":24,\"y\":-2,\"anchor\":true},{\"x\":2,\"y\":0.5,\"anchor\":false},{\"x\":4,\"y\":1,\"anchor\":false},{\"x\":6,\"y\":1.5,\"anchor\":false},{\"x\":8,\"y\":2,\"anchor\":false},{\"x\":10,\"y\":2,\"anchor\":false},{\"x\":12,\"y\":2,\"anchor\":false},{\"x\":14,\"y\":2,\"anchor\":false},{\"x\":16,\"y\":2,\"anchor\":false},{\"x\":18,\"y\":1.5,\"anchor\":false},{\"x\":20,\"y\":1,\"anchor\":false},{\"x\":22,\"y\":0.5,\"anchor\":false},{\"x\":2,\"y\":2.5,\"anchor\":false},{\"x\":16,\"y\":4,\"anchor\":false},{\"x\":4,\"y\":3,\"anchor\":false},{\"x\":6,\"y\":3.5,\"anchor\":false},{\"x\":8,\"y\":4,\"anchor\":false},{\"x\":12,\"y\":4,\"anchor\":false},{\"x\":14,\"y\":4,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":11,\"mat\":\"road\"},{\"a\":11,\"b\":12,\"mat\":\"road\"},{\"a\":12,\"b\":13,\"mat\":\"road\"},{\"a\":13,\"b\":14,\"mat\":\"road\"},{\"a\":14,\"b\":15,\"mat\":\"road\"},{\"a\":15,\"b\":16,\"mat\":\"road\"},{\"a\":16,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":17,\"mat\":\"steel\"},{\"a\":18,\"b\":14,\"mat\":\"steel\"},{\"a\":6,\"b\":17,\"mat\":\"steel\"},{\"a\":7,\"b\":19,\"mat\":\"wood\"},{\"a\":8,\"b\":20,\"mat\":\"wood\"},{\"a\":9,\"b\":21,\"mat\":\"wood\"},{\"a\":11,\"b\":22,\"mat\":\"wood\"},{\"a\":12,\"b\":23,\"mat\":\"steel\"},{\"a\":13,\"b\":18,\"mat\":\"wood\"},{\"a\":17,\"b\":7,\"mat\":\"steel\"},{\"a\":19,\"b\":20,\"mat\":\"wood\"},{\"a\":19,\"b\":8,\"mat\":\"wood\"},{\"a\":20,\"b\":9,\"mat\":\"steel\"},{\"a\":21,\"b\":10,\"mat\":\"wood\"},{\"a\":22,\"b\":10,\"mat\":\"steel\"},{\"a\":22,\"b\":23,\"mat\":\"wood\"},{\"a\":23,\"b\":11,\"mat\":\"steel\"},{\"a\":23,\"b\":18,\"mat\":\"wood\"},{\"a\":18,\"b\":12,\"mat\":\"wood\"},{\"a\":5,\"b\":16,\"mat\":\"steel\"},{\"a\":2,\"b\":7,\"mat\":\"cable\"},{\"a\":2,\"b\":9,\"mat\":\"cable\"},{\"a\":2,\"b\":10,\"mat\":\"cable\"},{\"a\":3,\"b\":12,\"mat\":\"cable\"},{\"a\":3,\"b\":14,\"mat\":\"cable\"},{\"a\":3,\"b\":15,\"mat\":\"cable\"}]}"
+  },
+  "seed": {
+   "cost": 18289,
+   "peak": 0.407,
+   "parts": 24,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [
+   {
+    "mat": "cable",
+    "best": {
+     "cost": 23042,
+     "peak": 0.997,
+     "parts": 46,
+     "crossed": false,
+     "reason": "Your cargo went for a swim."
+    },
+    "ok": true
+   }
+  ],
+  "shortcuts": [],
+  "combosTried": 1,
+  "seconds": 64
+ },
+ "25": {
+  "id": 25,
+  "fingerprint": "6d33d648",
+  "effort": "normal",
+  "ok": true,
+  "notes": [],
+  "params": {},
+  "geometry": {},
+  "money": 16000,
+  "target": 13750,
+  "bonus": {
+   "kind": "stress",
+   "max": 0.65
+  },
+  "reference": {
+   "cost": 12678,
+   "peak": 0.878,
+   "parts": 35,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":20,\"y\":4,\"anchor\":true},{\"x\":10,\"y\":-2,\"anchor\":true},{\"x\":0,\"y\":-2,\"anchor\":true},{\"x\":20,\"y\":2,\"anchor\":true},{\"x\":2,\"y\":0.4,\"anchor\":false},{\"x\":4,\"y\":0.8,\"anchor\":false},{\"x\":6,\"y\":1.2,\"anchor\":false},{\"x\":8,\"y\":1.6,\"anchor\":false},{\"x\":10,\"y\":2,\"anchor\":false},{\"x\":12,\"y\":2.4,\"anchor\":false},{\"x\":14,\"y\":2.8,\"anchor\":false},{\"x\":16,\"y\":3.2,\"anchor\":false},{\"x\":18,\"y\":3.6,\"anchor\":false},{\"x\":2,\"y\":2.4,\"anchor\":false},{\"x\":8,\"y\":3.6,\"anchor\":false},{\"x\":4,\"y\":2.8,\"anchor\":false},{\"x\":6,\"y\":3.2,\"anchor\":false},{\"x\":12,\"y\":4.4,\"anchor\":false},{\"x\":18,\"y\":5.6,\"anchor\":false},{\"x\":14,\"y\":4.8,\"anchor\":false},{\"x\":16,\"y\":5.2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":11,\"mat\":\"road\"},{\"a\":11,\"b\":12,\"mat\":\"road\"},{\"a\":12,\"b\":13,\"mat\":\"road\"},{\"a\":13,\"b\":1,\"mat\":\"road\"},{\"a\":5,\"b\":14,\"mat\":\"wood\"},{\"a\":6,\"b\":16,\"mat\":\"wood\"},{\"a\":7,\"b\":17,\"mat\":\"wood\"},{\"a\":8,\"b\":15,\"mat\":\"wood\"},{\"a\":14,\"b\":16,\"mat\":\"wood\"},{\"a\":14,\"b\":6,\"mat\":\"wood\"},{\"a\":16,\"b\":17,\"mat\":\"wood\"},{\"a\":16,\"b\":7,\"mat\":\"wood\"},{\"a\":17,\"b\":15,\"mat\":\"wood\"},{\"a\":15,\"b\":7,\"mat\":\"wood\"},{\"a\":9,\"b\":18,\"mat\":\"steel\"},{\"a\":19,\"b\":1,\"mat\":\"steel\"},{\"a\":10,\"b\":18,\"mat\":\"wood\"},{\"a\":11,\"b\":20,\"mat\":\"wood\"},{\"a\":12,\"b\":21,\"mat\":\"wood\"},{\"a\":13,\"b\":19,\"mat\":\"wood\"},{\"a\":18,\"b\":20,\"mat\":\"steel\"},{\"a\":18,\"b\":11,\"mat\":\"wood\"},{\"a\":20,\"b\":21,\"mat\":\"steel\"},{\"a\":20,\"b\":12,\"mat\":\"wood\"},{\"a\":21,\"b\":19,\"mat\":\"steel\"},{\"a\":19,\"b\":12,\"mat\":\"wood\"},{\"a\":2,\"b\":9,\"mat\":\"steel\"},{\"a\":2,\"b\":8,\"mat\":\"steel\"},{\"a\":3,\"b\":5,\"mat\":\"steel\"}]}",
+   "from": "search 1"
+  },
+  "bonusDesign": {
+   "cost": 15542,
+   "peak": 0.592,
+   "parts": 36,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":20,\"y\":4,\"anchor\":true},{\"x\":10,\"y\":-2,\"anchor\":true},{\"x\":0,\"y\":-2,\"anchor\":true},{\"x\":20,\"y\":2,\"anchor\":true},{\"x\":2,\"y\":0.4,\"anchor\":false},{\"x\":4,\"y\":0.8,\"anchor\":false},{\"x\":6,\"y\":1.2,\"anchor\":false},{\"x\":8,\"y\":1.6,\"anchor\":false},{\"x\":10,\"y\":2,\"anchor\":false},{\"x\":12,\"y\":2.4,\"anchor\":false},{\"x\":14,\"y\":2.8,\"anchor\":false},{\"x\":16,\"y\":3.2,\"anchor\":false},{\"x\":18,\"y\":3.6,\"anchor\":false},{\"x\":2,\"y\":2.4,\"anchor\":false},{\"x\":8,\"y\":3.6,\"anchor\":false},{\"x\":4,\"y\":2.8,\"anchor\":false},{\"x\":6,\"y\":3.2,\"anchor\":false},{\"x\":12,\"y\":4.4,\"anchor\":false},{\"x\":18,\"y\":5.6,\"anchor\":false},{\"x\":14,\"y\":4.8,\"anchor\":false},{\"x\":16,\"y\":5.2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":5,\"mat\":\"road\"},{\"a\":5,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":11,\"mat\":\"road\"},{\"a\":11,\"b\":12,\"mat\":\"road\"},{\"a\":12,\"b\":13,\"mat\":\"road\"},{\"a\":13,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":14,\"mat\":\"steel\"},{\"a\":15,\"b\":9,\"mat\":\"steel\"},{\"a\":5,\"b\":14,\"mat\":\"wood\"},{\"a\":6,\"b\":16,\"mat\":\"wood\"},{\"a\":7,\"b\":17,\"mat\":\"wood\"},{\"a\":8,\"b\":15,\"mat\":\"wood\"},{\"a\":14,\"b\":16,\"mat\":\"steel\"},{\"a\":14,\"b\":6,\"mat\":\"steel\"},{\"a\":16,\"b\":17,\"mat\":\"steel\"},{\"a\":16,\"b\":7,\"mat\":\"steel\"},{\"a\":17,\"b\":15,\"mat\":\"steel\"},{\"a\":15,\"b\":7,\"mat\":\"steel\"},{\"a\":9,\"b\":18,\"mat\":\"steel\"},{\"a\":19,\"b\":1,\"mat\":\"wood\"},{\"a\":10,\"b\":18,\"mat\":\"wood\"},{\"a\":11,\"b\":20,\"mat\":\"wood\"},{\"a\":12,\"b\":21,\"mat\":\"wood\"},{\"a\":13,\"b\":19,\"mat\":\"wood\"},{\"a\":18,\"b\":20,\"mat\":\"steel\"},{\"a\":18,\"b\":11,\"mat\":\"steel\"},{\"a\":20,\"b\":21,\"mat\":\"steel\"},{\"a\":20,\"b\":12,\"mat\":\"wood\"},{\"a\":21,\"b\":19,\"mat\":\"steel\"},{\"a\":19,\"b\":12,\"mat\":\"steel\"},{\"a\":2,\"b\":9,\"mat\":\"steel\"},{\"a\":4,\"b\":13,\"mat\":\"steel\"}]}"
+  },
+  "seed": {
+   "cost": 13222,
+   "peak": 0.794,
+   "parts": 35,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [],
+  "shortcuts": [],
+  "combosTried": 1,
+  "seconds": 55
+ },
+ "26": {
+  "id": 26,
+  "fingerprint": "92d8aa98",
+  "effort": "normal",
+  "ok": true,
+  "notes": [],
+  "params": {},
+  "geometry": {},
+  "money": 18500,
+  "target": 14500,
+  "bonus": {
+   "kind": "stress",
+   "max": 0.65
+  },
+  "reference": {
+   "cost": 13207,
+   "peak": 0.906,
+   "parts": 15,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":22,\"y\":0,\"anchor\":true},{\"x\":1,\"y\":8,\"anchor\":true},{\"x\":16,\"y\":8,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":16,\"y\":0,\"anchor\":false},{\"x\":18,\"y\":0,\"anchor\":false},{\"x\":20,\"y\":0,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":4,\"mat\":\"heavy\"},{\"a\":4,\"b\":5,\"mat\":\"heavy\"},{\"a\":5,\"b\":6,\"mat\":\"heavy\"},{\"a\":6,\"b\":7,\"mat\":\"heavy\"},{\"a\":7,\"b\":8,\"mat\":\"heavy\"},{\"a\":8,\"b\":9,\"mat\":\"heavy\"},{\"a\":9,\"b\":10,\"mat\":\"heavy\"},{\"a\":10,\"b\":11,\"mat\":\"heavy\"},{\"a\":11,\"b\":12,\"mat\":\"heavy\"},{\"a\":12,\"b\":13,\"mat\":\"heavy\"},{\"a\":13,\"b\":1,\"mat\":\"heavy\"},{\"a\":2,\"b\":6,\"mat\":\"cable\"},{\"a\":3,\"b\":9,\"mat\":\"cable\"},{\"a\":3,\"b\":11,\"mat\":\"cable\"},{\"a\":3,\"b\":12,\"mat\":\"cable\"}]}",
+   "from": "search 1"
+  },
+  "bonusDesign": {
+   "cost": 17348,
+   "peak": 0.592,
+   "parts": 24,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":22,\"y\":0,\"anchor\":true},{\"x\":1,\"y\":8,\"anchor\":true},{\"x\":16,\"y\":8,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":16,\"y\":0,\"anchor\":false},{\"x\":18,\"y\":0,\"anchor\":false},{\"x\":20,\"y\":0,\"anchor\":false},{\"x\":3,\"y\":6,\"anchor\":false},{\"x\":7,\"y\":4,\"anchor\":false},{\"x\":11,\"y\":4,\"anchor\":false},{\"x\":14,\"y\":6,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":4,\"mat\":\"heavy\"},{\"a\":4,\"b\":5,\"mat\":\"heavy\"},{\"a\":5,\"b\":6,\"mat\":\"heavy\"},{\"a\":6,\"b\":7,\"mat\":\"heavy\"},{\"a\":7,\"b\":8,\"mat\":\"heavy\"},{\"a\":8,\"b\":9,\"mat\":\"heavy\"},{\"a\":9,\"b\":10,\"mat\":\"heavy\"},{\"a\":10,\"b\":11,\"mat\":\"heavy\"},{\"a\":11,\"b\":12,\"mat\":\"heavy\"},{\"a\":12,\"b\":13,\"mat\":\"heavy\"},{\"a\":13,\"b\":1,\"mat\":\"heavy\"},{\"a\":3,\"b\":9,\"mat\":\"cable\"},{\"a\":3,\"b\":13,\"mat\":\"cable\"},{\"a\":2,\"b\":14,\"mat\":\"cable\"},{\"a\":14,\"b\":15,\"mat\":\"cable\"},{\"a\":15,\"b\":16,\"mat\":\"cable\"},{\"a\":16,\"b\":17,\"mat\":\"cable\"},{\"a\":17,\"b\":3,\"mat\":\"cable\"},{\"a\":14,\"b\":4,\"mat\":\"cable\"},{\"a\":15,\"b\":6,\"mat\":\"cable\"},{\"a\":15,\"b\":7,\"mat\":\"cable\"},{\"a\":16,\"b\":8,\"mat\":\"cable\"},{\"a\":16,\"b\":9,\"mat\":\"cable\"},{\"a\":17,\"b\":10,\"mat\":\"cable\"}]}"
+  },
+  "seed": {
+   "cost": 17229,
+   "peak": 0.48,
+   "parts": 23,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [
+   {
+    "mat": "cable",
+    "best": {
+     "cost": 17577,
+     "peak": 0.994,
+     "parts": 41,
+     "crossed": false,
+     "reason": "Your cargo went for a swim."
+    },
+    "ok": true
+   }
+  ],
+  "shortcuts": [],
+  "combosTried": 1,
+  "seconds": 29
+ },
+ "27": {
+  "id": 27,
+  "fingerprint": "17d0a366",
+  "effort": "normal",
+  "ok": false,
+  "notes": [
+   "no design meets a bonus goal (kept stress < 65% unproven)"
+  ],
+  "params": {},
+  "geometry": {},
+  "money": 24500,
+  "target": 21750,
+  "bonus": {
+   "kind": "stress",
+   "max": 0.65
+  },
+  "reference": {
+   "cost": 20061,
+   "peak": 0.908,
+   "parts": 52,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":26,\"y\":0,\"anchor\":true},{\"x\":9,\"y\":-6,\"anchor\":true},{\"x\":17,\"y\":-6,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":26,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":16,\"y\":0,\"anchor\":false},{\"x\":18,\"y\":0,\"anchor\":false},{\"x\":20,\"y\":0,\"anchor\":false},{\"x\":22,\"y\":0,\"anchor\":false},{\"x\":24,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":2,\"anchor\":false},{\"x\":16,\"y\":2,\"anchor\":false},{\"x\":4,\"y\":2,\"anchor\":false},{\"x\":6,\"y\":2,\"anchor\":false},{\"x\":12,\"y\":2,\"anchor\":false},{\"x\":14,\"y\":2,\"anchor\":false},{\"x\":20,\"y\":2,\"anchor\":false},{\"x\":24,\"y\":2,\"anchor\":false},{\"x\":22,\"y\":2,\"anchor\":false},{\"x\":8,\"y\":-3,\"anchor\":false},{\"x\":10,\"y\":-3,\"anchor\":false},{\"x\":16,\"y\":-3,\"anchor\":false},{\"x\":18,\"y\":-3,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":6,\"mat\":\"road\"},{\"a\":6,\"b\":7,\"mat\":\"road\"},{\"a\":7,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":11,\"mat\":\"road\"},{\"a\":11,\"b\":12,\"mat\":\"road\"},{\"a\":12,\"b\":13,\"mat\":\"road\"},{\"a\":13,\"b\":14,\"mat\":\"road\"},{\"a\":14,\"b\":15,\"mat\":\"road\"},{\"a\":15,\"b\":16,\"mat\":\"road\"},{\"a\":16,\"b\":17,\"mat\":\"road\"},{\"a\":17,\"b\":1,\"mat\":\"road\"},{\"a\":19,\"b\":14,\"mat\":\"wood\"},{\"a\":6,\"b\":18,\"mat\":\"wood\"},{\"a\":7,\"b\":20,\"mat\":\"wood\"},{\"a\":8,\"b\":21,\"mat\":\"wood\"},{\"a\":11,\"b\":22,\"mat\":\"wood\"},{\"a\":12,\"b\":23,\"mat\":\"wood\"},{\"a\":13,\"b\":19,\"mat\":\"wood\"},{\"a\":18,\"b\":20,\"mat\":\"wood\"},{\"a\":18,\"b\":7,\"mat\":\"wood\"},{\"a\":20,\"b\":21,\"mat\":\"wood\"},{\"a\":20,\"b\":8,\"mat\":\"wood\"},{\"a\":21,\"b\":9,\"mat\":\"steel\"},{\"a\":22,\"b\":10,\"mat\":\"steel\"},{\"a\":22,\"b\":23,\"mat\":\"wood\"},{\"a\":23,\"b\":11,\"mat\":\"wood\"},{\"a\":23,\"b\":19,\"mat\":\"wood\"},{\"a\":19,\"b\":12,\"mat\":\"wood\"},{\"a\":14,\"b\":24,\"mat\":\"wood\"},{\"a\":15,\"b\":24,\"mat\":\"wood\"},{\"a\":16,\"b\":26,\"mat\":\"wood\"},{\"a\":17,\"b\":25,\"mat\":\"wood\"},{\"a\":24,\"b\":26,\"mat\":\"wood\"},{\"a\":24,\"b\":16,\"mat\":\"wood\"},{\"a\":26,\"b\":25,\"mat\":\"wood\"},{\"a\":25,\"b\":16,\"mat\":\"wood\"},{\"a\":2,\"b\":27,\"mat\":\"steel\"},{\"a\":2,\"b\":28,\"mat\":\"steel\"},{\"a\":27,\"b\":28,\"mat\":\"wood\"},{\"a\":27,\"b\":9,\"mat\":\"steel\"},{\"a\":28,\"b\":10,\"mat\":\"steel\"},{\"a\":27,\"b\":10,\"mat\":\"steel\"},{\"a\":3,\"b\":29,\"mat\":\"steel\"},{\"a\":3,\"b\":30,\"mat\":\"steel\"},{\"a\":29,\"b\":30,\"mat\":\"wood\"},{\"a\":29,\"b\":13,\"mat\":\"wood\"},{\"a\":30,\"b\":14,\"mat\":\"steel\"},{\"a\":29,\"b\":14,\"mat\":\"steel\"},{\"a\":4,\"b\":6,\"mat\":\"steel\"},{\"a\":5,\"b\":17,\"mat\":\"steel\"}]}",
+   "from": "search 1"
+  },
+  "bonusDesign": null,
+  "seed": {
+   "cost": 21872,
+   "peak": 0.787,
+   "parts": 49,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [],
+  "shortcuts": [
+   {
+    "name": "trestles alone",
+    "result": {
+     "cost": 20217,
+     "peak": 0.999,
+     "parts": 27,
+     "crossed": false,
+     "reason": "Your cargo went for a swim."
+    },
+    "ok": true
+   }
+  ],
+  "combosTried": 1,
+  "seconds": 194
+ },
+ "28": {
+  "id": 28,
+  "fingerprint": "e449506b",
+  "effort": "normal",
+  "ok": true,
+  "notes": [],
+  "params": {},
+  "geometry": {},
+  "money": 28500,
+  "target": 25500,
+  "bonus": {
+   "kind": "without",
+   "mat": "wood"
+  },
+  "reference": {
+   "cost": 23475,
+   "peak": 0.914,
+   "parts": 45,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":24,\"y\":0,\"anchor\":true},{\"x\":12,\"y\":-4,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":24,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":16,\"y\":0,\"anchor\":false},{\"x\":18,\"y\":0,\"anchor\":false},{\"x\":20,\"y\":0,\"anchor\":false},{\"x\":22,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":2,\"anchor\":false},{\"x\":10,\"y\":2,\"anchor\":false},{\"x\":4,\"y\":2,\"anchor\":false},{\"x\":6,\"y\":2,\"anchor\":false},{\"x\":8,\"y\":2,\"anchor\":false},{\"x\":14,\"y\":-2,\"anchor\":false},{\"x\":22,\"y\":-2,\"anchor\":false},{\"x\":16,\"y\":-2,\"anchor\":false},{\"x\":18,\"y\":-2,\"anchor\":false},{\"x\":20,\"y\":-2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":5,\"mat\":\"heavy\"},{\"a\":5,\"b\":6,\"mat\":\"heavy\"},{\"a\":6,\"b\":7,\"mat\":\"heavy\"},{\"a\":7,\"b\":8,\"mat\":\"heavy\"},{\"a\":8,\"b\":9,\"mat\":\"heavy\"},{\"a\":9,\"b\":10,\"mat\":\"heavy\"},{\"a\":10,\"b\":11,\"mat\":\"heavy\"},{\"a\":11,\"b\":12,\"mat\":\"heavy\"},{\"a\":12,\"b\":13,\"mat\":\"heavy\"},{\"a\":13,\"b\":14,\"mat\":\"heavy\"},{\"a\":14,\"b\":15,\"mat\":\"heavy\"},{\"a\":15,\"b\":1,\"mat\":\"heavy\"},{\"a\":0,\"b\":16,\"mat\":\"steel\"},{\"a\":17,\"b\":10,\"mat\":\"steel\"},{\"a\":5,\"b\":16,\"mat\":\"wood\"},{\"a\":6,\"b\":18,\"mat\":\"wood\"},{\"a\":7,\"b\":19,\"mat\":\"wood\"},{\"a\":8,\"b\":20,\"mat\":\"wood\"},{\"a\":9,\"b\":17,\"mat\":\"wood\"},{\"a\":16,\"b\":18,\"mat\":\"steel\"},{\"a\":16,\"b\":6,\"mat\":\"steel\"},{\"a\":18,\"b\":19,\"mat\":\"steel\"},{\"a\":18,\"b\":7,\"mat\":\"wood\"},{\"a\":19,\"b\":20,\"mat\":\"steel\"},{\"a\":20,\"b\":7,\"mat\":\"wood\"},{\"a\":20,\"b\":17,\"mat\":\"steel\"},{\"a\":17,\"b\":8,\"mat\":\"steel\"},{\"a\":10,\"b\":21,\"mat\":\"steel\"},{\"a\":22,\"b\":1,\"mat\":\"wood\"},{\"a\":11,\"b\":21,\"mat\":\"wood\"},{\"a\":12,\"b\":23,\"mat\":\"wood\"},{\"a\":13,\"b\":24,\"mat\":\"wood\"},{\"a\":14,\"b\":25,\"mat\":\"wood\"},{\"a\":15,\"b\":22,\"mat\":\"wood\"},{\"a\":21,\"b\":23,\"mat\":\"steel\"},{\"a\":21,\"b\":12,\"mat\":\"steel\"},{\"a\":23,\"b\":24,\"mat\":\"steel\"},{\"a\":23,\"b\":13,\"mat\":\"wood\"},{\"a\":24,\"b\":25,\"mat\":\"steel\"},{\"a\":25,\"b\":13,\"mat\":\"wood\"},{\"a\":25,\"b\":22,\"mat\":\"steel\"},{\"a\":22,\"b\":14,\"mat\":\"steel\"},{\"a\":2,\"b\":10,\"mat\":\"steel\"},{\"a\":3,\"b\":5,\"mat\":\"steel\"},{\"a\":4,\"b\":15,\"mat\":\"steel\"}]}",
+   "from": "search 1"
+  },
+  "bonusDesign": {
+   "cost": 26572,
+   "peak": 0.945,
+   "parts": 42,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":24,\"y\":0,\"anchor\":true},{\"x\":12,\"y\":-4,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":24,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":8,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":16,\"y\":0,\"anchor\":false},{\"x\":18,\"y\":0,\"anchor\":false},{\"x\":20,\"y\":0,\"anchor\":false},{\"x\":22,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":2,\"anchor\":false},{\"x\":10,\"y\":2,\"anchor\":false},{\"x\":4,\"y\":2,\"anchor\":false},{\"x\":6,\"y\":2,\"anchor\":false},{\"x\":8,\"y\":2,\"anchor\":false},{\"x\":14,\"y\":-2,\"anchor\":false},{\"x\":22,\"y\":-2,\"anchor\":false},{\"x\":16,\"y\":-2,\"anchor\":false},{\"x\":18,\"y\":-2,\"anchor\":false},{\"x\":20,\"y\":-2,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":5,\"mat\":\"heavy\"},{\"a\":5,\"b\":6,\"mat\":\"heavy\"},{\"a\":6,\"b\":7,\"mat\":\"heavy\"},{\"a\":7,\"b\":8,\"mat\":\"heavy\"},{\"a\":8,\"b\":9,\"mat\":\"heavy\"},{\"a\":9,\"b\":10,\"mat\":\"heavy\"},{\"a\":10,\"b\":11,\"mat\":\"heavy\"},{\"a\":11,\"b\":12,\"mat\":\"heavy\"},{\"a\":12,\"b\":13,\"mat\":\"heavy\"},{\"a\":13,\"b\":14,\"mat\":\"heavy\"},{\"a\":14,\"b\":15,\"mat\":\"heavy\"},{\"a\":15,\"b\":1,\"mat\":\"heavy\"},{\"a\":17,\"b\":10,\"mat\":\"steel\"},{\"a\":5,\"b\":16,\"mat\":\"steel\"},{\"a\":6,\"b\":18,\"mat\":\"steel\"},{\"a\":7,\"b\":19,\"mat\":\"steel\"},{\"a\":8,\"b\":20,\"mat\":\"steel\"},{\"a\":9,\"b\":17,\"mat\":\"steel\"},{\"a\":16,\"b\":18,\"mat\":\"steel\"},{\"a\":16,\"b\":6,\"mat\":\"steel\"},{\"a\":18,\"b\":19,\"mat\":\"steel\"},{\"a\":18,\"b\":7,\"mat\":\"steel\"},{\"a\":19,\"b\":20,\"mat\":\"steel\"},{\"a\":20,\"b\":7,\"mat\":\"steel\"},{\"a\":20,\"b\":17,\"mat\":\"steel\"},{\"a\":17,\"b\":8,\"mat\":\"steel\"},{\"a\":10,\"b\":21,\"mat\":\"steel\"},{\"a\":22,\"b\":1,\"mat\":\"steel\"},{\"a\":11,\"b\":21,\"mat\":\"steel\"},{\"a\":12,\"b\":23,\"mat\":\"steel\"},{\"a\":14,\"b\":25,\"mat\":\"steel\"},{\"a\":15,\"b\":22,\"mat\":\"steel\"},{\"a\":21,\"b\":23,\"mat\":\"steel\"},{\"a\":21,\"b\":12,\"mat\":\"steel\"},{\"a\":23,\"b\":24,\"mat\":\"steel\"},{\"a\":23,\"b\":13,\"mat\":\"steel\"},{\"a\":24,\"b\":25,\"mat\":\"steel\"},{\"a\":25,\"b\":13,\"mat\":\"steel\"},{\"a\":25,\"b\":22,\"mat\":\"steel\"},{\"a\":22,\"b\":14,\"mat\":\"steel\"},{\"a\":2,\"b\":10,\"mat\":\"steel\"},{\"a\":3,\"b\":5,\"mat\":\"steel\"}]}"
+  },
+  "seed": {
+   "cost": 23899,
+   "peak": 0.919,
+   "parts": 45,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [],
+  "shortcuts": [],
+  "combosTried": 1,
+  "seconds": 42
+ },
+ "29": {
+  "id": 29,
+  "fingerprint": "bfe7d028",
+  "effort": "normal",
+  "ok": true,
+  "notes": [],
+  "params": {},
+  "geometry": {},
+  "money": 30500,
+  "target": 20000,
+  "bonus": {
+   "kind": "stress",
+   "max": 0.65
+  },
+  "reference": {
+   "cost": 18504,
+   "peak": 0.911,
+   "parts": 41,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":34,\"y\":0,\"anchor\":true},{\"x\":8,\"y\":0,\"anchor\":true},{\"x\":26,\"y\":0,\"anchor\":true},{\"x\":8,\"y\":12,\"anchor\":true},{\"x\":26,\"y\":12,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":34,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":16,\"y\":0,\"anchor\":false},{\"x\":18,\"y\":0,\"anchor\":false},{\"x\":20,\"y\":0,\"anchor\":false},{\"x\":22,\"y\":0,\"anchor\":false},{\"x\":24,\"y\":0,\"anchor\":false},{\"x\":28,\"y\":0,\"anchor\":false},{\"x\":30,\"y\":0,\"anchor\":false},{\"x\":32,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":-2,\"anchor\":false},{\"x\":6,\"y\":-2,\"anchor\":false},{\"x\":4,\"y\":-2,\"anchor\":false},{\"x\":28,\"y\":-2,\"anchor\":false},{\"x\":32,\"y\":-2,\"anchor\":false},{\"x\":30,\"y\":-2,\"anchor\":false},{\"x\":10,\"y\":7,\"anchor\":false},{\"x\":12,\"y\":4,\"anchor\":false},{\"x\":14,\"y\":1,\"anchor\":false},{\"x\":22,\"y\":4,\"anchor\":false},{\"x\":24,\"y\":7,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":2,\"mat\":\"road\"},{\"a\":2,\"b\":11,\"mat\":\"heavy\"},{\"a\":11,\"b\":12,\"mat\":\"heavy\"},{\"a\":12,\"b\":13,\"mat\":\"heavy\"},{\"a\":13,\"b\":14,\"mat\":\"heavy\"},{\"a\":14,\"b\":15,\"mat\":\"heavy\"},{\"a\":15,\"b\":16,\"mat\":\"heavy\"},{\"a\":16,\"b\":17,\"mat\":\"heavy\"},{\"a\":17,\"b\":18,\"mat\":\"heavy\"},{\"a\":18,\"b\":3,\"mat\":\"heavy\"},{\"a\":3,\"b\":19,\"mat\":\"road\"},{\"a\":19,\"b\":20,\"mat\":\"road\"},{\"a\":20,\"b\":21,\"mat\":\"road\"},{\"a\":21,\"b\":1,\"mat\":\"road\"},{\"a\":0,\"b\":22,\"mat\":\"steel\"},{\"a\":23,\"b\":2,\"mat\":\"steel\"},{\"a\":8,\"b\":22,\"mat\":\"wood\"},{\"a\":10,\"b\":23,\"mat\":\"wood\"},{\"a\":22,\"b\":24,\"mat\":\"wood\"},{\"a\":22,\"b\":9,\"mat\":\"wood\"},{\"a\":24,\"b\":23,\"mat\":\"wood\"},{\"a\":23,\"b\":9,\"mat\":\"wood\"},{\"a\":3,\"b\":25,\"mat\":\"steel\"},{\"a\":26,\"b\":1,\"mat\":\"wood\"},{\"a\":19,\"b\":25,\"mat\":\"wood\"},{\"a\":21,\"b\":26,\"mat\":\"wood\"},{\"a\":25,\"b\":27,\"mat\":\"wood\"},{\"a\":25,\"b\":20,\"mat\":\"wood\"},{\"a\":27,\"b\":26,\"mat\":\"wood\"},{\"a\":26,\"b\":20,\"mat\":\"wood\"},{\"a\":4,\"b\":28,\"mat\":\"cable\"},{\"a\":28,\"b\":29,\"mat\":\"cable\"},{\"a\":29,\"b\":30,\"mat\":\"cable\"},{\"a\":30,\"b\":14,\"mat\":\"cable\"},{\"a\":31,\"b\":32,\"mat\":\"cable\"},{\"a\":32,\"b\":5,\"mat\":\"cable\"},{\"a\":30,\"b\":13,\"mat\":\"cable\"},{\"a\":31,\"b\":17,\"mat\":\"cable\"}]}",
+   "from": "search 3"
+  },
+  "bonusDesign": {
+   "cost": 26287,
+   "peak": 0.605,
+   "parts": 48,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":34,\"y\":0,\"anchor\":true},{\"x\":8,\"y\":0,\"anchor\":true},{\"x\":26,\"y\":0,\"anchor\":true},{\"x\":8,\"y\":12,\"anchor\":true},{\"x\":26,\"y\":12,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":34,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0,\"anchor\":false},{\"x\":4,\"y\":0,\"anchor\":false},{\"x\":6,\"y\":0,\"anchor\":false},{\"x\":10,\"y\":0,\"anchor\":false},{\"x\":12,\"y\":0,\"anchor\":false},{\"x\":14,\"y\":0,\"anchor\":false},{\"x\":16,\"y\":0,\"anchor\":false},{\"x\":18,\"y\":0,\"anchor\":false},{\"x\":20,\"y\":0,\"anchor\":false},{\"x\":22,\"y\":0,\"anchor\":false},{\"x\":24,\"y\":0,\"anchor\":false},{\"x\":28,\"y\":0,\"anchor\":false},{\"x\":30,\"y\":0,\"anchor\":false},{\"x\":32,\"y\":0,\"anchor\":false},{\"x\":2,\"y\":2,\"anchor\":false},{\"x\":6,\"y\":2,\"anchor\":false},{\"x\":4,\"y\":2,\"anchor\":false},{\"x\":28,\"y\":-2,\"anchor\":false},{\"x\":32,\"y\":-2,\"anchor\":false},{\"x\":30,\"y\":-2,\"anchor\":false},{\"x\":11,\"y\":5,\"anchor\":false},{\"x\":15,\"y\":1,\"anchor\":false},{\"x\":19,\"y\":1,\"anchor\":false},{\"x\":23,\"y\":5,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":8,\"mat\":\"road\"},{\"a\":8,\"b\":9,\"mat\":\"road\"},{\"a\":9,\"b\":10,\"mat\":\"road\"},{\"a\":10,\"b\":2,\"mat\":\"road\"},{\"a\":2,\"b\":11,\"mat\":\"heavy\"},{\"a\":11,\"b\":12,\"mat\":\"heavy\"},{\"a\":12,\"b\":13,\"mat\":\"heavy\"},{\"a\":13,\"b\":14,\"mat\":\"heavy\"},{\"a\":14,\"b\":15,\"mat\":\"heavy\"},{\"a\":15,\"b\":16,\"mat\":\"heavy\"},{\"a\":16,\"b\":17,\"mat\":\"heavy\"},{\"a\":17,\"b\":18,\"mat\":\"heavy\"},{\"a\":18,\"b\":3,\"mat\":\"heavy\"},{\"a\":3,\"b\":19,\"mat\":\"road\"},{\"a\":19,\"b\":20,\"mat\":\"road\"},{\"a\":20,\"b\":21,\"mat\":\"heavy\"},{\"a\":21,\"b\":1,\"mat\":\"heavy\"},{\"a\":0,\"b\":22,\"mat\":\"steel\"},{\"a\":23,\"b\":2,\"mat\":\"steel\"},{\"a\":8,\"b\":22,\"mat\":\"wood\"},{\"a\":9,\"b\":24,\"mat\":\"wood\"},{\"a\":10,\"b\":23,\"mat\":\"wood\"},{\"a\":22,\"b\":24,\"mat\":\"steel\"},{\"a\":22,\"b\":9,\"mat\":\"wood\"},{\"a\":24,\"b\":23,\"mat\":\"steel\"},{\"a\":23,\"b\":9,\"mat\":\"wood\"},{\"a\":3,\"b\":25,\"mat\":\"steel\"},{\"a\":26,\"b\":1,\"mat\":\"steel\"},{\"a\":19,\"b\":25,\"mat\":\"wood\"},{\"a\":21,\"b\":26,\"mat\":\"wood\"},{\"a\":25,\"b\":27,\"mat\":\"steel\"},{\"a\":25,\"b\":20,\"mat\":\"steel\"},{\"a\":27,\"b\":26,\"mat\":\"steel\"},{\"a\":26,\"b\":20,\"mat\":\"wood\"},{\"a\":6,\"b\":8,\"mat\":\"steel\"},{\"a\":4,\"b\":28,\"mat\":\"cable\"},{\"a\":28,\"b\":29,\"mat\":\"cable\"},{\"a\":29,\"b\":30,\"mat\":\"cable\"},{\"a\":30,\"b\":31,\"mat\":\"cable\"},{\"a\":31,\"b\":5,\"mat\":\"cable\"},{\"a\":28,\"b\":11,\"mat\":\"cable\"},{\"a\":28,\"b\":12,\"mat\":\"cable\"},{\"a\":29,\"b\":13,\"mat\":\"cable\"},{\"a\":29,\"b\":14,\"mat\":\"cable\"},{\"a\":30,\"b\":15,\"mat\":\"cable\"},{\"a\":30,\"b\":16,\"mat\":\"cable\"},{\"a\":31,\"b\":17,\"mat\":\"cable\"},{\"a\":31,\"b\":18,\"mat\":\"cable\"}]}"
+  },
+  "seed": {
+   "cost": 28758,
+   "peak": 0.864,
+   "parts": 54,
+   "crossed": true,
+   "reason": ""
+  },
+  "room": null,
+  "requires": [
+   {
+    "mat": "cable",
+    "best": {
+     "cost": 30843,
+     "peak": 0.991,
+     "parts": 65,
+     "crossed": true,
+     "reason": ""
+    },
+    "ok": true
+   }
+  ],
+  "shortcuts": [
+   {
+    "name": "trusses 2 m deep",
+    "result": {
+     "cost": 38191,
+     "peak": 0.998,
+     "parts": 61,
+     "crossed": false,
+     "reason": "The vehicle flipped over."
+    },
+    "ok": true
+   },
+   {
+    "name": "trusses 3 m deep",
+    "result": {
+     "cost": 41789,
+     "peak": 0.999,
+     "parts": 61,
+     "crossed": false,
+     "reason": "Your cargo went for a swim."
+    },
+    "ok": true
+   }
+  ],
+  "combosTried": 1,
+  "seconds": 318
+ },
+ "30": {
+  "id": 30,
+  "fingerprint": "2202f2c2",
+  "effort": "normal",
+  "ok": true,
+  "notes": [],
+  "params": {
+   "clear": 1.5,
+   "side": 8,
+   "top": 12
+  },
+  "geometry": {
+   "anchors": [
+    [
+     0,
+     0
+    ],
+    [
+     36,
+     0
+    ],
+    [
+     8,
+     1.5
+    ],
+    [
+     28,
+     1.5
+    ],
+    [
+     8,
+     12
+    ],
+    [
+     28,
+     12
+    ],
+    [
+     0,
+     -3
+    ],
+    [
+     36,
+     -3
+    ]
+   ],
+   "towers": [
+    [
+     8,
+     -8,
+     12
+    ],
+    [
+     28,
+     -8,
+     12
+    ]
+   ],
+   "channels": [
+    [
+     9,
+     27,
+     1.5
+    ]
+   ]
+  },
+  "money": 37000,
+  "target": 33000,
+  "bonus": {
+   "kind": "without",
+   "mat": "wood"
+  },
+  "reference": {
+   "cost": 30465,
+   "peak": 0.917,
+   "parts": 54,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":36,\"y\":0,\"anchor\":true},{\"x\":8,\"y\":1.5,\"anchor\":true},{\"x\":28,\"y\":1.5,\"anchor\":true},{\"x\":8,\"y\":12,\"anchor\":true},{\"x\":28,\"y\":12,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":36,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0.375,\"anchor\":false},{\"x\":4,\"y\":0.75,\"anchor\":false},{\"x\":6,\"y\":1.125,\"anchor\":false},{\"x\":10,\"y\":1.5,\"anchor\":false},{\"x\":12,\"y\":1.5,\"anchor\":false},{\"x\":14,\"y\":1.5,\"anchor\":false},{\"x\":16,\"y\":1.5,\"anchor\":false},{\"x\":18,\"y\":1.5,\"anchor\":false},{\"x\":20,\"y\":1.5,\"anchor\":false},{\"x\":22,\"y\":1.5,\"anchor\":false},{\"x\":24,\"y\":1.5,\"anchor\":false},{\"x\":26,\"y\":1.5,\"anchor\":false},{\"x\":30,\"y\":1.125,\"anchor\":false},{\"x\":32,\"y\":0.75,\"anchor\":false},{\"x\":34,\"y\":0.375,\"anchor\":false},{\"x\":2,\"y\":2.375,\"anchor\":false},{\"x\":6,\"y\":3.125,\"anchor\":false},{\"x\":4,\"y\":2.75,\"anchor\":false},{\"x\":30,\"y\":3.125,\"anchor\":false},{\"x\":34,\"y\":2.375,\"anchor\":false},{\"x\":32,\"y\":2.75,\"anchor\":false},{\"x\":10,\"y\":9,\"anchor\":false},{\"x\":12,\"y\":6,\"anchor\":false},{\"x\":14,\"y\":4,\"anchor\":false},{\"x\":16,\"y\":3,\"anchor\":false},{\"x\":18,\"y\":3,\"anchor\":false},{\"x\":20,\"y\":3,\"anchor\":false},{\"x\":22,\"y\":4,\"anchor\":false},{\"x\":24,\"y\":6,\"anchor\":false},{\"x\":26,\"y\":9,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":8,\"mat\":\"heavy\"},{\"a\":8,\"b\":9,\"mat\":\"heavy\"},{\"a\":9,\"b\":10,\"mat\":\"heavy\"},{\"a\":10,\"b\":2,\"mat\":\"heavy\"},{\"a\":2,\"b\":11,\"mat\":\"heavy\"},{\"a\":11,\"b\":12,\"mat\":\"heavy\"},{\"a\":12,\"b\":13,\"mat\":\"heavy\"},{\"a\":13,\"b\":14,\"mat\":\"heavy\"},{\"a\":14,\"b\":15,\"mat\":\"heavy\"},{\"a\":15,\"b\":16,\"mat\":\"heavy\"},{\"a\":16,\"b\":17,\"mat\":\"heavy\"},{\"a\":17,\"b\":18,\"mat\":\"heavy\"},{\"a\":18,\"b\":19,\"mat\":\"heavy\"},{\"a\":19,\"b\":3,\"mat\":\"heavy\"},{\"a\":3,\"b\":20,\"mat\":\"heavy\"},{\"a\":20,\"b\":21,\"mat\":\"heavy\"},{\"a\":21,\"b\":22,\"mat\":\"heavy\"},{\"a\":22,\"b\":1,\"mat\":\"heavy\"},{\"a\":0,\"b\":23,\"mat\":\"steel\"},{\"a\":24,\"b\":2,\"mat\":\"steel\"},{\"a\":8,\"b\":23,\"mat\":\"wood\"},{\"a\":9,\"b\":25,\"mat\":\"wood\"},{\"a\":10,\"b\":24,\"mat\":\"steel\"},{\"a\":23,\"b\":25,\"mat\":\"steel\"},{\"a\":23,\"b\":9,\"mat\":\"wood\"},{\"a\":25,\"b\":24,\"mat\":\"steel\"},{\"a\":24,\"b\":9,\"mat\":\"wood\"},{\"a\":3,\"b\":26,\"mat\":\"steel\"},{\"a\":27,\"b\":1,\"mat\":\"steel\"},{\"a\":20,\"b\":26,\"mat\":\"wood\"},{\"a\":21,\"b\":28,\"mat\":\"wood\"},{\"a\":22,\"b\":27,\"mat\":\"wood\"},{\"a\":26,\"b\":28,\"mat\":\"steel\"},{\"a\":26,\"b\":21,\"mat\":\"wood\"},{\"a\":28,\"b\":27,\"mat\":\"steel\"},{\"a\":27,\"b\":21,\"mat\":\"steel\"},{\"a\":7,\"b\":22,\"mat\":\"steel\"},{\"a\":4,\"b\":29,\"mat\":\"cable\"},{\"a\":29,\"b\":30,\"mat\":\"cable\"},{\"a\":30,\"b\":31,\"mat\":\"cable\"},{\"a\":31,\"b\":32,\"mat\":\"cable\"},{\"a\":32,\"b\":33,\"mat\":\"cable\"},{\"a\":33,\"b\":34,\"mat\":\"cable\"},{\"a\":34,\"b\":35,\"mat\":\"cable\"},{\"a\":35,\"b\":36,\"mat\":\"cable\"},{\"a\":36,\"b\":37,\"mat\":\"cable\"},{\"a\":37,\"b\":5,\"mat\":\"cable\"},{\"a\":29,\"b\":11,\"mat\":\"cable\"},{\"a\":30,\"b\":12,\"mat\":\"cable\"},{\"a\":31,\"b\":13,\"mat\":\"cable\"},{\"a\":33,\"b\":15,\"mat\":\"cable\"},{\"a\":35,\"b\":17,\"mat\":\"cable\"},{\"a\":36,\"b\":18,\"mat\":\"cable\"},{\"a\":37,\"b\":19,\"mat\":\"cable\"}]}",
+   "from": "search 2"
+  },
+  "bonusDesign": {
+   "cost": 30696,
+   "peak": 0.971,
+   "parts": 51,
+   "crossed": true,
+   "reason": "",
+   "design": "{\"n\":[{\"x\":0,\"y\":0,\"anchor\":true},{\"x\":36,\"y\":0,\"anchor\":true},{\"x\":8,\"y\":1.5,\"anchor\":true},{\"x\":28,\"y\":1.5,\"anchor\":true},{\"x\":8,\"y\":12,\"anchor\":true},{\"x\":28,\"y\":12,\"anchor\":true},{\"x\":0,\"y\":-3,\"anchor\":true},{\"x\":36,\"y\":-3,\"anchor\":true},{\"x\":2,\"y\":0.375,\"anchor\":false},{\"x\":4,\"y\":0.75,\"anchor\":false},{\"x\":6,\"y\":1.125,\"anchor\":false},{\"x\":10,\"y\":1.5,\"anchor\":false},{\"x\":12,\"y\":1.5,\"anchor\":false},{\"x\":14,\"y\":1.5,\"anchor\":false},{\"x\":16,\"y\":1.5,\"anchor\":false},{\"x\":18,\"y\":1.5,\"anchor\":false},{\"x\":20,\"y\":1.5,\"anchor\":false},{\"x\":22,\"y\":1.5,\"anchor\":false},{\"x\":24,\"y\":1.5,\"anchor\":false},{\"x\":26,\"y\":1.5,\"anchor\":false},{\"x\":30,\"y\":1.125,\"anchor\":false},{\"x\":32,\"y\":0.75,\"anchor\":false},{\"x\":34,\"y\":0.375,\"anchor\":false},{\"x\":2,\"y\":2.375,\"anchor\":false},{\"x\":6,\"y\":3.125,\"anchor\":false},{\"x\":4,\"y\":2.75,\"anchor\":false},{\"x\":30,\"y\":-0.875,\"anchor\":false},{\"x\":34,\"y\":-1.625,\"anchor\":false},{\"x\":32,\"y\":-1.25,\"anchor\":false},{\"x\":10,\"y\":9,\"anchor\":false},{\"x\":12,\"y\":6,\"anchor\":false},{\"x\":14,\"y\":4,\"anchor\":false},{\"x\":16,\"y\":3,\"anchor\":false},{\"x\":18,\"y\":3,\"anchor\":false},{\"x\":20,\"y\":3,\"anchor\":false},{\"x\":22,\"y\":4,\"anchor\":false},{\"x\":24,\"y\":6,\"anchor\":false},{\"x\":26,\"y\":9,\"anchor\":false}],\"m\":[{\"a\":0,\"b\":8,\"mat\":\"heavy\"},{\"a\":8,\"b\":9,\"mat\":\"heavy\"},{\"a\":9,\"b\":10,\"mat\":\"heavy\"},{\"a\":10,\"b\":2,\"mat\":\"heavy\"},{\"a\":2,\"b\":11,\"mat\":\"heavy\"},{\"a\":11,\"b\":12,\"mat\":\"heavy\"},{\"a\":12,\"b\":13,\"mat\":\"heavy\"},{\"a\":13,\"b\":14,\"mat\":\"heavy\"},{\"a\":14,\"b\":15,\"mat\":\"heavy\"},{\"a\":15,\"b\":16,\"mat\":\"heavy\"},{\"a\":16,\"b\":17,\"mat\":\"heavy\"},{\"a\":17,\"b\":18,\"mat\":\"heavy\"},{\"a\":18,\"b\":19,\"mat\":\"heavy\"},{\"a\":19,\"b\":3,\"mat\":\"heavy\"},{\"a\":3,\"b\":20,\"mat\":\"heavy\"},{\"a\":20,\"b\":21,\"mat\":\"road\"},{\"a\":21,\"b\":22,\"mat\":\"heavy\"},{\"a\":22,\"b\":1,\"mat\":\"heavy\"},{\"a\":0,\"b\":23,\"mat\":\"steel\"},{\"a\":24,\"b\":2,\"mat\":\"steel\"},{\"a\":8,\"b\":23,\"mat\":\"steel\"},{\"a\":9,\"b\":25,\"mat\":\"steel\"},{\"a\":10,\"b\":24,\"mat\":\"steel\"},{\"a\":23,\"b\":25,\"mat\":\"steel\"},{\"a\":23,\"b\":9,\"mat\":\"steel\"},{\"a\":25,\"b\":24,\"mat\":\"steel\"},{\"a\":24,\"b\":9,\"mat\":\"steel\"},{\"a\":3,\"b\":26,\"mat\":\"steel\"},{\"a\":27,\"b\":1,\"mat\":\"steel\"},{\"a\":20,\"b\":26,\"mat\":\"steel\"},{\"a\":22,\"b\":27,\"mat\":\"steel\"},{\"a\":26,\"b\":28,\"mat\":\"steel\"},{\"a\":28,\"b\":27,\"mat\":\"steel\"},{\"a\":27,\"b\":21,\"mat\":\"steel\"},{\"a\":4,\"b\":29,\"mat\":\"cable\"},{\"a\":29,\"b\":30,\"mat\":\"cable\"},{\"a\":30,\"b\":31,\"mat\":\"cable\"},{\"a\":31,\"b\":32,\"mat\":\"cable\"},{\"a\":32,\"b\":33,\"mat\":\"cable\"},{\"a\":33,\"b\":34,\"mat\":\"cable\"},{\"a\":34,\"b\":35,\"mat\":\"cable\"},{\"a\":35,\"b\":36,\"mat\":\"cable\"},{\"a\":36,\"b\":37,\"mat\":\"cable\"},{\"a\":37,\"b\":5,\"mat\":\"cable\"},{\"a\":29,\"b\":11,\"mat\":\"cable\"},{\"a\":30,\"b\":12,\"mat\":\"cable\"},{\"a\":32,\"b\":14,\"mat\":\"cable\"},{\"a\":34,\"b\":16,\"mat\":\"cable\"},{\"a\":35,\"b\":17,\"mat\":\"cable\"},{\"a\":36,\"b\":18,\"mat\":\"cable\"},{\"a\":37,\"b\":19,\"mat\":\"cable\"}]}"
+  },
+  "seed": {
+   "cost": 31819,
+   "peak": 0.999,
+   "parts": 55,
+   "crossed": false,
+   "reason": "Your cargo went for a swim."
+  },
+  "room": {
+   "pass": 23,
+   "total": 51
+  },
+  "requires": [
+   {
+    "mat": "cable",
+    "best": {
+     "cost": 42607,
+     "peak": 0.99,
+     "parts": 70,
+     "crossed": false,
+     "reason": "Your cargo went for a swim."
+    },
+    "ok": true
+   }
+  ],
+  "shortcuts": [
+   {
+    "name": "trusses 2 m deep over the channel",
+    "result": {
+     "cost": 39022,
+     "peak": 0.981,
+     "parts": 63,
+     "crossed": false,
+     "reason": "The vehicle flipped over."
+    },
+    "ok": true
+   },
+   {
+    "name": "trusses 3 m deep over the channel",
+    "result": {
+     "cost": 43047,
+     "peak": 0.994,
+     "parts": 63,
+     "crossed": false,
+     "reason": "Your cargo went for a swim."
+    },
+    "ok": true
+   }
+  ],
+  "combosTried": 11,
+  "seconds": 1429
+ }
+}

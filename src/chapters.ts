@@ -58,7 +58,7 @@ export const CHAPTERS: ChapterDef[] = [
   {
     id: 5,
     name: 'Heavy Metal',
-    blurb: 'Semis, steep climbs and suspension bridges. Mistakes are expensive.',
+    blurb: 'Semis and heavy deck, steep climbs and suspension bridges. Mistakes are expensive.',
     difficulty: 5,
     effort: 'Big builds · 25–40 parts',
     levels: [17, 18, 25, 26, 19],

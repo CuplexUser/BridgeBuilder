@@ -64,6 +64,17 @@ describe('Editor', () => {
     expect(ed.design.findNode(2, 0)).toBeGreaterThanOrEqual(0);
   });
 
+  it('puts a joint on every bolt a road run passes over', () => {
+    // A 20 m run would split into 2 m pieces; the bolt at x = 9 gets a joint of its own.
+    const ed = new Editor({ ...LEVELS[0], width: 20, anchors: [[0, 0], [9, 0], [20, 0]], money: 1e6 }, noop);
+    ed.begin(ed.design.findNode(0, 0));
+    ed.aim(20, 0);
+    ed.commit();
+    const bolt = ed.design.findNode(9, 0);
+    expect(ed.design.members.filter((m) => m.a === bolt || m.b === bolt)).toHaveLength(2);
+    for (let i = 0; i < ed.design.members.length; i++) expect(ed.design.length(i)).toBeLessThanOrEqual(MATERIALS.road.maxLen);
+  });
+
   it('undoes a road run as a single step', () => {
     const ed = editorFor(0);
     ed.begin(ed.design.findNode(0, 0));

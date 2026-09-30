@@ -1,6 +1,7 @@
-import { Design, roadPath, segmentHitsRect, segmentsOverlap, type GridPt } from './design';
+import { Design, segmentsOverlap, type GridPt } from './design';
 import type { LevelDef } from './levels';
 import { MATERIALS, type MaterialId } from './physics/materials';
+import { crossesChannel, MIN_JOINT_GAP, pointAllowed, topY } from './rules';
 
 export interface DragState {
   /** Start node index, or -1 when the drag starts from a point on a beam that will be split. */
@@ -36,8 +37,6 @@ export interface EditorEvents {
 
 /** Existing joints and beam attach points win ties against bare grid points by this much. */
 const JOINT_BONUS = 0.2;
-/** A new joint this close to an existing one is refused as too fiddly. */
-const MIN_JOINT_GAP = 0.2;
 /** Most pieces one deck run may lay. */
 const MAX_RUN = 40;
 
@@ -69,7 +68,10 @@ export class Editor {
         const same = anchors.length === level.anchors.length && level.anchors.every(([x, y]) => anchors.some((n) => n.x === x && n.y === y));
         // Prices, budgets and materials may have changed since the design was saved.
         const affordable = d.cost() <= level.money && d.members.every((m) => level.materials.includes(m.mat));
-        if (same && affordable) this.design = d;
+        if (same && affordable) {
+          d.priceAnchors(level);
+          this.design = d;
+        }
       } catch {
         // Corrupt save: start fresh.
       }
@@ -80,8 +82,7 @@ export class Editor {
   }
 
   get topY(): number {
-    const towers = (this.level.towers ?? []).map((t) => t[2] + 1.5);
-    return Math.max(4, ...this.level.anchors.map((a) => a[1] + 3), ...towers);
+    return topY(this.level);
   }
 
   /** Money spent on the current design. */
@@ -106,17 +107,7 @@ export class Editor {
   }
 
   pointAllowed(x: number, y: number): boolean {
-    const L = this.level;
-    if (this.design.findNode(x, y) >= 0) return true;
-    if (x < -1e-9 || x > L.width + 1e-9) return false;
-    if (y > this.topY || y <= L.waterY + 0.5) return false;
-    for (const [px, py] of L.piers) if (Math.abs(x - px) < 0.6 && y < py) return false;
-    for (const o of L.overhangs ?? []) {
-      const inside = o.side === 'left' ? x <= o.reach + 0.3 : x >= L.width - o.reach - 0.3;
-      if (inside && y > o.bottom - 0.3) return false;
-    }
-    for (const [x0, x1, top] of L.channels ?? []) if (x > x0 && x < x1 && y < top) return false;
-    return true;
+    return this.design.findNode(x, y) >= 0 || pointAllowed(this.level, x, y);
   }
 
   nodeAt(wx: number, wy: number, radius: number): number {
@@ -266,16 +257,32 @@ export class Editor {
     drag.tx = bx;
     drag.ty = by;
     drag.toSplit = split;
-    const run = this.runs ? roadPath(fx, fy, bx, by, maxLen, pieces) : null;
+    const run = this.runs ? this.design.runPath(fx, fy, bx, by, maxLen, pieces) : null;
     drag.path = run ?? [
       [fx, fy],
       [bx, by],
     ];
     let len = 0;
     for (let i = 1; i < drag.path.length; i++) len += Math.hypot(drag.path[i][0] - drag.path[i - 1][0], drag.path[i][1] - drag.path[i - 1][1]);
-    drag.cost = Math.round(len * MATERIALS[this.mat].price);
+    drag.cost = Math.round(len * MATERIALS[this.mat].price) + this.newAnchorCost(drag);
     drag.reason = this.problem(drag);
     drag.valid = drag.reason === '';
+  }
+
+  /** What any paid anchor this drag starts using would add to the bill. */
+  private newAnchorCost(drag: DragState): number {
+    const { nodes, members } = this.design;
+    let c = 0;
+    for (const i of new Set([drag.from, this.design.findNode(drag.tx, drag.ty)])) {
+      if (i >= 0 && nodes[i].price && !members.some((m) => m.a === i || m.b === i)) c += nodes[i].price!;
+    }
+    return c;
+  }
+
+  /** Parts of the current material still allowed on this level, or null when there's no limit. */
+  partsLeft(mat: MaterialId = this.mat): number | null {
+    const max = this.level.limits?.[mat];
+    return max === undefined ? null : Math.max(0, max - this.design.count(mat));
   }
 
   private problem(drag: DragState): string {
@@ -287,6 +294,10 @@ export class Editor {
     const mat = MATERIALS[this.mat];
     const left = this.left();
     if (drag.cost > left) return `Over budget by ${money(drag.cost - left)}`;
+    // A run lays several parts; a single beam is one.
+    const newParts = this.runs ? path.length - 1 : 1;
+    const partsLeft = this.partsLeft();
+    if (partsLeft !== null && newParts > partsLeft) return `Only ${this.level.limits![this.mat]} ${mat.name.toLowerCase()} parts on this level`;
     const { nodes, members } = this.design;
     for (let i = 0; i < segs; i++) {
       const [ax, ay] = path[i];
@@ -303,9 +314,7 @@ export class Editor {
         const e = nodes[m.b];
         if (segmentsOverlap(ax, ay, bx, by, c.x, c.y, e.x, e.y)) return MATERIALS[m.mat].drivable ? 'Overlaps the road' : 'Overlaps a beam';
       }
-      for (const [x0, x1, top] of this.level.channels ?? []) {
-        if (segmentHitsRect(ax, ay, bx, by, x0, this.level.waterY - 10, x1, top)) return 'Keep the channel clear';
-      }
+      if (crossesChannel(this.level, ax, ay, bx, by)) return 'Keep the channel clear';
     }
     return '';
   }

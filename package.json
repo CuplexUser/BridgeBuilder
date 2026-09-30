@@ -9,11 +9,13 @@
     "start": "node server/server.mjs",
     "preview": "vite preview",
     "test": "vitest run",
-    "lint": "oxlint"
+    "lint": "oxlint",
+    "tune": "node --import tsx tools/tune/tune.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",
     "oxlint": "^1.85.0",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.1",
     "vitest": "^5.0.2"

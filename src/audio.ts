@@ -95,7 +95,7 @@ export class Sfx {
   }
 
   crack(mat: MaterialId | null): void {
-    if (mat === 'steel') {
+    if (mat === 'steel' || mat === 'ram') {
       this.tone(1900, 0.5, 'sine', 0.12, 700);
       this.burst(0.3, 0.6, 'highpass', 2500, 0.7);
     } else {

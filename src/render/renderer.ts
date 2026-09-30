@@ -1,10 +1,10 @@
 import type { AttachPick, Editor } from '../editor';
 import type { Debris, DebrisField, Particles, Whip } from '../fx/particles';
 import { PK, WHIP_LIFE } from '../fx/particles';
-import { bankY, goalX, START_X, type LevelDef, type Overhang } from '../levels';
+import { bankY, goalX, type LevelDef, type Overhang } from '../levels';
 import { MATERIALS, type MaterialId } from '../physics/materials';
-import { VEHICLES, type VehicleDef } from '../physics/vehicles';
-import type { Link, TestRun } from '../physics/world';
+import type { VehicleDef } from '../physics/vehicles';
+import { convoyLayout, SHIP_HALF, type Link, type TestRun, type VehicleHandle } from '../physics/world';
 import type { Camera } from './camera';
 import { MATERIAL_CHALK, PAL, stressColor } from './palette';
 import { THEMES, type Land, type Theme } from './themes';
@@ -33,14 +33,15 @@ export interface SceneView {
   showHint: boolean;
   time: number;
   flash: number;
-  wheelAngles: [number, number];
+  /** Wheel spin per vehicle: rear, front. */
+  wheelAngles: [number, number][];
   floats: FloatText[];
 }
 
 const TAU = Math.PI * 2;
 /** Shades of broken concrete deck. */
 const CHUNK_SHADES = ['#8d939c', '#6f757e', '#a4a9b1', '#5d6168'];
-const MEMBER_WIDTH: Record<MaterialId, number> = { road: 0.3, heavy: 0.36, wood: 0.17, steel: 0.15, cable: 0.06 };
+const MEMBER_WIDTH: Record<MaterialId, number> = { road: 0.3, heavy: 0.36, wood: 0.17, steel: 0.15, cable: 0.06, ram: 0.2 };
 
 /** Deterministic 0..1 noise so scenery stays put between frames. */
 function hash(n: number): number {
@@ -305,7 +306,7 @@ export class Renderer {
         shade.fillRect(0, 0, this.w, this.h);
         shade.globalCompositeOperation = 'source-over';
         ctx.drawImage(this.shadeLayer, 0, 0, this.w, this.h);
-        this.drawLights(v.run, v.develop);
+        for (const handle of v.run.vehicles) this.drawLights(v.run, handle, v.develop);
       }
       // Snapping cables stay bright even at night: the eye should catch them.
       this.drawWhips(v.run, this.debris.whips);
@@ -421,7 +422,7 @@ export class Renderer {
     }
 
     for (const t of L.towers ?? []) this.tower(t[0], t[1], t[2], true);
-    for (const [cx0, cx1, top] of L.channels ?? []) this.channelBlueprint(cx0, cx1, top, L.waterY);
+    (L.channels ?? []).forEach(([cx0, cx1, top], i) => this.channelBlueprint(cx0, cx1, top, L.waterY, i === 0 ? L.ship?.mast : undefined));
 
     // Dimension line across the gap.
     const dimY = cam.sy((v.editor?.topY ?? 4) - 0.4);
@@ -551,7 +552,11 @@ export class Renderer {
     }
 
     for (const t of L.towers ?? []) this.tower(t[0], t[1], t[2], false);
-    for (const [x0, x1, top] of L.channels ?? []) this.channelScene(x0, x1, top, L.waterY, v.time);
+    (L.channels ?? []).forEach(([x0, x1, top], i) => {
+      // On a drawbridge level the first channel's boat is the tall ship, waiting or under way.
+      const ship = i === 0 && L.ship ? { x: (x0 + x1) / 2, mast: L.ship.mast, progress: v.run ? v.run.shipProgress : -1 } : undefined;
+      this.channelScene(x0, x1, top, L.waterY, v.time, ship);
+    });
 
     // Finish flag.
     const fx = cam.sx(goalX(L));
@@ -908,10 +913,9 @@ export class Renderer {
   }
 
   /** Night: headlights and taillights on the vehicle, added as light. */
-  private drawLights(run: TestRun, develop: number): void {
+  private drawLights(run: TestRun, v: VehicleHandle, develop: number): void {
     const { ctx, cam } = this;
     const w = run.world;
-    const v = run.vehicle;
     const def = v.def;
     let dx = w.x[v.frontTop] - w.x[v.rearTop];
     let dy = w.y[v.frontTop] - w.y[v.rearTop];
@@ -1000,7 +1004,7 @@ export class Renderer {
   }
 
   /** A ship channel in the blueprint: a hatched keep-clear zone with its clearance height. */
-  private channelBlueprint(x0: number, x1: number, top: number, waterY: number): void {
+  private channelBlueprint(x0: number, x1: number, top: number, waterY: number, mast?: number): void {
     const { ctx, cam } = this;
     const l = cam.sx(x0);
     const r = cam.sx(x1);
@@ -1028,10 +1032,23 @@ export class Renderer {
     ctx.setLineDash([]);
     // Near the water, where it can't hide under a deck laid along the top of the zone.
     this.label(`SHIP CHANNEL · KEEP CLEAR TO +${top} m`, (l + r) / 2, b - 16, PAL.invalid);
+    if (mast !== undefined) {
+      // The tall ship passes through here: the open bridge has to clear this outline.
+      const cx = (x0 + x1) / 2;
+      const sl = cam.sx(cx - SHIP_HALF);
+      const sr = cam.sx(cx + SHIP_HALF);
+      const mt = cam.sy(mast);
+      ctx.strokeStyle = PAL.gold;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(sl, mt, sr - sl, b - mt);
+      ctx.setLineDash([]);
+      this.label(`TALL SHIP · MAST +${mast} m · OPEN THE BRIDGE FOR IT`, (sl + sr) / 2, mt - 14, PAL.gold);
+    }
   }
 
   /** The channel in the painted scene: marker buoys and a moored sailboat whose mast shows the clearance. */
-  private channelScene(x0: number, x1: number, top: number, waterY: number, time: number): void {
+  private channelScene(x0: number, x1: number, top: number, waterY: number, time: number, ship?: { x: number; mast: number; progress: number }): void {
     const { ctx, cam } = this;
     const s = cam.scale;
     const bob = Math.sin(time * 1.6) * 0.06;
@@ -1045,6 +1062,10 @@ export class Renderer {
       ctx.fillRect(bx - 0.18 * s, by - 0.7 * s, 0.36 * s, 0.7 * s);
       ctx.fillStyle = 'rgba(255,255,255,0.8)';
       ctx.fillRect(bx - 0.18 * s, by - 0.45 * s, 0.36 * s, 0.1 * s);
+    }
+    if (ship) {
+      this.tallShip(ship.x, ship.mast, ship.progress, waterY + 0.05 + bob, time);
+      return;
     }
     // Sailboat: hull, mast up to the clearance line, and a sail.
     const cx = (x0 + x1) / 2 + Math.sin(time * 0.25) * ((x1 - x0) / 2 - 2.2);
@@ -1075,6 +1096,57 @@ export class Renderer {
     ctx.lineTo(0.08 * s, -0.75 * s);
     ctx.lineTo(1.4 * s, -0.75 * s);
     ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /**
+   * A drawbridge's tall ship, seen bow on as it sails through the bridge toward us: small and
+   * far off while it waits, full size as it passes, gone once it's through.
+   */
+  private tallShip(x: number, mast: number, progress: number, waterline: number, time: number): void {
+    if (progress > 1) return;
+    const { ctx, cam } = this;
+    const k = 0.35 + 0.65 * Math.max(0, Math.min(1, progress));
+    const s = cam.scale * k;
+    const height = (mast - waterline) * k;
+    ctx.save();
+    ctx.globalAlpha = progress < 0 ? 0.7 : 1;
+    ctx.translate(cam.sx(x), cam.sy(waterline));
+    ctx.rotate(Math.sin(time * 0.9) * 0.02);
+    // Hull, bow on: a rounded wedge with a stripe.
+    ctx.fillStyle = '#23324a';
+    ctx.beginPath();
+    ctx.moveTo(-SHIP_HALF * s, -1.1 * s);
+    ctx.lineTo(SHIP_HALF * s, -1.1 * s);
+    ctx.quadraticCurveTo(SHIP_HALF * 0.7 * s, 0.3 * s, 0, 0.35 * s);
+    ctx.quadraticCurveTo(-SHIP_HALF * 0.7 * s, 0.3 * s, -SHIP_HALF * s, -1.1 * s);
+    ctx.fill();
+    ctx.fillStyle = '#f2efe6';
+    ctx.fillRect(-SHIP_HALF * s, -1.1 * s, SHIP_HALF * 2 * s, 0.18 * s);
+    // Mast with yard and furled sails, up to the full mast height.
+    ctx.strokeStyle = '#3b2a1e';
+    ctx.lineWidth = Math.max(1.5, 0.1 * s);
+    ctx.beginPath();
+    ctx.moveTo(0, -1.1 * s);
+    ctx.lineTo(0, -height * cam.scale);
+    for (const f of [0.45, 0.72]) {
+      const y = -height * cam.scale * f;
+      ctx.moveTo(-SHIP_HALF * 0.9 * s, y);
+      ctx.lineTo(SHIP_HALF * 0.9 * s, y);
+    }
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(245,240,228,0.95)';
+    for (const f of [0.45, 0.72]) {
+      const y = -height * cam.scale * f;
+      ctx.fillRect(-SHIP_HALF * 0.85 * s, y, SHIP_HALF * 1.7 * s, 0.22 * s);
+    }
+    // Pennant at the masthead.
+    ctx.fillStyle = PAL.bolt;
+    ctx.beginPath();
+    ctx.moveTo(0, -height * cam.scale);
+    ctx.lineTo(0.9 * s, -height * cam.scale + 0.15 * s);
+    ctx.lineTo(0, -height * cam.scale + 0.3 * s);
     ctx.fill();
     ctx.restore();
   }
@@ -1276,6 +1348,31 @@ export class Renderer {
           ctx.fill();
         }
       }
+    } else if (mat === 'ram') {
+      // Cylinder from the base end, chrome rod the rest of the way.
+      const split = 0.55;
+      const mx = ax + (bx - ax) * split;
+      const my = ay + (by - ay) * split;
+      ctx.lineCap = 'butt';
+      ctx.beginPath();
+      ctx.moveTo(mx, my);
+      ctx.lineTo(bx, by);
+      ctx.strokeStyle = PAL.steelDark;
+      ctx.lineWidth = w * 0.5 + 2;
+      ctx.stroke();
+      ctx.strokeStyle = PAL.chrome;
+      ctx.lineWidth = w * 0.5;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.lineTo(mx, my);
+      ctx.strokeStyle = PAL.ramDark;
+      ctx.lineWidth = w + 2;
+      ctx.stroke();
+      ctx.strokeStyle = PAL.ram;
+      ctx.lineWidth = w;
+      ctx.stroke();
+      ctx.lineCap = 'round';
     } else {
       line(0);
       ctx.strokeStyle = PAL.cable;
@@ -1437,8 +1534,11 @@ export class Renderer {
       const x = cam.sx(n.x);
       const y = cam.sy(n.y);
       const hover = i === v.hoverNode || (drag && drag.from === i);
-      if (n.anchor) this.bolt(x, y, hover ? 1.25 : 1, v.time, !drag && v.showHint);
-      else {
+      if (n.anchor) {
+        this.bolt(x, y, hover ? 1.25 : 1, v.time, !drag && v.showHint);
+        // Paid anchors show their price until they're in use.
+        if (n.price && !ed.design.members.some((m) => m.a === i || m.b === i)) this.label(`$${n.price.toLocaleString('en-US')}`, x, y - 16, PAL.gold);
+      } else {
         const r = Math.max(3.5, 0.13 * cam.scale) * (hover ? 1.5 : 1);
         ctx.fillStyle = PAL.paper;
         ctx.strokeStyle = PAL.chalk;
@@ -1557,7 +1657,7 @@ export class Renderer {
     this.guardRails(run);
 
     // Joints: gusset plates sized by how many members meet there.
-    const nodeCount = w.count - 4;
+    const nodeCount = w.bridgeCount;
     const degree = new Uint8Array(nodeCount);
     for (const l of w.links) {
       if (!l.bridge || l.broken) continue;
@@ -1593,6 +1693,15 @@ export class Renderer {
         ctx.beginPath();
         ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.22, 0, TAU);
         ctx.fill();
+        // A joint taking too much at once glows, like an overloaded member.
+        const j = w.jointRatio(i);
+        if (j > 0.6) {
+          ctx.strokeStyle = stressColor(j, Math.min(1, (j - 0.6) * 2.5));
+          ctx.lineWidth = Math.max(2, r * 0.35);
+          ctx.beginPath();
+          ctx.arc(x, y, r * 1.35, 0, TAU);
+          ctx.stroke();
+        }
       }
     }
   }
@@ -1792,19 +1901,23 @@ export class Renderer {
   // ───────────────────────────── Vehicles ─────────────────────────────
 
   private drawVehicleParked(level: LevelDef): void {
-    const def = VEHICLES[level.vehicle];
-    const r = def.wheelR;
-    const top = r + def.height * 0.6;
-    this.vehicle(def, START_X, r, START_X + def.wheelbase, r, START_X, top, START_X + def.wheelbase, top, [0, 0], true);
+    for (const { def, x } of convoyLayout(level)) {
+      const r = def.wheelR;
+      const top = r + def.height * 0.6;
+      const mids = (def.midAxles ?? []).map((ax): [number, number] => [x + ax, r]);
+      this.vehicle(def, x, r, x + def.wheelbase, r, x, top, x + def.wheelbase, top, mids, [0, 0], true);
+    }
   }
 
-  private drawVehicleRun(run: TestRun, angles: [number, number]): void {
+  private drawVehicleRun(run: TestRun, angles: [number, number][]): void {
     const w = run.world;
-    const v = run.vehicle;
-    this.vehicle(v.def, w.x[v.rearWheel], w.y[v.rearWheel], w.x[v.frontWheel], w.y[v.frontWheel], w.x[v.rearTop], w.y[v.rearTop], w.x[v.frontTop], w.y[v.frontTop], angles, false);
+    run.vehicles.forEach((v, i) => {
+      const mids = v.midWheels.map((p): [number, number] => [w.x[p], w.y[p]]);
+      this.vehicle(v.def, w.x[v.rearWheel], w.y[v.rearWheel], w.x[v.frontWheel], w.y[v.frontWheel], w.x[v.rearTop], w.y[v.rearTop], w.x[v.frontTop], w.y[v.frontTop], mids, angles[i] ?? [0, 0], false);
+    });
   }
 
-  private vehicle(def: VehicleDef, rwx: number, rwy: number, fwx: number, fwy: number, rtx: number, rty: number, ftx: number, fty: number, angles: [number, number], chalk: boolean): void {
+  private vehicle(def: VehicleDef, rwx: number, rwy: number, fwx: number, fwy: number, rtx: number, rty: number, ftx: number, fty: number, mids: [number, number][], angles: [number, number], chalk: boolean): void {
     const { ctx, cam } = this;
     const s = cam.scale;
     // Body frame from the chassis top points, dropped to the wheel-center line.
@@ -1824,6 +1937,7 @@ export class Renderer {
     const R = def.wheelR;
     const heavy = def.id === 'truck' || def.id === 'bus' || def.id === 'semi';
     this.wheel(rwx, rwy, R, angles[0], chalk, heavy);
+    for (const [mx, my] of mids) this.wheel(mx, my, R, angles[0], chalk, heavy);
     this.wheel(fwx, fwy, R, angles[1], chalk, heavy);
   }
 
