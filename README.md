@@ -56,19 +56,21 @@ Members can cross each other (X-bracing), but they can't lie along an existing m
 
 | Material | Price | Reach | Notes |
 | --- | --- | --- | --- |
-| Road | $180/m | 2.25 m | Drivable, laid in runs. |
-| Heavy deck | $380/m | 2.25 m | Drivable, laid in runs. About twice as strong and stiff as road, but heavier, and a little stiff in bending, so it spreads a wheel load onto neighboring joints. For trucks, long spans and suspension decks. |
+| Road | $180/m | 2.25 m | Drivable, laid in runs. Carries vehicles up to 30 t: everything but the semi. |
+| Heavy deck | $380/m | 2.25 m | Drivable, laid in runs. About twice as strong and stiff as road, but heavier, and a little stiff in bending, so it spreads a wheel load onto neighboring joints. Carries up to 60 t. For the semi, long spans and suspension decks. |
 | Wood | $90/m | 3.2 m | Light and cheap. Buckles early in compression. |
 | Steel | $240/m | 4.25 m | Strong in tension and compression. |
 | Cable | $140/m | 10 m | Tension only: it goes slack instead of pushing. Hang decks from pylons and overhangs. |
 
 You pay by length, so splitting a beam to add a joint costs nothing. Each level lists the materials it offers.
 
+Vehicles weigh from 9 t (the compact car) to 40 t (the semi). A vehicle heavier than a deck's rating crushes each piece it drives onto, however well the deck is braced.
+
 ## How it works
 
-- `src/physics/world.ts` is a small-step XPBD solver. Members are compliant distance constraints. Stress is axial force over the member's capacity; compression capacity falls off with length, like buckling. A member breaks when its smoothed stress reaches 100%. Consecutive heavy-deck pieces also get a bending constraint that yields past a small force, like a hinge, so a heavy deck shares load between hangers but can't bridge a gap by bending alone. The vehicle is four particles in the same world, and its wheel contacts push load into the road members' nodes.
+- `src/physics/world.ts` is a small-step XPBD solver. Members are compliant distance constraints. Stress is axial force over the member's capacity; compression capacity falls off with length, like buckling. A member breaks when its smoothed stress reaches 100%. Consecutive heavy-deck pieces also get a bending constraint that yields past a small force, like a hinge, so a heavy deck shares load between hangers but can't bridge a gap by bending alone. The vehicle is four particles in the same world, and its wheel contacts push load into the road members' nodes. A deck piece that a vehicle over its weight rating touches is driven to breaking stress within a few frames.
 - `src/levels.ts` defines the levels; `src/chapters.ts` groups them into chapters and holds the unlock rules. Level ids are stable, and chapters list them in play order, so saved progress survives reordering.
-- `src/solutions.ts` holds a reference design per level, plus a design that meets each level's bonus goal where the reference doesn't. `tests/physics.test.ts` drives the real vehicle over each one. That guarantees all 30 levels are beatable within their target cost, that every bonus goal is reachable, and that every design follows the editor's build rules. Each level's budget is the reference cost times a slack factor that shrinks by chapter (×1.6 down to ×1.22), and the target is about 5% above the reference cost. The same file checks that the obvious shortcut designs on the cable levels fail.
+- `src/solutions.ts` holds a reference design per level, plus a design that meets each level's bonus goal where the reference doesn't. `tests/physics.test.ts` drives the real vehicle over each one. That guarantees all 30 levels are beatable within their target cost, that every bonus goal is reachable, and that every design follows the editor's build rules. Each level's budget is the reference cost times a slack factor that shrinks by chapter (×1.6 down to ×1.22), and the target is about 5% above the reference cost. The same file checks that the obvious shortcut designs on the cable levels fail, and that a bare heavy deck crosses no level.
 - `tests/storage.test.ts` runs the same behavior contract against both storage backends. The SQLite one runs against a real HTTP server on an in-memory database.
 - Rendering is Canvas 2D (`src/render/`). `src/render/themes.ts` defines each chapter's sky, land, water, trees, weather and time of day. The UI is DOM overlays (`index.html`, `src/ui/ui.ts`). All sound is synthesized with WebAudio (`src/audio.ts`).
 

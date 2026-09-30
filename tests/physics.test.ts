@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { Design, segmentHitsRect } from '../src/design';
+import { Design, segmentHitsRect, type GridPt } from '../src/design';
 import { Editor } from '../src/editor';
 import { LEVELS } from '../src/levels';
 import { MATERIALS } from '../src/physics/materials';
+import { VEHICLES } from '../src/physics/vehicles';
 import { TestRun, World } from '../src/physics/world';
 import { bonusLabel, bonusMet } from '../src/scoring';
-import { BONUS_SOLUTIONS, deck, hang, prattAbove, roadRun, SOLUTIONS } from '../src/solutions';
+import { BONUS_SOLUTIONS, deck, hang, prattAbove, roadRun, SOLUTIONS, trussOver, type TrussMats } from '../src/solutions';
 
 function drive(design: Design, levelIdx: number, seconds = 25) {
   const run = new TestRun(design, LEVELS[levelIdx]);
@@ -123,6 +124,9 @@ describe('failures', () => {
 
 /** The obvious cable-everything answers must not work: each cable level needs an idea. */
 const L = (id: number) => LEVELS[id - 1];
+const STEELY: TrussMats = { chord: 'steel', web: 'steel', vert: 'steel', end: 'steel', endWeb: 'steel' };
+/** Deck joints every 2 m from x0 to x1 on the flat. */
+const joints = (x0: number, x1: number): GridPt[] => Array.from({ length: (x1 - x0) / 2 + 1 }, (_, i): GridPt => [x0 + 2 * i, 0]);
 
 describe('cable levels resist the obvious answer', () => {
   const reach = MATERIALS.cable.maxLen;
@@ -158,12 +162,38 @@ describe('cable levels resist the obvious answer', () => {
     expect(drive(d, 17).status).toBe('fail');
   });
 
-  it('19 and 20: no deck joint is within one cable of a pylon top', () => {
-    for (const id of [19, 20]) {
+  it('19, 20, 29 and 30: no deck joint is within one cable of a pylon top', () => {
+    for (const id of [19, 20, 29, 30]) {
       const level = L(id);
       for (const [tx, , top] of level.towers!.filter((t) => t[2] > 5)) {
         for (let x = 0; x <= level.width; x += 2) expect(Math.hypot(x - tx, top)).toBeGreaterThan(reach);
       }
+    }
+  });
+
+  it('29: trusses alone drop the truck, and one deep enough to hold blows the budget', () => {
+    const truss = (h: number) => {
+      const d = new Design(L(29));
+      roadRun(d, [0, 0], [34, 0], 'heavy');
+      for (const [x0, x1] of [[0, 8], [26, 34]]) trussOver(d, joints(x0, x1), 2, STEELY);
+      trussOver(d, joints(8, 26), h, STEELY);
+      return d.add([0, -3], [2, 0], 'steel').add([34, -3], [32, 0], 'steel');
+    };
+    for (const h of [2, 3]) expect(drive(truss(h), 28).status).toBe('fail');
+    // A second truss hanging under the middle span makes it deep enough, at a price.
+    const deep = trussOver(truss(2), joints(8, 26), -2, STEELY);
+    expect(deep.cost()).toBeGreaterThan(L(29).money);
+  });
+
+  it('30: trusses over the ship channel drop the semi', () => {
+    for (const h of [2, 3]) {
+      const d = new Design(L(30));
+      for (const [x0, x1] of [[0, 8], [8, 28], [28, 36]]) {
+        roadRun(d, [x0, 0], [x1, 0], 'heavy');
+        trussOver(d, joints(x0, x1), x0 === 8 ? h : 2, STEELY);
+      }
+      d.add([0, -3], [2, 0], 'steel').add([36, -3], [34, 0], 'steel');
+      expect(drive(d, 29).status).toBe('fail');
     }
   });
 
@@ -212,6 +242,39 @@ describe('deck bending', () => {
     for (let i = 0; i < 25 * 60 && run.status === 'running'; i++) run.step();
     expect(run.status).toBe('success');
     expect(run.peakStress).toBeLessThan(0.95);
+  });
+});
+
+describe('deck ratings', () => {
+  it('road crushes under the semi, even on a truss that could carry it', () => {
+    const d = new Design(L(28));
+    roadRun(d, [0, 0], [24, 0]);
+    for (const x0 of [0, 12]) trussOver(d, joints(x0, x0 + 12), 2, { ...STEELY, vert: 'wood' });
+    d.add([12, -4], [12, 0], 'steel');
+    const run = drive(d, 27);
+    expect(run.status).toBe('fail');
+    expect(run.world.links.some((l) => l.crushed && l.broken && l.mat === 'road')).toBe(true);
+    expect(run.reason).toBe('The semi truck weighs 40 t. Road carries only 30 t.');
+  });
+
+  it('only the semi needs heavy deck', () => {
+    for (const v of Object.values(VEHICLES)) {
+      expect(v.tonnes <= MATERIALS.road.rating, `${v.name}`).toBe(v.id !== 'semi');
+      expect(v.tonnes).toBeLessThanOrEqual(MATERIALS.heavy.rating);
+    }
+  });
+
+  it('no level can be crossed on a bare heavy deck with end struts', () => {
+    for (const level of LEVELS.filter((l) => l.materials.includes('heavy'))) {
+      const right = level.rightY ?? 0;
+      const d = new Design(level);
+      roadRun(d, [0, 0], [level.width, right], 'heavy');
+      for (const [x, y] of level.anchors) {
+        if (x === 0 && y < 0) d.add([x, y], [2, 0], 'steel');
+        if (x === level.width && y < right) d.add([x, y], [x - 2, right], 'steel');
+      }
+      expect(drive(d, level.id - 1).status, `level ${level.id}`).toBe('fail');
+    }
   });
 });
 

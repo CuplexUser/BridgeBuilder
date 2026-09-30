@@ -6,6 +6,11 @@ Features and improvements, by priority. Finished items stay checked for a releas
 
 ### Done
 
+- [x] **Deck weight ratings.** Road carries up to 30 t and heavy deck 60 t. The 40 t semi crushes road wherever its wheels touch, so the semi levels need heavy deck. Level cards show the vehicle's weight, the material buttons show the rating, and the collapse screen says what happened.
+- [x] **Tight cost targets.** New references from sweeps over truss materials, struts and pier bracing: road trusses on 2-4 ($8,204) and 2-5 ($9,479), no end struts on 5-1 ($18,820) and 6-2 ($23,899), wood end diagonals on 5-3 ($13,222), and a road deck on 6-1 ($21,872). Targets and budgets follow, and each of these levels has a new bonus goal with a tested design.
+- [x] **Level 29 needs cables.** The middle span is now 18 m (34 m overall). Trusses 2 or 3 m deep drop the truck, and one deep enough to hold costs more than the budget.
+- [x] **Suspension finale.** 6-5 *Magnum Opus* is a 36 m suspension bridge for the semi, with a 20 m main span over a ship channel.
+- [x] **No heavy deck on 4-1, 4-2 and 4-5.** A bare heavy deck with end struts sagged into a tension ribbon that carried the van across 4-1 and 4-5, and on 4-2 it needed only two hangers and outscored the intended design. These van levels no longer offer it, and a test checks that a bare heavy deck crosses no level.
 - [x] **Chapter themes.** Each chapter has its own painted scene: river at golden hour, red-rock canyon with mesas and cacti, rainy flood plain with willows and muddy water, bright coast with dunes, palms and gulls, snowy mountains with capped peaks and pines, and a night city with a lit skyline and street lamps. The title demo cycles through all six.
 - [x] **Weather and time of day.** Rain with rings on the water (chapter 3), falling snow (chapter 5), and night (chapter 6), where the bridge and vehicle are shaded down and headlights and taillights glow.
 - [x] **Tutorial ghosts** for the first cable (4-1), ship channel (4-4) and split (4-5). A ghost may span a whole road run, and a split mark shows where a ghost lands partway along a beam. Tests build every ghost in order with the real editor.
@@ -18,10 +23,8 @@ Features and improvements, by priority. Finished items stay checked for a releas
 
 ### Next
 
-- [ ] **Loose cost targets.** Cheaper designs than the reference cross several levels, so the target star is easy: 2-4 (road deck, $8,714 vs $11,750), 2-5 (truss with no end struts, $9,479 vs $12,000), 5-3 ($14,927 vs $17,250), 6-1 (road deck, $26,324 vs $33,250) and 6-2 ($26,899 vs $30,250). Their bonus goals currently reward those designs; consider making them the references and tightening the targets.
-- [ ] **Level 29 without cables.** An all-truss design ($26,790, 89% peak) beats the suspension reference ($28,701) and the target, so "hang the middle from the pylons" is optional. Lengthen the middle span or put a ship channel under it.
-- [ ] **A suspension finale with the semi,** now that the physics carries it.
-- [ ] **Heavy deck on the early cable levels.** With bending, a heavy deck and just two hangers cross 4-1 and 4-2 (over target, under budget). Check that the cheaper intended answers stay the better deal.
+- [ ] **Semi suspension margins.** The 6-5 reference peaks at 86%, and nearby variants (hangers in pairs, less sag) flip the semi. Consider giving players more room there, in the level or in how the semi rides a hung deck.
+- [ ] **Heavy deck as a lesson.** 2-4 introduces heavy deck, but road is the better deal there; it first pays off on 5-1 with the semi. Consider introducing it closer to the semi, or on a chapter 2 level where its strength pays.
 
 ## P2: Gameplay depth
 

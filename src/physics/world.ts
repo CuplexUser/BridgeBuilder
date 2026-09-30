@@ -34,6 +34,10 @@ export interface Link {
   compressionLimit: number;
   /** Seconds since placement, used by the renderer for the settle wobble. */
   age: number;
+  /** A wheel touched this deck piece during the current step. */
+  pressed: boolean;
+  /** A vehicle over the deck's rating stood on it, so it is being crushed. */
+  crushed: boolean;
 }
 
 /**
@@ -94,6 +98,8 @@ export class World {
   floorY: number;
   /** Scaled 0→1 at the start of a run so the bridge takes its own weight gently. */
   gravityScale = 1;
+  /** Weight of the vehicle on the bridge, in tonnes, checked against each deck's rating. */
+  vehicleTonnes = 0;
 
   constructor(capacity: number, floorY: number) {
     this.x = new Float64Array(capacity);
@@ -139,6 +145,8 @@ export class World {
       tensionLimit: Infinity,
       compressionLimit: Infinity,
       age: 0,
+      pressed: false,
+      crushed: false,
       ...opts,
     };
     this.links.push(l);
@@ -258,10 +266,10 @@ export class World {
       for (let k = 0; k < links.length; k++) {
         const l = links[k];
         if (l.broken || !l.drivable) continue;
-        this.contactSegment(p, r, x[l.a], y[l.a], x[l.b], y[l.b], l.a, l.b);
+        this.contactSegment(p, r, x[l.a], y[l.a], x[l.b], y[l.b], l.a, l.b, l);
       }
       for (let k = 0; k < t.length; k += 4) {
-        this.contactSegment(p, r, t[k], t[k + 1], t[k + 2], t[k + 3], -1, -1);
+        this.contactSegment(p, r, t[k], t[k + 1], t[k + 2], t[k + 3], -1, -1, null);
       }
       if (contact[p]) {
         const len = Math.hypot(cnx[p], cny[p]) || 1;
@@ -271,7 +279,7 @@ export class World {
     }
   }
 
-  private contactSegment(p: number, r: number, ax: number, ay: number, bx: number, by: number, ia: number, ib: number): void {
+  private contactSegment(p: number, r: number, ax: number, ay: number, bx: number, by: number, ia: number, ib: number, link: Link | null): void {
     const { x, y, im } = this;
     const dx = bx - ax;
     const dy = by - ay;
@@ -300,6 +308,7 @@ export class World {
       x[ib] -= nx * s * im[ib] * t;
       y[ib] -= ny * s * im[ib] * t;
     }
+    if (link) link.pressed = true;
     this.contact[p] = 1;
     this.cnx[p] += nx;
     this.cny[p] += ny;
@@ -363,8 +372,18 @@ export class World {
       const len = Math.hypot(x[l.b] - x[l.a], y[l.b] - y[l.a]);
       l.strain = (len - l.rest) / l.rest;
       if (l.tensionOnly && l.strain < 0) l.strain = 0;
-      const force = MATERIALS[l.mat!].EA * l.strain;
-      const ratio = force >= 0 ? force / l.tensionLimit : force / l.compressionLimit;
+      const mat = MATERIALS[l.mat!];
+      const force = mat.EA * l.strain;
+      let ratio = force >= 0 ? force / l.tensionLimit : force / l.compressionLimit;
+      // A vehicle over the deck's rating crushes each piece it stands on, within a few frames.
+      if (l.pressed) {
+        l.pressed = false;
+        const over = this.vehicleTonnes / mat.rating;
+        if (over > 1) {
+          l.crushed = true;
+          ratio = -Math.max(Math.abs(ratio), over);
+        }
+      }
       l.stress += (ratio - l.stress) * STRESS_SMOOTHING;
       if (Math.abs(l.stress) >= 1) this.breakLink(l);
     }
@@ -442,6 +461,7 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
   }
 
   const vehicle = addVehicle(world, VEHICLES[level.vehicle]);
+  world.vehicleTonnes = vehicle.def.tonnes;
   return { world, vehicle };
 }
 
@@ -577,6 +597,12 @@ export class TestRun {
 
   private fail(reason: string): void {
     this.status = 'fail';
+    const crushed = this.world.links.find((l) => l.crushed && l.broken);
+    if (crushed) {
+      const mat = MATERIALS[crushed.mat!];
+      const def = this.vehicle.def;
+      reason = `The ${def.name.toLowerCase()} weighs ${def.tonnes} t. ${mat.name} carries only ${mat.rating} t.`;
+    }
     this.reason = reason;
   }
 }

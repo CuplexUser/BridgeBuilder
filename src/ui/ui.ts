@@ -50,6 +50,7 @@ export class Ui {
       b.className = 'mat';
       b.dataset.mat = id;
       b.innerHTML = `<kbd>${i + 1}</kbd><i></i><span class="full">${MATERIALS[id].name}</span><span class="short">${MATERIALS[id].short}</span><b>0</b>`;
+      if (MATERIALS[id].drivable) b.title = `${MATERIALS[id].name}: carries up to ${MATERIALS[id].rating} t`;
       mats.appendChild(b);
       this.matBtns.set(id, b);
     });
@@ -257,7 +258,7 @@ export class Ui {
       card.innerHTML = `
         <span class="n">${levelCode(id)}<kbd>${i + 1}</kbd></span>
         <span class="t">${open ? l.name : 'Locked'}</span>
-        <span class="meta">${open ? `${VEHICLES[l.vehicle].name} · ${l.width} m · ${money(l.money)}` : 'Cross the level before'}</span>
+        <span class="meta">${open ? `${VEHICLES[l.vehicle].name} · ${VEHICLES[l.vehicle].tonnes} t · ${l.width} m · ${money(l.money)}` : 'Cross the level before'}</span>
         ${open ? `<span class="goal${b?.bonus ? ' met' : ''}">${BONUS_MARK} ${bonusLabel(l.bonus)}</span>` : ''}
         <span class="s">${starText(b?.stars ?? 0)}${b?.bonus ? `<em>${BONUS_MARK}</em>` : ''}</span>
         <span class="b">${b ? b.score.toLocaleString('en-US') : '—'}</span>`;

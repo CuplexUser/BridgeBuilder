@@ -26,6 +26,8 @@ export interface Material {
   bend: number;
   /** Most sideways force one deck joint's bending carries before it yields like a hinge, N. */
   bendLimit: number;
+  /** Heaviest vehicle a deck carries, in tonnes. A heavier one crushes the pieces under its wheels. */
+  rating: number;
   /** Vehicles drive on it. */
   drivable: boolean;
   /** One drag lays a whole run of pieces. */
@@ -48,6 +50,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
     buckleRef: 3,
     bend: 0,
     bendLimit: 0,
+    rating: 30,
     drivable: true,
     runs: true,
     tensionOnly: false,
@@ -65,6 +68,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
     buckleRef: 3.4,
     bend: 1e6,
     bendLimit: 2000,
+    rating: 60,
     drivable: true,
     runs: true,
     tensionOnly: false,
@@ -82,6 +86,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
     buckleRef: 2.9,
     bend: 0,
     bendLimit: 0,
+    rating: 0,
     drivable: false,
     runs: false,
     tensionOnly: false,
@@ -99,6 +104,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
     buckleRef: 4.3,
     bend: 0,
     bendLimit: 0,
+    rating: 0,
     drivable: false,
     runs: false,
     tensionOnly: false,
@@ -116,6 +122,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
     buckleRef: 1,
     bend: 0,
     bendLimit: 0,
+    rating: 0,
     drivable: false,
     runs: false,
     tensionOnly: true,

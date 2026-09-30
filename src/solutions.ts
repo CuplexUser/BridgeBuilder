@@ -54,6 +54,8 @@ export function prattAbove(d: Design, x0: number, x1: number, h: number, m: Trus
 const WOOD: TrussMats = { chord: 'wood', web: 'wood', vert: 'wood' };
 const HEAVY: TrussMats = { chord: 'steel', web: 'wood', vert: 'wood', end: 'steel', endWeb: 'steel' };
 const STEELY: TrussMats = { chord: 'steel', web: 'steel', vert: 'steel', end: 'steel', endWeb: 'steel' };
+/** All steel except the wood diagonals beside the supports: stiff, for a low peak stress. */
+const STIFF: TrussMats = { ...STEELY, endWeb: 'wood' };
 
 /** Known-good designs, used by the physics tests to prove every level is solvable. */
 export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
@@ -75,12 +77,9 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
     prattAbove(d, 6, 12, 2, { ...WOOD, end: 'steel' });
     return d.add([6, -3], [6, 0], 'steel');
   },
-  7: (l) => {
-    const d = new Design(l);
-    roadRun(d, [0, 0], [12, 0], 'heavy');
-    return prattAbove(d, 0, 12, 2, HEAVY).add([0, -2], [2, 0], 'wood').add([12, -2], [10, 0], 'wood');
-  },
-  8: (l) => prattAbove(deck(new Design(l), 0, 14), 0, 14, 2, HEAVY).add([0, -3], [2, 0], 'steel').add([14, -3], [12, 0], 'steel'),
+  // The truck is within road's rating, and the truss alone carries it.
+  7: (l) => prattAbove(deck(new Design(l), 0, 12), 0, 12, 2, HEAVY),
+  8: (l) => prattAbove(deck(new Design(l), 0, 14), 0, 14, 2, HEAVY),
   9: (l) => {
     const a: GridPt = [0, 0];
     const b: GridPt = [12, -1];
@@ -147,9 +146,9 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
   17: (l) => {
     const d = new Design(l);
     roadRun(d, [0, 0], [20, 0], 'heavy');
-    trussOver(d, panels(0), 2, { ...HEAVY, vert: 'steel' });
-    trussOver(d, panels(10), 2, { ...HEAVY, vert: 'steel' });
-    return d.add([10, -4], [10, 0], 'steel').add([0, -3], [2, 0], 'steel').add([20, -3], [18, 0], 'steel');
+    trussOver(d, panels(0), 2, HEAVY);
+    trussOver(d, panels(10), 2, HEAVY);
+    return d.add([10, -4], [10, 0], 'steel');
   },
   18: (l) => {
     const a: GridPt = [0, 0];
@@ -197,9 +196,9 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
   25: (l) => {
     const d = new Design(l);
     const pts = roadRun(d, [0, 0], [20, 4]);
-    trussOver(d, pts.slice(0, 6), 2, HEAVY);
-    trussOver(d, pts.slice(5), 2, HEAVY);
-    return d.add([10, -2], pts[5], 'steel').add([0, -2], pts[1], 'steel').add([20, 2], pts[pts.length - 2], 'steel');
+    trussOver(d, pts.slice(0, 6), 2, { ...HEAVY, endWeb: 'wood' });
+    trussOver(d, pts.slice(5), 2, { ...HEAVY, endWeb: 'wood' });
+    return d.add([10, -2], pts[5], 'steel');
   },
   26: (l) => {
     const d = deck(new Design(l), 0, 22);
@@ -209,63 +208,71 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
     d.add([1, 8], [9, 5], 'cable').add([16, 8], [9, 5], 'cable');
     return hang(d, [9, 5], [[8, 0], [10, 0]]);
   },
-  27: (l) => {
-    const d = new Design(l);
-    roadRun(d, [0, 0], [26, 0], 'heavy');
-    // A braced steel trestle up from each deep pier.
-    for (const px of [9, 17]) {
-      const [a, b] = [px - 1, px + 1];
-      d.add([px, -6], [a, -3], 'steel').add([px, -6], [b, -3], 'steel').add([a, -3], [b, -3], 'steel');
-      d.add([a, -3], [a, 0], 'steel').add([b, -3], [b, 0], 'steel').add([a, -3], [b, 0], 'steel');
-    }
-    trussOver(d, span(0, 8), 2, HEAVY);
-    trussOver(d, span(10, 16), 2, HEAVY);
-    trussOver(d, span(18, 26), 2, HEAVY);
-    return d.add([0, -3], [2, 0], 'steel').add([26, -3], [24, 0], 'steel');
-  },
+  // Road is enough for the bus.
+  27: (l) => gauntlet(l, { ...HEAVY, endWeb: 'wood' }),
   28: (l) => {
     const d = new Design(l);
     roadRun(d, [0, 0], [24, 0], 'heavy');
-    trussOver(d, span(0, 12), 2, STEELY);
-    trussOver(d, span(12, 24), 2, STEELY);
+    trussOver(d, span(0, 12), 2, HEAVY);
+    trussOver(d, span(12, 24), 2, HEAVY);
     return d.add([12, -4], [12, 0], 'steel').add([0, -3], [2, 0], 'steel').add([24, -3], [22, 0], 'steel');
   },
-  29: (l) => {
-    const d = new Design(l);
-    roadRun(d, [0, 0], [30, 0], 'heavy');
-    suspend(d, [[8, 12], [11, 8], [15, 6], [19, 8], [22, 12]]);
-    hang(d, [11, 8], [[10, 0], [12, 0]]);
-    hang(d, [15, 6], [[14, 0], [16, 0]]);
-    hang(d, [19, 8], [[18, 0], [20, 0]]);
-    trussOver(d, span(0, 8), 2, HEAVY);
-    return trussOver(d, span(22, 30), 2, HEAVY);
-  },
+  29: (l) => skyRoad(l, WOOD).add([0, -3], [2, 0], 'steel').add([34, -3], [32, 0], 'steel'),
   30: (l) => {
     const d = new Design(l);
     // Three runs so every span's joints land on even meters.
-    for (const x0 of [0, 12, 24]) roadRun(d, [x0, 0], [x0 + 12, 0], 'heavy');
-    trussOver(d, span(0, 12), 2, { ...HEAVY, vert: 'steel' });
-    trussOver(d, span(12, 24), 2, STEELY);
-    trussOver(d, span(24, 36), 2, { ...HEAVY, vert: 'steel' });
-    for (const px of [12, 24]) d.add([px, -3], [px, 0], 'steel').add([px, -3], [px - 2, 0], 'steel').add([px, -3], [px + 2, 0], 'steel');
-    return d.add([0, -3], [2, 0], 'steel').add([36, -3], [34, 0], 'steel');
+    for (const [x0, x1] of [[0, 8], [8, 28], [28, 36]]) roadRun(d, [x0, 0], [x1, 0], 'heavy');
+    // A deep sag keeps the main cable's pull down, so it holds the semi.
+    mainCable(d, alongX(8, [14, 10, 8, 6, 4, 4, 4, 6, 8, 10, 14]));
+    trussOver(d, span(0, 8), 2, STIFF);
+    return trussOver(d, span(28, 36), 2, STIFF);
   },
 };
+
+/** Level 27: a road deck on a braced trestle up from each deep pier, with a truss over each span. */
+function gauntlet(l: LevelDef, m: TrussMats): Design {
+  const d = deck(new Design(l), 0, 26);
+  for (const px of [9, 17]) {
+    const [a, b] = [px - 1, px + 1];
+    d.add([px, -6], [a, -3], 'steel').add([px, -6], [b, -3], 'steel').add([a, -3], [b, -3], 'wood');
+    d.add([a, -3], [a, 0], 'steel').add([b, -3], [b, 0], 'steel').add([a, -3], [b, 0], 'steel');
+  }
+  trussOver(d, span(0, 8), 2, m);
+  trussOver(d, span(10, 16), 2, m);
+  return trussOver(d, span(18, 26), 2, m);
+}
+
+/** Level 29: the middle hangs from a main cable between the pylons, and each side span is a truss. */
+function skyRoad(l: LevelDef, sides: TrussMats): Design {
+  const d = new Design(l);
+  roadRun(d, [0, 0], [34, 0], 'heavy');
+  mainCable(d, alongX(8, [12, 9, 6, 5, 4, 4, 5, 6, 9, 12]));
+  trussOver(d, span(0, 8), 2, sides);
+  return trussOver(d, span(26, 34), 2, sides);
+}
 
 /** Level 20's cable work: a sagging main span and a backstay span on each side. */
 function longWay(l: LevelDef): Design {
   const d = new Design(l);
   roadRun(d, [0, 0], [32, 0], 'heavy');
-  const vertical = (pts: GridPt[], skip = -1) => {
-    suspend(d, pts);
-    for (const [x, y] of pts.slice(1, -1)) if (x !== skip) d.add([x, y], [x, 0], 'cable');
-  };
-  vertical([11, 7, 5, 4, 4, 4, 5, 7, 11].map((y, i): GridPt => [8 + 2 * i, y]), 16);
-  vertical([4, 3, 4, 6, 11].map((y, i): GridPt => [2 * i, y]));
-  vertical([4, 3, 4, 6, 11].map((y, i): GridPt => [32 - 2 * i, y]));
+  mainCable(d, alongX(8, [11, 7, 5, 4, 4, 4, 5, 7, 11]), 16);
+  mainCable(d, alongX(0, [4, 3, 4, 6, 11]));
+  mainCable(d, alongX(32, [4, 3, 4, 6, 11], -2));
   // The joints under the pylons hang from both neighbours.
   d.add([6, 6], [8, 0], 'cable').add([10, 7], [8, 0], 'cable');
   return d.add([26, 6], [24, 0], 'cable').add([22, 7], [24, 0], 'cable');
+}
+
+/** Points from x0 every `step` meters, at the given heights. */
+function alongX(x0: number, ys: number[], step = 2): GridPt[] {
+  return ys.map((y, i): GridPt => [x0 + step * i, y]);
+}
+
+/** A main cable through pts, with a vertical hanger from each inner point down to the deck, except at x = skip. */
+function mainCable(d: Design, pts: GridPt[], skip = -1): Design {
+  suspend(d, pts);
+  for (const [x, y] of pts.slice(1, -1)) if (x !== skip) d.add([x, y], [x, 0], 'cable');
+  return d;
 }
 
 /** The design with every member of one material rebuilt in another. */
@@ -288,9 +295,9 @@ export const BONUS_SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
     return d.add([0, -2], on(a, b, 2), 'wood').add([10, 0], on(a, b, 8), 'wood');
   },
   6: (l) => recast(SOLUTIONS[6](l), 'wood', 'steel'),
-  7: (l) => prattAbove(deck(new Design(l), 0, 12), 0, 12, 2, HEAVY).add([0, -2], [2, 0], 'wood').add([12, -2], [10, 0], 'wood'),
-  // No end struts: the truss alone carries the truck.
-  8: (l) => prattAbove(deck(new Design(l), 0, 14), 0, 14, 2, HEAVY),
+  // Steel webs and end struts keep the stress low.
+  7: (l) => prattAbove(deck(new Design(l), 0, 12), 0, 12, 2, { ...STEELY, end: 'wood' }).add([0, -2], [2, 0], 'steel').add([12, -2], [10, 0], 'steel'),
+  8: (l) => prattAbove(deck(new Design(l), 0, 14), 0, 14, 2, { ...STEELY, end: 'wood' }).add([0, -3], [2, 0], 'steel').add([14, -3], [12, 0], 'steel'),
   9: (l) => {
     const a: GridPt = [0, 0];
     const b: GridPt = [12, -1];
@@ -321,21 +328,16 @@ export const BONUS_SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
   25: (l) => {
     const d = new Design(l);
     const pts = roadRun(d, [0, 0], [20, 4]);
-    trussOver(d, pts.slice(0, 6), 2, HEAVY);
-    trussOver(d, pts.slice(5), 2, HEAVY);
+    trussOver(d, pts.slice(0, 6), 2, { ...HEAVY, web: 'steel' });
+    trussOver(d, pts.slice(5), 2, { ...HEAVY, web: 'steel' });
     return d.add([10, -2], pts[5], 'steel');
   },
   26: (l) => recast(SOLUTIONS[26](l), 'road', 'heavy'),
-  27: (l) => recast(SOLUTIONS[27](l), 'heavy', 'road'),
-  // Wood diagonals are enough away from the supports.
-  28: (l) => {
-    const d = new Design(l);
-    roadRun(d, [0, 0], [24, 0], 'heavy');
-    trussOver(d, span(0, 12), 2, { ...HEAVY, vert: 'steel' });
-    trussOver(d, span(12, 24), 2, { ...HEAVY, vert: 'steel' });
-    return d.add([12, -4], [12, 0], 'steel').add([0, -3], [2, 0], 'steel').add([24, -3], [22, 0], 'steel');
-  },
-  29: (l) => recast(SOLUTIONS[29](l), 'wood', 'steel'),
+  27: (l) => gauntlet(l, STIFF),
+  28: (l) => recast(SOLUTIONS[28](l), 'wood', 'steel'),
+  // Steel chords and end posts on the side spans instead of bank struts.
+  29: (l) => skyRoad(l, { ...HEAVY, endWeb: 'wood' }),
+  30: (l) => recast(SOLUTIONS[30](l), 'wood', 'steel'),
 };
 
 /** Deck joints every 2 m from x0 to x1 on the flat. */

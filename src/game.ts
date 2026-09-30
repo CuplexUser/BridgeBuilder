@@ -778,7 +778,8 @@ export class Game {
         sfx.crack(mat);
         this.shake.add(0.45);
         this.flash = Math.max(this.flash, 0.25);
-        this.float(b.x, b.y + 0.8, mat === 'steel' ? 'CLANG!' : mat === 'cable' ? 'PING!' : mat === 'heavy' ? 'CRUNCH!' : 'SNAP!', PAL.bad, 24, 0.9);
+        const word = b.link.crushed ? 'TOO HEAVY!' : mat === 'steel' ? 'CLANG!' : mat === 'cable' ? 'PING!' : mat === 'heavy' ? 'CRUNCH!' : 'SNAP!';
+        this.float(b.x, b.y + 0.8, word, PAL.bad, 24, 0.9);
         if (!this.anyBreak) this.slowmo = 0.7;
       }
       this.anyBreak = true;
