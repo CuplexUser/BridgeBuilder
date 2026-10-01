@@ -7,6 +7,8 @@ import type { Outcome } from './simulate';
 import type { Task } from './worker';
 
 const WORKER = fileURLToPath(new URL('./worker.ts', import.meta.url));
+/** Workers load TypeScript and src/levels.res the same way the tuner does. */
+const EXEC_ARGV = ['--import', 'tsx', '--import', new URL('./res-register.mjs', import.meta.url).href];
 
 /** A design reduced to its members, independent of node order, so equal designs share a cache entry. */
 export function canonical(d: Design): string {
@@ -59,7 +61,7 @@ export class Pool {
   }
 
   private spawn(): Slot {
-    const slot: Slot = { worker: new Worker(WORKER, { execArgv: ['--import', 'tsx'] }), busy: null };
+    const slot: Slot = { worker: new Worker(WORKER, { execArgv: EXEC_ARGV }), busy: null };
     slot.worker.on('message', (m: { id: number; outcome?: Outcome; error?: string }) => {
       const job = slot.busy;
       if (!job || job.task.id !== m.id) return;

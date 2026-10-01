@@ -6,7 +6,7 @@ import { designProblems } from '../src/rules';
 import { bonusLabel, bonusMet } from '../src/scoring';
 import { levelFingerprint } from '../tools/tune/fingerprint';
 import { handSeed, INTENTS } from '../tools/tune/intents';
-import designs from '../tools/tune/results/designs.json';
+import { designs } from '../src/levels.res';
 
 const DESIGNS = designs as Record<string, { reference: string; bonus: string | null }>;
 

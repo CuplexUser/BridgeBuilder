@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Level Tuner</title>
+    <meta name="color-scheme" content="dark" />
+    <!-- Painted before any stylesheet arrives, so the page never flashes white. -->
+    <style>
+      html {
+        background: #0b1d38;
+        color: #e9f3ff;
+      }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2310284a'/%3E%3Cpath d='M3 22h26M6 22l5-9 5 9 5-9 5 9M11 13h10' stroke='%23ffcc33' stroke-width='2.2' fill='none' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="./page.css" />
+  </head>
+  <body>
+    <header class="top">
+      <svg class="logo" viewBox="0 0 32 32" fill="none" stroke="#ffcc33" stroke-width="2.2" aria-hidden="true"><path d="M3 22h26M6 22l5-9 5 9 5-9 5 9M11 13h10" /></svg>
+      <div class="title">
+        <h1>Level tuner</h1>
+        <p>Bridge Builder · tunes budgets, star targets and bonus goals into <code>src/levels.res</code></p>
+      </div>
+      <span id="state" class="pill">connecting…</span>
+      <a class="back" href="/">Play the game</a>
+    </header>
+
+    <main>
+      <section class="card" id="run" aria-labelledby="run-h">
+        <div class="card-head">
+          <h2 id="run-h">Run the tuner</h2>
+          <p id="run-summary" class="muted"></p>
+        </div>
+
+        <div class="run-grid">
+          <div class="field">
+            <span class="label">Search effort</span>
+            <div id="efforts" class="seg" role="radiogroup" aria-label="Search effort"></div>
+            <label class="check"><input type="checkbox" id="use-time" /> Fit the effort to <input type="number" id="minutes" min="1" max="1440" step="1" value="30" aria-label="Minutes" /> minutes</label>
+          </div>
+          <div class="field">
+            <span class="label">Levels</span>
+            <p class="hint">Pick levels in the Levels table below.</p>
+            <label class="check"><input type="checkbox" id="fresh" /> Re-tune selected levels even when they're up to date</label>
+          </div>
+        </div>
+
+        <div class="command">
+          <code id="command"></code>
+          <button type="button" class="ghost small" id="copy">Copy</button>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="ghost" id="estimate">Estimate time</button>
+          <button type="button" class="primary" id="start">Start tuning</button>
+          <button type="button" class="danger" id="stop" hidden>Stop</button>
+        </div>
+
+        <div id="progress" class="progress" hidden>
+          <div class="bar"><i id="bar"></i></div>
+          <div class="progress-text">
+            <strong id="p-label"></strong>
+            <span id="p-detail" class="muted"></span>
+            <span id="p-stats" class="mono"></span>
+          </div>
+        </div>
+
+        <details id="log-box">
+          <summary>Output</summary>
+          <pre id="log" class="log"></pre>
+        </details>
+      </section>
+
+      <section class="card" id="difficulty" aria-labelledby="diff-h">
+        <div class="card-head">
+          <h2 id="diff-h">Difficulty</h2>
+          <p class="muted">
+            How much room players get. For every level the tuner finds the cheapest design that crosses safely, the <em>best design</em>; few players match it. The star target
+            and the budget are set a percentage above that cost: <strong>more room is easier</strong>. Some levels get more room than their setting, because the star
+            target never drops below the hand-made design's cost and the budget always covers it with spare (bottom of this panel). The ratings use the room levels really
+            get. Saving recalculates every level at once, with no new search.
+          </p>
+          <dl id="scales" class="scales"></dl>
+        </div>
+        <div id="chapters" class="chapters"></div>
+        <figure class="curve">
+          <figcaption>
+            <span><b>Difficulty curve</b> <span class="muted">· room over the best design, every level in play order. Lower is harder.</span></span>
+            <span id="curve-legend" class="legend"></span>
+          </figcaption>
+          <div id="curve" class="curve-plot"></div>
+        </figure>
+        <div class="seed">
+          <label for="seed-room">The budget always covers the hand-made design (the intended answer) plus</label>
+          <input type="range" id="seed-range" min="0" max="100" step="1" aria-label="Budget room over the hand-made design, percent" />
+          <span class="pct"><input type="number" id="seed-room" min="0" max="300" step="1" />%</span>
+        </div>
+        <div class="actions">
+          <span id="diff-summary" class="muted"></span>
+          <button type="button" class="ghost" id="defaults">Defaults</button>
+          <button type="button" class="ghost" id="discard">Discard</button>
+          <button type="button" class="primary" id="save">Save difficulty</button>
+        </div>
+      </section>
+
+      <section class="card flush" aria-labelledby="levels-h">
+        <div class="card-head pad">
+          <h2 id="levels-h">Levels</h2>
+          <p class="muted">Pick levels to tune them; shift-click picks a range. Percentages are room over the best design. Changed numbers show as old → new until you save. Type a room to give one level its own; leave it blank to use its chapter's.</p>
+          <div class="pick" role="toolbar" aria-label="Pick levels">
+            <span class="label">Pick</span>
+            <button type="button" class="ghost small" data-select="all">All</button>
+            <button type="button" class="ghost small" data-select="none">None</button>
+            <button type="button" class="ghost small" data-select="needed">Needs tuning</button>
+            <span class="label">Last tuned at</span>
+            <span id="pick-efforts" class="row"></span>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="levels">
+            <thead>
+              <tr>
+                <th class="c-check"><span class="sr">Select</span></th>
+                <th>Level</th>
+                <th>Status</th>
+                <th class="num">Best design</th>
+                <th class="num">Hand-made</th>
+                <th class="num">Star target</th>
+                <th class="num">Budget</th>
+                <th>Bonus</th>
+                <th class="num" title="This level's star target room over its best design. Blank uses the chapter's.">Star room</th>
+                <th class="num" title="This level's budget room over its best design. Blank uses the chapter's.">Budget room</th>
+                <th class="num">Last run</th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast" role="status" hidden></div>
+    <script type="module" src="./page.ts"></script>
+  </body>
+</html>

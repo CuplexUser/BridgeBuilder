@@ -7,94 +7,32 @@
  *   --estimate           print the time each preset is expected to take, then stop
  *   --fresh              re-tune levels even when their inputs haven't changed
  *
- * Levels whose last result failed a check are always tuned again.
+ * Levels whose last result failed a check are always tuned again. The tuner page
+ * (`npm run tuner`) picks these options visually and runs this script for you.
  *
  * For each level it searches for the cheapest robust design (genetic search over the
  * level's structure grammar, then local polishing, plus the hand-made reference as a
  * seed), tries the level's tunable geometry until its intent holds, derives budget,
- * target and bonus goal, and writes src/levels.tuned.json plus the designs and a
- * report under tools/tune/results. Finished levels are checkpointed, so an interrupted
- * run picks up where it stopped.
+ * target and bonus goal from the difficulty settings, and saves it all to src/levels.res,
+ * with readable copies under tools/tune/results. Finished levels are saved right away, so
+ * an interrupted run picks up where it stopped.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { chapterOf, levelCode } from '../../src/chapters';
 import { Design } from '../../src/design';
-import { applyTuning, BASE_LEVELS, TUNED, type BonusGoal, type LevelBase, type LevelDef, type Tuned } from '../../src/levels';
+import { applyTuning, BASE_LEVELS, type BonusGoal, type LevelBase, type LevelDef, type Tuned } from '../../src/levels';
 import { MATERIALS, type MaterialId } from '../../src/physics/materials';
 import { bonusMet, SAFE_STRESS } from '../../src/scoring';
+import { deriveNumbers, PEAK_CAP } from './difficulty';
+import { DEFAULT_EFFORT, EFFORTS, type Effort } from './efforts';
+import { bonusText, pct, usd, writeReadable } from './exports';
 import { levelFingerprint } from './fingerprint';
 import { grammarFor } from './genome';
 import { handSeed, INTENTS, paramCombos, type Intent, type Params, type Shape } from './intents';
+import { readResource, writeResource } from './levelres.mjs';
 import { Pool } from './pool';
 import { Progress, clock } from './progress';
 import { calmest, cheapest, DOWNGRADE, evolve, fewest, polish, room, UPGRADE, type Found, type Objective } from './search';
-
-/** Peak stress the reference design may reach: a little margin below breaking. */
-const PEAK_CAP = 0.92;
-/**
- * Target = best cost × this, by chapter: roomier early on, tighter at the end. The best cost is
- * what a genetic search finds, which people rarely match, so these leave real room.
- */
-const TARGET_SLACK = [1.3, 1.27, 1.25, 1.22, 1.2, 1.18, 1.25];
-/** Budget = best cost × this, by chapter. */
-const MONEY_SLACK = [2.0, 1.9, 1.8, 1.7, 1.6, 1.55, 1.75];
-/** The hand-made design always fits the budget, with this much to spare, and always earns the cost star. */
-const SEED_SLACK = 1.35;
-
-interface Effort {
-  population: number;
-  generations: number;
-  patience: number;
-  restarts: number;
-  polishRounds: number;
-  /** Share of the reference search's size given to each side search (bonus, requires). */
-  side: number;
-}
-
-const EFFORTS: Record<string, Effort> = {
-  quick: { population: 32, generations: 40, patience: 12, restarts: 1, polishRounds: 25, side: 0.5 },
-  normal: { population: 48, generations: 100, patience: 25, restarts: 3, polishRounds: 60, side: 0.5 },
-  thorough: { population: 64, generations: 200, patience: 40, restarts: 5, polishRounds: 100, side: 0.6 },
-  max: { population: 96, generations: 400, patience: 80, restarts: 8, polishRounds: 200, side: 0.75 },
-};
-
-interface Summary {
-  cost: number;
-  peak: number;
-  parts: number;
-  crossed: boolean;
-  reason: string;
-}
-
-export interface LevelResult {
-  id: number;
-  fingerprint: string;
-  effort: string;
-  ok: boolean;
-  /** Why the level's geometry or numbers can't be trusted; empty when ok. */
-  notes: string[];
-  /** Smaller problems that don't reject a geometry, like a bonus goal nothing proved. */
-  warnings?: string[];
-  params: Params;
-  geometry: Shape;
-  money: number;
-  target: number;
-  bonus: BonusGoal;
-  reference: Summary & { design: string; from: string };
-  bonusDesign: (Summary & { design: string }) | null;
-  seed: Summary | null;
-  room: { pass: number; total: number } | null;
-  requires: { mat: MaterialId; best: Summary | null; ok: boolean }[];
-  shortcuts: { name: string; result: Summary; ok: boolean }[];
-  combosTried: number;
-  seconds: number;
-}
-
-const HERE = fileURLToPath(new URL('.', import.meta.url));
-const RESULTS = `${HERE}results`;
-const STATE = `${RESULTS}/state.json`;
-const TUNED_FILE = fileURLToPath(new URL('../../src/levels.tuned.json', import.meta.url));
+import type { LevelResult, Summary } from './types';
 
 // ───────────────────────────── CLI ─────────────────────────────
 
@@ -106,20 +44,27 @@ const flag = (name: string) => process.argv.includes(`--${name}`);
 
 const wanted = arg('levels')?.split(',').map(Number);
 const levels = BASE_LEVELS.filter((l) => !wanted || wanted.includes(l.id));
-const state: Record<string, LevelResult> = existsSync(STATE) ? JSON.parse(readFileSync(STATE, 'utf8')) : {};
+const resource = readResource();
+const state = resource.results;
+const difficulty = resource.difficulty;
+/** Run from the tuner page: status goes to it as messages, and it can ask the run to stop. */
+const ipc = typeof process.send === 'function';
+// The message channel mustn't keep the tuner alive once its work is done.
+process.channel?.unref();
 // A level is done when its last result worked and its inputs haven't changed since.
 const todo = levels.filter((l) => flag('fresh') || !state[l.id]?.ok || state[l.id].fingerprint !== levelFingerprint(l.id));
 
 const pool = new Pool();
 const progress = new Progress();
 
-let effortName = arg('effort') ?? 'normal';
+let effortName = arg('effort') ?? DEFAULT_EFFORT;
 if (!EFFORTS[effortName]) throw new Error(`Unknown effort "${effortName}". Use ${Object.keys(EFFORTS).join(', ')}.`);
 
 if (flag('estimate') || arg('time')) {
   const rate = await calibrate();
   const est = (name: string) => todo.reduce((s, l) => s + plannedUnits(l, EFFORTS[name]), 0) / rate;
   console.log(`${todo.length} level(s) to tune, ${pool.size} workers, about ${rate.toFixed(0)} simulations/s.`);
+  if (ipc) process.send!({ type: 'estimate', estimate: { levels: todo.length, rate, efforts: Object.fromEntries(Object.keys(EFFORTS).map((n) => [n, est(n)])) } });
   // Searches stop early and repeat designs come from the cache, so planned work is an upper bound.
   for (const name of Object.keys(EFFORTS)) console.log(`  ${name.padEnd(9)} up to ${clock(est(name))}, likely about ${clock(est(name) * 0.4)}`);
   if (flag('estimate')) {
@@ -134,10 +79,14 @@ if (flag('estimate') || arg('time')) {
 const effort = EFFORTS[effortName];
 pool.onResult = () => progress.tick();
 
-process.on('SIGINT', () => {
+function interrupt(): void {
   progress.log('Interrupted: finished levels are saved; run again to continue.');
   writeOutputs();
   process.exit(130);
+}
+process.on('SIGINT', interrupt);
+process.on('message', (m) => {
+  if (m === 'stop') interrupt();
 });
 
 if (!todo.length) console.log('Every selected level is already tuned for its current inputs. Use --fresh to tune again.');
@@ -175,7 +124,7 @@ function plannedUnits(base: LevelBase, e: Effort): number {
 /** Measures how many simulations per second this machine manages, on every level's hand-made design. */
 async function calibrate(): Promise<number> {
   const runs = BASE_LEVELS.flatMap((b) => {
-    const level = applyTuning(b, TUNED.levels[b.id]);
+    const level = applyTuning(b, resource.levels[b.id]);
     const seed = handSeed(level);
     return seed ? [{ level, seed }] : [];
   });
@@ -187,14 +136,13 @@ async function calibrate(): Promise<number> {
   return (runs.length * 2) / Math.max(0.1, (Date.now() - t) / 1000);
 }
 
-function summary(o: { cost: number; peak: number; parts: number; crossed: boolean; reason: string }): Summary {
-  return { cost: o.cost, peak: Math.round(o.peak * 1000) / 1000, parts: o.parts, crossed: o.crossed, reason: o.reason };
+function summary(o: { cost: number; peak: number; parts: number; crossed: boolean; reason: string; valid: boolean; broken: boolean }): Summary {
+  return { cost: o.cost, peak: Math.round(o.peak * 1000) / 1000, parts: o.parts, crossed: o.crossed, reason: o.reason, valid: o.valid, broken: o.broken };
 }
 
 async function tuneLevel(base: LevelBase, intent: Intent): Promise<LevelResult> {
-  const current = TUNED.levels[base.id];
-  // Chapters past the end of the slack tables use their last entries.
-  const ch = Math.min(chapterOf(base.id).id - 1, TARGET_SLACK.length - 1, MONEY_SLACK.length - 1);
+  const current = resource.levels[base.id];
+  const ch = chapterOf(base.id).id - 1;
   const combos = paramCombos(intent);
   let fallback: LevelResult | null = null;
   // A geometry that works but whose bonus nothing proved is kept unless a later one does better.
@@ -263,10 +211,7 @@ async function tryGeometry(base: LevelBase, intent: Intent, current: Tuned, ch: 
   }
 
   // Numbers.
-  const handOk = !!seed?.crossed && seed.peak < 1;
-  const target = Math.max(ceilTo(ref.outcome.cost * TARGET_SLACK[ch], 250), handOk ? ceilTo(seed!.cost, 250) : 0);
-  let money = Math.max(roundTo(ref.outcome.cost * MONEY_SLACK[ch], 500), target + 1000);
-  if (handOk) money = Math.max(money, ceilTo(seed!.cost * SEED_SLACK, 500));
+  const { money, target } = deriveNumbers(difficulty, ch, base.id, ref.outcome.cost, seed);
   const tuned = applyTuning(base, { money, target, bonus: current.bonus, geometry: { ...current.geometry, ...geometry } });
 
   // The level's idea must be needed: without each required material, nothing affordable crosses.
@@ -316,6 +261,8 @@ async function tryGeometry(base: LevelBase, intent: Intent, current: Tuned, ch: 
     money,
     target,
     bonus: bonus.goal ?? current.bonus,
+    checkedMoney: money,
+    bonusSearched: notes.length === 0,
     reference: { ...summary(ref.outcome), design: ref.design.serialize(), from: top.from },
     bonusDesign: bonus.proof ? { ...summary(bonus.proof.outcome), design: bonus.proof.design.serialize() } : null,
     seed,
@@ -444,66 +391,25 @@ function emptyResult(base: LevelBase, params: Params, geometry: Shape, current: 
 
 // ───────────────────────────── Output ─────────────────────────────
 
+/** Saves the results so far into src/levels.res and refreshes the readable copies. */
 function writeOutputs(): void {
-  mkdirSync(RESULTS, { recursive: true });
-  writeFileSync(STATE, `${JSON.stringify(state, null, 1)}\n`);
   // Only results with a working reference replace the level's numbers.
-  const tunedOut: { levels: Record<string, Tuned & { fingerprint?: string }> } = { levels: {} };
-  const designs: Record<string, { reference: string; bonus: string | null }> = {};
   for (const base of BASE_LEVELS) {
     const r = state[base.id];
-    const old = TUNED.levels[base.id] as Tuned & { fingerprint?: string };
-    if (r?.reference.design) {
-      tunedOut.levels[base.id] = {
-        money: r.money,
-        target: r.target,
-        bonus: r.bonus,
-        ...(Object.keys(r.geometry).length ? { geometry: r.geometry } : {}),
-        fingerprint: r.fingerprint,
-      };
-      designs[base.id] = { reference: r.reference.design, bonus: r.bonusDesign?.design ?? null };
-    } else tunedOut.levels[base.id] = old;
+    if (!r?.reference.design) continue;
+    resource.levels[base.id] = {
+      money: r.money,
+      target: r.target,
+      bonus: r.bonus,
+      ...(Object.keys(r.geometry).length ? { geometry: r.geometry } : {}),
+      fingerprint: r.fingerprint,
+    };
   }
-  writeFileSync(TUNED_FILE, `${JSON.stringify(tunedOut, null, 2)}\n`);
-  writeFileSync(`${RESULTS}/designs.json`, `${JSON.stringify(designs, null, 1)}\n`);
-  writeFileSync(`${RESULTS}/report.md`, report());
-}
-
-function report(): string {
-  const rows = BASE_LEVELS.map((b) => {
-    const r = state[b.id];
-    if (!r) return `| ${levelCode(b.id)} | ${b.name} | not tuned | | | | | | |`;
-    const req = r.requires.map((q) => `${q.ok ? '✓' : '✗'} ${q.mat}`).join(', ');
-    const cuts = r.shortcuts.map((s) => (s.ok ? '✓' : '✗')).join('');
-    const roomText = r.room ? `${r.room.pass}/${r.room.total}` : '';
-    const params = Object.keys(r.params).length ? JSON.stringify(r.params) : '';
-    return `| ${levelCode(b.id)} | ${b.name} | ${r.ok ? ['✓', ...(r.warnings ?? [])].join(' ') : `✗ ${r.notes.join('; ')}`} | ${usd(r.reference.cost)} (${pct(r.reference.peak)}) | ${r.seed ? usd(r.seed.cost) : ''} | ${usd(r.target)} | ${usd(r.money)} | ${bonusText(r.bonus)} | ${[req, cuts && `shortcuts ${cuts}`, roomText && `room ${roomText}`, params].filter(Boolean).join('; ')} |`;
-  });
-  return [
-    '# Level tuning report',
-    '',
-    'Generated by `npm run tune`. Reference: the cheapest design found that crosses with peak stress at or below',
-    `${pct(PEAK_CAP)}. Hand: the hand-made design in src/solutions.ts. Target and budget follow from the reference.`,
-    '',
-    '| Level | Name | OK | Reference | Hand | Target | Budget | Bonus | Checks |',
-    '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
-    ...rows,
-    '',
-  ].join('\n');
+  writeResource(resource);
+  writeReadable(resource);
+  if (ipc) process.send!({ type: 'saved' });
 }
 
 function ceilTo(v: number, step: number): number {
   return Math.ceil(v / step) * step;
-}
-function roundTo(v: number, step: number): number {
-  return Math.round(v / step) * step;
-}
-function usd(v: number): string {
-  return `$${Math.round(v).toLocaleString('en-US')}`;
-}
-function pct(v: number): string {
-  return `${Math.round(v * 100)}%`;
-}
-function bonusText(b: BonusGoal): string {
-  return b.kind === 'without' ? `no ${b.mat}` : b.kind === 'stress' ? `stress < ${pct(b.max)}` : b.kind === 'parts' ? `≤ ${b.max} parts` : `≤ ${usd(b.max)}`;
 }

@@ -1,0 +1,2 @@
+# Packed level resource: never diff or convert line endings.
+*.res binary

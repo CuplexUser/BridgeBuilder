@@ -6,7 +6,7 @@ There are 35 levels in seven chapters that get harder as you go: from a 4 m broo
 
 ## Run
 
-Requires Node 22.13+ (it uses the built-in `node:sqlite`).
+Requires Node 22.15+ (it uses the built-in `node:sqlite` and `module.registerHooks`).
 
 ```sh
 npm install
@@ -15,7 +15,9 @@ npm test         # physics, editor, scoring and storage tests
 npm run lint     # Oxlint
 npm run build    # static build in dist/
 npm start        # production: serves dist/ + the SQLite API on :3000
-npm run tune     # level optimizer: tunes budgets, targets, bonus goals and marked geometry
+npm run tuner    # tuner page: pick levels and effort, run the optimizer, edit the difficulty
+npm run tune     # level optimizer from the command line: tunes budgets, targets, bonus goals and marked geometry
+npm run tune:unpack  # readable JSON copies of src/levels.res in tools/tune/results
 ```
 
 `npm start` reads `PORT` (default 3000) and `DB_FILE` (default `data/bridgebuilder.db`). Add `?debug` to the URL for an FPS counter.
@@ -101,7 +103,7 @@ Chapter 7 adds four mechanics, which levels can mix:
 ## How it works
 
 - `src/physics/world.ts` is a small-step XPBD solver. Members are compliant distance constraints; a ram's rest length follows the drawbridge's opening. Stress is axial force over the member's capacity; compression capacity falls off with length, like buckling. A member breaks when its smoothed stress reaches 100%. Consecutive heavy-deck pieces also get a bending constraint that yields past a small force, like a hinge, so a heavy deck shares load between hangers but can't bridge a gap by bending alone. Each vehicle is a few particles in the same world, and its wheel contacts push load into the road members' nodes. The drawbridge timeline (open, ship, close, drive) and the ship's collision check live in `TestRun`. A deck piece that a vehicle over its weight rating touches is driven to breaking stress within a few frames.
-- `src/levels.ts` defines each level as authored: geometry, vehicle, materials, tip. Its budget, target and bonus goal, plus any geometry the optimizer was allowed to adjust, come from `src/levels.tuned.json` (see below). `src/chapters.ts` groups levels into chapters and holds the unlock rules. Level ids are stable, and chapters list them in play order, so saved progress survives reordering.
+- `src/levels.ts` defines each level as authored: geometry, vehicle, materials, tip. Its budget, target and bonus goal, plus any geometry the optimizer was allowed to adjust, come from `src/levels.res` (see below). `src/chapters.ts` groups levels into chapters and holds the unlock rules. Level ids are stable, and chapters list them in play order, so saved progress survives reordering.
 - `src/maker.ts` is the level editor's logic: editing a `LevelDef` in place, checking it can be played, and reading and writing it as JSON. `src/brief.ts` writes the level briefing and judges the bonus goal live. `src/physics/stresslog.ts` samples every member's stress ten times a second during a test drive, for the stress graph (`src/ui/graph.ts`).
 - `src/rules.ts` holds the build rules (reach, bounds, channels, overlaps, budget). The editor, the tests and the optimizer all check designs with it.
 - `src/solutions.ts` holds a hand-made design per level: the intended answer. The optimizer starts from it, and budgets always leave room for it.
@@ -114,13 +116,25 @@ Chapter 7 adds four mechanics, which levels can mix:
 `npm run tune` is an offline optimizer (`tools/tune/`) that decides each level's numbers, so they follow from what can actually be built rather than from guesswork:
 
 1. **Search.** For each level it looks for the cheapest design that crosses with peak stress at or below 92% and without breaking a single member. A genetic algorithm searches a structure grammar built from the level's geometry: deck spans, trusses over or under them, struts, posts and trestles from low anchors, hangers from high anchors, and sagging main cables between them. On drawbridge levels a support may be a ram. Each result, and the hand-made design, is then polished by local search that removes members and swaps materials one at a time.
-2. **Numbers.** The target is the best cost times a slack that shrinks by chapter (×1.3 down to ×1.18), and never less than what the hand-made design costs, so the intended answer earns the cost star. The budget is the best cost times ×2.0 down to ×1.55, at least $1,000 over the target, and never less than the hand-made design plus 35%. The search's best is hard for a person to match, so both leave real room.
+2. **Numbers.** The target is the best cost times a slack that shrinks by chapter (by default ×1.3 down to ×1.18), and never less than what the hand-made design costs, so the intended answer earns the cost star. The budget is the best cost times ×2.0 down to ×1.55, at least $1,000 over the target, and never less than the hand-made design plus 35%. The search's best is hard for a person to match, so both leave real room. These slacks are the difficulty settings (see below).
 3. **Bonus goal.** It keeps the level's current kind of goal if it can: a stress cap the reference misses, a material the level can do without, or a parts cap. Each search also starts from the reference itself: upgraded member by member for a stress cap, stripped for a parts cap, or with the banned material swapped for its neighbor. Each goal comes with a design proving it can be met. A geometry whose bonus nothing proves is still usable; the optimizer only prefers another one that has both.
 4. **Intent.** `tools/tune/intents.ts` says what each level is about. `requires` names materials the level is built around: the best design without them must fail or blow the budget, which is how the cable levels keep their cables. `shortcuts` are specific designs that must fail. `minRoom` asks that enough one-step variations of the best design still cross, so there's more than one way over. `params` and `shape` mark geometry the optimizer may change. Level 30's channel clearance, pylon positions and pylon heights are tried in order of preference until everything holds.
 
-Options: `--levels 7,30` tunes only those levels. `--effort quick|normal|thorough|max` trades time for search depth (the default is `normal`). `--time <minutes>` measures this machine and picks the most thorough effort expected to fit. `--estimate` just prints how long each effort would take. A live status line shows the stage, simulations per second, elapsed time and time left.
+### Running it
 
-It runs designs in parallel on worker threads and restarts any worker that crashes or hangs. Every finished level is saved to `tools/tune/results/state.json` right away. An interrupted run continues where it stopped, and a level is only re-tuned when its inputs change (`--fresh` forces it). The results go to `src/levels.tuned.json`, `tools/tune/results/designs.json` (the proof designs the tests drive) and `tools/tune/results/report.md`. Bump `PHYSICS_VERSION` in `src/physics/world.ts` when a change alters how bridges behave; the tests then report every level as stale until it's tuned again.
+`npm run tuner` opens the tuner page on the dev server (`/tuner`; it is never part of a build). It lists every level with its status (tuned, stale, needs a re-tune), best and hand-made cost, star target, budget and bonus goal. Tick levels, pick an effort or a time budget, and start a run; the page shows progress, time left and the tuner's output live, can stop a run (finished levels are kept), and shows the matching command line.
+
+From the command line, `npm run tune` takes the same options. `--levels 7,30` tunes only those levels. `--effort quick|normal|thorough|max` trades time for search depth (the default is `normal`). `--time <minutes>` measures this machine and picks the most thorough effort expected to fit. `--estimate` just prints how long each effort would take. A live status line shows the stage, simulations per second, elapsed time and time left.
+
+It runs designs in parallel on worker threads and restarts any worker that crashes or hangs. Every finished level is saved right away. An interrupted run continues where it stopped, and a level is only re-tuned when its inputs change (`--fresh` forces it). Bump `PHYSICS_VERSION` in `src/physics/world.ts` when a change alters how bridges behave; the tests then report every level as stale until it's tuned again.
+
+### Difficulty
+
+The slacks are editable without touching code. On the tuner page they read as *room over the best design*: a star-target room of +30% means the star target is 30% above the cheapest design the search found, and more room is easier. Each chapter has a star-target and a budget room, each level can have its own in place of its chapter's, and there's the budget's spare over the hand-made design. Every chapter shows a rating in words (the cost star from Easy to Very hard, the budget from Generous to Tight, thresholds in `RATINGS` in `tools/tune/difficulty.ts`) from the room its levels really get, an example level in dollars, and a difficulty curve plots every level's room in play order. The page previews every level's new numbers as you drag. Saving re-derives all of them from the stored search results at once, with no new search, and re-checks each level's shortcuts against its new budget. A level whose checks no longer hold is marked for a re-tune. The "requires" checks reuse designs found under the old budget, so after a large budget increase it's worth re-tuning the cable levels with `--fresh`.
+
+### The level resource
+
+Everything the tuner decides lives in one committed file, `src/levels.res`: the difficulty, each level's numbers and tuned geometry, the proof designs the tests drive, and the full search results that resuming and re-deriving need. It's gzip-packed JSON (about 10 kB), marked binary in `.gitattributes`, so a tuning run is a one-file change instead of thousands of JSON lines. A Vite plugin (`vite.config.ts`) and a Node loader hook (`tools/tune/res-register.mjs`) both import it as a module; the game only uses the numbers, and the build tree-shakes the rest away. Readable copies (`tuned.json`, `designs.json`, `state.json`, `difficulty.json`, `report.md`) are written to the git-ignored `tools/tune/results/` whenever the resource changes; `npm run tune:unpack` regenerates them after a pull.
 
 ## Chapters, scoring and leaderboards
 

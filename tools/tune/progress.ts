@@ -14,6 +14,8 @@ export class Progress {
   private detail = '';
   private sims = 0;
   private readonly tty = process.stdout.isTTY === true;
+  /** Run from the tuner page, which shows the status itself. */
+  private readonly ipc = typeof process.send === 'function';
 
   /** Adds planned work, e.g. when a level starts or has to try more geometry. */
   plan(units: number): void {
@@ -69,18 +71,32 @@ export class Progress {
     return (t / this.done) * Math.max(0, this.total - this.done);
   }
 
-  status(): string {
-    const pct = this.total ? Math.min(100, (this.done / this.total) * 100) : 0;
+  /** The status as numbers: share done (0–100), stage, detail, simulations per second, seconds elapsed and left. */
+  snapshot(): { pct: number; label: string; detail: string; rate: number; elapsed: number; eta: number | null } {
     const t = this.elapsed();
-    const rate = t > 0 ? this.sims / t : 0;
-    const eta = this.eta();
-    const parts = [`[${pct.toFixed(1).padStart(5)}%]`, this.label, this.detail, `${rate.toFixed(0)} sims/s`, `elapsed ${clock(t)}`, `left ${eta === null ? '…' : clock(eta)}`];
+    return {
+      pct: this.total ? Math.min(100, (this.done / this.total) * 100) : 0,
+      label: this.label,
+      detail: this.detail,
+      rate: t > 0 ? this.sims / t : 0,
+      elapsed: t,
+      eta: this.eta(),
+    };
+  }
+
+  status(): string {
+    const { pct, label, detail, rate, elapsed, eta } = this.snapshot();
+    const parts = [`[${pct.toFixed(1).padStart(5)}%]`, label, detail, `${rate.toFixed(0)} sims/s`, `elapsed ${clock(elapsed)}`, `left ${eta === null ? '…' : clock(eta)}`];
     return parts.filter(Boolean).join(' · ');
   }
 
   private draw(force = false): void {
     const now = Date.now();
-    if (this.tty) {
+    if (this.ipc) {
+      if (!force && now - this.lastDraw < 250) return;
+      this.lastDraw = now;
+      process.send!({ type: 'status', status: this.snapshot() });
+    } else if (this.tty) {
       if (!force && now - this.lastDraw < 250) return;
       this.lastDraw = now;
       const cols = process.stdout.columns || 120;

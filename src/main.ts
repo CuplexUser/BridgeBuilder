@@ -1,4 +1,3 @@
-import './style.css';
 import { Game } from './game';
 import { pickStore } from './storage';
 

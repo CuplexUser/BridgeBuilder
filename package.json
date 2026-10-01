@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "lint": "oxlint",
-    "tune": "node --import tsx tools/tune/tune.ts"
+    "tune": "node --import tsx --import ./tools/tune/res-register.mjs tools/tune/tune.ts",
+    "tune:unpack": "node --import tsx --import ./tools/tune/res-register.mjs tools/tune/unpack.ts",
+    "tuner": "vite --open /tuner"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",
@@ -21,6 +23,6 @@
     "vitest": "^5.0.2"
   },
   "engines": {
-    "node": ">=22.13"
+    "node": ">=22.15"
   }
 }

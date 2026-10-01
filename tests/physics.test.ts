@@ -5,7 +5,7 @@ import { MATERIALS } from '../src/physics/materials';
 import { VEHICLES } from '../src/physics/vehicles';
 import { TestRun, World } from '../src/physics/world';
 import { deck, prattAbove, roadRun, SOLUTIONS, trussOver, type TrussMats } from '../src/solutions';
-import designs from '../tools/tune/results/designs.json';
+import { designs } from '../src/levels.res';
 
 function drive(design: Design, levelIdx: number, seconds = 25) {
   const run = new TestRun(design, LEVELS[levelIdx]);
