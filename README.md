@@ -47,11 +47,28 @@ The profile screen tells you which storage is in use. The last-used profile resu
 | Undo / redo | Toolbar | Z / Y (or Ctrl+Z / Ctrl+Y) |
 | Test / back to edit | TEST button | T |
 | Zoom / pan | Wheel, pinch, drag empty space | F refits |
+| Goals and rules | ⓘ button, or tap the ✦ goal under the level name | I |
+| Stress graph after a test | Link on the result or collapse screen; tap the graph or a member | G, ←/→ to step, Esc back |
 | Pause | II button | P / Esc |
-| Menus | Buttons | Title: Enter continue, C chapters, H leaderboards. Chapters: 1–7. Chapter: 1–5 plays a level. Leaderboards: ←/→ tabs, 1–7 chapter. |
+| Menus | Buttons | Title: Enter continue, C chapters, H leaderboards, L level editor. Chapters: 1–7. Chapter: 1–5 plays a level. Leaderboards: ←/→ tabs, 1–7 chapter. |
 | Mute | Speaker button | M |
 
 Members can cross each other (X-bracing), but they can't lie along an existing member. For example, a wood beam can't run on top of the road.
+
+**Briefing.** Every level opens with a briefing card: who crosses and how far, the level's tip, the three stars (cross, build under the target, keep peak stress below 75%), the bonus goal and what it means, and any special rules such as a drawbridge, a convoy, toll bolts, part limits, or a deck too weak for the vehicle. The ⓘ button or I brings it back while you build. The bonus goal also sits under the level name and is checked live where it can be: ✓ or ✗ for cost, parts and banned materials as you build (with your current part count), while a stress goal is judged on the test drive.
+
+**Stress graph.** After a test, *See the stress graph* (G) docks a graph under the bridge: the busiest member's load over the whole run, colored by stress, with the 75% safety line, the 100% breaking line, a mark for every break and the drawbridge phases shaded. It opens at the worst moment. Tap or drag across the graph to find the busiest member at any moment, ringed on the bridge (a broken one is shown dashed where it stood), or tap a member to follow its own load as a dashed curve.
+
+## Level editor
+
+**L** on the title screen opens the level editor. Make a new level or edit one of yours:
+
+- **Tools** (1–5): *Bolt* adds or removes a bolt, *Pier* stands a pier under a bolt in the gap, *Pylon* raises a lattice pylon with a bolt on top, *Channel* marks a ship channel by dragging across the gap (it stays clear up to the height you start at), and *Erase* removes whatever is under the tap. The cursor says what a tap will do before you tap. Z and Y undo and redo.
+- **Settings** (S): name and tip, the gap's width, far bank height and water level, the vehicle and up to three more behind it, a tall ship's mast height for a drawbridge, the materials on offer and any part limits, budget, star target, toll per bolt, the bonus goal and the scene for the test drive.
+- **Playtest** (P) plays it like any level, with the briefing, scoring and stress graph, but nothing goes on your career or the leaderboards. The header says what still stops a level from being played, such as a drawbridge with no rams on offer.
+- **Export** shows the level as JSON to copy or download, and **Import** reads one back from pasted text or a `.json` file. The format is the game's own `LevelDef` (`src/levels.ts`), so a built-in level copied from the source imports too. Everything is checked and clamped on the way in.
+
+Custom levels and the last bridge built on each are kept in this browser's local storage.
 
 ## Materials
 
@@ -85,6 +102,7 @@ Chapter 7 adds four mechanics, which levels can mix:
 
 - `src/physics/world.ts` is a small-step XPBD solver. Members are compliant distance constraints; a ram's rest length follows the drawbridge's opening. Stress is axial force over the member's capacity; compression capacity falls off with length, like buckling. A member breaks when its smoothed stress reaches 100%. Consecutive heavy-deck pieces also get a bending constraint that yields past a small force, like a hinge, so a heavy deck shares load between hangers but can't bridge a gap by bending alone. Each vehicle is a few particles in the same world, and its wheel contacts push load into the road members' nodes. The drawbridge timeline (open, ship, close, drive) and the ship's collision check live in `TestRun`. A deck piece that a vehicle over its weight rating touches is driven to breaking stress within a few frames.
 - `src/levels.ts` defines each level as authored: geometry, vehicle, materials, tip. Its budget, target and bonus goal, plus any geometry the optimizer was allowed to adjust, come from `src/levels.tuned.json` (see below). `src/chapters.ts` groups levels into chapters and holds the unlock rules. Level ids are stable, and chapters list them in play order, so saved progress survives reordering.
+- `src/maker.ts` is the level editor's logic: editing a `LevelDef` in place, checking it can be played, and reading and writing it as JSON. `src/brief.ts` writes the level briefing and judges the bonus goal live. `src/physics/stresslog.ts` samples every member's stress ten times a second during a test drive, for the stress graph (`src/ui/graph.ts`).
 - `src/rules.ts` holds the build rules (reach, bounds, channels, overlaps, budget). The editor, the tests and the optimizer all check designs with it.
 - `src/solutions.ts` holds a hand-made design per level: the intended answer. The optimizer starts from it, and budgets always leave room for it.
 - `tests/tuning.test.ts` drives the real vehicle over every level's tuned reference and bonus designs and over the hand-made ones, checks each level's shortcuts still fail, and fails when a level's tuning is stale. `tests/physics.test.ts` covers the solver itself: bending, weight ratings, stability, cables, and that a bare heavy deck crosses no level.

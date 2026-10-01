@@ -232,7 +232,7 @@ export class LocalStore implements Store {
   }
 }
 
-function safeLocalStorage(): KeyValue | null {
+export function safeLocalStorage(): KeyValue | null {
   try {
     return typeof localStorage === 'undefined' ? null : localStorage;
   } catch {

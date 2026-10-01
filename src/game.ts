@@ -1,13 +1,31 @@
 import { sfx } from './audio';
+import { bonusStatus } from './brief';
+import {
+  addChannel,
+  blankLevel,
+  eraseAt,
+  exportLevel,
+  isCustom,
+  loadCustom,
+  makerIssues,
+  nextCustomId,
+  parseLevel,
+  saveCustom,
+  toggleBolt,
+  togglePier,
+  togglePylon,
+  type CustomSave,
+  type MakerTool,
+} from './maker';
 import { Editor, money, type AttachPick } from './editor';
 import { DebrisField, Particles, PK, Shake } from './fx/particles';
 import { bankY, goalX, LEVELS, START_X, type LevelDef } from './levels';
-import { MATERIAL_ORDER, type MaterialId } from './physics/materials';
+import { MATERIAL_ORDER, MATERIALS, type MaterialId } from './physics/materials';
 import { STEP, TestRun } from './physics/world';
 import { Camera, type Rect } from './render/camera';
 import { MATERIAL_CHALK, PAL } from './render/palette';
-import { Renderer, type FloatText } from './render/renderer';
-import { THEMES, themeForChapter } from './render/themes';
+import { Renderer, type FloatText, type SceneView } from './render/renderer';
+import { THEMES, themeForChapter, type Theme } from './render/themes';
 import {
   chapterComplete,
   chapterOf,
@@ -25,15 +43,25 @@ import {
 import { bonusLabel, scoreLevel, type LevelScore } from './scoring';
 import { bestPerLevel, blankProgress, loadPrefs, rankProfiles, savePrefs, type Prefs, type Profile, type Progress, type Store } from './storage';
 import { SOLUTIONS } from './solutions';
+import { StressGraph, type GraphPick } from './ui/graph';
+import { MAKER_TOOLS, MakerUi } from './ui/makerui';
 import { Ui } from './ui/ui';
 
-type State = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'build' | 'test' | 'result' | 'collapse' | 'over';
+type State = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'workshop' | 'maker' | 'build' | 'test' | 'result' | 'collapse' | 'over';
 export type Board = 'career' | 'chapter' | 'levels' | 'challenge';
 
 const MAX_LIVES = 5;
 const START_LIVES = 3;
 const RESULT_DELAY = 1.5;
 const COLLAPSE_DELAY = 1.7;
+
+/** The level editor's bolt preview never places members, so it ignores editor events. */
+const NO_EVENTS = { place() {}, remove() {}, invalid() {} };
+
+/** A load ratio as a whole percentage. */
+function pct(v: number): string {
+  return `${Math.round(v * 100)}%`;
+}
 
 interface PointerInfo {
   x: number;
@@ -59,8 +87,30 @@ export class Game {
 
   private state: State = 'title';
   private paused = false;
-  /** Free play from the chapter screens, or a chapter challenge: its levels in a row, with lives. */
-  private mode: 'play' | 'challenge' = 'play';
+  /** The level briefing is open over the blueprint; building waits until it closes. */
+  private briefing = false;
+  /** The stress graph is docked over a finished run, with what it highlights. */
+  private graphOpen = false;
+  private pick: GraphPick | null = null;
+  private graph = new StressGraph(document.getElementById('stress-canvas') as HTMLCanvasElement);
+
+  // Level editor.
+  private makerUi = new MakerUi();
+  private custom: CustomSave = loadCustom();
+  /** The custom level being edited or played; built-in levels come from LEVELS. */
+  private customLevel: LevelDef | null = null;
+  private tool: MakerTool = 'bolt';
+  private makerUndo: string[] = [];
+  private makerRedo: string[] = [];
+  private makerHover: [number, number] | null = null;
+  private channelFrom: [number, number] | null = null;
+  /** Level being exported in the share dialog, or null when importing. */
+  private shareFor: LevelDef | null = null;
+  /**
+   * Free play from the chapter screens, a chapter challenge (its levels in a row, with lives), or a
+   * playtest of a custom level from the level editor, which never touches career progress.
+   */
+  private mode: 'play' | 'challenge' | 'custom' = 'play';
   private levelIdx = 0;
   /** Chapter shown on the chapter screen, and the one a challenge is running on. */
   private chapter: ChapterDef = CHAPTERS[0];
@@ -168,7 +218,17 @@ export class Game {
   }
 
   get level(): LevelDef {
-    return LEVELS[this.levelIdx];
+    return this.customLevel ?? LEVELS[this.levelIdx];
+  }
+
+  /** The level's code for the HUD, e.g. "3-2", or CUSTOM. */
+  private codeOf(level: LevelDef): string {
+    return isCustom(level.id) ? 'CUSTOM' : levelCode(level.id);
+  }
+
+  /** Built-in levels take their chapter's scene; custom levels pick one. */
+  private themeOf(level: LevelDef): Theme {
+    return isCustom(level.id) ? (THEMES.find((t) => t.id === level.theme) ?? THEMES[0]) : themeForChapter(chapterOf(level.id).id);
   }
 
   // ───────────────────────────── Flow ─────────────────────────────
@@ -183,8 +243,13 @@ export class Game {
   /** Stops whatever was being built or driven and brings the demo back behind the menus. */
   private leavePlay(): void {
     this.paused = false;
+    this.briefing = false;
+    this.hideGraph();
     this.stopEngine();
     this.editor = null;
+    this.customLevel = null;
+    this.channelFrom = null;
+    this.makerUi.show(false);
     this.run = null;
     this.ui.setPlaying(false);
     this.ui.hideToast();
@@ -248,18 +313,19 @@ export class Game {
   }
 
   private loadLevel(idx: number): void {
+    this.hideGraph();
     this.levelIdx = idx;
     const level = this.level;
     this.demo = null;
     this.run = null;
     this.paused = false;
     this.attempts = 0;
-    const saved = this.mode === 'play' ? this.data.designs[level.id] : undefined;
+    const saved = this.mode === 'play' ? this.data.designs[level.id] : this.mode === 'custom' ? this.custom.designs[level.id] : undefined;
     this.editor = new Editor(level, this.editorEvents(), saved);
     this.editor.cursorX = 0;
     this.editor.cursorY = 0;
     this.editor.setMaterial(level.materials[0]);
-    this.renderer.setTheme(themeForChapter(chapterOf(level.id).id));
+    this.renderer.setTheme(this.themeOf(level));
     this.state = 'build';
     this.developTarget = 0;
     this.develop = 0;
@@ -268,16 +334,477 @@ export class Game {
     this.floats.length = 0;
     this.ui.show(null);
     this.ui.setPlaying(true);
-    this.ui.setLevel(level, levelCode(level.id));
+    this.ui.setLevel(level, this.codeOf(level));
     this.ui.setTesting(false);
     this.refreshHud();
     this.fitCamera(true);
-    this.ui.showToast(level.tip, 4200);
+    this.ui.hideToast();
+    this.openBrief();
     sfx.whoosh();
+  }
+
+  /** Shows the level's goals and rules over the blueprint. Opens with every level, and on demand. */
+  private openBrief(): void {
+    if (this.state !== 'build' || !this.editor) return;
+    if (this.paused) this.setPaused(false);
+    this.editor.cancel();
+    this.briefing = true;
+    this.ui.brief(this.level, this.codeOf(this.level), this.mode === 'play' ? this.data.best[this.level.id] : undefined);
+  }
+
+  // ───────────────────────────── Level editor ─────────────────────────────
+
+  /** The list of custom levels. */
+  private enterWorkshop(): void {
+    this.leavePlay();
+    this.state = 'workshop';
+    this.makerUi.workshop(this.custom.levels);
+    this.ui.show('workshop');
+  }
+
+  /** Edits a custom level on the blueprint, with the settings panel beside it. */
+  private enterMaker(level: LevelDef): void {
+    this.leavePlay();
+    this.demo = null;
+    this.run = null;
+    this.mode = 'custom';
+    this.customLevel = level;
+    this.state = 'maker';
+    this.makerUndo = [];
+    this.makerRedo = [];
+    this.makerHover = null;
+    this.develop = this.developTarget = 0;
+    this.particles.clear();
+    this.debris.clear();
+    this.floats.length = 0;
+    this.renderer.setTheme(this.themeOf(level));
+    this.editor = new Editor(level, NO_EVENTS);
+    this.ui.show(null);
+    this.ui.setPlaying(false);
+    this.makerUi.show(true);
+    this.makerUi.setTool(this.tool);
+    this.makerUi.fill(level);
+    this.makerUi.setStatus(level);
+    this.fitMaker(true);
+  }
+
+  /** Records an undo step, applies a change to the level being edited, and saves. */
+  private makerChange(change: (l: LevelDef) => { ok: boolean; msg: string } | void, at?: [number, number]): void {
+    const l = this.customLevel;
+    if (!l || this.state !== 'maker') return;
+    const before = JSON.stringify(l);
+    const res = change(l);
+    if (res && at) this.float(at[0], at[1] + 0.6, res.msg, res.ok ? PAL.valid : PAL.bolt, 14);
+    if (res && !res.ok) {
+      sfx.invalid();
+      return;
+    }
+    if (JSON.stringify(l) === before) return;
+    this.makerUndo.push(before);
+    if (this.makerUndo.length > 100) this.makerUndo.shift();
+    this.makerRedo = [];
+    if (at) sfx.place('steel');
+    this.makerSaved(before);
+  }
+
+  /** After any edit: rebuild the bolts, refresh the panel and save the level list. */
+  private makerSaved(before: string): void {
+    const l = this.customLevel!;
+    const was = JSON.parse(before) as LevelDef;
+    this.editor = new Editor(l, NO_EVENTS);
+    this.makerUi.fill(l);
+    this.makerUi.setStatus(l);
+    this.renderer.setTheme(this.themeOf(l));
+    if (was.width !== l.width || was.waterY !== l.waterY || (was.rightY ?? 0) !== (l.rightY ?? 0)) this.fitMaker(false);
+    const i = this.custom.levels.findIndex((c) => c.id === l.id);
+    if (i >= 0) this.custom.levels[i] = l;
+    else this.custom.levels.push(l);
+    if (!saveCustom(this.custom)) this.ui.showToast('Could not save: this browser has no storage. Export the level to keep it.');
+  }
+
+  private makerHistory(dir: -1 | 1): void {
+    const l = this.customLevel;
+    if (!l || this.state !== 'maker') return;
+    const from = dir < 0 ? this.makerUndo : this.makerRedo;
+    const to = dir < 0 ? this.makerRedo : this.makerUndo;
+    const snap = from.pop();
+    if (!snap) {
+      sfx.invalid();
+      return;
+    }
+    const now = JSON.stringify(l);
+    to.push(now);
+    // Restore in place, so everything holding the level sees the change.
+    for (const k of Object.keys(l)) delete (l as unknown as Record<string, unknown>)[k];
+    Object.assign(l, JSON.parse(snap));
+    sfx.ui();
+    this.makerSaved(now);
+  }
+
+  /** What the current tool would do at a grid point, tried on a copy of the level. */
+  private toolPreview(x: number, y: number): { ok: boolean; msg: string } {
+    const copy = structuredClone(this.customLevel!);
+    if (this.tool === 'channel') {
+      if (!this.channelFrom) return { ok: true, msg: 'Drag across for a ship channel' };
+      return addChannel(copy, this.channelFrom[0], x, this.channelFrom[1]);
+    }
+    return this.applyTool(copy, x, y);
+  }
+
+  private applyTool(l: LevelDef, x: number, y: number): { ok: boolean; msg: string } {
+    switch (this.tool) {
+      case 'bolt':
+        return toggleBolt(l, x, y);
+      case 'pier':
+        return togglePier(l, x, y);
+      case 'pylon':
+        return togglePylon(l, x, y);
+      case 'erase':
+        return eraseAt(l, x, y);
+      case 'channel':
+        return { ok: false, msg: 'Drag across for a ship channel' };
+    }
+  }
+
+  private setTool(tool: MakerTool): void {
+    this.tool = tool;
+    this.channelFrom = null;
+    this.makerUi.setTool(tool);
+    sfx.ui();
+  }
+
+  /** Grid point under a screen position: whole meters. */
+  private snapAt(sx: number, sy: number): [number, number] {
+    const [wx, wy] = this.worldAt(sx, sy);
+    return [Math.round(wx), Math.round(wy)];
+  }
+
+  private makerPointerDown(e: PointerEvent): void {
+    if (e.button !== 0) return;
+    const p = this.snapAt(e.clientX, e.clientY);
+    this.makerHover = p;
+    if (this.tool === 'channel') {
+      this.channelFrom = p;
+      return;
+    }
+    this.makerChange((l) => this.applyTool(l, p[0], p[1]), p);
+  }
+
+  private makerPointerUp(e: PointerEvent): void {
+    const from = this.channelFrom;
+    if (!from) return;
+    this.channelFrom = null;
+    const p = this.snapAt(e.clientX, e.clientY);
+    this.makerChange((l) => addChannel(l, from[0], p[0], from[1]), [(from[0] + p[0]) / 2, from[1]]);
+  }
+
+  /** Frames the level beside the settings panel and between the editor's bars. */
+  private fitMaker(snap: boolean): void {
+    const l = this.customLevel;
+    if (!l || !this.editor) return;
+    const w = this.renderer.w;
+    const top = w < 560 ? 136 : 64;
+    const bottom = 86;
+    const right = w < 560 ? 0 : this.makerUi.panelWidth();
+    const rect = { x: 12, y: top, w: Math.max(120, w - 24 - right), h: Math.max(100, this.renderer.h - top - bottom) };
+    // Leave headroom above the banks for pylons.
+    this.cam.fit(-2.5, l.width + 2.5, l.waterY - 0.5, Math.max(this.editor.topY + 0.5, 10), rect, snap);
+  }
+
+  /** Plays a custom level: build, test and score it, with nothing saved to the career. */
+  private playCustom(level: LevelDef): void {
+    const issues = makerIssues(level);
+    if (issues.length) {
+      sfx.invalid();
+      this.ui.showToast(issues[0], 3200);
+      return;
+    }
+    this.leavePlay();
+    this.mode = 'custom';
+    this.customLevel = level;
+    this.loadLevel(this.levelIdx);
+  }
+
+  private openShare(level: LevelDef | null): void {
+    this.shareFor = level;
+    this.ui.show('share');
+    if (level) this.makerUi.share('export', exportLevel(level), level.name);
+    else this.makerUi.share('import');
+  }
+
+  private closeShare(): void {
+    this.ui.show(this.state === 'workshop' ? 'workshop' : null);
+  }
+
+  private importLevel(): void {
+    try {
+      const level = parseLevel(this.makerUi.shareText(), nextCustomId(this.custom.levels));
+      this.custom.levels.push(level);
+      saveCustom(this.custom);
+      sfx.select();
+      this.enterWorkshop();
+      this.ui.showToast(`Imported “${level.name}”.`);
+    } catch (err) {
+      sfx.invalid();
+      this.makerUi.shareError(err instanceof Error ? err.message : 'Could not read that level.');
+    }
+  }
+
+  private customById(el?: HTMLElement): LevelDef | undefined {
+    return this.custom.levels.find((l) => l.id === Number(el?.dataset.id));
+  }
+
+  /** Level editor buttons. */
+  private makerAct(a: string, el?: HTMLElement): void {
+    switch (a) {
+      case 'workshop':
+        sfx.ui();
+        this.enterWorkshop();
+        break;
+      case 'ws-new': {
+        sfx.select();
+        const l = blankLevel(nextCustomId(this.custom.levels));
+        this.custom.levels.push(l);
+        saveCustom(this.custom);
+        this.enterMaker(l);
+        break;
+      }
+      case 'ws-edit': {
+        const l = this.customById(el);
+        if (l) {
+          sfx.select();
+          this.enterMaker(l);
+        }
+        break;
+      }
+      case 'ws-play': {
+        const l = this.customById(el);
+        if (l) {
+          sfx.select();
+          this.playCustom(l);
+        }
+        break;
+      }
+      case 'ws-export':
+        sfx.ui();
+        this.openShare(this.customById(el) ?? null);
+        break;
+      case 'ws-import':
+        sfx.ui();
+        this.openShare(null);
+        break;
+      case 'ws-delete': {
+        const l = this.customById(el);
+        if (!l || !el || !this.makerUi.confirmDelete(el)) break;
+        sfx.remove();
+        this.custom.levels = this.custom.levels.filter((c) => c !== l);
+        delete this.custom.designs[l.id];
+        saveCustom(this.custom);
+        this.makerUi.workshop(this.custom.levels);
+        break;
+      }
+      case 'share-close':
+        sfx.ui();
+        this.closeShare();
+        break;
+      case 'share-copy':
+        void navigator.clipboard?.writeText(this.makerUi.shareText()).then(
+          () => this.ui.showToast('Copied to the clipboard.'),
+          () => this.ui.showToast('Could not copy. Select the text and copy it yourself.'),
+        );
+        break;
+      case 'share-download': {
+        const name = (this.shareFor?.name ?? 'level').replace(/[^\w-]+/g, '-').toLowerCase();
+        const url = URL.createObjectURL(new Blob([this.makerUi.shareText()], { type: 'application/json' }));
+        const link = Object.assign(document.createElement('a'), { href: url, download: `${name}.json` });
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        break;
+      }
+      case 'share-import':
+        this.importLevel();
+        break;
+      case 'mk-tool':
+        this.setTool((el?.dataset.tool as MakerTool) ?? 'bolt');
+        break;
+      case 'mk-undo':
+        this.makerHistory(-1);
+        break;
+      case 'mk-redo':
+        this.makerHistory(1);
+        break;
+      case 'mk-settings':
+        sfx.ui();
+        this.makerUi.togglePanel();
+        this.fitMaker(false);
+        break;
+      case 'mk-export':
+        sfx.ui();
+        if (this.customLevel) this.openShare(this.customLevel);
+        break;
+      case 'mk-play':
+        if (this.customLevel) {
+          sfx.select();
+          this.playCustom(this.customLevel);
+        }
+        break;
+      case 'mk-done':
+        sfx.ui();
+        this.enterWorkshop();
+        break;
+    }
+  }
+
+  /** Keys in the workshop list and the editor. */
+  private makerKey(e: KeyboardEvent): void {
+    const k = e.key;
+    const lower = k.toLowerCase();
+    if (this.ui.current === 'share') {
+      if (k === 'Escape') this.act('share-close');
+      return;
+    }
+    if (this.state === 'workshop') {
+      if (k === 'Escape' || k === 'Backspace') this.act('back');
+      else if (lower === 'n') this.act('ws-new');
+      else if (lower === 'i') this.act('ws-import');
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && lower === 'z') {
+      e.preventDefault();
+      this.makerHistory(e.shiftKey ? 1 : -1);
+      return;
+    }
+    if (k >= '1' && k <= String(MAKER_TOOLS.length) && k.length === 1) this.setTool(MAKER_TOOLS[Number(k) - 1].id);
+    else if (lower === 'z') this.makerHistory(-1);
+    else if (lower === 'y') this.makerHistory(1);
+    else if (lower === 's') this.act('mk-settings');
+    else if (lower === 'p') this.act('mk-play');
+    else if (lower === 'f') this.fitMaker(false);
+    else if (k === 'Escape') this.act('mk-done');
+  }
+
+  // ───────────────────────────── Stress graph ─────────────────────────────
+
+  /** Docks the stress graph under the finished run, starting at the moment it peaked. */
+  private openGraph(): void {
+    const run = this.run;
+    if (!run || (this.state !== 'result' && this.state !== 'collapse') || !run.log.length) return;
+    this.graphOpen = true;
+    this.ui.show(null);
+    this.ui.setGraph(true);
+    const s = run.log.peakSample();
+    this.pickSample(s);
+    this.frameGraph();
+  }
+
+  private closeGraph(): void {
+    if (!this.graphOpen) return;
+    this.hideGraph();
+    this.ui.show(this.state === 'result' ? 'result' : 'collapse');
+    if (this.run) this.frameTest(this.run, this.viewRect());
+  }
+
+  private hideGraph(): void {
+    if (!this.graphOpen) return;
+    this.graphOpen = false;
+    this.pick = null;
+    this.ui.setGraph(false);
+  }
+
+  /** Frames the bridge in the space above the dock. */
+  private frameGraph(): void {
+    const top = this.renderer.w < 560 ? 104 : 70;
+    const dock = this.ui.graphTop();
+    const [a, b, c, d] = this.buildBounds();
+    this.cam.fit(a, b, c, d, { x: 12, y: top, w: this.renderer.w - 24, h: Math.max(100, dock - top - 10) }, false);
+  }
+
+  /** Picks the busiest member (or joint) at a sample. */
+  private pickSample(sample: number): void {
+    const log = this.run?.log;
+    if (!log || sample < 0) return;
+    const who = log.who[sample];
+    this.pick = { sample, member: who >= 0 ? who : -1, node: who <= -2 ? -2 - who : -1 };
+    this.showPick();
+  }
+
+  /** Picks one member, at the moment it was loaded hardest. */
+  private pickMember(member: number): void {
+    const log = this.run?.log;
+    if (!log) return;
+    const { t } = log.memberPeak(member);
+    this.pick = { sample: log.sampleAt(t), member, node: -1 };
+    this.showPick();
+  }
+
+  private showPick(): void {
+    const run = this.run;
+    const p = this.pick;
+    if (!run || !p) return;
+    const log = run.log;
+    const t = log.t[p.sample];
+    let info = 'Nothing was loaded yet.';
+    if (p.member >= 0) {
+      const d = this.editor!.design;
+      const m = d.members[p.member];
+      const len = Math.hypot(d.nodes[m.b].x - d.nodes[m.a].x, d.nodes[m.b].y - d.nodes[m.a].y);
+      const now = log.members[p.sample][p.member];
+      const peak = log.memberPeak(p.member);
+      const broke = log.breaks.find((b) => b.member === p.member);
+      info =
+        `${MATERIALS[m.mat].name} ${len.toFixed(1)} m: ${Number.isNaN(now) ? 'broken' : pct(now)} at ${t.toFixed(1)} s` +
+        ` · its peak ${pct(broke ? 1 : peak.value)}${broke ? `, broke at ${broke.t.toFixed(1)} s` : ` at ${peak.t.toFixed(1)} s`}`;
+    } else if (p.node >= 0) {
+      const n = this.editor!.design.nodes[p.node];
+      info = `Joint at ${n.x}, ${n.y}: ${pct(log.peak[p.sample])} at ${t.toFixed(1)} s · too many loaded members meet here`;
+    }
+    this.ui.setStressInfo(info);
+    this.graph.draw(log, p);
+  }
+
+  /** Where a broken member stood in the design, so the graph can show it after it fell. */
+  private ghostOf(member: number): [number, number, number, number] | null {
+    const run = this.run;
+    const d = this.editor?.design;
+    if (!run || !d || member < 0 || !run.log.breaks.some((b) => b.member === member)) return null;
+    const m = d.members[member];
+    return [d.nodes[m.a].x, d.nodes[m.a].y, d.nodes[m.b].x, d.nodes[m.b].y];
+  }
+
+  /** The bridge member nearest a screen point, for picking on the frozen run. */
+  private memberNear(sx: number, sy: number): number {
+    const run = this.run;
+    if (!run) return -1;
+    const [wx, wy] = this.worldAt(sx, sy);
+    const w = run.world;
+    const r = this.pickRadius(18, 0.35);
+    let best = -1;
+    let bd = r;
+    for (const l of w.links) {
+      if (!l.bridge || l.member < 0) continue;
+      const ax = w.x[l.a];
+      const ay = w.y[l.a];
+      const dx = w.x[l.b] - ax;
+      const dy = w.y[l.b] - ay;
+      const u = Math.max(0, Math.min(1, ((wx - ax) * dx + (wy - ay) * dy) / (dx * dx + dy * dy || 1)));
+      const dist = Math.hypot(wx - (ax + dx * u), wy - (ay + dy * u));
+      if (dist < bd) {
+        bd = dist;
+        best = l.member;
+      }
+    }
+    return best;
+  }
+
+  private closeBrief(): void {
+    if (!this.briefing) return;
+    this.briefing = false;
+    this.ui.show(null);
   }
 
   private startTest(): void {
     if (this.state !== 'build' || !this.editor || this.paused) return;
+    this.closeBrief();
     this.editor.cancel();
     this.persistDesign();
     this.run = new TestRun(this.editor.design, this.level);
@@ -302,6 +829,7 @@ export class Game {
 
   private backToBuild(): void {
     if (!this.editor) return;
+    this.hideGraph();
     this.stopEngine();
     this.run = null;
     this.state = 'build';
@@ -319,6 +847,16 @@ export class Game {
   private finishSuccess(): void {
     const run = this.run!;
     const level = this.level;
+    if (this.mode === 'custom') {
+      // A playtest scores like any level, but nothing goes on the career or the boards.
+      const s = scoreLevel(level, this.editor!.design, run.peakStress);
+      this.persistDesign();
+      this.state = 'result';
+      this.stopEngine();
+      this.ui.result(level, s, run.peakStress, 'PLAYTEST · NOT ON YOUR CAREER', true, 'EDIT LEVEL');
+      this.resultAnim = { t: 0, score: s, shown: 0, stars: 0, bonusShown: false };
+      return;
+    }
     const ch = this.chapter;
     const best = this.data.best;
     const score = scoreLevel(level, this.editor!.design, run.peakStress);
@@ -380,6 +918,10 @@ export class Game {
   }
 
   private nextLevel(): void {
+    if (this.mode === 'custom') {
+      this.enterMaker(this.level);
+      return;
+    }
     const next = nextInChapter(this.level.id);
     if (this.mode === 'challenge') {
       if (next) this.loadLevel(LEVELS.indexOf(levelById(next)));
@@ -464,6 +1006,7 @@ export class Game {
 
   private setPaused(p: boolean): void {
     if (this.state !== 'build' && this.state !== 'test') return;
+    if (p) this.closeBrief();
     if (p === this.paused) return;
     this.paused = p;
     this.ui.show(p ? 'pause' : null);
@@ -484,6 +1027,11 @@ export class Game {
 
   private persistDesign(): void {
     if (!this.editor) return;
+    if (this.mode === 'custom') {
+      this.custom.designs[this.level.id] = this.editor.design.serialize();
+      saveCustom(this.custom);
+      return;
+    }
     this.data.designs[this.level.id] = this.editor.design.serialize();
     this.persist();
   }
@@ -552,6 +1100,22 @@ export class Game {
         sfx.ui();
         this.setPaused(false);
         break;
+      case 'brief':
+        sfx.ui();
+        this.openBrief();
+        break;
+      case 'stress':
+        sfx.ui();
+        this.openGraph();
+        break;
+      case 'stress-close':
+        sfx.ui();
+        this.closeGraph();
+        break;
+      case 'brief-close':
+        sfx.select();
+        this.closeBrief();
+        break;
       case 'retry':
         sfx.ui();
         this.backToBuild();
@@ -563,13 +1127,16 @@ export class Game {
       case 'quit':
         sfx.ui();
         if (this.state !== 'over') void this.bankAbandonedRun();
-        if (this.mode === 'play') this.enterChapter(this.chapter);
+        if (this.mode === 'custom') this.enterMaker(this.level);
+        else if (this.mode === 'play') this.enterChapter(this.chapter);
         else this.enterChapters();
         break;
       case 'restart':
         sfx.select();
         this.startChallenge(this.chapter);
         break;
+      default:
+        this.makerAct(a, el);
     }
   }
 
@@ -635,7 +1202,8 @@ export class Game {
       const best = this.data.best[this.level.id];
       this.ui.setScore(best ? `BEST ${best.score.toLocaleString('en-US')} ${'★'.repeat(best.stars)}${'☆'.repeat(3 - best.stars)}` : 'NOT YET CROSSED');
     }
-    this.ui.setGoal(bonusLabel(this.level.bonus), !!this.data.best[this.level.id]?.bonus && this.mode === 'play');
+    const bonus = this.level.bonus;
+    this.ui.setGoal(bonusLabel(bonus), !!this.data.best[this.level.id]?.bonus && this.mode === 'play', bonusStatus(this.level, ed.design), bonus.kind === 'parts' && ed.design.members.length ? `${ed.design.parts()} now` : '');
     // Nudge first-timers toward the test button once the hint is built. Only the very first
     // level's ghost is a whole bridge; later ghosts just show off a new mechanic.
     const hint = this.level.id === CHAPTERS[0].levels[0] ? this.level.hint : undefined;
@@ -942,7 +1510,11 @@ export class Game {
   onResize(): void {
     this.renderer.resize();
     if (this.demo) this.demoCamera();
-    else this.fitCamera(true);
+    else if (this.state === 'maker') this.fitMaker(true);
+    else if (this.graphOpen) {
+      this.frameGraph();
+      this.showPick();
+    } else this.fitCamera(true);
     this.cam.snap();
   }
 
@@ -964,7 +1536,20 @@ export class Game {
       flash: this.flash,
       wheelAngles: this.wheelAngles,
       floats: this.floats,
+      highlight: this.graphOpen && this.pick ? { member: this.pick.member, node: this.pick.node, ghost: this.ghostOf(this.pick.member) } : null,
+      maker: this.makerView(),
     });
+  }
+
+  /** The editor's cursor: where the tool would act, and what it would do there. */
+  private makerView(): SceneView['maker'] {
+    const p = this.makerHover;
+    if (this.state !== 'maker' || !p || !this.customLevel || this.ui.current) return null;
+    const res = this.toolPreview(p[0], p[1]);
+    const from = this.channelFrom;
+    // The preview says what a tap will do: "Bolt added" reads as "Add bolt".
+    const label = res.msg.replace(/^(.+) added$/, (_, w: string) => `Add ${w.toLowerCase()}`).replace(/^(.+) removed$/, (_, w: string) => `Remove ${w.toLowerCase()}`);
+    return { x: p[0], y: p[1], label, ok: res.ok, channel: from ? [Math.min(from[0], p[0]), Math.max(from[0], p[0]), from[1]] : null };
   }
 
   // ───────────────────────────── Input ─────────────────────────────
@@ -982,6 +1567,33 @@ export class Game {
       this.setPaused(!this.paused);
     });
     this.ui.muteBtn.addEventListener('click', () => this.toggleMute());
+    // Level editor settings: text fields update live, everything else on change.
+    this.makerUi.onChange((live) => {
+      if (live && this.customLevel) {
+        this.customLevel.name = (document.getElementById('mk-name') as HTMLInputElement).value.trim().slice(0, 40) || 'My level';
+        this.makerUi.setStatus(this.customLevel);
+      }
+      this.makerChange((l) => this.makerUi.read(l));
+    });
+    document.getElementById('share-file')!.addEventListener('change', (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) void file.text().then((t) => this.makerUi.setShareText(t));
+      (e.target as HTMLInputElement).value = '';
+    });
+    // Scrubbing the stress graph picks the busiest member at that moment.
+    const graphCanvas = document.getElementById('stress-canvas')!;
+    const scrub = (e: PointerEvent) => {
+      if (!this.graphOpen || !this.run) return;
+      const r = graphCanvas.getBoundingClientRect();
+      this.pickSample(this.graph.sampleAtX(e.clientX - r.left, this.run.log));
+    };
+    graphCanvas.addEventListener('pointerdown', (e) => {
+      graphCanvas.setPointerCapture(e.pointerId);
+      scrub(e);
+    });
+    graphCanvas.addEventListener('pointermove', (e) => {
+      if (e.buttons) scrub(e);
+    });
     this.ui.undoBtn.addEventListener('click', () => this.undo());
     this.ui.redoBtn.addEventListener('click', () => this.redo());
     this.ui.clearBtn.addEventListener('click', () => {
@@ -1010,7 +1622,7 @@ export class Game {
       'wheel',
       (e) => {
         e.preventDefault();
-        if (this.state !== 'build' && this.state !== 'test') return;
+        if (this.state !== 'build' && this.state !== 'test' && this.state !== 'maker') return;
         this.cam.zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0015));
       },
       { passive: false },
@@ -1034,6 +1646,18 @@ export class Game {
     this.canvas.setPointerCapture(e.pointerId);
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, type: e.pointerType });
     this.keyboardMode = false;
+    if (this.state === 'maker') {
+      this.makerPointerDown(e);
+      return;
+    }
+    if (this.graphOpen) {
+      const m = this.memberNear(e.clientX, e.clientY);
+      if (m >= 0) {
+        sfx.tick();
+        this.pickMember(m);
+      }
+      return;
+    }
     if (this.paused || (this.state !== 'build' && this.state !== 'test')) return;
 
     if (this.pointers.size === 2) {
@@ -1098,6 +1722,10 @@ export class Game {
       this.lastMid = mid;
       return;
     }
+    if (this.state === 'maker') {
+      this.makerHover = this.snapAt(e.clientX, e.clientY);
+      return;
+    }
 
     const [wx, wy] = this.worldAt(e.clientX, e.clientY);
     const ed = this.editor;
@@ -1125,6 +1753,11 @@ export class Game {
 
   private pointerUp(e: PointerEvent, cancelled = false): void {
     this.pointers.delete(e.pointerId);
+    if (this.state === 'maker') {
+      if (cancelled) this.channelFrom = null;
+      else this.makerPointerUp(e);
+      return;
+    }
     if (this.pointers.size > 0) {
       if (this.pointers.size === 1) {
         // Leaving a pinch: continue as a pan with the remaining finger.
@@ -1164,7 +1797,14 @@ export class Game {
 
   private keyDown(e: KeyboardEvent): void {
     const target = e.target as HTMLElement;
-    if (target.tagName === 'INPUT') return;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
+      // Typing goes to the field; Escape leaves it, and closes the share dialog.
+      if (e.key === 'Escape') {
+        target.blur();
+        if (this.ui.current === 'share') this.act('share-close');
+      }
+      return;
+    }
     const k = e.key;
     const lower = k.toLowerCase();
     sfx.unlock();
@@ -1181,6 +1821,11 @@ export class Game {
           this.act('continue');
         } else if (lower === 'c') this.act('chapters');
         else if (lower === 'h') this.act('scores');
+        else if (lower === 'l') this.act('workshop');
+        return;
+      case 'workshop':
+      case 'maker':
+        this.makerKey(e);
         return;
       case 'profile':
         return;
@@ -1203,17 +1848,32 @@ export class Game {
         return;
       }
       case 'result':
+      case 'collapse':
+        if (this.graphOpen) {
+          if (k === 'Escape' || lower === 'g' || k === 'Backspace') this.act('stress-close');
+          else if (k === 'ArrowLeft' || k === 'ArrowRight') {
+            e.preventDefault();
+            const n = this.run?.log.length ?? 0;
+            if (n) this.pickSample(Math.max(0, Math.min(n - 1, (this.pick?.sample ?? 0) + (k === 'ArrowLeft' ? -1 : 1))));
+          }
+          return;
+        }
+        if (lower === 'g') {
+          this.act('stress');
+          return;
+        }
+        if (this.state === 'collapse') {
+          if (lower === 'r' || k === 'Enter' || k === ' ') {
+            e.preventDefault();
+            this.act('retry');
+          } else if (k === 'Escape') this.act('quit');
+          return;
+        }
         if (k === 'Enter' || k === ' ' || lower === 'n') {
           e.preventDefault();
           this.act('next');
         } else if (lower === 'r' && this.mode === 'play') this.act('retry');
         else if (k === 'Escape') this.act('quit');
-        return;
-      case 'collapse':
-        if (lower === 'r' || k === 'Enter' || k === ' ') {
-          e.preventDefault();
-          this.act('retry');
-        } else if (k === 'Escape') this.act('quit');
         return;
       case 'over':
         if (lower === 'r' || k === 'Enter') {
@@ -1224,6 +1884,13 @@ export class Game {
     }
 
     // build / test
+    if (this.briefing) {
+      if (k === 'Enter' || k === ' ' || k === 'Escape' || lower === 'i') {
+        e.preventDefault();
+        this.act('brief-close');
+      }
+      return;
+    }
     if (this.paused) {
       if (k === 'Escape' || lower === 'p') this.setPaused(false);
       else if (lower === 'r') {
@@ -1238,6 +1905,10 @@ export class Game {
     }
     if (lower === 'f') {
       this.fitCamera(false);
+      return;
+    }
+    if (lower === 'i' && this.state === 'build') {
+      this.act('brief');
       return;
     }
     if (this.state === 'test') {

@@ -19,7 +19,7 @@
         <div class="hud-level"><span id="hud-num">01</span><span id="hud-name">First Crossing</span></div>
         <div class="hud-sub">
           <span id="hud-lives" class="lives"></span><span id="hud-score" class="hud-score"></span
-          ><span class="hud-goal" id="hud-goal" title="Bonus goal: meet it for the bonus star"></span>
+          ><button class="hud-goal" id="hud-goal" data-act="brief" title="Bonus goal: meet it for the bonus star. Tap for the level's goals (I)"></button>
         </div>
       </div>
       <div class="hud-block center">
@@ -28,6 +28,9 @@
         <div class="meter" id="hud-meter"><i id="hud-bar"></i><em id="hud-target" title="Target"></em></div>
       </div>
       <div class="hud-block right">
+        <button id="btn-brief" class="icon-btn" data-act="brief" aria-label="Level goals" title="Goals and rules (I)">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5v.5" /></svg>
+        </button>
         <button id="btn-mute" class="icon-btn" aria-label="Toggle sound" title="Sound (M)">
           <svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z" /><path class="wave" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11" /></svg>
         </button>
@@ -66,6 +69,7 @@
           <button class="btn primary continue" data-act="continue"><span>CONTINUE <kbd>Enter</kbd></span><small id="continue-sub"></small></button>
           <button class="btn" data-act="chapters">CHAPTERS <kbd>C</kbd></button>
           <button class="btn" data-act="scores">LEADERBOARDS <kbd>H</kbd></button>
+          <button class="btn" data-act="workshop">LEVEL EDITOR <kbd>L</kbd></button>
         </div>
         <div class="engineer">
           <span id="title-engineer"></span>
@@ -135,6 +139,118 @@
       </div>
     </section>
 
+    <!-- Level editor: your custom levels -->
+    <section id="scr-workshop" class="screen hidden">
+      <div class="panel wide">
+        <h2>Level editor</h2>
+        <p class="muted">Make your own levels: banks, bolts, piers, pylons, ship channels, vehicles, budget and goals. They're kept in this browser. Export one to share it, and import levels others made.</p>
+        <div id="ws-list" class="ws-list"></div>
+        <div class="row">
+          <button class="btn" data-act="back">BACK <kbd>Esc</kbd></button>
+          <button class="btn" data-act="ws-import">IMPORT <kbd>I</kbd></button>
+          <button class="btn primary" data-act="ws-new">NEW LEVEL <kbd>N</kbd></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Export or import a level as JSON -->
+    <section id="scr-share" class="screen dim hidden">
+      <div class="panel wide">
+        <h2 id="share-title">Export level</h2>
+        <p class="muted" id="share-note"></p>
+        <textarea id="share-text" class="share-text" spellcheck="false" autocomplete="off"></textarea>
+        <p id="share-error" class="form-error"></p>
+        <div class="row">
+          <button class="btn" data-act="share-close">CLOSE <kbd>Esc</kbd></button>
+          <button class="btn share-export" data-act="share-download">DOWNLOAD .JSON</button>
+          <button class="btn primary share-export" data-act="share-copy">COPY</button>
+          <label class="btn share-import" for="share-file">OPEN FILE</label>
+          <input type="file" id="share-file" accept=".json,application/json" class="hidden" />
+          <button class="btn primary share-import" data-act="share-import">IMPORT</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Level editor: top bar, tools and settings while editing -->
+    <header id="maker-bar" class="maker-bar hidden">
+      <div class="mk-title">
+        <span class="mk-tag">LEVEL EDITOR</span>
+        <b id="mk-title-name"></b>
+        <span id="mk-issues" class="mk-issues"></span>
+      </div>
+      <div class="mk-actions">
+        <button class="btn small" data-act="mk-settings" id="mk-settings-btn">SETTINGS <kbd>S</kbd></button>
+        <button class="btn small" data-act="mk-export">EXPORT</button>
+        <button class="btn small" data-act="mk-done">DONE <kbd>Esc</kbd></button>
+      </div>
+    </header>
+
+    <footer id="maker-tools" class="maker-tools hidden">
+      <div class="mk-toolset" id="mk-toolset"></div>
+      <div class="tools">
+        <button class="icon-btn" data-act="mk-undo" aria-label="Undo" title="Undo (Z)">
+          <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-3" /></svg>
+        </button>
+        <button class="icon-btn" data-act="mk-redo" aria-label="Redo" title="Redo (Y)">
+          <svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5" /><path d="M20 9H10a6 6 0 0 0 0 12h3" /></svg>
+        </button>
+      </div>
+      <button class="go-btn" data-act="mk-play"><span class="go-icon">▶</span><span class="go-label">PLAYTEST</span><kbd>P</kbd></button>
+    </footer>
+
+    <aside id="maker-panel" class="maker-panel hidden" aria-label="Level settings">
+      <form id="mk-form" autocomplete="off">
+        <label>Name <input id="mk-name" maxlength="40" /></label>
+        <label>Tip shown to players <textarea id="mk-tip" rows="2" maxlength="200"></textarea></label>
+        <fieldset>
+          <legend>Gap</legend>
+          <div class="mk-row">
+            <label>Width, m <input id="mk-width" type="number" min="4" max="40" step="1" /></label>
+            <label>Far bank, m <input id="mk-right" type="number" min="-8" max="8" step="1" /></label>
+            <label>Water, m <input id="mk-water" type="number" min="-14" max="-1" step="0.5" /></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Traffic</legend>
+          <div class="mk-row">
+            <label>Vehicle <select id="mk-vehicle"></select></label>
+            <label>Then <select id="mk-convoy-1"></select></label>
+            <label>Then <select id="mk-convoy-2"></select></label>
+            <label>Then <select id="mk-convoy-3"></select></label>
+          </div>
+          <label>Tall ship mast, m (0 for none; needs a channel) <input id="mk-mast" type="number" min="0" max="20" step="1" /></label>
+        </fieldset>
+        <fieldset>
+          <legend>Materials</legend>
+          <div id="mk-mats" class="mk-mats"></div>
+        </fieldset>
+        <fieldset>
+          <legend>Money and goals</legend>
+          <div class="mk-row">
+            <label>Budget, $ <input id="mk-money" type="number" min="100" step="100" /></label>
+            <label>Star target, $ <input id="mk-target" type="number" min="0" step="100" /></label>
+            <label>Toll per bolt, $ <input id="mk-toll" type="number" min="0" step="100" /></label>
+          </div>
+          <div class="mk-row">
+            <label>Bonus goal
+              <select id="mk-bonus-kind">
+                <option value="stress">Peak stress below %</option>
+                <option value="cost">Build for $ or less</option>
+                <option value="parts">Parts or fewer</option>
+                <option value="without">Build without</option>
+              </select>
+            </label>
+            <label id="mk-bonus-val-box">Value <input id="mk-bonus-val" type="number" min="1" step="1" /></label>
+            <label id="mk-bonus-mat-box">Material <select id="mk-bonus-mat"></select></label>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Scene</legend>
+          <label>Test-drive scene <select id="mk-theme"></select></label>
+        </fieldset>
+      </form>
+    </aside>
+
     <!-- Pause -->
     <section id="scr-pause" class="screen dim hidden">
       <div class="panel">
@@ -147,13 +263,32 @@
         <div class="keys">
           <div><kbd>Drag</kbd> build from a node</div>
           <div><kbd>Tap</kbd>/<kbd>Right-click</kbd> remove beam</div>
-          <div><kbd>1</kbd>–<kbd>5</kbd> material · <kbd>Q</kbd>/<kbd>E</kbd> cycle</div>
+          <div><kbd>1</kbd>–<kbd>6</kbd> material · <kbd>Q</kbd>/<kbd>E</kbd> cycle</div>
           <div><kbd>Arrows</kbd> move cursor · <kbd>Space</kbd> place</div>
           <div><kbd>X</kbd> delete at cursor</div>
           <div><kbd>Z</kbd>/<kbd>Y</kbd> undo / redo</div>
           <div><kbd>Wheel</kbd>/<kbd>Pinch</kbd> zoom · <kbd>F</kbd> refit</div>
           <div><kbd>T</kbd> test · <kbd>M</kbd> mute</div>
+          <div><kbd>I</kbd> goals and rules</div>
         </div>
+      </div>
+    </section>
+
+    <!-- Level briefing: goals and rules, before building and on demand -->
+    <section id="scr-brief" class="screen dim hidden">
+      <div class="panel brief">
+        <div class="brief-code" id="brief-code"></div>
+        <h2 id="brief-name"></h2>
+        <p class="brief-traffic" id="brief-traffic"></p>
+        <p class="brief-tip" id="brief-tip"></p>
+        <h3>Goals</h3>
+        <ul class="brief-goals" id="brief-goals"></ul>
+        <div id="brief-rules-box">
+          <h3>Rules</h3>
+          <ul class="brief-rules" id="brief-rules"></ul>
+        </div>
+        <p class="brief-best" id="brief-best"></p>
+        <div class="row"><button class="btn primary" data-act="brief-close">BUILD <kbd>Enter</kbd></button></div>
       </div>
     </section>
 
@@ -166,6 +301,7 @@
         <table class="breakdown"><tbody id="res-rows"></tbody></table>
         <div class="total"><span>LEVEL SCORE</span><b id="res-total">0</b></div>
         <div class="run-total" id="res-run"></div>
+        <button class="link-btn stress-link" data-act="stress">See the stress graph <kbd>G</kbd></button>
         <div class="row">
           <button class="btn" data-act="retry" id="res-retry">IMPROVE <kbd>R</kbd></button>
           <button class="btn primary" data-act="next" id="res-next">NEXT <kbd>Enter</kbd></button>
@@ -180,6 +316,7 @@
         <p id="col-reason" class="reason"></p>
         <div id="col-lives" class="lives big"></div>
         <p id="col-note" class="muted"></p>
+        <button class="link-btn stress-link" data-act="stress">Where did it fail? Stress graph <kbd>G</kbd></button>
         <div class="row">
           <button class="btn" data-act="quit">MENU <kbd>Esc</kbd></button>
           <button class="btn primary" data-act="retry">RETRY <kbd>R</kbd></button>
@@ -200,6 +337,17 @@
           <button class="btn primary" data-act="restart">TRY AGAIN <kbd>R</kbd></button>
         </div>
       </div>
+    </section>
+
+    <!-- Stress graph after a test drive, docked under the frozen bridge -->
+    <section id="stress-dock" class="stress-dock hidden" aria-label="Stress graph">
+      <div class="dock-head">
+        <b>STRESS OVER TIME</b>
+        <span id="stress-info" class="stress-info"></span>
+        <button class="btn small" data-act="stress-close">BACK <kbd>Esc</kbd></button>
+      </div>
+      <canvas id="stress-canvas"></canvas>
+      <p class="dock-note">The line is the busiest member at each moment. Tap the graph to find it on the bridge, or tap a member to follow its own load. Dashed lines: <span class="gold">75% for the safety star</span>, <span class="red">100% breaks</span>.</p>
     </section>
 
     <div id="fps" class="fps hidden"></div>

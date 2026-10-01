@@ -1,12 +1,12 @@
-import { chapterComplete, chapterUnlocked, CHAPTERS, crossed, levelById, levelCode, levelUnlocked, totals, type BestMap, type ChapterDef } from '../chapters';
+import { chapterComplete, chapterUnlocked, CHAPTERS, crossed, levelById, levelCode, levelUnlocked, totals, type Best, type BestMap, type ChapterDef } from '../chapters';
 import { money } from '../editor';
 import type { LevelDef } from '../levels';
 import { MATERIAL_ORDER, MATERIALS, type MaterialId } from '../physics/materials';
-import { VEHICLES } from '../physics/vehicles';
+import { levelBrief, traffic } from '../brief';
 import { bonusLabel, GOAL_SCORE, type LevelScore } from '../scoring';
 import type { BoardRow, HighScore, LevelRecord, Profile, Progress } from '../storage';
 
-export type ScreenId = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'pause' | 'result' | 'collapse' | 'over';
+export type ScreenId = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'workshop' | 'share' | 'pause' | 'brief' | 'result' | 'collapse' | 'over';
 type BoardTab = 'career' | 'chapter' | 'levels' | 'challenge';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -35,7 +35,10 @@ export class Ui {
     chapters: $('scr-chapters'),
     chapter: $('scr-chapter'),
     scores: $('scr-scores'),
+    workshop: $('scr-workshop'),
+    share: $('scr-share'),
     pause: $('scr-pause'),
+    brief: $('scr-brief'),
     result: $('scr-result'),
     collapse: $('scr-collapse'),
     over: $('scr-over'),
@@ -114,10 +117,50 @@ export class Ui {
     }
   }
 
-  /** The level's bonus goal under the level name, marked once it has been met. */
-  setGoal(label: string, met: boolean): void {
-    this.hudGoal.textContent = `${BONUS_MARK} ${label}`;
+  /**
+   * The level's bonus goal under the level name, marked once it has been met. `live` says how
+   * the current blueprint stands, with an optional count, e.g. "18 now".
+   */
+  setGoal(label: string, met: boolean, live: 'met' | 'missed' | 'unknown' = 'unknown', now = ''): void {
+    const mark = live === 'met' ? ' ✓' : live === 'missed' ? ' ✗' : '';
+    this.hudGoal.textContent = `${BONUS_MARK} ${label}${now ? ` · ${now}` : ''}${mark}`;
     this.hudGoal.classList.toggle('met', met);
+    this.hudGoal.classList.toggle('live-met', live === 'met');
+    this.hudGoal.classList.toggle('live-missed', live === 'missed');
+  }
+
+  /** Shows or hides the stress graph dock; the toolbar steps aside for it. */
+  setGraph(open: boolean): void {
+    $('stress-dock').classList.toggle('hidden', !open);
+    this.toolbar.classList.toggle('hidden', open);
+  }
+
+  /** Top edge of the stress dock, in CSS pixels, so the camera can frame the bridge above it. */
+  graphTop(): number {
+    return $('stress-dock').getBoundingClientRect().top;
+  }
+
+  setStressInfo(text: string): void {
+    $('stress-info').textContent = text;
+  }
+
+  /** The level briefing: who crosses, the tip, the three stars, the bonus goal and any special rules. */
+  brief(level: LevelDef, code: string, best: Best | undefined): void {
+    const b = levelBrief(level);
+    $('brief-code').textContent = code;
+    $('brief-name').textContent = level.name;
+    $('brief-traffic').textContent = b.traffic;
+    $('brief-tip').textContent = b.tip;
+    $('brief-goals').innerHTML = b.goals
+      .map((g) => {
+        const done = g.mark === '✦' && best?.bonus;
+        return `<li class="${g.mark === '✦' ? 'bonus' : ''}${done ? ' done' : ''}"><i>${g.mark === '✦' ? BONUS_MARK : '★'}</i><div><b>${escapeHtml(g.text)}${done ? ' ✓' : ''}</b>${g.note ? `<small>${escapeHtml(g.note)}</small>` : ''}</div></li>`;
+      })
+      .join('');
+    $('brief-rules').innerHTML = b.rules.map((r) => `<li>${escapeHtml(r)}</li>`).join('');
+    $('brief-rules-box').classList.toggle('hidden', b.rules.length === 0);
+    $('brief-best').textContent = best ? `Your best: ${best.score.toLocaleString('en-US')} · ${starText(best.stars)}${best.bonus ? ` ${BONUS_MARK}` : ''}` : '';
+    this.show('brief');
   }
 
   /** Toolbar state: prices, the active material, and what's affordable or still allowed. */
@@ -163,6 +206,7 @@ export class Ui {
     this.testBtn.querySelector('.go-icon')!.textContent = testing ? '✎' : '▶';
     for (const b of this.matBtns.values()) b.disabled = testing;
     this.undoBtn.disabled = this.redoBtn.disabled = this.clearBtn.disabled = testing;
+    $<HTMLButtonElement>('btn-brief').disabled = testing;
   }
 
   setMuted(m: boolean): void {
@@ -426,20 +470,4 @@ function starText(n: number): string {
 
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-}
-
-/**
- * Who crosses a level, e.g. "Semi truck · 40 t", "Compact car + school bus · 30 t" for a convoy,
- * or "Delivery van ×3 · 15 t". A drawbridge level says so.
- */
-function traffic(l: LevelDef): string {
-  const defs = [l.vehicle, ...(l.convoy ?? [])].map((v) => VEHICLES[v]);
-  const groups: { name: string; n: number }[] = [];
-  for (const d of defs) {
-    const last = groups.at(-1);
-    if (last?.name === d.name) last.n++;
-    else groups.push({ name: d.name, n: 1 });
-  }
-  const names = groups.map((g, i) => `${i ? g.name.toLowerCase() : g.name}${g.n > 1 ? ` ×${g.n}` : ''}`).join(' + ');
-  return `${names} · ${Math.max(...defs.map((d) => d.tonnes))} t${l.ship ? ' · drawbridge' : ''}`;
 }

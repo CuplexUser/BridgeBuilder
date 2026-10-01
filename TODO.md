@@ -46,10 +46,17 @@ Features and improvements, by priority. Finished items stay checked for a releas
 
 ## P3: Polish and social
 
-- [ ] **Replay and ghost** of your best run, plus a slow-motion replay of the moment of collapse.
-- [ ] **Stress graph** after a run: the peak member over time, with a tap to highlight it on the bridge.
-- [ ] **Design sharing** through a short code or URL that loads a design.
-- [ ] **Level editor** built on the same `LevelDef` format, with export and import.
+### Done
+
+- [x] **Level briefing.** Each level opens with a card listing the three stars, the bonus goal with what it means, and the level's special rules; the ⓘ button or I reopens it. The bonus goal under the level name is clickable and shows ✓ or ✗ live for cost, parts and banned materials, with the current part count.
+- [x] **Stress graph** after a run: the busiest member's load over time with the safety and breaking lines, breaks and drawbridge phases. Tap the graph to ring that moment's busiest member on the bridge, or tap a member to see its own curve.
+- [x] **Level editor** on the same `LevelDef` format: bolts, piers, pylons, ship channels, vehicles and convoys, drawbridges, materials and limits, budget, target, tolls, bonus goal and scene. Playtest without touching the career; export and import as JSON. Custom levels live in the browser.
+
+### Next
+
+- [ ] **Replay and ghost** of your best run, plus a slow-motion replay of the moment of collapse. The stress graph could scrub through it.
+- [ ] **Design sharing** through a short code or URL that loads a design. Custom levels could share the same way.
+- [ ] **Level editor extras:** rock overhangs and raised road ends as tools, a solvability check that runs the optimizer on a custom level, and saving custom levels to the server profile.
 - [ ] **Level records detail.** Store cost and peak stress with each record, and show the record holder's design.
 - [ ] **Quit confirmation** during a challenge, showing how many points will be banked.
 - [ ] **Accessibility.** A color-blind-safe stress palette (with patterns, not just hue), a reduced-motion mode that turns off shake and wobble, and a larger-UI option.

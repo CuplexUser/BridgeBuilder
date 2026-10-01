@@ -1,6 +1,7 @@
 import { segmentHitsRect, type Design } from '../design';
 import { bankY, goalX, START_X, type LevelDef } from '../levels';
 import { compressionLimit, MATERIALS, type MaterialId } from './materials';
+import { StressLog } from './stresslog';
 import { VEHICLES, type VehicleDef } from './vehicles';
 
 /**
@@ -665,6 +666,10 @@ export class TestRun {
   shipProgress = -1;
   /** When traffic may start: straight away, or once a drawbridge has closed again. */
   readonly releaseAt: number;
+  /** Stress over time, for the graph after the run. */
+  readonly log: StressLog;
+  /** When the run succeeded or failed, s. */
+  private endedAt: number | null = null;
   private readonly speeds: number[];
   private done: boolean[];
   private lastProgressX = START_X;
@@ -676,6 +681,7 @@ export class TestRun {
     this.world = built.world;
     this.vehicles = built.vehicles;
     this.done = this.vehicles.map(() => false);
+    this.log = new StressLog(design.members.length);
     this.releaseAt = level.ship ? SETTLE_TIME + OPEN_TIME + SHIP_TIME + CLOSE_TIME : 0;
     this.speeds = this.vehicles.flatMap((v) => v.wheels.map((p) => this.world.drive[p]));
     if (level.ship) {
@@ -753,6 +759,8 @@ export class TestRun {
       if (l.bridge && !l.broken) this.peakStress = Math.max(this.peakStress, Math.abs(l.stress));
     }
     for (const p of w.jointLinks.keys()) if (w.jointLinks[p]) this.peakStress = Math.max(this.peakStress, Math.min(1, w.jointRatio(p)));
+    if (this.status !== 'running') this.endedAt ??= this.time;
+    this.log.record(this.time, w, this.phase, this.endedAt);
     if (this.status !== 'running') return;
 
     for (const v of this.vehicles) {

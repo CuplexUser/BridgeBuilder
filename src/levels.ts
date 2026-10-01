@@ -61,6 +61,8 @@ export interface LevelDef {
   limits?: Partial<Record<MaterialId, number>>;
   /** Price of building from an anchor, charged once per anchor used; the two road ends are free. */
   anchorCost?: number;
+  /** Scene for the test drive, by theme id. Built-in levels use their chapter's; custom levels pick one. */
+  theme?: string;
   /**
    * Ghost members drawn as a hint until the first test, for levels that introduce a mechanic.
    * A deck ghost may span a whole road run, and a ghost that ends partway along another shows

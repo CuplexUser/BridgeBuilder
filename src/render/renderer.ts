@@ -36,6 +36,10 @@ export interface SceneView {
   /** Wheel spin per vehicle: rear, front. */
   wheelAngles: [number, number][];
   floats: FloatText[];
+  /** A member or joint picked on the stress graph, ringed on the bridge. */
+  highlight?: { member: number; node: number; ghost?: [number, number, number, number] | null } | null;
+  /** The level editor's cursor: the grid point, what the tool would do there, and a channel being dragged. */
+  maker?: { x: number; y: number; label: string; ok: boolean; channel: [number, number, number] | null } | null;
 }
 
 const TAU = Math.PI * 2;
@@ -311,10 +315,12 @@ export class Renderer {
       // Snapping cables stay bright even at night: the eye should catch them.
       this.drawWhips(v.run, this.debris.whips);
       this.drawWaterFront(v);
+      if (v.highlight) this.drawHighlight(v.run, v.highlight, v.time);
     } else if (v.editor) {
       this.drawVehicleParked(v.level);
       if (v.showHint) this.drawHint(v);
       this.drawEditor(v, v.editor);
+      if (v.maker) this.drawMakerCursor(v.maker, v.level, v.time);
     }
 
     this.drawParticles();
@@ -1573,6 +1579,84 @@ export class Renderer {
       }
       ctx.stroke();
     }
+  }
+
+  /** Rings the member or joint picked on the stress graph, wherever it ended up. */
+  private drawHighlight(run: TestRun, h: NonNullable<SceneView['highlight']>, time: number): void {
+    const { ctx, cam } = this;
+    const w = run.world;
+    const pulse = 0.6 + 0.4 * Math.sin(time * 6);
+    ctx.save();
+    ctx.lineCap = 'round';
+    if (h.member >= 0) {
+      const l = w.links.find((k) => k.bridge && k.member === h.member);
+      // A broken member is shown dashed where it stood, not stretched between its scattered ends.
+      const at = h.ghost ?? (l ? [w.x[l.a], w.y[l.a], w.x[l.b], w.y[l.b]] : null);
+      if (at) {
+        const ax = cam.sx(at[0]);
+        const ay = cam.sy(at[1]);
+        const bx = cam.sx(at[2]);
+        const by = cam.sy(at[3]);
+        ctx.strokeStyle = `rgba(255,204,51,${0.35 * pulse})`;
+        ctx.lineWidth = Math.max(14, 0.7 * cam.scale);
+        ctx.setLineDash(h.ghost ? [6, 6] : []);
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(bx, by);
+        ctx.stroke();
+        ctx.strokeStyle = PAL.gold;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        for (const [x, y] of [[ax, ay], [bx, by]]) {
+          ctx.beginPath();
+          ctx.arc(x, y, 6, 0, TAU);
+          ctx.stroke();
+        }
+      }
+    }
+    if (h.node >= 0) {
+      const r = 10 + 4 * pulse;
+      ctx.strokeStyle = PAL.gold;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(cam.sx(w.x[h.node]), cam.sy(w.y[h.node]), r, 0, TAU);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /** The level editor's cursor, its channel preview, and a label saying what a tap would do. */
+  private drawMakerCursor(m: NonNullable<SceneView['maker']>, level: LevelDef, time: number): void {
+    const { ctx, cam } = this;
+    const col = m.ok ? PAL.valid : PAL.invalid;
+    if (m.channel) {
+      const [x0, x1, top] = m.channel;
+      ctx.fillStyle = 'rgba(255,90,78,0.12)';
+      ctx.strokeStyle = col;
+      ctx.setLineDash([6, 4]);
+      ctx.lineWidth = 2;
+      const r = [cam.sx(x0), cam.sy(top), cam.sx(x1) - cam.sx(x0), cam.sy(level.waterY) - cam.sy(top)] as const;
+      ctx.fillRect(...r);
+      ctx.strokeRect(...r);
+      ctx.setLineDash([]);
+    }
+    const x = cam.sx(m.x);
+    const y = cam.sy(m.y);
+    const s = 9 + Math.sin(time * 6) * 1.5;
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y, s, 0, TAU);
+    ctx.moveTo(x - s - 6, y);
+    ctx.lineTo(x - s + 3, y);
+    ctx.moveTo(x + s - 3, y);
+    ctx.lineTo(x + s + 6, y);
+    ctx.moveTo(x, y - s - 6);
+    ctx.lineTo(x, y - s + 3);
+    ctx.moveTo(x, y + s - 3);
+    ctx.lineTo(x, y + s + 6);
+    ctx.stroke();
+    this.label(`${m.label} · ${m.x}, ${m.y}`, x, y - s - 16, col);
   }
 
   /** A small cross-hair marking where a beam will be split. */
