@@ -2,7 +2,7 @@
 
 A physics bridge-building game for the browser. Build a bridge within a cash budget from road, heavy deck, wood, steel and cable, then send a vehicle across it. The bridge either holds, sags, or snaps into the river.
 
-There are 30 levels in six chapters that get harder as you go: from a 4 m brook in *Groundwork* to a 36 m, forty-tonne crossing in *Master Works*. Along the way the game introduces piers, slopes, lattice pylons, heavy deck, rock overhangs, cables, flood water and ship channels. Each chapter has its own scene when you test: a river at golden hour, a desert canyon, a flood plain in the rain, the coast, snowy mountains and a city at night. `TODO.md` lists planned features and improvements by priority.
+There are 35 levels in seven chapters that get harder as you go: from a 4 m brook in *Groundwork* to a 36 m, forty-tonne crossing in *Master Works*, and then bridges that move in *Moving Parts*. Along the way the game introduces piers, slopes, lattice pylons, heavy deck, rock overhangs, cables, flood water, ship channels, drawbridges on hydraulic rams, convoys, toll bolts and rationed materials. Each chapter has its own scene when you test: a river at golden hour, a desert canyon, a flood plain in the rain, the coast, snowy mountains, a city at night and a harbor. `TODO.md` lists planned features and improvements by priority.
 
 ## Run
 
@@ -43,12 +43,12 @@ The profile screen tells you which storage is in use. The last-used profile resu
 | Lay road | One drag lays a whole run of road or heavy deck. The pieces follow one straight, even grade, even between banks at different heights. | Same |
 | Add a joint mid-beam | Drag from (or onto) a point along an existing beam. The beam is split there at no extra cost. | Space with the cursor on the beam point |
 | Remove a member | Tap it / right-click | X or Delete at cursor |
-| Material | Toolbar | 1–5, Q / E to cycle |
+| Material | Toolbar | 1–6, Q / E to cycle |
 | Undo / redo | Toolbar | Z / Y (or Ctrl+Z / Ctrl+Y) |
 | Test / back to edit | TEST button | T |
 | Zoom / pan | Wheel, pinch, drag empty space | F refits |
 | Pause | II button | P / Esc |
-| Menus | Buttons | Title: Enter continue, C chapters, H leaderboards. Chapters: 1–6. Chapter: 1–5 plays a level. Leaderboards: ←/→ tabs, 1–6 chapter. |
+| Menus | Buttons | Title: Enter continue, C chapters, H leaderboards. Chapters: 1–7. Chapter: 1–5 plays a level. Leaderboards: ←/→ tabs, 1–7 chapter. |
 | Mute | Speaker button | M |
 
 Members can cross each other (X-bracing), but they can't lie along an existing member. For example, a wood beam can't run on top of the road.
@@ -62,6 +62,7 @@ Members can cross each other (X-bracing), but they can't lie along an existing m
 | Wood | $90/m | 3.2 m | Light and cheap. Buckles early in compression. |
 | Steel | $240/m | 4.25 m | Strong in tension and compression. |
 | Cable | $140/m | 10 m | Tension only: it goes slack instead of pushing. Hang decks from pylons and overhangs. |
+| Hydraulic ram | $420/m | 4.25 m | Strong, heavy and expensive. On drawbridge levels it extends by 75% to lift the leaf, then pulls it back down. Elsewhere it's a stiff, pricey strut. |
 
 You pay by length, so splitting a beam to add a joint costs nothing. Each level lists the materials it offers.
 
@@ -69,9 +70,20 @@ Vehicles weigh from 9 t (the compact car) to 40 t (the semi). A vehicle heavier 
 
 A road run gets a joint at every bolt it passes over, so a deck laid across a pylon's bolt is fastened to it.
 
+**Joints.** A joint fails when too many loaded members pull on it at once: past its two busiest members, the rest of their stress ratios may add up to at most 180%. The busiest member then breaks. A joint glows while it's working hard. Clean load paths with few members per joint keep clear of it.
+
+## Moving parts
+
+Chapter 7 adds four mechanics, which levels can mix:
+
+- **Drawbridges.** A tall ship has to pass through the channel before traffic may go. When you test, the bridge opens on its hydraulic rams, the ship sails through at the channel's middle, the bridge closes and the vehicle drives. Hinge the leaf at a bank or pier, stand a ram under it, and keep everything clear of the ship's mast.
+- **Convoys.** Several vehicles cross nose to tail at the slowest one's speed, so the bridge carries them all at once. The level card lists them, and all of them have to reach the far side.
+- **Toll bolts.** On some levels every bolt but the two road ends costs money to build from, shown next to the bolt and charged once, however many members use it.
+- **Material limits.** Some levels cap how many parts of a material you may use, on top of the budget. The toolbar shows how many are left. Several cable levels in chapters 4 to 6 ration wood and steel this way, so the cables have to carry the deck.
+
 ## How it works
 
-- `src/physics/world.ts` is a small-step XPBD solver. Members are compliant distance constraints. Stress is axial force over the member's capacity; compression capacity falls off with length, like buckling. A member breaks when its smoothed stress reaches 100%. Consecutive heavy-deck pieces also get a bending constraint that yields past a small force, like a hinge, so a heavy deck shares load between hangers but can't bridge a gap by bending alone. The vehicle is four particles in the same world, and its wheel contacts push load into the road members' nodes. A deck piece that a vehicle over its weight rating touches is driven to breaking stress within a few frames.
+- `src/physics/world.ts` is a small-step XPBD solver. Members are compliant distance constraints; a ram's rest length follows the drawbridge's opening. Stress is axial force over the member's capacity; compression capacity falls off with length, like buckling. A member breaks when its smoothed stress reaches 100%. Consecutive heavy-deck pieces also get a bending constraint that yields past a small force, like a hinge, so a heavy deck shares load between hangers but can't bridge a gap by bending alone. Each vehicle is a few particles in the same world, and its wheel contacts push load into the road members' nodes. The drawbridge timeline (open, ship, close, drive) and the ship's collision check live in `TestRun`. A deck piece that a vehicle over its weight rating touches is driven to breaking stress within a few frames.
 - `src/levels.ts` defines each level as authored: geometry, vehicle, materials, tip. Its budget, target and bonus goal, plus any geometry the optimizer was allowed to adjust, come from `src/levels.tuned.json` (see below). `src/chapters.ts` groups levels into chapters and holds the unlock rules. Level ids are stable, and chapters list them in play order, so saved progress survives reordering.
 - `src/rules.ts` holds the build rules (reach, bounds, channels, overlaps, budget). The editor, the tests and the optimizer all check designs with it.
 - `src/solutions.ts` holds a hand-made design per level: the intended answer. The optimizer starts from it, and budgets always leave room for it.
@@ -83,9 +95,9 @@ A road run gets a joint at every bolt it passes over, so a deck laid across a py
 
 `npm run tune` is an offline optimizer (`tools/tune/`) that decides each level's numbers, so they follow from what can actually be built rather than from guesswork:
 
-1. **Search.** For each level it looks for the cheapest design that crosses with peak stress at or below 92%. A genetic algorithm searches a structure grammar built from the level's geometry: deck spans, trusses over or under them, struts, posts and trestles from low anchors, hangers from high anchors, and sagging main cables between them. Each result, and the hand-made design, is then polished by local search that removes members and swaps materials one at a time.
+1. **Search.** For each level it looks for the cheapest design that crosses with peak stress at or below 92% and without breaking a single member. A genetic algorithm searches a structure grammar built from the level's geometry: deck spans, trusses over or under them, struts, posts and trestles from low anchors, hangers from high anchors, and sagging main cables between them. On drawbridge levels a support may be a ram. Each result, and the hand-made design, is then polished by local search that removes members and swaps materials one at a time.
 2. **Numbers.** The target is the best cost times a slack that shrinks by chapter (×1.15 to ×1.08). The budget is the best cost times ×1.63 down to ×1.22, and never less than the hand-made design plus 5%.
-3. **Bonus goal.** It keeps the level's current kind of goal if it can: a stress cap the reference misses, a material the level can do without, or a parts cap. Each goal comes with a design proving it can be met.
+3. **Bonus goal.** It keeps the level's current kind of goal if it can: a stress cap the reference misses, a material the level can do without, or a parts cap. Each search also starts from the reference itself: upgraded member by member for a stress cap, stripped for a parts cap, or with the banned material swapped for its neighbor. Each goal comes with a design proving it can be met. A geometry whose bonus nothing proves is still usable; the optimizer only prefers another one that has both.
 4. **Intent.** `tools/tune/intents.ts` says what each level is about. `requires` names materials the level is built around: the best design without them must fail or blow the budget, which is how the cable levels keep their cables. `shortcuts` are specific designs that must fail. `minRoom` asks that enough one-step variations of the best design still cross, so there's more than one way over. `params` and `shape` mark geometry the optimizer may change. Level 30's channel clearance, pylon positions and pylon heights are tried in order of preference until everything holds.
 
 Options: `--levels 7,30` tunes only those levels. `--effort quick|normal|thorough|max` trades time for search depth (the default is `normal`). `--time <minutes>` measures this machine and picks the most thorough effort expected to fit. `--estimate` just prints how long each effort would take. A live status line shows the stage, simulations per second, elapsed time and time left.

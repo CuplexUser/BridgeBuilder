@@ -41,6 +41,8 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
   const decks = (['road', 'heavy'] as MaterialId[]).filter(offered);
   // A bonus search can ban every beam material; genes still need one option, and build() then skips beams.
   const beamOpts: string[] = beams.length ? beams : ['none'];
+  // Supports may also be rams on drawbridge levels: a post that lifts the leaf.
+  const supportMats: MaterialId[] = [...beams, ...(offered('ram') ? (['ram'] as MaterialId[]) : [])];
 
   // Candidate places to break the deck into spans: interior anchors, snapped to even meters.
   const breaks = [...new Set(level.anchors.map(([x]) => Math.round(x / 2) * 2).filter((x) => x > 1 && x < W - 1))].sort((a, b) => a - b);
@@ -61,7 +63,7 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
   const supportGenes = low.map(([x, y]) => ({
     at: [x, y] as GridPt,
     shape: add(`support ${x},${y}`, ['none', 'post', 'pair', 'fan', 'trestle']),
-    mat: add(`support ${x},${y} material`, beamOpts),
+    mat: add(`support ${x},${y} material`, supportMats.length ? supportMats : ['none']),
   }));
   const hangGenes = cablesOk
     ? high.map(([x, y]) => ({ at: [x, y] as GridPt, bits: [] as { joint: number; gene: number }[] }))
@@ -107,8 +109,8 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
     // Struts, posts and trestles from low anchors.
     for (const s of supportGenes) {
       const shape = g[s.shape];
-      if (shape === 0 || !beams.length) continue;
-      const mat = beams[g[s.mat]] ?? beams[0];
+      if (shape === 0 || !supportMats.length) continue;
+      const mat = supportMats[g[s.mat]] ?? supportMats[0];
       support(d, s.at, joints, mat, shape);
     }
     // Hangers.
@@ -191,7 +193,7 @@ function support(d: Design, at: GridPt, joints: GridPt[], mat: MaterialId, shape
   const dist = (p: GridPt) => Math.hypot(p[0] - at[0], p[1] - at[1]);
   if (shape === 4) {
     // Trestle: two legs up to a braced level halfway, then posts to the deck joints either side.
-    const left = free.filter(([x]) => x < at[0]).at(-1);
+    const left = free.toReversed().find(([x]) => x < at[0]);
     const rightJ = free.find(([x]) => x > at[0]);
     if (!left || !rightJ) return;
     const yMid = q((at[1] + Math.min(left[1], rightJ[1])) / 2);

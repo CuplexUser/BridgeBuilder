@@ -59,7 +59,7 @@ describe('cable levels resist the obvious answer', () => {
     for (const id of [19, 20, 29, 30]) {
       const level = L(id);
       const ref = Design.deserialize(DESIGNS[id].reference);
-      const deckJoints = new Set(ref.members.filter((m) => MATERIALS[m.mat].drivable).flatMap((m) => [m.a, m.b]));
+      const deckJoints = new Set(ref.members.flatMap((m) => (MATERIALS[m.mat].drivable ? [m.a, m.b] : [])));
       for (const [tx, , top] of level.towers!.filter((t) => t[2] > 5)) {
         for (const j of deckJoints) expect(Math.hypot(ref.nodes[j].x - tx, ref.nodes[j].y - top)).toBeGreaterThan(reach);
       }

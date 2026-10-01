@@ -5,7 +5,8 @@ import { SOLUTIONS } from '../src/solutions';
 import { insertHigh, MAX_HIGHS, type HighScore } from '../src/storage';
 
 describe('scoreLevel', () => {
-  const level = LEVELS[0];
+  // Level 1 with a fixed bonus goal, so retuning the level doesn't change these numbers.
+  const level = { ...LEVELS[0], bonus: { kind: 'parts', max: 4 } as const };
   const design = SOLUTIONS[1](level);
   const spent = design.cost();
 
@@ -14,7 +15,7 @@ describe('scoreLevel', () => {
     expect(s.spent).toBe(spent);
     expect(s.savingsBonus).toBe(Math.round(SAVINGS_MAX * (1 - spent / level.money)));
     expect(s.safetyBonus).toBe(300);
-    // The reference also meets level 1's bonus goal (four parts or fewer).
+    // The design also meets the bonus goal (four parts or fewer).
     expect(s.bonus).toBe(true);
     expect(s.total).toBe(BASE_SCORE + s.savingsBonus + 300 + GOAL_SCORE);
   });

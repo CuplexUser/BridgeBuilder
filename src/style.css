@@ -391,6 +391,28 @@ kbd {
   padding: 0 3px;
 }
 
+/* Parts left under a material limit. */
+.mat em {
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 5px;
+  border-radius: 6px;
+  background: var(--gold);
+  color: #1a1a1a;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 14px;
+  white-space: nowrap;
+}
+
+.mat em[hidden] {
+  display: none;
+}
+
 .mat.active {
   border-color: var(--c);
   background: #173764;

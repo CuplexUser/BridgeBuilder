@@ -136,7 +136,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
   },
   ram: {
     id: 'ram',
-    name: 'Hydraulic ram',
+    name: 'Ram',
     price: 420,
     short: 'Ram',
     maxLen: 4.25,

@@ -49,8 +49,9 @@ export class Ui {
       const b = document.createElement('button');
       b.className = 'mat';
       b.dataset.mat = id;
-      b.innerHTML = `<kbd>${i + 1}</kbd><i></i><span class="full">${MATERIALS[id].name}</span><span class="short">${MATERIALS[id].short}</span><b>0</b>`;
+      b.innerHTML = `<kbd>${i + 1}</kbd><i></i><span class="full">${MATERIALS[id].name}</span><span class="short">${MATERIALS[id].short}</span><b>0</b><em hidden></em>`;
       if (MATERIALS[id].drivable) b.title = `${MATERIALS[id].name}: carries up to ${MATERIALS[id].rating} t`;
+      else if (MATERIALS[id].stroke) b.title = `Hydraulic ram: extends by ${Math.round(MATERIALS[id].stroke * 100)}% to open a drawbridge`;
       mats.appendChild(b);
       this.matBtns.set(id, b);
     });
@@ -124,7 +125,11 @@ export class Ui {
     for (const [id, b] of this.matBtns) {
       const price = MATERIALS[id].price;
       const parts = partsLeft(id);
-      b.querySelector('b')!.textContent = parts === null ? `$${price}/m` : `$${price}/m · ${parts} left`;
+      b.querySelector('b')!.textContent = `$${price}/m`;
+      // Parts left on a level with a limit, as a badge opposite the key.
+      const badge = b.querySelector('em')!;
+      badge.hidden = parts === null;
+      badge.textContent = `${parts ?? ''} left`;
       b.classList.toggle('active', id === active);
       // Materials a level doesn't offer are hidden so the toolbar stays compact on phones.
       b.classList.toggle('hidden', !level.materials.includes(id));
@@ -423,9 +428,18 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }
 
-/** Who crosses a level, e.g. "Semi truck · 40 t" or "Compact car + school bus · 30 t" for a convoy. */
+/**
+ * Who crosses a level, e.g. "Semi truck · 40 t", "Compact car + school bus · 30 t" for a convoy,
+ * or "Delivery van ×3 · 15 t". A drawbridge level says so.
+ */
 function traffic(l: LevelDef): string {
   const defs = [l.vehicle, ...(l.convoy ?? [])].map((v) => VEHICLES[v]);
-  const names = defs.map((d, i) => (i ? d.name.toLowerCase() : d.name)).join(' + ');
-  return `${names} · ${Math.max(...defs.map((d) => d.tonnes))} t`;
+  const groups: { name: string; n: number }[] = [];
+  for (const d of defs) {
+    const last = groups.at(-1);
+    if (last?.name === d.name) last.n++;
+    else groups.push({ name: d.name, n: 1 });
+  }
+  const names = groups.map((g, i) => `${i ? g.name.toLowerCase() : g.name}${g.n > 1 ? ` ×${g.n}` : ''}`).join(' + ');
+  return `${names} · ${Math.max(...defs.map((d) => d.tonnes))} t${l.ship ? ' · drawbridge' : ''}`;
 }

@@ -15,6 +15,8 @@ export interface Outcome {
   parts: number;
   /** How far the vehicle got, 0 at the start line to 1 at the goal. */
   progress: number;
+  /** Some bridge member broke on the way, even if the vehicles made it. */
+  broken: boolean;
 }
 
 /** Drives a design across a level, the way the game's TEST button does. Budget is not checked here. */
@@ -22,7 +24,7 @@ export function simulate(level: LevelDef, designJson: string, seconds = 30): Out
   const d = Design.deserialize(designJson);
   const base = { cost: d.cost(), parts: d.parts() };
   const problems = designProblems(level, d, { budget: false });
-  if (problems.length) return { ...base, valid: false, crossed: false, reason: problems[0], peak: 1, progress: 0 };
+  if (problems.length) return { ...base, valid: false, crossed: false, reason: problems[0], peak: 1, progress: 0, broken: false };
   const run = new TestRun(d, level);
   let furthest = START_X;
   for (let i = 0; i < seconds * 60 && run.status === 'running'; i++) {
@@ -31,5 +33,6 @@ export function simulate(level: LevelDef, designJson: string, seconds = 30): Out
   }
   const crossed = run.status === 'success';
   const progress = crossed ? 1 : Math.max(0, Math.min(1, (furthest - START_X) / (goalX(level) - START_X)));
-  return { ...base, valid: true, crossed, reason: crossed ? '' : run.reason || 'timed out', peak: run.peakStress, progress };
+  const broken = run.world.links.some((l) => l.bridge && l.broken);
+  return { ...base, valid: true, crossed, reason: crossed ? '' : run.reason || 'timed out', peak: run.peakStress, progress, broken };
 }

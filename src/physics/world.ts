@@ -643,6 +643,12 @@ export type RunStatus = 'running' | 'success' | 'fail';
 export type Phase = 'settle' | 'opening' | 'ship' | 'closing' | 'driving';
 
 /** One test drive: steps the world and decides success or failure. */
+/** Smoothstep: eases 0..1 in and out, clamped. */
+function smooth(u: number): number {
+  const c = Math.max(0, Math.min(1, u));
+  return c * c * (3 - 2 * c);
+}
+
 export class TestRun {
   world: World;
   vehicles: VehicleHandle[];
@@ -716,10 +722,6 @@ export class TestRun {
   private drawbridge(): void {
     const t = this.time;
     const w = this.world;
-    const smooth = (u: number) => {
-      const c = Math.max(0, Math.min(1, u));
-      return c * c * (3 - 2 * c);
-    };
     const openAt = SETTLE_TIME;
     const shipAt = openAt + OPEN_TIME;
     const closeAt = shipAt + SHIP_TIME;

@@ -7,8 +7,8 @@ Features and improvements, by priority. Finished items stay checked for a releas
 ### Done
 
 - [x] **Level optimizer** (`npm run tune`). Genetic search over a structure grammar plus local polishing finds each level's cheapest robust design, then derives target, budget and bonus goal, and checks each level's intent: shortcuts fail, required materials are really needed, and there's room for more than one answer. It can also tune marked geometry. Effort levels, a time budget, live progress with time left, and checkpoints so a crashed or interrupted run resumes.
-- [x] **Semi suspension margins.** The semi rides on three axles, so a hung deck no longer kinks under two concentrated wheel loads. On the finale, hanger-every-joint designs now cross at any sag from 8 to 12 m instead of one. The optimizer's room check keeps it that way.
-- [x] **Level 30 channel.** The ship channel has real clearance, so the deck climbs to the pylons, and road runs snap to any bolt they pass over, so the pylon bolts can be used.
+- [x] **Semi suspension margins.** The semi rides on three axles, so a hung deck no longer kinks under two concentrated wheel loads.
+- [x] **Level 30 channel.** The ship channel is 2 m clear of the water, the deck climbs to bolts 2 m up the pylons, and road runs snap to any bolt they pass over, so those bolts can be used. The optimizer tried this, its preferred layout, first and kept it: trusses 2 or 3 m deep over the channel fail, and the best design ($32,370) hangs the deck from main cables.
 - [x] **Heavy deck as a lesson.** Heavy deck now arrives in chapter 5 with the semi, where road can't carry the load.
 - [x] **Deck weight ratings.** Road carries up to 30 t and heavy deck 60 t. The 40 t semi crushes road wherever its wheels touch, so the semi levels need heavy deck. Level cards show the vehicle's weight, the material buttons show the rating, and the collapse screen says what happened.
 - [x] **Tight cost targets.** New references from sweeps over truss materials, struts and pier bracing: road trusses on 2-4 ($8,204) and 2-5 ($9,479), no end struts on 5-1 ($18,820) and 6-2 ($23,899), wood end diagonals on 5-3 ($13,222), and a road deck on 6-1 ($21,872). Targets and budgets follow, and each of these levels has a new bonus goal with a tested design.
@@ -31,11 +31,18 @@ Features and improvements, by priority. Finished items stay checked for a releas
 
 ## P2: Gameplay depth
 
-- [ ] **Hydraulic members** that extend or contract during the run, for drawbridge levels with boat traffic.
-- [ ] **Multiple vehicles per level**, such as a convoy, or a car then a truck.
-- [ ] **Joint strength.** Joints fail when too many heavily loaded members meet, which rewards clean load paths.
-- [ ] **Anchor costs.** Some levels charge for using an anchor, which pushes players toward fewer, better supports.
-- [ ] **Material limits as puzzle modifiers**, such as "wood only" or "no more than 4 cables", layered on top of the money budget for selected levels.
+### Done
+
+- [x] **Hydraulic rams and drawbridges.** A ram extends by 75% while the bridge opens. On a drawbridge level a tall ship sails through the channel's middle before traffic may go: the bridge opens, the ship passes (and fails the run if it touches anything), the bridge closes and the vehicles drive.
+- [x] **Convoys.** Several vehicles cross nose to tail at the slowest one's speed, and all of them have to reach the goal.
+- [x] **Joint strength.** Past a joint's two busiest members, the rest of their stress ratios may add up to at most 180%, or the busiest member breaks. Every hand-made design stays under it (the highest is 145%, on 2-5).
+- [x] **Anchor costs.** A level can charge for building from each bolt but the two road ends, shown on the blueprint.
+- [x] **Material limits.** A level can cap the parts of a material; the toolbar shows how many are left. The cable levels 4-1, 4-3, 5-2, 5-5 and 6-3 use them to rule out a truss under the deck, which the optimizer found could otherwise cross them without cables.
+- [x] **Chapter 7, Moving Parts**, with a harbor theme: *Bascule* (first drawbridge), *Convoy* (three vans, six steel parts), *Toll Bridge* ($1,000 per bolt), *Harbor Gate* (a fixed span, then a leaf) and *Rush Hour* (car, van and dump truck over one ram).
+
+### Next
+
+- [ ] Ideas: double-leaf bascules, lift bridges, a swing bridge, and a ship that has to wait for traffic instead of the other way around.
 
 ## P3: Polish and social
 

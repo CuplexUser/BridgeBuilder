@@ -58,12 +58,10 @@ describe('tuned levels', () => {
       });
 
       const seed = handSeed(level);
-      if (seed) {
-        it('keeps the hand-made design affordable and working', () => {
-          expect(designProblems(level, seed)).toEqual([]);
-          expect(drive(seed, level).status).toBe('success');
-        });
-      }
+      it.runIf(seed)('keeps the hand-made design affordable and working', () => {
+        expect(designProblems(level, seed!)).toEqual([]);
+        expect(drive(seed!, level).status).toBe('success');
+      });
 
       for (const s of INTENTS[level.id]?.shortcuts ?? []) {
         it(`shuts out the shortcut "${s.name}"`, () => {

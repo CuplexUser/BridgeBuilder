@@ -54,8 +54,6 @@ export function prattAbove(d: Design, x0: number, x1: number, h: number, m: Trus
 const WOOD: TrussMats = { chord: 'wood', web: 'wood', vert: 'wood' };
 const HEAVY: TrussMats = { chord: 'steel', web: 'wood', vert: 'wood', end: 'steel', endWeb: 'steel' };
 const STEELY: TrussMats = { chord: 'steel', web: 'steel', vert: 'steel', end: 'steel', endWeb: 'steel' };
-/** All steel except the wood diagonals beside the supports: stiff, for a low peak stress. */
-const STIFF: TrussMats = { ...STEELY, endWeb: 'wood' };
 
 /**
  * Hand-made designs, one per level: the tuner (tools/tune) polishes them as a starting point,
@@ -222,23 +220,54 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
   },
   29: (l) => skyRoad(l, WOOD).add([0, -3], [2, 0], 'steel').add([34, -3], [32, 0], 'steel'),
   // Built from the level's bolts, since the tuner may move the pylons and raise the deck.
+  31: (l) => {
+    const d = new Design(l);
+    trussOver(d, roadRun(d, [0, 0], [8, 0]), 2, WOOD);
+    return d.add([4, -3], [4, 0], 'ram');
+  },
+  32: (l) => {
+    const d = new Design(l);
+    trussOver(d, roadRun(d, [0, 0], [14, 0]), 2, { ...WOOD, end: 'steel', endWeb: 'steel' });
+    return d.add([7, -3], [6, 0], 'steel').add([7, -3], [8, 0], 'steel');
+  },
+  33: (l) => {
+    // Two trusses meeting on the middle pier: one toll instead of three.
+    const d = new Design(l);
+    const pts = roadRun(d, [0, 0], [20, 0]);
+    trussOver(d, pts.slice(0, 6), 2, HEAVY);
+    trussOver(d, pts.slice(5), 2, HEAVY);
+    return d.add([10, -2], [10, 0], 'steel');
+  },
+  34: (l) => {
+    const d = new Design(l);
+    trussOver(d, roadRun(d, [0, 0], [8, 0]), 2, STEELY);
+    trussOver(d, roadRun(d, [8, 0], [16, 0]), 2, STEELY);
+    return d.add([12, -3], [12, 0], 'ram');
+  },
+  35: (l) => {
+    const d = new Design(l);
+    trussOver(d, roadRun(d, [0, 0], [10, 0]), 2, STEELY);
+    return d.add([6, -4], [6, 0], 'ram');
+  },
   30: (l) => {
     const d = new Design(l);
-    const [a, b] = l.anchors.filter(([x, y]) => x > 0 && x < l.width && y >= 0 && y < 5).sort((p, r) => p[0] - r[0]);
-    const [ta, tb] = l.anchors.filter(([, y]) => y >= 8).sort((p, r) => p[0] - r[0]);
+    const [a, b] = l.anchors.filter(([x, y]) => x > 0 && x < l.width && y >= 0 && y < 5).toSorted((p, r) => p[0] - r[0]);
+    const [ta, tb] = l.anchors.filter(([, y]) => y >= 8).toSorted((p, r) => p[0] - r[0]);
     // Up the ramp to the pylon, across the channel, and down again.
     const up = roadRun(d, [0, 0], a, 'heavy');
     const mid = roadRun(d, a, b, 'heavy');
     const down = roadRun(d, b, [l.width, 0], 'heavy');
     // A deep sag keeps the main cable's pull down, so it holds the semi; a hanger at every joint.
-    const sag = ta[1] - a[1] - 2;
+    const sag = ta[1] - a[1] - 3;
     const cable = mid.slice(1, -1).map(([x]): GridPt => {
       const t = (x - a[0]) / (b[0] - a[0]);
       return [x, Math.round(ta[1] - sag * 4 * t * (1 - t))];
     });
     mainCable(d, [ta, ...cable, tb], -1, a[1]);
-    trussOver(d, up, 2, STIFF);
-    return trussOver(d, down, 2, STIFF);
+    // Steel trusses on the ramps, with struts from the low bolts under their ends.
+    trussOver(d, up, 2, STEELY);
+    trussOver(d, down, 2, STEELY);
+    return d.add([0, -3], up[1], 'steel').add([l.width, -3], down.at(-2)!, 'steel');
   },
 };
 

@@ -14,7 +14,7 @@ export interface ChapterDef {
   id: number;
   name: string;
   blurb: string;
-  /** 1 (gentle) to 6 (brutal): shown as pips on the chapter card. */
+  /** 1 (gentle) up to the number of chapters (brutal): shown as pips on the chapter card. */
   difficulty: number;
   /** How much building a typical level takes. */
   effort: string;
@@ -70,6 +70,14 @@ export const CHAPTERS: ChapterDef[] = [
     difficulty: 6,
     effort: 'Huge builds · 40–60 parts',
     levels: [27, 28, 20, 29, 30],
+  },
+  {
+    id: 7,
+    name: 'Moving Parts',
+    blurb: 'Drawbridges on hydraulic rams, convoys, toll bolts and rationed steel.',
+    difficulty: 7,
+    effort: 'Medium builds · 15–40 parts',
+    levels: [31, 32, 33, 34, 35],
   },
 ];
 

@@ -149,5 +149,5 @@ export class Pool {
 }
 
 function failed(reason: string): Outcome {
-  return { valid: true, crossed: false, reason, peak: 1, cost: 0, parts: 0, progress: 0 };
+  return { valid: true, crossed: false, reason, peak: 1, cost: 0, parts: 0, progress: 0, broken: false };
 }

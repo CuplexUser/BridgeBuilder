@@ -28,14 +28,14 @@ import { grammarFor } from './genome';
 import { handSeed, INTENTS, paramCombos, type Intent, type Params, type Shape } from './intents';
 import { Pool } from './pool';
 import { Progress, clock } from './progress';
-import { calmest, cheapest, evolve, fewest, polish, room, type Found } from './search';
+import { calmest, cheapest, DOWNGRADE, evolve, fewest, polish, room, UPGRADE, type Found, type Objective } from './search';
 
 /** Peak stress the reference design may reach: a little margin below breaking. */
 const PEAK_CAP = 0.92;
 /** Target = best cost × this, by chapter: roomier early on, tight at the end. */
-const TARGET_SLACK = [1.15, 1.12, 1.1, 1.1, 1.08, 1.08];
+const TARGET_SLACK = [1.15, 1.12, 1.1, 1.1, 1.08, 1.08, 1.08];
 /** Budget = best cost × this, by chapter. */
-const MONEY_SLACK = [1.63, 1.48, 1.38, 1.32, 1.26, 1.22];
+const MONEY_SLACK = [1.63, 1.48, 1.38, 1.32, 1.26, 1.22, 1.22];
 /** The hand-made reference always stays affordable, with this much to spare. */
 const SEED_SLACK = 1.05;
 
@@ -69,7 +69,10 @@ export interface LevelResult {
   fingerprint: string;
   effort: string;
   ok: boolean;
+  /** Why the level's geometry or numbers can't be trusted; empty when ok. */
   notes: string[];
+  /** Smaller problems that don't reject a geometry, like a bonus goal nothing proved. */
+  warnings?: string[];
   params: Params;
   geometry: Shape;
   money: number;
@@ -144,7 +147,7 @@ for (const [i, base] of todo.entries()) {
     const r = await tuneLevel(base, INTENTS[base.id] ?? {});
     r.seconds = Math.round((Date.now() - started) / 1000);
     state[base.id] = r;
-    progress.log(`  ${r.ok ? 'OK' : 'CHECK'}: reference ${usd(r.reference.cost)} at ${pct(r.reference.peak)} (${r.reference.from}); target ${usd(r.target)}, budget ${usd(r.money)}, bonus ${bonusText(r.bonus)}${r.notes.length ? `; ${r.notes.join('; ')}` : ''}`);
+    progress.log(`  ${r.ok ? 'OK' : 'CHECK'}: reference ${usd(r.reference.cost)} at ${pct(r.reference.peak)} (${r.reference.from}); target ${usd(r.target)}, budget ${usd(r.money)}, bonus ${bonusText(r.bonus)}${[...r.notes, ...(r.warnings ?? [])].map((n) => `; ${n}`).join('')}`);
   } catch (e) {
     progress.log(`  FAILED: ${(e as Error).stack ?? e}`);
   }
@@ -187,19 +190,28 @@ function summary(o: { cost: number; peak: number; parts: number; crossed: boolea
 
 async function tuneLevel(base: LevelBase, intent: Intent): Promise<LevelResult> {
   const current = TUNED.levels[base.id];
-  const ch = chapterOf(base.id).id - 1;
+  // Chapters past the end of the slack tables use their last entries.
+  const ch = Math.min(chapterOf(base.id).id - 1, TARGET_SLACK.length - 1, MONEY_SLACK.length - 1);
   const combos = paramCombos(intent);
   let fallback: LevelResult | null = null;
+  // A geometry that works but whose bonus nothing proved is kept unless a later one does better.
+  let usable: LevelResult | null = null;
   for (const [ci, params] of combos.entries()) {
     if (ci > 0) progress.plan(plannedUnits(base, effort));
     const geometry = intent.shape?.(params) ?? {};
     const r = await tryGeometry(base, intent, current, ch, params, geometry);
     r.combosTried = ci + 1;
-    if (r.ok) return r;
+    if (r.ok && !r.warnings?.length) return r;
+    if (r.ok) {
+      usable ??= r;
+      if (Object.keys(params).length) progress.log(`  geometry ${JSON.stringify(params)} works, but ${r.warnings!.join('; ')}; trying the rest`);
+      continue;
+    }
     if (!fallback || r.notes.length < fallback.notes.length) fallback = r;
     if (Object.keys(params).length) progress.log(`  geometry ${JSON.stringify(params)} rejected: ${r.notes.join('; ')}`);
   }
-  return fallback!;
+  if (usable) usable.combosTried = combos.length;
+  return usable ?? fallback!;
 }
 
 async function tryGeometry(base: LevelBase, intent: Intent, current: Tuned, ch: number, params: Params, geometry: Shape): Promise<LevelResult> {
@@ -284,14 +296,17 @@ async function tryGeometry(base: LevelBase, intent: Intent, current: Tuned, ch: 
     if (roomResult.pass / roomResult.total < intent.minRoom) notes.push(`room ${roomResult.pass}/${roomResult.total} below ${pct(intent.minRoom)}`);
   }
 
-  const bonus = await chooseBonus(base, intent, current, tuned, ref, money, seedDesign);
-  if (!bonus.goal) notes.push(`no design meets a bonus goal (kept ${bonusText(current.bonus)} unproven)`);
+  // Only a level that passes its checks is worth the bonus searches.
+  const warnings: string[] = [];
+  const bonus = notes.length ? { goal: null, proof: null } : await chooseBonus(base, intent, current, tuned, ref, money, seedDesign);
+  if (!notes.length && !bonus.goal) warnings.push(`no design meets a bonus goal (kept ${bonusText(current.bonus)} unproven)`);
   return {
     id: base.id,
     fingerprint: levelFingerprint(base.id),
     effort: effortName,
     ok: notes.length === 0,
     notes,
+    warnings,
     params,
     geometry,
     money,
@@ -327,13 +342,27 @@ async function chooseBonus(base: LevelBase, intent: Intent, current: Tuned, leve
   const grammar = grammarFor(level, { deck: intent.deck?.(level) });
   const tag = `level ${base.id}`;
   const units = Math.round(effort.population * (effort.generations + 1) * effort.side);
+  const fromRef = (obj: Objective): Found => ({ design: ref.design, outcome: ref.outcome, score: obj.score(ref.outcome) });
+  /** The reference with every `mat` member swapped for an offered neighbor that reaches, or null if one can't. */
+  const recastRef = (without: LevelDef, mat: MaterialId): Design | null => {
+    const d = Design.deserialize(ref.design.serialize());
+    for (const [i, m] of d.members.entries()) {
+      if (m.mat !== mat) continue;
+      const to = [UPGRADE[mat], DOWNGRADE[mat]].find((t) => t && without.materials.includes(t) && d.length(i) <= MATERIALS[t].maxLen + 1e-9);
+      if (!to) return null;
+      m.mat = to;
+    }
+    return d;
+  };
   for (const kind of order) {
     if (kind === 'stress') {
       progress.stage(`${tag} · bonus: lowest stress`, units);
       const obj = calmest(budget);
       let f = await evolve(pool, level, grammar, obj, sideOptions(base.id, 1));
+      if (obj.ok(f.outcome)) f = await polish(pool, level, f, obj, { rounds: effort.polishRounds, upgrades: true });
+      // Upgrading the reference member by member often calms it more than any grammar design.
+      f = better(obj, f, await polish(pool, level, fromRef(obj), obj, { rounds: effort.polishRounds, upgrades: true }));
       if (!obj.ok(f.outcome)) continue;
-      f = await polish(pool, level, f, obj, { rounds: effort.polishRounds, upgrades: true });
       const max = Math.ceil((f.outcome.peak + 0.02) * 20) / 20;
       if (max < SAFE_STRESS && max <= ref.outcome.peak - 0.1) return { goal: { kind: 'stress', max }, proof: f };
     } else if (kind === 'without') {
@@ -348,16 +377,23 @@ async function chooseBonus(base: LevelBase, intent: Intent, current: Tuned, leve
         const without: LevelDef = { ...level, materials: level.materials.filter((m) => m !== mat) };
         const obj = cheapest(budget, 0.98);
         let f = await evolve(pool, without, grammarFor(without, { deck: intent.deck?.(without) }), obj, sideOptions(base.id, 2));
+        if (obj.ok(f.outcome)) f = await polish(pool, without, f, obj, { rounds: effort.polishRounds });
+        // The reference with the banned material swapped for its nearest offered neighbor, then repaired.
+        const recast = recastRef(without, mat);
+        if (recast) {
+          const o = await pool.run(without, recast);
+          f = better(obj, f, await polish(pool, without, { design: recast, outcome: o, score: obj.score(o) }, obj, { rounds: effort.polishRounds, upgrades: true }));
+        }
         if (!obj.ok(f.outcome)) continue;
-        f = await polish(pool, without, f, obj, { rounds: effort.polishRounds });
         return { goal: { kind: 'without', mat }, proof: f };
       }
     } else if (kind === 'parts') {
       progress.stage(`${tag} · bonus: fewest parts`, units);
       const obj = fewest(budget, 0.98);
       let f = await evolve(pool, level, grammar, obj, sideOptions(base.id, 3));
+      if (obj.ok(f.outcome)) f = await polish(pool, level, f, obj, { rounds: effort.polishRounds });
+      f = better(obj, f, await polish(pool, level, fromRef(obj), obj, { rounds: effort.polishRounds }));
       if (!obj.ok(f.outcome)) continue;
-      f = await polish(pool, level, f, obj, { rounds: effort.polishRounds });
       if (f.outcome.parts <= ref.outcome.parts - 3) return { goal: { kind: 'parts', max: f.outcome.parts }, proof: f };
     }
   }
@@ -365,9 +401,17 @@ async function chooseBonus(base: LevelBase, intent: Intent, current: Tuned, leve
   for (const d of [ref.design, seed]) {
     if (!d) continue;
     const o = await pool.run(level, d);
-    if (o.valid && o.crossed && o.cost <= budget && bonusMet(current.bonus, d, o.peak)) return { goal: current.bonus, proof: { design: d, outcome: o, score: 0 } };
+    if (o.valid && o.crossed && !o.broken && o.cost <= budget && bonusMet(current.bonus, d, o.peak)) return { goal: current.bonus, proof: { design: d, outcome: o, score: 0 } };
   }
+  // Last resort: match the best design's cost, a notch under the star target.
+  const max = ceilTo(ref.outcome.cost * 1.02, 50);
+  if (max < level.target) return { goal: { kind: 'cost', max }, proof: ref };
   return { goal: null, proof: null };
+}
+
+/** Whichever of two finds scores lower under the objective. */
+function better(obj: Objective, a: Found, b: Found): Found {
+  return obj.score(b.outcome) < obj.score(a.outcome) ? b : a;
 }
 
 function emptyResult(base: LevelBase, params: Params, geometry: Shape, current: Tuned): LevelResult {
@@ -429,7 +473,7 @@ function report(): string {
     const cuts = r.shortcuts.map((s) => (s.ok ? '✓' : '✗')).join('');
     const roomText = r.room ? `${r.room.pass}/${r.room.total}` : '';
     const params = Object.keys(r.params).length ? JSON.stringify(r.params) : '';
-    return `| ${levelCode(b.id)} | ${b.name} | ${r.ok ? '✓' : `✗ ${r.notes.join('; ')}`} | ${usd(r.reference.cost)} (${pct(r.reference.peak)}) | ${r.seed ? usd(r.seed.cost) : ''} | ${usd(r.target)} | ${usd(r.money)} | ${bonusText(r.bonus)} | ${[req, cuts && `shortcuts ${cuts}`, roomText && `room ${roomText}`, params].filter(Boolean).join('; ')} |`;
+    return `| ${levelCode(b.id)} | ${b.name} | ${r.ok ? ['✓', ...(r.warnings ?? [])].join(' ') : `✗ ${r.notes.join('; ')}`} | ${usd(r.reference.cost)} (${pct(r.reference.peak)}) | ${r.seed ? usd(r.seed.cost) : ''} | ${usd(r.target)} | ${usd(r.money)} | ${bonusText(r.bonus)} | ${[req, cuts && `shortcuts ${cuts}`, roomText && `room ${roomText}`, params].filter(Boolean).join('; ')} |`;
   });
   return [
     '# Level tuning report',

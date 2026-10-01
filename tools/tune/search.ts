@@ -20,7 +20,8 @@ const WEAK = 1e8;
 function penalty(o: Outcome, money: number, cap: number): number | null {
   if (!o.valid) return INVALID;
   if (!o.crossed) return FAILED + (1 - o.progress) * 1e9 + o.cost;
-  if (o.peak > cap || o.cost > money) return WEAK + Math.max(0, o.peak - cap) * 1e7 + Math.max(0, o.cost - money) * 100 + o.cost;
+  // A member that broke on the way counts like a design over the stress cap.
+  if (o.peak > cap || o.cost > money || o.broken) return WEAK + Math.max(0, o.peak - cap) * 1e7 + Math.max(0, o.cost - money) * 100 + (o.broken ? 1e6 : 0) + o.cost;
   return null;
 }
 
@@ -198,8 +199,8 @@ function tidy(d: Design): Design {
   return d;
 }
 
-const DOWNGRADE: Partial<Record<MaterialId, MaterialId>> = { steel: 'wood', heavy: 'road' };
-const UPGRADE: Partial<Record<MaterialId, MaterialId>> = { wood: 'steel', road: 'heavy' };
+export const DOWNGRADE: Partial<Record<MaterialId, MaterialId>> = { steel: 'wood', heavy: 'road' };
+export const UPGRADE: Partial<Record<MaterialId, MaterialId>> = { wood: 'steel', road: 'heavy' };
 
 /**
  * Local search on a finished design: removes members and swaps materials one at a time,
