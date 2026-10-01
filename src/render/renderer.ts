@@ -1355,30 +1355,7 @@ export class Renderer {
         }
       }
     } else if (mat === 'ram') {
-      // Cylinder from the base end, chrome rod the rest of the way.
-      const split = 0.55;
-      const mx = ax + (bx - ax) * split;
-      const my = ay + (by - ay) * split;
-      ctx.lineCap = 'butt';
-      ctx.beginPath();
-      ctx.moveTo(mx, my);
-      ctx.lineTo(bx, by);
-      ctx.strokeStyle = PAL.steelDark;
-      ctx.lineWidth = w * 0.5 + 2;
-      ctx.stroke();
-      ctx.strokeStyle = PAL.chrome;
-      ctx.lineWidth = w * 0.5;
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(ax, ay);
-      ctx.lineTo(mx, my);
-      ctx.strokeStyle = PAL.ramDark;
-      ctx.lineWidth = w + 2;
-      ctx.stroke();
-      ctx.strokeStyle = PAL.ram;
-      ctx.lineWidth = w;
-      ctx.stroke();
-      ctx.lineCap = 'round';
+      this.ramShape(ax, ay, bx, by, w, false);
     } else {
       line(0);
       ctx.strokeStyle = PAL.cable;
@@ -1431,6 +1408,10 @@ export class Renderer {
     ctx.lineWidth = w + 7;
     ctx.stroke();
     ctx.globalAlpha = 1;
+    if (mat === 'ram') {
+      this.ramShape(ax, ay, bx, by, w, true);
+      return;
+    }
     if (mat === 'cable') ctx.setLineDash([6, 3]);
     ctx.lineWidth = w;
     ctx.stroke();
@@ -1657,6 +1638,90 @@ export class Renderer {
     ctx.lineTo(x, y + s + 6);
     ctx.stroke();
     this.label(`${m.label} · ${m.x}, ${m.y}`, x, y - s - 16, col);
+  }
+
+  /**
+   * A hydraulic ram: a fat barrel from its lower end, a thin chrome rod the rest of the way,
+   * and arrows on the rod showing which way it pushes. Chalk on the blueprint, painted in the scene.
+   */
+  private ramShape(ax: number, ay: number, bx: number, by: number, w: number, chalk: boolean): void {
+    const { ctx } = this;
+    // The barrel stands on the lower end (larger screen y), the way a ram is mounted.
+    if (ay < by) [ax, ay, bx, by] = [bx, by, ax, ay];
+    const len = Math.hypot(bx - ax, by - ay) || 1;
+    const ux = (bx - ax) / len;
+    const uy = (by - ay) / len;
+    const split = 0.55;
+    const mx = ax + (bx - ax) * split;
+    const my = ay + (by - ay) * split;
+    const barrel = Math.max(6, w * 1.8);
+    const rod = Math.max(2, w * 0.45);
+    const col = chalk ? MATERIAL_CHALK.ram : PAL.ram;
+    ctx.save();
+    ctx.lineCap = 'butt';
+    // Rod.
+    ctx.beginPath();
+    ctx.moveTo(mx, my);
+    ctx.lineTo(bx, by);
+    if (!chalk) {
+      ctx.strokeStyle = PAL.steelDark;
+      ctx.lineWidth = rod + 2;
+      ctx.stroke();
+    }
+    ctx.strokeStyle = chalk ? col : PAL.chrome;
+    ctx.lineWidth = rod;
+    ctx.stroke();
+    // Barrel: filled in the scene, an outline on the blueprint.
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(mx, my);
+    if (chalk) {
+      ctx.strokeStyle = col;
+      ctx.lineWidth = barrel;
+      ctx.stroke();
+      ctx.strokeStyle = PAL.paper;
+      ctx.lineWidth = Math.max(1.5, barrel - 5);
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = PAL.ramDark;
+      ctx.lineWidth = barrel + 2;
+      ctx.stroke();
+      ctx.strokeStyle = PAL.ram;
+      ctx.lineWidth = barrel;
+      ctx.stroke();
+      // Highlight down the barrel and a collar where the rod comes out.
+      ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+      ctx.lineWidth = Math.max(1, barrel * 0.22);
+      ctx.beginPath();
+      ctx.moveTo(ax - uy * barrel * 0.22, ay + ux * barrel * 0.22);
+      ctx.lineTo(mx - uy * barrel * 0.22, my + ux * barrel * 0.22);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = chalk ? col : PAL.ramDark;
+    ctx.lineWidth = Math.max(2, barrel * 0.3);
+    ctx.beginPath();
+    ctx.moveTo(mx - uy * barrel * 0.75, my + ux * barrel * 0.75);
+    ctx.lineTo(mx + uy * barrel * 0.75, my - ux * barrel * 0.75);
+    ctx.stroke();
+    // Push arrows along the rod, in chalk only: the blueprint says what it does.
+    if (chalk && len > 40) {
+      const tx = mx + (bx - mx) * 0.55;
+      const ty = my + (by - my) * 0.55;
+      const s = Math.max(5, barrel * 0.6);
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (const d of [-1, 1]) {
+        const cx = tx + ux * s * 0.9 * d;
+        const cy = ty + uy * s * 0.9 * d;
+        ctx.moveTo(cx - uy * s * 0.6 - ux * s * 0.5 * d, cy + ux * s * 0.6 - uy * s * 0.5 * d);
+        ctx.lineTo(cx, cy);
+        ctx.lineTo(cx + uy * s * 0.6 - ux * s * 0.5 * d, cy - ux * s * 0.6 - uy * s * 0.5 * d);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   /** A small cross-hair marking where a beam will be split. */

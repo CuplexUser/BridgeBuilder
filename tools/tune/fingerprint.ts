@@ -6,7 +6,7 @@ import { PHYSICS_VERSION } from '../../src/physics/world';
 import { INTENTS, paramCombos, type Intent } from './intents';
 
 /** Bump when the tuner's rules change (how targets, budgets or bonus goals are derived). */
-export const TUNER_VERSION = 3;
+export const TUNER_VERSION = 4;
 
 /** FNV-1a, 32 bits, as hex: short, stable and dependency-free. */
 function hash(s: string): string {
@@ -26,7 +26,7 @@ function hash(s: string): string {
 export function levelFingerprint(id: number): string {
   const base = BASE_LEVELS.find((l) => l.id === id);
   if (!base) throw new Error(`No level ${id}`);
-  const { name: _name, tip: _tip, hint: _hint, ...geometry } = base;
+  const { name: _name, tip: _tip, hint: _hint, hintSolves: _solves, ...geometry } = base;
   const intent = intentData(base, INTENTS[id] ?? {});
   return hash(JSON.stringify({ geometry, intent, MATERIALS, VEHICLES, PHYSICS_VERSION, TUNER_VERSION }));
 }

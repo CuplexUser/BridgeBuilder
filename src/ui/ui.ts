@@ -145,7 +145,7 @@ export class Ui {
   }
 
   /** The level briefing: who crosses, the tip, the three stars, the bonus goal and any special rules. */
-  brief(level: LevelDef, code: string, best: Best | undefined): void {
+  brief(level: LevelDef, code: string, best: Best | undefined, example: boolean): void {
     const b = levelBrief(level);
     $('brief-code').textContent = code;
     $('brief-name').textContent = level.name;
@@ -159,6 +159,7 @@ export class Ui {
       .join('');
     $('brief-rules').innerHTML = b.rules.map((r) => `<li>${escapeHtml(r)}</li>`).join('');
     $('brief-rules-box').classList.toggle('hidden', b.rules.length === 0);
+    $('brief-example').classList.toggle('hidden', !example);
     $('brief-best').textContent = best ? `Your best: ${best.score.toLocaleString('en-US')} · ${starText(best.stars)}${best.bonus ? ` ${BONUS_MARK}` : ''}` : '';
     this.show('brief');
   }

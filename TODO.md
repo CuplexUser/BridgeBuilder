@@ -37,7 +37,7 @@ Features and improvements, by priority. Finished items stay checked for a releas
 - [x] **Convoys.** Several vehicles cross nose to tail at the slowest one's speed, and all of them have to reach the goal.
 - [x] **Joint strength.** Past a joint's two busiest members, the rest of their stress ratios may add up to at most 180%, or the busiest member breaks. Every hand-made design stays under it (the highest is 145%, on 2-5).
 - [x] **Anchor costs.** A level can charge for building from each bolt but the two road ends, shown on the blueprint.
-- [x] **Material limits.** A level can cap the parts of a material; the toolbar shows how many are left. The cable levels 4-1, 4-3, 5-2, 5-5 and 6-3 use them to rule out a truss under the deck, which the optimizer found could otherwise cross them without cables.
+- [x] **Material limits.** A level can cap the parts of a material; the toolbar shows how many are left. The cable levels 4-1, 4-2, 4-3, 5-2, 5-5, 6-3 and 6-4 use them to rule out a truss under the deck, which the optimizer found could otherwise cross them without cables; 4-2 also allows only four cables.
 - [x] **Chapter 7, Moving Parts**, with a harbor theme: *Bascule* (first drawbridge), *Convoy* (three vans, six steel parts), *Toll Bridge* ($1,000 per bolt), *Harbor Gate* (a fixed span, then a leaf) and *Rush Hour* (car, van and dump truck over one ram).
 
 ### Next
@@ -50,6 +50,8 @@ Features and improvements, by priority. Finished items stay checked for a releas
 
 - [x] **Level briefing.** Each level opens with a card listing the three stars, the bonus goal with what it means, and the level's special rules; the ⓘ button or I reopens it. The bonus goal under the level name is clickable and shows ✓ or ✗ live for cost, parts and banned materials, with the current part count.
 - [x] **Stress graph** after a run: the busiest member's load over time with the safety and breaking lines, breaks and drawbridge phases. Tap the graph to ring that moment's busiest member on the bridge, or tap a member to see its own curve.
+- [x] **Easier drawbridge intro and roomier budgets.** 7-1's ghost is the whole working bridge, tutorial levels can play an example first, and the ram is magenta and drawn as a cylinder so it can't be mistaken for wood. Targets now sit 18–30% over the optimizer's best (never below the hand-made design) and budgets 55–100% over.
+- [x] **Chapter list without a scrollbar** on desktop: four columns, the challenge button in each card's corner, and thin dark scrollbars wherever one is still needed.
 - [x] **Level editor** on the same `LevelDef` format: bolts, piers, pylons, ship channels, vehicles and convoys, drawbridges, materials and limits, budget, target, tolls, bonus goal and scene. Playtest without touching the career; export and import as JSON. Custom levels live in the browser.
 
 ### Next

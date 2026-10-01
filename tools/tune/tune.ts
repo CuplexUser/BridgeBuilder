@@ -32,12 +32,15 @@ import { calmest, cheapest, DOWNGRADE, evolve, fewest, polish, room, UPGRADE, ty
 
 /** Peak stress the reference design may reach: a little margin below breaking. */
 const PEAK_CAP = 0.92;
-/** Target = best cost × this, by chapter: roomier early on, tight at the end. */
-const TARGET_SLACK = [1.15, 1.12, 1.1, 1.1, 1.08, 1.08, 1.08];
+/**
+ * Target = best cost × this, by chapter: roomier early on, tighter at the end. The best cost is
+ * what a genetic search finds, which people rarely match, so these leave real room.
+ */
+const TARGET_SLACK = [1.3, 1.27, 1.25, 1.22, 1.2, 1.18, 1.25];
 /** Budget = best cost × this, by chapter. */
-const MONEY_SLACK = [1.63, 1.48, 1.38, 1.32, 1.26, 1.22, 1.22];
-/** The hand-made reference always stays affordable, with this much to spare. */
-const SEED_SLACK = 1.05;
+const MONEY_SLACK = [2.0, 1.9, 1.8, 1.7, 1.6, 1.55, 1.75];
+/** The hand-made design always fits the budget, with this much to spare, and always earns the cost star. */
+const SEED_SLACK = 1.35;
 
 interface Effort {
   population: number;
@@ -260,9 +263,10 @@ async function tryGeometry(base: LevelBase, intent: Intent, current: Tuned, ch: 
   }
 
   // Numbers.
-  const target = ceilTo(ref.outcome.cost * TARGET_SLACK[ch], 250);
-  let money = Math.max(roundTo(ref.outcome.cost * MONEY_SLACK[ch], 500), target + 500);
-  if (seed?.crossed && seed.peak < 1) money = Math.max(money, ceilTo(seed.cost * SEED_SLACK, 500));
+  const handOk = !!seed?.crossed && seed.peak < 1;
+  const target = Math.max(ceilTo(ref.outcome.cost * TARGET_SLACK[ch], 250), handOk ? ceilTo(seed!.cost, 250) : 0);
+  let money = Math.max(roundTo(ref.outcome.cost * MONEY_SLACK[ch], 500), target + 1000);
+  if (handOk) money = Math.max(money, ceilTo(seed!.cost * SEED_SLACK, 500));
   const tuned = applyTuning(base, { money, target, bonus: current.bonus, geometry: { ...current.geometry, ...geometry } });
 
   // The level's idea must be needed: without each required material, nothing affordable crosses.

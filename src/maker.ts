@@ -302,6 +302,7 @@ export function parseLevel(json: string, id: number): LevelDef {
     return a && b ? [a, b, v[2]] : null;
   });
   if (hint.length) level.hint = hint;
+  if (hint.length && r.hintSolves === true) level.hintSolves = true;
   const toll = clampInt(num(r.anchorCost, 0), 0, 100000);
   if (toll) level.anchorCost = toll;
   if (typeof r.theme === 'string' && THEMES.some((t) => t.id === r.theme)) level.theme = r.theme;

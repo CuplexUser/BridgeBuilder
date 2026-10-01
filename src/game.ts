@@ -89,6 +89,8 @@ export class Game {
   private paused = false;
   /** The level briefing is open over the blueprint; building waits until it closes. */
   private briefing = false;
+  /** The test drive running is the level's example bridge, not the player's design. */
+  private example = false;
   /** The stress graph is docked over a finished run, with what it highlights. */
   private graphOpen = false;
   private pick: GraphPick | null = null;
@@ -349,7 +351,7 @@ export class Game {
     if (this.paused) this.setPaused(false);
     this.editor.cancel();
     this.briefing = true;
-    this.ui.brief(this.level, this.codeOf(this.level), this.mode === 'play' ? this.data.best[this.level.id] : undefined);
+    this.ui.brief(this.level, this.codeOf(this.level), this.mode === 'play' ? this.data.best[this.level.id] : undefined, this.hasExample());
   }
 
   // ───────────────────────────── Level editor ─────────────────────────────
@@ -796,6 +798,34 @@ export class Game {
     return best;
   }
 
+  /** Tutorial levels (the ones with a ghost) can show their intended bridge first, outside challenges. */
+  private hasExample(): boolean {
+    return this.mode === 'play' && !!this.level.hint && !!SOLUTIONS[this.level.id];
+  }
+
+  /** Drives the level's example bridge so the player can see the idea work, then hands back the blueprint. */
+  private startExample(): void {
+    if (this.state !== 'build' || !this.editor || !this.hasExample()) return;
+    this.closeBrief();
+    this.editor.cancel();
+    this.example = true;
+    this.run = new TestRun(SOLUTIONS[this.level.id](this.level), this.level);
+    this.state = 'test';
+    this.developTarget = 1;
+    this.endTimer = -1;
+    this.anyBreak = false;
+    this.lastPhase = '';
+    this.acc = 0;
+    this.particles.clear();
+    this.debris.clear();
+    this.resetWheels(this.run);
+    this.ui.setTesting(true);
+    this.ui.showToast('EXAMPLE: one way across. Your own blueprint is kept. Press T to go back.', 120000);
+    this.fitCamera(false);
+    sfx.whoosh();
+    sfx.engineStart(this.engineBase());
+  }
+
   private closeBrief(): void {
     if (!this.briefing) return;
     this.briefing = false;
@@ -829,6 +859,10 @@ export class Game {
 
   private backToBuild(): void {
     if (!this.editor) return;
+    if (this.example) {
+      this.example = false;
+      this.ui.showToast(this.level.hintSolves ? 'Your turn. The ghost shows that bridge: trace it, then TEST.' : 'Your turn.', 4000);
+    }
     this.hideGraph();
     this.stopEngine();
     this.run = null;
@@ -1112,6 +1146,10 @@ export class Game {
         sfx.ui();
         this.closeGraph();
         break;
+      case 'brief-example':
+        sfx.select();
+        this.startExample();
+        break;
       case 'brief-close':
         sfx.select();
         this.closeBrief();
@@ -1204,9 +1242,9 @@ export class Game {
     }
     const bonus = this.level.bonus;
     this.ui.setGoal(bonusLabel(bonus), !!this.data.best[this.level.id]?.bonus && this.mode === 'play', bonusStatus(this.level, ed.design), bonus.kind === 'parts' && ed.design.members.length ? `${ed.design.parts()} now` : '');
-    // Nudge first-timers toward the test button once the hint is built. Only the very first
-    // level's ghost is a whole bridge; later ghosts just show off a new mechanic.
-    const hint = this.level.id === CHAPTERS[0].levels[0] ? this.level.hint : undefined;
+    // Nudge first-timers toward the test button once the hint is built, on levels whose ghost
+    // is a whole bridge; other ghosts just show off a new mechanic.
+    const hint = this.level.hintSolves ? this.level.hint : undefined;
     this.ui.testBtn.classList.toggle('pulse', !!hint && hint.every(([a, b]) => ed.design.covers(a, b)) && this.attempts === 0);
   }
 
@@ -1414,7 +1452,9 @@ export class Game {
         }
       }
       this.endTimer += dt;
-      if (run.status === 'success' && this.endTimer > RESULT_DELAY) this.finishSuccess();
+      if (this.example) {
+        if (this.endTimer > RESULT_DELAY) this.backToBuild();
+      } else if (run.status === 'success' && this.endTimer > RESULT_DELAY) this.finishSuccess();
       else if (run.status === 'fail' && this.endTimer > COLLAPSE_DELAY) this.finishCollapse();
     }
   }
@@ -1888,7 +1928,7 @@ export class Game {
       if (k === 'Enter' || k === ' ' || k === 'Escape' || lower === 'i') {
         e.preventDefault();
         this.act('brief-close');
-      }
+      } else if (lower === 'w' && this.hasExample()) this.act('brief-example');
       return;
     }
     if (this.paused) {

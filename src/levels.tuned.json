@@ -1,269 +1,269 @@
 {
   "levels": {
     "1": {
-      "money": 1750,
-      "target": 1250,
+      "money": 2500,
+      "target": 1500,
       "bonus": {
         "kind": "stress",
-        "max": 0.25
+        "max": 0.2
       },
-      "fingerprint": "b7c30082"
+      "fingerprint": "b7cfcc75"
     },
     "2": {
-      "money": 2500,
-      "target": 2000,
+      "money": 3250,
+      "target": 2250,
       "bonus": {
         "kind": "stress",
-        "max": 0.5
+        "max": 0.3
       },
-      "fingerprint": "401f49eb"
+      "fingerprint": "401d0b54"
     },
     "3": {
-      "money": 5000,
-      "target": 3750,
+      "money": 6000,
+      "target": 4250,
       "bonus": {
         "kind": "stress",
         "max": 0.55
       },
-      "fingerprint": "87dd3601"
+      "fingerprint": "87e584c6"
     },
     "4": {
-      "money": 7000,
-      "target": 5000,
-      "bonus": {
-        "kind": "stress",
-        "max": 0.5
-      },
-      "fingerprint": "fb47b993"
-    },
-    "5": {
-      "money": 7000,
-      "target": 5500,
-      "bonus": {
-        "kind": "stress",
-        "max": 0.45
-      },
-      "fingerprint": "544730f2"
-    },
-    "6": {
-      "money": 8000,
-      "target": 6000,
+      "money": 8500,
+      "target": 6250,
       "bonus": {
         "kind": "stress",
         "max": 0.4
       },
-      "fingerprint": "00b81bdb"
+      "fingerprint": "fb457afc"
+    },
+    "5": {
+      "money": 9000,
+      "target": 6000,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.35
+      },
+      "fingerprint": "5453fce5"
+    },
+    "6": {
+      "money": 10000,
+      "target": 7250,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.3
+      },
+      "fingerprint": "00b5dd44"
     },
     "7": {
-      "money": 10500,
-      "target": 8000,
-      "bonus": {
-        "kind": "stress",
-        "max": 0.55
-      },
-      "fingerprint": "a5134cef"
-    },
-    "8": {
       "money": 13500,
-      "target": 10500,
-      "bonus": {
-        "kind": "stress",
-        "max": 0.55
-      },
-      "fingerprint": "3faf64b7"
-    },
-    "9": {
-      "money": 12000,
-      "target": 7250,
+      "target": 9000,
       "bonus": {
         "kind": "stress",
         "max": 0.45
       },
-      "fingerprint": "7fc61d91"
+      "fingerprint": "a5249610"
+    },
+    "8": {
+      "money": 17500,
+      "target": 11750,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.5
+      },
+      "fingerprint": "3fc0add8"
+    },
+    "9": {
+      "money": 15500,
+      "target": 11500,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.35
+      },
+      "fingerprint": "7fccd956"
     },
     "10": {
-      "money": 13000,
-      "target": 10250,
+      "money": 17000,
+      "target": 12500,
       "bonus": {
         "kind": "without",
         "mat": "wood"
       },
-      "fingerprint": "3ee49ef5"
+      "fingerprint": "3ed7d302"
     },
     "11": {
-      "money": 11500,
-      "target": 9500,
-      "bonus": {
-        "kind": "stress",
-        "max": 0.65
-      },
-      "fingerprint": "39150ac2"
-    },
-    "12": {
-      "money": 14000,
+      "money": 15000,
       "target": 11000,
       "bonus": {
         "kind": "stress",
-        "max": 0.6
+        "max": 0.4
       },
-      "fingerprint": "b237e4cc"
+      "fingerprint": "392043b5"
+    },
+    "12": {
+      "money": 18000,
+      "target": 12750,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.45
+      },
+      "fingerprint": "b23bb663"
     },
     "13": {
-      "money": 10000,
-      "target": 8250,
+      "money": 12500,
+      "target": 9250,
       "bonus": {
         "kind": "stress",
-        "max": 0.25
+        "max": 0.2
       },
-      "fingerprint": "94e0297d"
+      "fingerprint": "94d35d8a"
     },
     "14": {
-      "money": 12000,
-      "target": 10250,
+      "money": 15500,
+      "target": 11250,
       "bonus": {
-        "kind": "parts",
-        "max": 17
+        "kind": "cost",
+        "max": 9350
       },
-      "fingerprint": "d3973180"
+      "fingerprint": "e8f162ab"
     },
     "15": {
-      "money": 13500,
-      "target": 10250,
+      "money": 17000,
+      "target": 12750,
       "bonus": {
         "kind": "stress",
-        "max": 0.65
+        "max": 0.55
       },
-      "fingerprint": "96bab769"
+      "fingerprint": "96c3062e"
     },
     "16": {
-      "money": 13500,
-      "target": 11500,
+      "money": 17500,
+      "target": 12500,
       "bonus": {
         "kind": "parts",
         "max": 26
       },
-      "fingerprint": "a236e3a8"
+      "fingerprint": "a2259a87"
     },
     "17": {
-      "money": 23000,
-      "target": 20000,
+      "money": 29500,
+      "target": 22000,
       "bonus": {
         "kind": "without",
         "mat": "wood"
       },
-      "fingerprint": "bd2adb8f"
+      "fingerprint": "bd3c24b0"
     },
     "18": {
-      "money": 17500,
-      "target": 15000,
+      "money": 22000,
+      "target": 16750,
       "bonus": {
         "kind": "without",
         "mat": "steel"
       },
-      "fingerprint": "42a6a928"
+      "fingerprint": "42956007"
     },
     "19": {
-      "money": 25000,
-      "target": 17750,
+      "money": 32000,
+      "target": 23750,
       "bonus": {
         "kind": "without",
         "mat": "road"
       },
-      "fingerprint": "dada8026"
+      "fingerprint": "dad3c461"
     },
     "20": {
-      "money": 33500,
-      "target": 20750,
+      "money": 43000,
+      "target": 32000,
       "bonus": {
         "kind": "without",
-        "mat": "steel"
+        "mat": "heavy"
       },
-      "fingerprint": "4ca10f60"
+      "fingerprint": "4c8fc63f"
     },
     "21": {
-      "money": 3500,
-      "target": 2500,
+      "money": 4500,
+      "target": 3000,
       "bonus": {
-        "kind": "cost",
-        "max": 2200
+        "kind": "stress",
+        "max": 0.3
       },
-      "fingerprint": "f1dbe867"
+      "fingerprint": "f1ed3188"
     },
     "22": {
-      "money": 7500,
-      "target": 5750,
-      "bonus": {
-        "kind": "without",
-        "mat": "steel"
-      },
-      "fingerprint": "84d96d4c"
-    },
-    "23": {
-      "money": 13000,
-      "target": 10500,
+      "money": 9500,
+      "target": 6750,
       "bonus": {
         "kind": "without",
         "mat": "wood"
       },
-      "fingerprint": "175b1b42"
+      "fingerprint": "84dd3ee3"
+    },
+    "23": {
+      "money": 17000,
+      "target": 12000,
+      "bonus": {
+        "kind": "without",
+        "mat": "wood"
+      },
+      "fingerprint": "17665435"
     },
     "24": {
-      "money": 20000,
-      "target": 17000,
+      "money": 26000,
+      "target": 18750,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.55
+      },
+      "fingerprint": "66482a03"
+    },
+    "25": {
+      "money": 20500,
+      "target": 15250,
+      "bonus": {
+        "kind": "stress",
+        "max": 0.5
+      },
+      "fingerprint": "bc41b32d"
+    },
+    "26": {
+      "money": 23500,
+      "target": 17250,
       "bonus": {
         "kind": "stress",
         "max": 0.45
       },
-      "fingerprint": "6645eb6c"
-    },
-    "25": {
-      "money": 16000,
-      "target": 13750,
-      "bonus": {
-        "kind": "stress",
-        "max": 0.65
-      },
-      "fingerprint": "bc34e73a"
-    },
-    "26": {
-      "money": 18500,
-      "target": 14500,
-      "bonus": {
-        "kind": "stress",
-        "max": 0.65
-      },
-      "fingerprint": "d27f6466"
+      "fingerprint": "d278a8a1"
     },
     "27": {
-      "money": 24500,
-      "target": 21750,
+      "money": 31000,
+      "target": 23750,
       "bonus": {
         "kind": "without",
         "mat": "road"
       },
-      "fingerprint": "2c478976"
+      "fingerprint": "2c3f3ab1"
     },
     "28": {
-      "money": 28500,
-      "target": 25500,
+      "money": 36500,
+      "target": 27750,
       "bonus": {
         "kind": "without",
         "mat": "wood"
       },
-      "fingerprint": "ef9ac6a5"
+      "fingerprint": "ef8dfab2"
     },
     "29": {
-      "money": 30500,
-      "target": 20000,
+      "money": 39000,
+      "target": 29000,
       "bonus": {
-        "kind": "stress",
-        "max": 0.65
+        "kind": "without",
+        "mat": "road"
       },
-      "fingerprint": "3abe8aa7"
+      "fingerprint": "ad6a0d22"
     },
     "30": {
-      "money": 39500,
-      "target": 35000,
+      "money": 50000,
+      "target": 38250,
       "bonus": {
         "kind": "without",
         "mat": "wood"
@@ -323,52 +323,52 @@
           ]
         ]
       },
-      "fingerprint": "acf9e0a7"
+      "fingerprint": "ad0b29c8"
     },
     "31": {
-      "money": 5500,
-      "target": 5000,
+      "money": 8000,
+      "target": 5750,
       "bonus": {
-        "kind": "cost",
-        "max": 4550
+        "kind": "stress",
+        "max": 0.35
       },
-      "fingerprint": "c58af7ce"
+      "fingerprint": "c5843c09"
     },
     "32": {
-      "money": 10000,
-      "target": 7250,
+      "money": 13000,
+      "target": 9500,
       "bonus": {
         "kind": "stress",
-        "max": 0.4
+        "max": 0.35
       },
-      "fingerprint": "6c4cc5f7"
+      "fingerprint": "6c5e0f18"
     },
     "33": {
-      "money": 16500,
-      "target": 13000,
+      "money": 21000,
+      "target": 15500,
       "bonus": {
         "kind": "stress",
-        "max": 0.55
+        "max": 0.25
       },
-      "fingerprint": "222f6f2b"
+      "fingerprint": "222d3094"
     },
     "34": {
-      "money": 15500,
-      "target": 11000,
+      "money": 19500,
+      "target": 14500,
       "bonus": {
         "kind": "stress",
         "max": 0.55
       },
-      "fingerprint": "35239f1d"
+      "fingerprint": "3518662a"
     },
     "35": {
-      "money": 11000,
-      "target": 8000,
+      "money": 14000,
+      "target": 10250,
       "bonus": {
         "kind": "without",
         "mat": "road"
       },
-      "fingerprint": "7489c285"
+      "fingerprint": "747e8992"
     }
   }
 }

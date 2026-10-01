@@ -14,7 +14,7 @@
   --steel: #9fdcff;
   --heavy: #d6dbe3;
   --cable: #c7a6ff;
-  --ram: #ffd07a;
+  --ram: #ff6ad5;
   --bonus: #7fe3ff;
   --font: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
@@ -25,6 +25,23 @@
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(108, 198, 255, 0.35) transparent;
+}
+
+/* Thin, dark scrollbars wherever a panel does need one, instead of the bright default. */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: rgba(108, 198, 255, 0.35);
 }
 
 html,
@@ -584,7 +601,11 @@ kbd {
 }
 
 .mat[data-mat='ram'] i {
-  height: 6px;
+  /* A hydraulic cylinder: a fat barrel, then a thin chrome rod. */
+  height: 9px;
+  border-radius: 2px;
+  background: linear-gradient(to right, var(--ram) 0 55%, transparent 55%), linear-gradient(#e9eef4, #e9eef4) right center / 45% 3px no-repeat;
+  box-shadow: none;
 }
 
 .mat span {
@@ -942,10 +963,17 @@ kbd {
 
 .chapter-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
   margin: 14px 0 6px;
   text-align: left;
+}
+
+/* Seven chapters in two rows on a wide screen, so the list never needs a scrollbar. */
+@media (min-width: 900px) {
+  .chapter-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 .ch-card {
@@ -981,10 +1009,15 @@ kbd {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 5px;
+  gap: 4px;
   width: 100%;
-  padding: 14px 16px 12px;
+  height: 100%;
+  padding: 12px 14px 12px;
   text-align: left;
+}
+
+.ch-card.done .ch-no {
+  min-height: 22px;
 }
 
 .ch-no {
@@ -995,7 +1028,7 @@ kbd {
 }
 
 .ch-name {
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 700;
 }
 
@@ -1016,7 +1049,9 @@ kbd {
   align-items: center;
   gap: 8px;
   width: 100%;
-  margin-top: 4px;
+  min-height: 28px;
+  margin-top: auto;
+  padding-top: 4px;
   font-family: var(--mono);
   font-size: 11px;
   color: var(--gold);
@@ -1024,6 +1059,7 @@ kbd {
 
 .ch-progress .bar {
   flex: 1;
+  min-width: 30px;
   height: 6px;
   border-radius: 3px;
   background: rgba(0, 0, 0, 0.35);
@@ -1042,9 +1078,15 @@ kbd {
   color: var(--chalk);
 }
 
-.ch-challenge {
-  margin: 0 16px 14px;
-  align-self: flex-start;
+/* The challenge button sits in the card's top corner, beside the chapter number, rather than on a row of its own. */
+.ch-card .btn.ch-challenge {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  min-height: 24px;
+  padding: 2px 9px;
+  font-size: 10px;
+  box-shadow: 0 2px 0 #081a33;
 }
 
 .pips {

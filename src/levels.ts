@@ -69,6 +69,8 @@ export interface LevelDef {
    * where that beam gets split.
    */
   hint?: [Pt, Pt, MaterialId][];
+  /** The hint is a whole working bridge, not just a new mechanic: TEST pulses once it is built. */
+  hintSolves?: boolean;
 }
 
 /** What the level optimizer (tools/tune) decides: the money, and any geometry it was allowed to adjust. */
@@ -106,6 +108,7 @@ export const BASE_LEVELS: LevelBase[] = [
       [[0, -2], [2, 0], 'wood'],
       [[4, -2], [2, 0], 'wood'],
     ],
+    hintSolves: true,
   },
   {
     id: 2,
@@ -259,6 +262,8 @@ export const BASE_LEVELS: LevelBase[] = [
     towers: [[9, -7, 7]],
     materials: ['road', 'wood', 'steel', 'cable'],
     vehicle: 'van',
+    // Cables have to do the work: too few beams for a truss under the deck.
+    limits: { wood: 10, steel: 2, cable: 4 },
     waterY: -7,
   },
   {
@@ -457,6 +462,8 @@ export const BASE_LEVELS: LevelBase[] = [
     towers: [[8, -8, 12], [26, -8, 12]],
     materials: ['road', 'heavy', 'wood', 'steel', 'cable'],
     vehicle: 'truck',
+    // Cables have to do the work: too few beams for a truss under the deck.
+    limits: { wood: 20, steel: 4 },
     waterY: -8,
   },
   {
@@ -475,7 +482,7 @@ export const BASE_LEVELS: LevelBase[] = [
   {
     id: 31,
     name: 'Bascule',
-    tip: 'A tall ship needs the channel. Hinge the road at the bank and lift it on a ram.',
+    tip: 'Trace the ghost: a road hinged at the bank, a wood truss to stiffen it, and a ram on the pier to lift it for the ship.',
     width: 8,
     anchors: [[0, 0], [4, -3]],
     piers: [[4, -3]],
@@ -487,7 +494,17 @@ export const BASE_LEVELS: LevelBase[] = [
     hint: [
       [[0, 0], [8, 0], 'road'],
       [[4, -3], [4, 0], 'ram'],
+      [[0, 0], [2, 2], 'wood'],
+      [[2, 0], [2, 2], 'wood'],
+      [[2, 2], [4, 2], 'wood'],
+      [[4, 0], [4, 2], 'wood'],
+      [[2, 2], [4, 0], 'wood'],
+      [[4, 2], [6, 2], 'wood'],
+      [[6, 0], [6, 2], 'wood'],
+      [[6, 2], [4, 0], 'wood'],
+      [[6, 2], [8, 0], 'wood'],
     ],
+    hintSolves: true,
   },
   {
     id: 32,
