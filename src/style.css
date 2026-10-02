@@ -20,6 +20,8 @@
   --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
 }
 
 * {
@@ -106,7 +108,7 @@ kbd {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: calc(10px + var(--safe-t)) 16px 0;
+  padding: calc(10px + var(--safe-t)) calc(16px + var(--safe-r)) 0 calc(16px + var(--safe-l));
   pointer-events: none;
   gap: 8px;
 }
@@ -561,7 +563,7 @@ kbd {
   justify-content: center;
   align-items: stretch;
   gap: 10px;
-  padding: 10px 12px calc(10px + var(--safe-b));
+  padding: 10px calc(12px + var(--safe-r)) calc(10px + var(--safe-b)) calc(12px + var(--safe-l));
   background: linear-gradient(to top, rgba(8, 20, 40, 0.92), rgba(8, 20, 40, 0));
   pointer-events: none;
 }
@@ -2044,7 +2046,7 @@ label.btn {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: calc(10px + var(--safe-t)) 14px 10px;
+  padding: calc(10px + var(--safe-t)) calc(14px + var(--safe-r)) 10px calc(14px + var(--safe-l));
   background: linear-gradient(to bottom, rgba(8, 20, 40, 0.92), rgba(8, 20, 40, 0));
 }
 
@@ -2093,7 +2095,7 @@ label.btn {
   justify-content: center;
   align-items: stretch;
   gap: 10px;
-  padding: 10px 12px calc(10px + var(--safe-b));
+  padding: 10px calc(12px + var(--safe-r)) calc(10px + var(--safe-b)) calc(12px + var(--safe-l));
   background: linear-gradient(to top, rgba(8, 20, 40, 0.92), rgba(8, 20, 40, 0));
 }
 

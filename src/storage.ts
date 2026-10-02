@@ -232,7 +232,16 @@ export class LocalStore implements Store {
   }
 }
 
+let deviceKv: KeyValue | null = null;
+
+/** Replaces localStorage as the device's key-value storage, such as native preferences in the Android app. */
+export function useDeviceStorage(kv: KeyValue): void {
+  deviceKv = kv;
+}
+
+/** The device's key-value storage: localStorage unless a platform supplied its own. */
 export function safeLocalStorage(): KeyValue | null {
+  if (deviceKv) return deviceKv;
   try {
     return typeof localStorage === 'undefined' ? null : localStorage;
   } catch {

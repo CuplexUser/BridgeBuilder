@@ -24,6 +24,7 @@ import { DebrisField, Particles, PK, Shake } from './fx/particles';
 import { bankY, goalX, LEVELS, START_X, type LevelDef } from './levels';
 import { MATERIAL_ORDER, MATERIALS, type MaterialId } from './physics/materials';
 import { STEP, TestRun } from './physics/world';
+import { copyText, exportFile } from './platform';
 import { Camera, type Rect } from './render/camera';
 import { MATERIAL_CHALK, PAL } from './render/palette';
 import { Renderer, type FloatText, type SceneView } from './render/renderer';
@@ -615,17 +616,14 @@ export class Game {
         this.closeShare();
         break;
       case 'share-copy':
-        void navigator.clipboard?.writeText(this.makerUi.shareText()).then(
+        copyText(this.makerUi.shareText()).then(
           () => this.ui.showToast('Copied to the clipboard.'),
           () => this.ui.showToast('Could not copy. Select the text and copy it yourself.'),
         );
         break;
       case 'share-download': {
         const name = (this.shareFor?.name ?? 'level').replace(/[^\w-]+/g, '-').toLowerCase();
-        const url = URL.createObjectURL(new Blob([this.makerUi.shareText()], { type: 'application/json' }));
-        const link = Object.assign(document.createElement('a'), { href: url, download: `${name}.json` });
-        link.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        exportFile(`${name}.json`, this.makerUi.shareText()).catch(() => this.ui.showToast('Could not save the file. Copy the text instead.'));
         break;
       }
       case 'share-import':
@@ -1699,8 +1697,29 @@ export class Game {
     );
     window.addEventListener('keydown', (e) => this.keyDown(e));
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) this.setPaused(true);
+      if (document.hidden) this.suspend();
     });
+  }
+
+  /** Leaving the page or app: pause a level in play, and save now rather than after the debounce. */
+  suspend(): void {
+    this.setPaused(true);
+    this.flushSave();
+  }
+
+  /**
+   * The Android back button does what Escape does on each screen. Returns false on the title
+   * screen, and on the first-run profile screen, where back leaves the app.
+   */
+  back(): boolean {
+    if (this.state === 'title') return false;
+    if (this.state === 'profile') {
+      if (!this.profile) return false;
+      this.enterTitle();
+      return true;
+    }
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    return true;
   }
 
   private worldAt(x: number, y: number): [number, number] {

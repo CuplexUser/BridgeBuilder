@@ -1,8 +1,12 @@
 import { Game } from './game';
-import { pickStore } from './storage';
+import { bindApp, initPlatform, isNative } from './platform';
+import { LocalStore, pickStore } from './storage';
 
+await initPlatform();
 const canvas = document.getElementById('game') as HTMLCanvasElement;
-const game = new Game(canvas, await pickStore());
+// The app has no server to look for: it keeps everything on the device.
+const game = new Game(canvas, isNative ? new LocalStore() : await pickStore());
+bindApp(game);
 
 let last = performance.now();
 function frame(now: number): void {

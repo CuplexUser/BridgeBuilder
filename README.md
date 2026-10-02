@@ -30,12 +30,27 @@ At startup the game probes `api/health`:
 
 - **Server present** (`npm run dev`, `npm run preview`, `npm start`): everything is stored in SQLite (`server/api.mjs`). The tables are `profiles`, `level_progress` and `scores`.
 - **No server** (GitHub Pages or any static host): everything is stored in the browser's `localStorage`, per device.
+- **Android app**: no server probe. Everything is stored on the phone in native preferences (`src/native.ts`), which the system doesn't clear the way it can clear a WebView's `localStorage`.
 
 The profile screen tells you which storage is in use. The last-used profile resumes automatically on the same device.
 
 ### GitHub Pages
 
 `.github/workflows/pages.yml` lints, tests and builds, then publishes `dist/` on every push to `main`. Enable it once under **Settings → Pages → Source: GitHub Actions**. The build uses relative paths, so it works from the `/<repo>/` sub-path.
+
+### Android
+
+The Android app is the same web build wrapped with [Capacitor](https://capacitorjs.com) (app ID `se.cuplex.bridgebuilder`). The native project lives in `android/`. Platform differences sit in `src/platform.ts`, which loads `src/native.ts` only inside the app: device storage, the back button (it does what Escape does, and leaves the app from the title screen), level export through the share sheet, the clipboard, and saving when the app goes to the background.
+
+Requires Android Studio (its bundled JDK is enough) and the Android SDK.
+
+```sh
+npm run android       # build the web app and copy it into android/
+npm run android:open  # open the project in Android Studio
+npm run android:run   # build, copy and run on a connected device or emulator
+```
+
+Run `npm run android` after every web change before building in Android Studio. Release builds (a signed `.aab` for Google Play) are made in Android Studio under **Build → Generate Signed App Bundle**. Keep the keystore out of git.
 
 ## Controls
 

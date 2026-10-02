@@ -12,9 +12,13 @@
     "lint": "oxlint",
     "tune": "node --import tsx --import ./tools/tune/res-register.mjs tools/tune/tune.ts",
     "tune:unpack": "node --import tsx --import ./tools/tune/res-register.mjs tools/tune/unpack.ts",
-    "tuner": "vite --open /tuner"
+    "tuner": "vite --open /tuner",
+    "android": "npm run build && cap sync android",
+    "android:run": "npm run android && cap run android",
+    "android:open": "cap open android"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
     "@types/node": "^26.6.3",
     "oxlint": "^1.85.0",
     "tsx": "^4.23.15",
@@ -24,5 +28,14 @@
   },
   "engines": {
     "node": ">=22.15"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/clipboard": "^8.0.1",
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/filesystem": "^8.1.4",
+    "@capacitor/preferences": "^8.0.1",
+    "@capacitor/share": "^8.0.3"
   }
 }

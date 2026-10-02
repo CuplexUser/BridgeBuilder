@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Bridge Builder</string>
+    <string name="title_activity_main">Bridge Builder</string>
+    <string name="package_name">se.cuplex.bridgebuilder</string>
+    <string name="custom_url_scheme">se.cuplex.bridgebuilder</string>
+</resources>
