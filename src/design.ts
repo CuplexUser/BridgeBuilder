@@ -24,6 +24,11 @@ const EPS = 1e-6;
 /** Shortest piece a beam may be split into, in meters. */
 export const MIN_PIECE = 0.25;
 
+/** The joint at the far end of m from joint n. */
+function otherEnd(m: DMember, n: number): number {
+  return m.a === n ? m.b : m.a;
+}
+
 /** Rounds a coordinate to 0.1 mm so off-grid joints compare and serialize stably. */
 export function q(v: number): number {
   return Math.round(v * 1e4) / 1e4 || 0;
@@ -315,6 +320,43 @@ export class Design {
   removeMember(i: number): void {
     this.members.splice(i, 1);
     this.pruneNodes();
+  }
+
+  /**
+   * Rejoins split beams at joints nothing else uses any more, such as after the beam that split
+   * them was removed. Returns the indices of the pieces folded away, in the order they were removed.
+   */
+  healSplits(): number[] {
+    const removed: number[] = [];
+    for (let again = true; again; ) {
+      again = false;
+      const at: number[][] = this.nodes.map(() => []);
+      this.members.forEach((m, k) => {
+        at[m.a].push(k);
+        at[m.b].push(k);
+      });
+      for (let n = 0; n < at.length && !again; n++) {
+        if (this.nodes[n].anchor || at[n].length !== 2) continue;
+        const [i, j] = at[n];
+        const part = this.members[i].part;
+        if (part === undefined || this.members[j].part !== part) continue;
+        // Two pieces of one beam meeting at a bare joint: the lower index takes over the whole run.
+        const keep = this.members[Math.min(i, j)];
+        const drop = this.members[Math.max(i, j)];
+        if (keep.a === n) keep.a = otherEnd(drop, n);
+        else keep.b = otherEnd(drop, n);
+        this.members.splice(Math.max(i, j), 1);
+        removed.push(Math.max(i, j));
+        again = true;
+      }
+    }
+    if (!removed.length) return removed;
+    // A beam back in one piece is no longer split.
+    const pieces = new Map<number, number>();
+    for (const m of this.members) if (m.part !== undefined) pieces.set(m.part, (pieces.get(m.part) ?? 0) + 1);
+    for (const m of this.members) if (m.part !== undefined && pieces.get(m.part) === 1) delete m.part;
+    this.pruneNodes();
+    return removed;
   }
 
   /** Drops free nodes that no member uses, remapping member indices. */

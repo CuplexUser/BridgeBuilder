@@ -212,6 +212,46 @@ describe('removing split beams', () => {
     expect(ed.spent()).toBe(spent);
   });
 
+  it('joins the road back up when the beam that split it is removed', () => {
+    const ed = editorFor(2);
+    ed.begin(ed.design.findNode(0, 0));
+    ed.aim(4, 0);
+    ed.commit();
+    ed.setMaterial('wood');
+    expect(ed.beginAt(1, 0, 0.1, 0.3)).toBe('split');
+    ed.aim(2, 2);
+    ed.commit();
+    expect(ed.design.members.filter((m) => m.mat === 'road')).toHaveLength(3);
+    ed.removeMember(ed.design.members.findIndex((m) => m.mat === 'wood'));
+    expect(ed.design.members.filter((m) => m.mat === 'road')).toHaveLength(2);
+    expect(ed.design.findNode(1, 0)).toBe(-1);
+    expect(ed.design.members.some((m) => m.part !== undefined)).toBe(false);
+    ed.undo();
+    expect(ed.design.members.filter((m) => m.mat === 'road')).toHaveLength(3);
+  });
+
+  it('joins a beam back up when the beam hanging off its middle is removed', () => {
+    const ed = splitDiagonal();
+    const hanging = ed.design.members.findIndex((m) => m.mat === 'wood' && m.part === undefined);
+    ed.removeMember(hanging);
+    const wood = ed.design.members.filter((m) => m.mat === 'wood');
+    expect(wood).toHaveLength(1);
+    expect(wood[0].part).toBeUndefined();
+    expect(ed.design.findNode(1, 1)).toBe(-1);
+    expect(ed.design.covers([0, 0], [2, 2])).toBe(true);
+  });
+
+  it('keeps a split joint that another beam still uses', () => {
+    const ed = splitDiagonal();
+    // A second beam off the same joint: removing one of the two leaves the diagonal split.
+    ed.begin(ed.design.findNode(1, 1));
+    ed.aim(0, 2);
+    ed.commit();
+    ed.removeMember(ed.design.members.findIndex((m) => m.mat === 'wood' && m.part === undefined));
+    expect(ed.design.findNode(1, 1)).toBeGreaterThanOrEqual(0);
+    expect(ed.design.members.filter((m) => m.mat === 'wood' && m.part !== undefined)).toHaveLength(2);
+  });
+
   it('finds a short beam by its body even though its joints are within tap range', () => {
     const ed = splitDiagonal();
     // The upper half of the split diagonal, (1,1)–(2,2), is only 1.4 m long.

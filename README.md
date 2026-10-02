@@ -59,11 +59,12 @@ Run `npm run android` after every web change before building in Android Studio. 
 | Build a member | Drag from a bolt or node | Arrows/WASD move cursor, Space/Enter to start and place (chains) |
 | Lay road | One drag lays a whole run of road or heavy deck. The pieces follow one straight, even grade, even between banks at different heights. | Same |
 | Add a joint mid-beam | Drag from (or onto) a point along an existing beam. The beam is split there at no extra cost. | Space with the cursor on the beam point |
-| Remove a member | Tap it / right-click | X or Delete at cursor |
+| Remove a member | Tap it / right-click. A beam it had split is joined back up. | X or Delete at cursor |
 | Material | Toolbar | 1–6, Q / E to cycle |
 | Undo / redo | Toolbar | Z / Y (or Ctrl+Z / Ctrl+Y) |
 | Test / back to edit | TEST button | T |
 | Zoom / pan | Wheel, pinch, drag empty space | F refits |
+| See under your finger | A magnifier above the finger shows the joint you're placing on touch screens | |
 | Goals and rules | ⓘ button, or tap the ✦ goal under the level name | I |
 | Stress graph after a test | Link on the result or collapse screen; tap the graph or a member | G, ←/→ to step, Esc back |
 | Pause | II button | P / Esc |
@@ -80,7 +81,7 @@ Members can cross each other (X-bracing), but they can't lie along an existing m
 
 **L** on the title screen opens the level editor. Make a new level or edit one of yours:
 
-- **Tools** (1–5): *Bolt* adds or removes a bolt, *Pier* stands a pier under a bolt in the gap, *Pylon* raises a lattice pylon with a bolt on top, *Channel* marks a ship channel by dragging across the gap (it stays clear up to the height you start at), and *Erase* removes whatever is under the tap. The cursor says what a tap will do before you tap. Z and Y undo and redo.
+- **Tools** (1–5): *Bolt* adds or removes a bolt, *Pier* stands a pier under a bolt in the gap, *Pylon* raises a lattice pylon with a bolt on top, *Channel* marks a ship channel by dragging across the gap (it stays clear up to the height you start at), and *Erase* removes whatever is under the tap. The cursor says what a tap will do before you tap. A tap acts where the finger lifts, so it can slide into place first under a magnifier, and two fingers pan and zoom without placing anything. Z and Y undo and redo.
 - **Settings** (S): name and tip, the gap's width, far bank height and water level, the vehicle and up to three more behind it, a tall ship's mast height for a drawbridge, the materials on offer and any part limits, budget, star target, toll per bolt, the bonus goal and the scene for the test drive.
 - **Playtest** (P) plays it like any level, with the briefing, scoring and stress graph, but nothing goes on your career or the leaderboards. The header says what still stops a level from being played, such as a drawbridge with no rams on offer.
 - **Export** shows the level as JSON to copy or download, and **Import** reads one back from pasted text or a `.json` file. The format is the game's own `LevelDef` (`src/levels.ts`), so a built-in level copied from the source imports too. Everything is checked and clamped on the way in.

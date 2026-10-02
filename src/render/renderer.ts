@@ -40,6 +40,8 @@ export interface SceneView {
   highlight?: { member: number; node: number; ghost?: [number, number, number, number] | null } | null;
   /** The level editor's cursor: the grid point, what the tool would do there, and a channel being dragged. */
   maker?: { x: number; y: number; label: string; ok: boolean; channel: [number, number, number] | null } | null;
+  /** A magnifier for touch: the screen point to enlarge (x, y) and the finger hiding it (fx, fy). */
+  loupe?: { x: number; y: number; fx: number; fy: number } | null;
 }
 
 const TAU = Math.PI * 2;
@@ -336,7 +338,50 @@ export class Renderer {
       ctx.fillStyle = `rgba(255,250,235,${Math.min(0.6, v.flash)})`;
       ctx.fillRect(0, 0, this.w, this.h);
     }
+    if (v.loupe) this.drawLoupe(v.loupe);
     ctx.restore();
+  }
+
+  /** Enlarges the finished frame around the point a finger is placing, in a circle lifted clear of the finger. */
+  private drawLoupe(l: NonNullable<SceneView['loupe']>): void {
+    const { ctx, dpr } = this;
+    const r = 56;
+    const zoom = 2;
+    const lift = 104;
+    let cx = l.fx;
+    let cy = l.fy - lift;
+    // No room above the finger (the HUD sits up there too): go beside it instead.
+    if (cy - r < 72) {
+      cx = l.fx + (l.fx < this.w / 2 ? lift : -lift);
+      cy = Math.max(r + 8, l.fy);
+    }
+    cx = Math.min(this.w - r - 8, Math.max(r + 8, cx));
+    const half = r / zoom;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, TAU);
+    ctx.fillStyle = PAL.paperDeep;
+    ctx.fill();
+    ctx.clip();
+    ctx.drawImage(this.canvas, (l.x - half) * dpr, (l.y - half) * dpr, 2 * half * dpr, 2 * half * dpr, cx - r, cy - r, 2 * r, 2 * r);
+    // A crosshair with an open middle, so the joint itself stays visible.
+    ctx.strokeStyle = 'rgba(233,243,255,0.6)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      ctx.moveTo(cx + dx * 6, cy + dy * 6);
+      ctx.lineTo(cx + dx * 14, cy + dy * 14);
+    }
+    ctx.stroke();
+    ctx.restore();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, TAU);
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.lineWidth = 5;
+    ctx.stroke();
+    ctx.strokeStyle = PAL.chalk;
+    ctx.lineWidth = 2;
+    ctx.stroke();
   }
 
   // ───────────────────────────── Blueprint ─────────────────────────────

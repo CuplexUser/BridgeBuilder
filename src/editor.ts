@@ -357,7 +357,10 @@ export class Editor {
     this.drag = null;
   }
 
-  /** Removes a member. A piece of a split beam takes the whole beam with it, so the part is refunded. */
+  /**
+   * Removes a member. A piece of a split beam takes the whole beam with it, so the part is refunded.
+   * A beam the removed one had split is joined back up where nothing else holds the joint.
+   */
   removeMember(i: number): void {
     if (i < 0) return;
     this.snapshot();
@@ -372,6 +375,7 @@ export class Editor {
       members.splice(k, 1);
     }
     this.design.pruneNodes();
+    for (const k of this.design.healSplits()) this.ages.splice(k, 1);
   }
 
   clear(): void {

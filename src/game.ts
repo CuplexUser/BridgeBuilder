@@ -72,6 +72,8 @@ interface PointerInfo {
   startX: number;
   startY: number;
   type: string;
+  /** When the pointer went down, from performance.now(). */
+  downAt: number;
 }
 
 export class Game {
@@ -109,6 +111,8 @@ export class Game {
   private makerRedo: string[] = [];
   private makerHover: [number, number] | null = null;
   private channelFrom: [number, number] | null = null;
+  /** A finger or button is down in the level editor and the tool acts where it lifts. */
+  private makerPending = false;
   /** Level being exported in the share dialog, or null when importing. */
   private shareFor: LevelDef | null = null;
   /**
@@ -254,6 +258,7 @@ export class Game {
     this.editor = null;
     this.customLevel = null;
     this.channelFrom = null;
+    this.makerPending = false;
     this.makerUi.show(false);
     this.run = null;
     this.ui.setPlaying(false);
@@ -485,22 +490,41 @@ export class Game {
     return [Math.round(wx), Math.round(wy)];
   }
 
+  /**
+   * In the level editor a finger aims the tool and lifting it acts, so a slip can be slid right
+   * before it lands. A second finger turns the touch into pinch and pan, and nothing is placed.
+   */
   private makerPointerDown(e: PointerEvent): void {
+    if (this.pointers.size >= 2) {
+      this.makerPending = false;
+      this.channelFrom = null;
+      this.startPinch();
+      return;
+    }
     if (e.button !== 0) return;
     const p = this.snapAt(e.clientX, e.clientY);
     this.makerHover = p;
-    if (this.tool === 'channel') {
-      this.channelFrom = p;
-      return;
-    }
-    this.makerChange((l) => this.applyTool(l, p[0], p[1]), p);
+    this.makerPending = true;
+    if (this.tool === 'channel') this.channelFrom = p;
   }
 
-  private makerPointerUp(e: PointerEvent): void {
+  private makerPointerUp(e: PointerEvent, cancelled: boolean): void {
+    if (this.pointers.size > 0) {
+      // A finger left over from a pinch: the next pinch starts afresh.
+      this.pinchDist = 0;
+      return;
+    }
+    const act = this.makerPending && !cancelled;
     const from = this.channelFrom;
-    if (!from) return;
+    this.makerPending = false;
     this.channelFrom = null;
+    if (!act) return;
     const p = this.snapAt(e.clientX, e.clientY);
+    this.makerHover = p;
+    if (!from) {
+      this.makerChange((l) => this.applyTool(l, p[0], p[1]), p);
+      return;
+    }
     // A tap fills the open water around it up to the road; a drag marks its own span.
     const tap = p[0] === from[0];
     this.makerChange((l) => addChannel(l, from[0], p[0], tap ? deckTop(l) : from[1]), [(from[0] + p[0]) / 2, from[1]]);
@@ -1598,7 +1622,22 @@ export class Game {
       floats: this.floats,
       highlight: this.graphOpen && this.pick ? { member: this.pick.member, node: this.pick.node, ghost: this.ghostOf(this.pick.member) } : null,
       maker: this.makerView(),
+      loupe: this.loupeView(),
     });
+  }
+
+  /** While a finger places something, a magnifier shows the point the finger hides. */
+  private loupeView(): SceneView['loupe'] {
+    if (this.pointers.size !== 1 || this.paused) return null;
+    const p = this.pointers.values().next().value!;
+    if (p.type !== 'touch') return null;
+    // A quick tap gets no magnifier; only a finger that holds or moves is aiming.
+    if (performance.now() - p.downAt < 150 && Math.hypot(p.x - p.startX, p.y - p.startY) < 10) return null;
+    let at: [number, number] | null = null;
+    if (this.state === 'build' && this.dragging && this.editor?.drag) at = [this.editor.drag.tx, this.editor.drag.ty];
+    else if (this.state === 'maker' && this.makerPending) at = this.makerHover;
+    if (!at) return null;
+    return { x: this.cam.sx(at[0]), y: this.cam.sy(at[1]), fx: p.x, fy: p.y };
   }
 
   /** The editor's cursor: where the tool would act, and what it would do there. */
@@ -1733,7 +1772,7 @@ export class Game {
   private pointerDown(e: PointerEvent): void {
     sfx.unlock();
     this.canvas.setPointerCapture(e.pointerId);
-    this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, type: e.pointerType });
+    this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, type: e.pointerType, downAt: performance.now() });
     this.keyboardMode = false;
     if (this.state === 'maker') {
       this.makerPointerDown(e);
@@ -1755,9 +1794,7 @@ export class Game {
       this.dragging = false;
       this.pendingDelete = -1;
       this.panning = false;
-      const [p1, p2] = [...this.pointers.values()];
-      this.pinchDist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
-      this.lastMid = [(p1.x + p2.x) / 2, (p1.y + p2.y) / 2];
+      this.startPinch();
       return;
     }
     if (this.pointers.size > 2) return;
@@ -1789,6 +1826,13 @@ export class Game {
       }
     }
     this.panning = true;
+  }
+
+  /** Takes the first two fingers down as the starting point of a pinch. */
+  private startPinch(): void {
+    const [p1, p2] = [...this.pointers.values()];
+    this.pinchDist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+    this.lastMid = [(p1.x + p2.x) / 2, (p1.y + p2.y) / 2];
   }
 
   private pointerMove(e: PointerEvent): void {
@@ -1843,8 +1887,7 @@ export class Game {
   private pointerUp(e: PointerEvent, cancelled = false): void {
     this.pointers.delete(e.pointerId);
     if (this.state === 'maker') {
-      if (cancelled) this.channelFrom = null;
-      else this.makerPointerUp(e);
+      this.makerPointerUp(e, cancelled);
       return;
     }
     if (this.pointers.size > 0) {
