@@ -35,7 +35,10 @@ export interface LevelDef {
   /** Height of the right bank's top edge (defaults to 0, level with the left). */
   rightY?: number;
   anchors: Pt[];
-  /** Concrete piers rise from the water to these anchor points. */
+  /**
+   * Concrete piers rise from the water to these points. Most are topped by a bolt; one without
+   * is a seat, where a deck joint rests and can lift off.
+   */
   piers: Pt[];
   /** Materials offered on this level, in toolbar order. */
   materials: MaterialId[];
@@ -563,6 +566,12 @@ export const BASE_LEVELS: LevelBase[] = [
 export const LEVELS: LevelDef[] = BASE_LEVELS.map((b) => applyTuning(b, TUNED.levels[b.id]));
 
 export const START_X = -8;
+
+/** Piers with no bolt on top: a joint built there rests on the pier and can lift off it. */
+export function seatPiers(level: LevelDef): Pt[] {
+  const bolted = (x: number, y: number) => level.anchors.some((a) => Math.abs(a[0] - x) < 1e-6 && Math.abs(a[1] - y) < 1e-6);
+  return level.piers.filter(([x, y]) => !bolted(x, y));
+}
 
 export function bankY(level: LevelDef): number {
   return level.rightY ?? 0;

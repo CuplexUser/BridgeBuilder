@@ -1,7 +1,7 @@
 import type { AttachPick, Editor } from '../editor';
 import type { Debris, DebrisField, Particles, Whip } from '../fx/particles';
 import { PK, WHIP_LIFE } from '../fx/particles';
-import { bankY, goalX, type LevelDef, type Overhang } from '../levels';
+import { bankY, goalX, seatPiers, type LevelDef, type Overhang } from '../levels';
 import { MATERIALS, type MaterialId } from '../physics/materials';
 import type { VehicleDef } from '../physics/vehicles';
 import { convoyLayout, SHIP_HALF, type Link, type TestRun, type VehicleHandle } from '../physics/world';
@@ -427,6 +427,7 @@ export class Renderer {
       ctx.stroke();
     }
 
+    for (const [px, py] of seatPiers(L)) this.seat(px, py, true);
     for (const t of L.towers ?? []) this.tower(t[0], t[1], t[2], true);
     (L.channels ?? []).forEach(([cx0, cx1, top], i) => this.channelBlueprint(cx0, cx1, top, L.waterY, i === 0 ? L.ship?.mast : undefined));
 
@@ -556,6 +557,7 @@ export class Renderer {
       ctx.fillStyle = 'rgba(0,0,0,0.18)';
       ctx.fillRect(l, cam.sy(L.waterY) - 2, r - l, 6);
     }
+    for (const [px, py] of seatPiers(L)) this.seat(px, py, false);
 
     for (const t of L.towers ?? []) this.tower(t[0], t[1], t[2], false);
     (L.channels ?? []).forEach(([x0, x1, top], i) => {
@@ -2008,6 +2010,33 @@ export class Renderer {
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
+  }
+
+  /**
+   * A seat: a bearing cup set into a pier with no bolt, its rim at the point where a deck
+   * joint rests. Chalk on the blueprint, steel in the scene.
+   */
+  private seat(px: number, py: number, chalk: boolean): void {
+    const { ctx, cam } = this;
+    const x = cam.sx(px);
+    const y = cam.sy(py);
+    const r = Math.max(5, 0.28 * cam.scale);
+    ctx.save();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = chalk ? PAL.chalk : PAL.steelDark;
+    ctx.fillStyle = chalk ? PAL.paperDeep : PAL.steel;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    if (chalk) {
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.arc(x, y, r * 0.55, 0, TAU);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   private bolt(x: number, y: number, scale: number, time: number, pulse: boolean): void {

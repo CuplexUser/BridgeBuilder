@@ -12,10 +12,10 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getEl
 /** The editing tools, in toolbar order, with what each does. */
 export const MAKER_TOOLS: { id: MakerTool; name: string; help: string }[] = [
   { id: 'bolt', name: 'Bolt', help: 'Tap to add a bolt, or tap one to remove it.' },
-  { id: 'pier', name: 'Pier', help: 'Tap a bolt in the gap to stand a pier under it.' },
+  { id: 'pier', name: 'Pier', help: 'Tap a bolt in the gap to stand a pier under it, or tap anywhere else in the gap for a seat: a pier with no bolt that a deck rests on and can lift off.' },
   { id: 'pylon', name: 'Pylon', help: 'Tap where a pylon top should go: it rises from the water with a bolt on top.' },
   { id: 'channel', name: 'Channel', help: 'Tap open water to fill it between the piers and banks, up to the road. Or drag for your own span, clear up to the height you start at.' },
-  { id: 'erase', name: 'Erase', help: 'Tap a bolt, pylon or channel to remove it.' },
+  { id: 'erase', name: 'Erase', help: 'Tap a bolt, seat, pylon or channel to remove it.' },
 ];
 
 /** The level editor's DOM: tools, the settings form, the custom level list and the share dialog. */

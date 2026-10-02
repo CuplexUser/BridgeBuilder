@@ -1,5 +1,5 @@
 import { segmentHitsRect, type Design } from '../design';
-import { bankY, goalX, START_X, type LevelDef } from '../levels';
+import { bankY, goalX, seatPiers, START_X, type LevelDef } from '../levels';
 import { compressionLimit, MATERIALS, type MaterialId } from './materials';
 import { StressLog } from './stresslog';
 import { VEHICLES, type VehicleDef } from './vehicles';
@@ -32,6 +32,8 @@ export const SHIP_TIME = 5;
 export const CLOSE_TIME = 3;
 /** Half the tall ship's beam, m: it sails through the bridge's plane, bow on, at the channel's middle. */
 export const SHIP_HALF = 1.2;
+/** A seated joint this far above its pier, m, has lifted off and is no longer held. */
+const SEAT_SLACK = 1e-3;
 
 export interface Link {
   a: number;
@@ -71,6 +73,13 @@ export interface Link {
  * Bending stiffness across a deck joint: keeps joint b at its rest offset from the line a→c,
  * so a wheel load at one joint is shared with its neighbors. Yields past `limit` like a hinge.
  */
+/** A joint resting on a pier top at (x, y). */
+export interface Seat {
+  p: number;
+  x: number;
+  y: number;
+}
+
 export interface Bend {
   a: number;
   b: number;
@@ -121,6 +130,8 @@ export class World {
   bends: Bend[] = [];
   /** Static segments (x1, y1, x2, y2) for the banks and piers. */
   terrain: number[] = [];
+  /** Joints resting on a pier with no bolt: held there while they bear down, free once they lift. */
+  seats: Seat[] = [];
   breaks: BreakEvent[] = [];
   floorY: number;
   /** Scaled 0→1 at the start of a run so the bridge takes its own weight gently. */
@@ -238,6 +249,7 @@ export class World {
 
       this.solveBends(h);
       this.solveContacts();
+      this.solveSeats();
 
       const invH = 1 / h;
       for (let i = 0; i < n; i++) {
@@ -293,6 +305,16 @@ export class World {
       y[a] -= ny * dl * im[a] * (1 - t);
       x[c] -= nx * dl * im[c] * t;
       y[c] -= ny * dl * im[c] * t;
+    }
+  }
+
+  /** A seated joint can't sink into its pier or slide off it, but nothing holds it down. */
+  private solveSeats(): void {
+    const { x, y } = this;
+    for (const s of this.seats) {
+      if (y[s.p] > s.y + SEAT_SLACK) continue;
+      if (y[s.p] < s.y) y[s.p] = s.y;
+      x[s.p] = s.x;
     }
   }
 
@@ -503,23 +525,27 @@ export interface VehicleHandle {
 /** Builds the physical bridge from a design; world particle i === design node i. */
 export function buildWorld(design: Design, level: LevelDef): { world: World; vehicles: VehicleHandle[] } {
   const defs = convoyLayout(level).map((c) => c.def);
-  const world = new World(design.nodes.length + 6 * defs.length + 2, level.waterY - 8);
-  const mass = new Float64Array(design.nodes.length).fill(JOINT_MASS);
-  for (const m of design.members) {
+  const { ends, extra, seats } = seatJoints(design, level);
+  const joints = design.nodes.length + extra.length;
+  const world = new World(joints + 6 * defs.length + 2, level.waterY - 8);
+  const mass = new Float64Array(joints).fill(JOINT_MASS);
+  design.members.forEach((m, i) => {
     const a = design.nodes[m.a];
     const b = design.nodes[m.b];
     const half = (Math.hypot(b.x - a.x, b.y - a.y) * MATERIALS[m.mat].density) / 2;
-    mass[m.a] += half;
-    mass[m.b] += half;
-  }
+    mass[ends[i][0]] += half;
+    mass[ends[i][1]] += half;
+  });
   design.nodes.forEach((n, i) => world.addParticle(n.x, n.y, n.anchor ? 0 : mass[i]));
-  world.bridgeCount = design.nodes.length;
+  extra.forEach((node, k) => world.addParticle(design.nodes[node].x, design.nodes[node].y, mass[design.nodes.length + k]));
+  world.bridgeCount = joints;
+  for (const p of seats) world.seats.push({ p, x: world.x[p], y: world.y[p] });
   design.members.forEach((m, i) => {
     const mat = MATERIALS[m.mat];
     const a = design.nodes[m.a];
     const b = design.nodes[m.b];
     const len = Math.hypot(b.x - a.x, b.y - a.y);
-    world.addLink(m.a, m.b, len / mat.EA, {
+    world.addLink(ends[i][0], ends[i][1], len / mat.EA, {
       bridge: true,
       mat: m.mat,
       stroke: mat.stroke,
@@ -532,8 +558,8 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
     });
   });
 
-  addDeckBends(world, design);
-  world.indexJoints((p) => design.nodes[p].anchor);
+  addDeckBends(world);
+  world.indexJoints((p) => p < design.nodes.length && design.nodes[p].anchor);
 
   const W = level.width;
   const deep = level.waterY - 8;
@@ -571,9 +597,50 @@ export function convoyLayout(level: LevelDef): { def: VehicleDef; x: number }[] 
 /** Most a deck may kink at a joint and still act as one continuous beam there, radians. */
 const MAX_BEND_KINK = 0.6;
 
+/**
+ * Joints built on a seat, a pier with no bolt, rest on it and can lift off. Each part of the
+ * bridge meeting there gets a joint of its own, so a drawbridge leaf lifts away from the span
+ * beside it instead of dragging it along. Parts are the joints linked to one another without
+ * passing through a bolt or a seat. Returns each member's end joints, the design node each
+ * extra joint copies (they follow the design's own), and every seated joint.
+ */
+function seatJoints(design: Design, level: LevelDef): { ends: [number, number][]; extra: number[]; seats: number[] } {
+  const { nodes, members } = design;
+  const ends = members.map((m): [number, number] => [m.a, m.b]);
+  const pads = seatPiers(level);
+  const onSeat = nodes.map((n) => !n.anchor && pads.some(([x, y]) => Math.abs(x - n.x) < 1e-6 && Math.abs(y - n.y) < 1e-6));
+  if (!onSeat.some(Boolean)) return { ends, extra: [], seats: [] };
+  const root = nodes.map((_, i) => i);
+  const find = (i: number): number => (root[i] === i ? i : (root[i] = find(root[i])));
+  const fixed = (i: number) => nodes[i].anchor || onSeat[i];
+  for (const m of members) if (!fixed(m.a) && !fixed(m.b)) root[find(m.a)] = find(m.b);
+  const extra: number[] = [];
+  const seats: number[] = [];
+  onSeat.forEach((seated, s) => {
+    if (!seated) return;
+    seats.push(s);
+    const joint = new Map<string, number>();
+    members.forEach((m, i) => {
+      for (const end of [0, 1] as const) {
+        if (ends[i][end] !== s) continue;
+        const other = end === 0 ? m.b : m.a;
+        const part = fixed(other) ? `member ${i}` : `part ${find(other)}`;
+        let p = joint.get(part);
+        if (p === undefined) {
+          p = joint.size ? nodes.length + extra.push(s) - 1 : s;
+          if (joint.size) seats.push(p);
+          joint.set(part, p);
+        }
+        ends[i][end] = p;
+      }
+    });
+  });
+  return { ends, extra, seats };
+}
+
 /** Bending stiffness at every joint where two deck pieces continue one another. */
-function addDeckBends(world: World, design: Design): void {
-  const deckAt: number[][] = design.nodes.map(() => []);
+function addDeckBends(world: World): void {
+  const deckAt: number[][] = Array.from({ length: world.bridgeCount }, () => []);
   world.links.forEach((l, i) => {
     if (!l.drivable) return;
     deckAt[l.a].push(i);

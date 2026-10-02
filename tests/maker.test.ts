@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { bonusStatus, levelBrief, traffic } from '../src/brief';
 import { Design } from '../src/design';
-import { LEVELS, type LevelDef } from '../src/levels';
+import { LEVELS, seatPiers, type LevelDef } from '../src/levels';
 import {
   addChannel,
   blankLevel,
@@ -23,10 +23,11 @@ import {
   togglePylon,
 } from '../src/maker';
 import { designProblems } from '../src/rules';
-import { SOLUTIONS } from '../src/solutions';
+import { roadRun, SOLUTIONS, trussOver } from '../src/solutions';
 import type { KeyValue } from '../src/storage';
 import { TestRun } from '../src/physics/world';
 
+const WOOD = { chord: 'wood', web: 'wood', vert: 'wood' } as const;
 const L = (id: number) => LEVELS.find((l) => l.id === id)!;
 
 function drive(design: Design, level: LevelDef, seconds = 40): TestRun {
@@ -87,12 +88,22 @@ describe('level editor', () => {
 
   it('stands piers under bolts and raises pylons with a bolt on top', () => {
     const l = blankLevel(1000);
-    expect(togglePier(l, 6, -2).ok).toBe(false);
+    // Off a bolt the Pier tool stands a seat, and a second tap takes it away.
+    expect(togglePier(l, 6, -2).msg).toBe('Seat added');
+    expect(togglePier(l, 6, -2).msg).toBe('Seat removed');
     toggleBolt(l, 6, -2);
-    expect(togglePier(l, 6, -2).ok).toBe(true);
+    expect(togglePier(l, 6, -2).msg).toBe('Pier added');
     expect(l.piers).toEqual([[6, -2]]);
-    // Removing the bolt takes its pier with it.
+    // Taking the bolt off leaves the pier as a seat; erasing the seat takes the pier.
+    expect(toggleBolt(l, 6, -2).msg).toMatch(/now a seat/);
+    expect(l.piers).toEqual([[6, -2]]);
+    expect(seatPiers(l)).toEqual([[6, -2]]);
+    expect(eraseAt(l, 6, -3).msg).toBe('Seat removed');
+    expect(l.piers).toEqual([]);
+    // Erasing a bolted pier's bolt takes the pier with it.
     toggleBolt(l, 6, -2);
+    togglePier(l, 6, -2);
+    eraseAt(l, 6, -2);
     expect(l.piers).toEqual([]);
 
     expect(togglePylon(l, 4, 8).ok).toBe(true);
@@ -145,12 +156,65 @@ describe('level editor', () => {
     expect(l.channels).toEqual([[10, 12, 0]]);
   });
 
-  it('warns while a far road end bolt pins the leaf', () => {
+  it('warns while bolts at both ends pin the deck over the channel', () => {
     const l = blankLevel(1000);
     addChannel(l, 6, 12, 0);
-    expect(makerWarnings(l)[0]).toMatch(/far road end is bolted/);
+    expect(makerWarnings(l)[0]).toMatch(/bolted at both ends/);
     toggleBolt(l, 12, 0);
     expect(makerWarnings(l)).toEqual([]);
+  });
+
+  it('stands seats anywhere in the gap, and a seat lets a channel sit mid-span', () => {
+    const l = blankLevel(1000);
+    setSize(l, 18, 0, -5);
+    expect(togglePier(l, 15, 0)).toEqual({ ok: true, msg: 'Seat added' });
+    expect(togglePier(l, 16, 0).ok).toBe(false);
+    expect(togglePier(l, 6, l.waterY - 1).ok).toBe(false);
+    toggleBolt(l, 6, 0);
+    togglePier(l, 6, 0);
+    toggleBolt(l, 10, -3);
+    togglePier(l, 10, -3);
+    addChannel(l, 12, 12, deckTop(l));
+    expect(l.channels).toEqual([[11, 14, 0]]);
+    expect(makerWarnings(l)).toEqual([]);
+    // Bolting the seat pins the leaf at both ends.
+    toggleBolt(l, 15, 0);
+    expect(makerWarnings(l)[0]).toMatch(/bolted at both ends/);
+    // Seats survive export and import.
+    toggleBolt(l, 15, 0);
+    expect(parseLevel(exportLevel(l), l.id).piers).toEqual(l.piers);
+  });
+
+  it('lifts a leaf off a seat mid-span while the span beyond stays put', () => {
+    const l = blankLevel(1000);
+    setSize(l, 18, 0, -5);
+    l.anchors = [[0, 0], [18, 0]];
+    for (const [x, y] of [[6, 0], [10, -3]]) {
+      toggleBolt(l, x, y);
+      togglePier(l, x, y);
+    }
+    togglePier(l, 15, 0);
+    addChannel(l, 12, 12, deckTop(l));
+    l.money = 1_000_000;
+    l.target = 0;
+    const d = new Design(l);
+    trussOver(d, roadRun(d, [0, 0], [6, 0]), 2, WOOD);
+    trussOver(d, roadRun(d, [6, 0], [15, 0]), 2, WOOD);
+    d.add([10, -3], [10, 0], 'ram');
+    trussOver(d, roadRun(d, [15, 0], [18, 0]), 1, WOOD);
+    expect(designProblems(l, d)).toEqual([]);
+    const run = new TestRun(d, l);
+    const w = run.world;
+    // The leaf and the far span each get a joint on the seat.
+    expect(w.seats).toHaveLength(2);
+    const lift = w.seats.map(() => 0);
+    for (let i = 0; i < 40 * 60 && run.status === 'running'; i++) {
+      run.step();
+      w.seats.forEach((s, k) => (lift[k] = Math.max(lift[k], w.y[s.p] - s.y)));
+    }
+    expect(run.status).toBe('success');
+    expect(Math.max(...lift)).toBeGreaterThan(3);
+    expect(Math.min(...lift)).toBeLessThan(0.01);
   });
 
   it('plays a drawbridge made in the editor', () => {

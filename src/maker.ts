@@ -1,4 +1,4 @@
-import type { BonusGoal, LevelDef, Overhang, Pt, Tower } from './levels';
+import { seatPiers, type BonusGoal, type LevelDef, type Overhang, type Pt, type Tower } from './levels';
 import { MATERIAL_ORDER, MATERIALS, type MaterialId } from './physics/materials';
 import { VEHICLES, type VehicleId } from './physics/vehicles';
 import { THEMES } from './render/themes';
@@ -67,14 +67,19 @@ export function boltAllowed(l: LevelDef, x: number, y: number): string | null {
   return null;
 }
 
-/** Adds or removes a bolt. Returns what happened, for the player. */
+/**
+ * Adds or removes a bolt. Taking the bolt off a pier leaves the pier as a seat, and bolting a
+ * seat makes it an ordinary pier again. Returns what happened, for the player.
+ */
 export function toggleBolt(l: LevelDef, x: number, y: number): { ok: boolean; msg: string } {
   if (isFixedBolt(x, y)) return { ok: false, msg: 'The near road end always has a bolt' };
   const i = anchorIndex(l, x, y);
   if (i >= 0) {
-    removeBolt(l, i);
+    const pier = l.piers.some((p) => same(p, x, y));
+    removeBolt(l, i, pier);
+    if (pier) return { ok: true, msg: 'Bolt removed: the pier is now a seat a deck rests on' };
     const far = same(rightEnd(l), x, y);
-    return { ok: true, msg: far ? 'Far road end left free: a drawbridge leaf can rest there' : 'Bolt removed' };
+    return { ok: true, msg: far ? 'Far road end left free: a drawbridge leaf can lift there' : 'Bolt removed' };
   }
   const why = boltAllowed(l, x, y);
   if (why) return { ok: false, msg: why };
@@ -82,26 +87,35 @@ export function toggleBolt(l: LevelDef, x: number, y: number): { ok: boolean; ms
   return { ok: true, msg: 'Bolt added' };
 }
 
-/** Removes a bolt, and the pier or pylon it tops. */
-function removeBolt(l: LevelDef, i: number): void {
+/** Removes a bolt, and the pylon it tops. The pier under it goes too, unless kept as a seat. */
+function removeBolt(l: LevelDef, i: number, keepPier = false): void {
   const [x, y] = l.anchors[i];
   l.anchors.splice(i, 1);
-  l.piers = l.piers.filter((p) => !same(p, x, y));
+  if (!keepPier) l.piers = l.piers.filter((p) => !same(p, x, y));
   if (l.towers) l.towers = l.towers.filter((t) => !same([t[0], t[2]], x, y));
 }
 
-/** Stands a pier under a bolt in the gap, or takes it away. */
+/**
+ * Stands a pier under a bolt in the gap, or takes it away. Anywhere else in the gap it stands
+ * a seat: a pier with no bolt, where a deck joint rests and can lift off, as a drawbridge leaf
+ * does when it opens.
+ */
 export function togglePier(l: LevelDef, x: number, y: number): { ok: boolean; msg: string } {
-  if (anchorIndex(l, x, y) < 0) return { ok: false, msg: 'Tap a bolt to stand a pier under it' };
-  if (x <= 0 || x >= l.width) return { ok: false, msg: 'Piers stand in the gap, not on the banks' };
+  const bolted = anchorIndex(l, x, y) >= 0;
   const i = l.piers.findIndex((p) => same(p, x, y));
   if (i >= 0) {
     l.piers.splice(i, 1);
-    return { ok: true, msg: 'Pier removed' };
+    return { ok: true, msg: bolted ? 'Pier removed' : 'Seat removed' };
+  }
+  if (x <= 0 || x >= l.width) return { ok: false, msg: 'Piers stand in the gap, not on the banks' };
+  if (!bolted) {
+    const why = boltAllowed(l, x, y);
+    if (why) return { ok: false, msg: why };
+    if (l.towers?.some((t) => Math.abs(t[0] - x) < 1.5)) return { ok: false, msg: 'Too close to a pylon' };
   }
   if (l.piers.some(([px]) => Math.abs(px - x) < 1.5)) return { ok: false, msg: 'Too close to another pier' };
   l.piers.push([x, y]);
-  return { ok: true, msg: 'Pier added' };
+  return { ok: true, msg: bolted ? 'Pier added' : 'Seat added' };
 }
 
 /** Raises a pylon from the water to (x, y), bolted at the top, or removes the one topped there. */
@@ -183,7 +197,7 @@ export function addChannel(l: LevelDef, x0: number, x1: number, top: number): { 
   return { ok: true, msg };
 }
 
-/** Removes the bolt, pylon or channel at a point, in that order. */
+/** Removes the bolt, seat, pylon or channel at a point, in that order. */
 export function eraseAt(l: LevelDef, x: number, y: number): { ok: boolean; msg: string } {
   const i = anchorIndex(l, x, y);
   if (i >= 0) {
@@ -192,6 +206,11 @@ export function eraseAt(l: LevelDef, x: number, y: number): { ok: boolean; msg: 
     removeBolt(l, i);
     if (l.towers && !l.towers.length) delete l.towers;
     return { ok: true, msg: pylon ? 'Pylon removed' : 'Bolt removed' };
+  }
+  const seat = seatPiers(l).find(([px, py]) => Math.abs(px - x) < 0.6 && y <= py && y >= l.waterY);
+  if (seat) {
+    l.piers = l.piers.filter((p) => p !== seat);
+    return { ok: true, msg: 'Seat removed' };
   }
   const t = l.towers?.findIndex((tw) => Math.abs(tw[0] - x) < 0.6 && y >= tw[1] && y <= tw[2]) ?? -1;
   if (t >= 0) {
@@ -228,7 +247,7 @@ export function setSize(l: LevelDef, width: number, rightY: number, waterY: numb
   l.anchors = l.anchors.filter(([x, y]) => x >= 0 && x <= W && y >= water);
   if (hadEnd) l.anchors.push([W, R]);
   l.anchors = dedupe(l.anchors);
-  l.piers = l.piers.filter(([x, y]) => x > 0 && x < W && l.anchors.some((a) => same(a, x, y)));
+  l.piers = l.piers.filter(([x, y]) => x > 0 && x < W && y > water);
   if (l.towers) {
     l.towers = l.towers.filter(([x, , top]) => x >= 0 && x <= W && top > water).map(([x, , top]): Tower => [x, water, top]);
     if (!l.towers.length) delete l.towers;
@@ -261,11 +280,22 @@ export function makerIssues(l: LevelDef): string[] {
 /** What still lets a level be played but probably isn't what was meant. */
 export function makerWarnings(l: LevelDef): string[] {
   const out: string[] = [];
-  const end = rightEnd(l);
-  const reachesFar = l.channels?.some(([, b]) => b >= l.width - 1e-6);
-  if (l.ship && reachesFar && anchorIndex(l, end[0], end[1]) >= 0) out.push('The far road end is bolted, so a leaf can’t lift there. Tap it with the Bolt tool to free it.');
+  if (l.ship && l.channels?.length && spanLocked(l, l.channels[0])) {
+    out.push('The deck over the ship channel is bolted at both ends, so it can’t lift. Tap one end’s bolt with the Bolt tool: on a pier, that makes a seat.');
+  }
   if (!l.ship && l.materials.includes('ram')) out.push('Rams only move for a tall ship: set its mast height in Settings.');
   return out;
+}
+
+/**
+ * Whether the nearest supports at road height on both sides of a channel are bolts. A leaf
+ * hinges at one and has to lift off the other, which only a seat or a free road end allows.
+ */
+function spanLocked(l: LevelDef, [x0, x1, top]: [number, number, number]): boolean {
+  const supports = [...l.anchors.map(([x, y]) => ({ x, y, bolt: true })), ...seatPiers(l).map(([x, y]) => ({ x, y, bolt: false }))].filter((s) => s.y >= top - 0.5);
+  const nearest = (side: -1 | 1) =>
+    supports.filter((s) => (side < 0 ? s.x <= x0 : s.x >= x1)).toSorted((a, b) => Math.abs(a.x - (side < 0 ? x0 : x1)) - Math.abs(b.x - (side < 0 ? x0 : x1)))[0];
+  return !!nearest(-1)?.bolt && !!nearest(1)?.bolt;
 }
 
 // ───────────────────────────── Import and export ─────────────────────────────
@@ -300,7 +330,7 @@ export function parseLevel(json: string, id: number): LevelDef {
 
   const given = list(r.anchors, pt).filter(([x, y]) => inGap(x) && y >= waterY && y <= LIMITS.maxHeight);
   const anchors = dedupe(given.some(([x, y]) => isFixedBolt(x, y)) ? given : [[0, 0], ...given]);
-  const piers = list(r.piers, pt).filter(([x, y]) => x > 0 && x < width && anchors.some((a) => same(a, x, y)));
+  const piers = list(r.piers, pt).filter(([x, y]) => x > 0 && x < width && y > waterY && y <= LIMITS.maxHeight);
   const towers = list(r.towers, (v): Tower | null => {
     if (!Array.isArray(v) || v.length !== 3 || !v.every((n) => typeof n === 'number' && Number.isFinite(n))) return null;
     const [x, base, top] = v.map(round);
