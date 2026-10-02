@@ -1,7 +1,7 @@
 import { traffic } from '../brief';
 import { money } from '../editor';
 import type { BonusGoal, LevelDef } from '../levels';
-import { makerIssues, setSize, type MakerTool } from '../maker';
+import { makerIssues, makerWarnings, setSize, type MakerTool } from '../maker';
 import { MATERIAL_ORDER, MATERIALS, type MaterialId } from '../physics/materials';
 import { VEHICLES, type VehicleId } from '../physics/vehicles';
 import { THEMES } from '../render/themes';
@@ -14,7 +14,7 @@ export const MAKER_TOOLS: { id: MakerTool; name: string; help: string }[] = [
   { id: 'bolt', name: 'Bolt', help: 'Tap to add a bolt, or tap one to remove it.' },
   { id: 'pier', name: 'Pier', help: 'Tap a bolt in the gap to stand a pier under it.' },
   { id: 'pylon', name: 'Pylon', help: 'Tap where a pylon top should go: it rises from the water with a bolt on top.' },
-  { id: 'channel', name: 'Channel', help: 'Drag across the gap for a ship channel. It stays clear up to the height you start at.' },
+  { id: 'channel', name: 'Channel', help: 'Tap open water to fill it between the piers and banks, up to the road. Or drag for your own span, clear up to the height you start at.' },
   { id: 'erase', name: 'Erase', help: 'Tap a bolt, pylon or channel to remove it.' },
 ];
 
@@ -83,9 +83,12 @@ export class MakerUi {
   setStatus(level: LevelDef): void {
     $('mk-title-name').textContent = level.name;
     const issues = makerIssues(level);
+    const warning = issues.length ? undefined : makerWarnings(level)[0];
     const el = $('mk-issues');
-    el.textContent = issues[0] ?? `${traffic(level)} · ${level.width} m · ${money(level.money)}`;
+    el.textContent = issues[0] ?? warning ?? `${traffic(level)} · ${level.width} m · ${money(level.money)}`;
+    el.title = issues[0] ?? warning ?? '';
     el.classList.toggle('bad', issues.length > 0);
+    el.classList.toggle('warn', !!warning);
   }
 
   /** Puts the level's settings in the form. The field being edited is left alone. */

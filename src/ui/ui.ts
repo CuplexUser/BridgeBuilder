@@ -6,7 +6,7 @@ import { levelBrief, traffic } from '../brief';
 import { bonusLabel, GOAL_SCORE, type LevelScore } from '../scoring';
 import type { BoardRow, HighScore, LevelRecord, Profile, Progress } from '../storage';
 
-export type ScreenId = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'workshop' | 'share' | 'pause' | 'brief' | 'result' | 'collapse' | 'over';
+export type ScreenId = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'workshop' | 'share' | 'mkhelp' | 'pause' | 'brief' | 'result' | 'collapse' | 'over';
 type BoardTab = 'career' | 'chapter' | 'levels' | 'challenge';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -37,6 +37,7 @@ export class Ui {
     scores: $('scr-scores'),
     workshop: $('scr-workshop'),
     share: $('scr-share'),
+    mkhelp: $('scr-mkhelp'),
     pause: $('scr-pause'),
     brief: $('scr-brief'),
     result: $('scr-result'),
@@ -427,12 +428,22 @@ export class Ui {
     $('res-total').textContent = v.toLocaleString('en-US');
   }
 
-  collapse(reason: string, lives: number | null, maxLives: number): void {
+  /**
+   * Fits the pause menu to where you are: back to the drawing board only while a test runs,
+   * and back to the level editor, not the menus, from a playtest.
+   */
+  pauseMenu(testing: boolean, playtest: boolean): void {
+    $('pause-retry').classList.toggle('hidden', !testing);
+    $('pause-quit').innerHTML = playtest ? 'EDIT LEVEL <kbd>Q</kbd>' : 'QUIT TO MENU <kbd>Q</kbd>';
+  }
+
+  collapse(reason: string, lives: number | null, maxLives: number, playtest = false): void {
+    $('col-quit').innerHTML = playtest ? 'EDIT LEVEL <kbd>Esc</kbd>' : 'MENU <kbd>Esc</kbd>';
     $('col-reason').textContent = reason;
     const livesEl = $('col-lives');
     if (lives === null) {
       livesEl.innerHTML = '';
-      $('col-note').textContent = 'No penalty in free play. Tweak the design and try again.';
+      $('col-note').textContent = playtest ? 'Just a playtest. Retry the bridge, or edit the level.' : 'No penalty in free play. Tweak the design and try again.';
     } else {
       this.setLives(lives, maxLives, 'lost', livesEl);
       $('col-note').textContent = lives === 1 ? 'Last life. Make it count.' : `${lives} lives left.`;

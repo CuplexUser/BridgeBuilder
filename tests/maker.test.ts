@@ -5,12 +5,16 @@ import { LEVELS, type LevelDef } from '../src/levels';
 import {
   addChannel,
   blankLevel,
+  channelSpan,
+  deckTop,
   CUSTOM_ID_BASE,
   eraseAt,
   exportLevel,
   loadCustom,
   makerIssues,
+  makerWarnings,
   nextCustomId,
+  openWaterAt,
   parseLevel,
   saveCustom,
   setSize,
@@ -104,11 +108,68 @@ describe('level editor', () => {
     expect(addChannel(l, 5, 6, 0).ok).toBe(false);
     expect(addChannel(l, 8, 4, 1).ok).toBe(true);
     expect(l.channels).toEqual([[4, 8, 1]]);
-    l.ship = { mast: 3 };
+    l.materials = ['road', 'wood'];
     expect(makerIssues(l)).toContain('Offer rams, or the drawbridge cannot open.');
     eraseAt(l, 6, 0);
     expect(l.channels).toBeUndefined();
     expect(l.ship).toBeUndefined();
+  });
+
+  it('makes the first channel a drawbridge, with a ship and rams', () => {
+    const l = blankLevel(1000);
+    expect(l.ship).toBeUndefined();
+    expect(addChannel(l, 4, 8, 0).ok).toBe(true);
+    expect(l.ship).toEqual({ mast: 3 });
+    expect(l.materials).toEqual(['road', 'wood', 'steel', 'ram']);
+    expect(makerIssues(l)).toEqual([]);
+    // A second channel leaves the ship alone, and a mast of 0 is kept.
+    delete l.ship;
+    addChannel(l, 9, 12, 0);
+    expect(l.ship).toBeUndefined();
+    expect(makerWarnings(l)[0]).toMatch(/Rams only move for a tall ship/);
+  });
+
+  it('keeps channels in open water: a tap fills it, a drag stops at piers', () => {
+    const l = blankLevel(1000);
+    toggleBolt(l, 4, -3);
+    togglePier(l, 4, -3);
+    toggleBolt(l, 9, -3);
+    togglePier(l, 9, -3);
+    expect(openWaterAt(l, 6)).toEqual([5, 8]);
+    expect(openWaterAt(l, 4)).toBeNull();
+    expect(channelSpan(l, 6, 6)).toEqual({ ok: true, a: 5, b: 8 });
+    expect(channelSpan(l, 6, 12)).toEqual({ ok: true, a: 6, b: 8 });
+    expect(channelSpan(l, 1, 12)).toEqual({ ok: true, a: 1, b: 3 });
+    expect(channelSpan(l, 4, 7).ok).toBe(false);
+    expect(addChannel(l, 11, 11, deckTop(l)).ok).toBe(true);
+    expect(l.channels).toEqual([[10, 12, 0]]);
+  });
+
+  it('warns while a far road end bolt pins the leaf', () => {
+    const l = blankLevel(1000);
+    addChannel(l, 6, 12, 0);
+    expect(makerWarnings(l)[0]).toMatch(/far road end is bolted/);
+    toggleBolt(l, 12, 0);
+    expect(makerWarnings(l)).toEqual([]);
+  });
+
+  it('plays a drawbridge made in the editor', () => {
+    // Bascule, from a blank level: a pier for the ram, the far end freed, a channel tapped in.
+    const l = blankLevel(1000);
+    setSize(l, 8, 0, -5);
+    l.anchors = l.anchors.filter(([x, y]) => !(x === 0 && y === -2) && !(x === 8 && y === -2));
+    toggleBolt(l, 8, 0);
+    toggleBolt(l, 4, -3);
+    togglePier(l, 4, -3);
+    expect(addChannel(l, 6, 6, deckTop(l)).ok).toBe(true);
+    expect(l.channels).toEqual([[5, 8, 0]]);
+    l.money = 100000;
+    l.target = 0;
+    expect(makerIssues(l)).toEqual([]);
+    expect(makerWarnings(l)).toEqual([]);
+    const d = SOLUTIONS[31](l);
+    expect(designProblems(l, d)).toEqual([]);
+    expect(drive(d, l).status).toBe('success');
   });
 
   it('resizes the gap and moves the far road end with it', () => {

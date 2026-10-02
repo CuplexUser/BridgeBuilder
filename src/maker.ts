@@ -124,16 +124,63 @@ export function togglePylon(l: LevelDef, x: number, y: number): { ok: boolean; m
   return { ok: true, msg: 'Pylon added' };
 }
 
-/** Marks a ship channel from x0 to x1, kept clear up to `top`. Replaces any channel it overlaps. */
+/** Mast height a new drawbridge's ship gets: 3 m over the channel, as on the built-in levels. */
+const DEFAULT_MAST = 3;
+
+/**
+ * The open water around x: between the banks, and a meter clear of any pier or pylon, the
+ * way the built-in channels sit. Null when x is on a pier or pylon.
+ */
+export function openWaterAt(l: LevelDef, x: number): [number, number] | null {
+  let lo = 0;
+  let hi = l.width;
+  for (const px of [...l.piers.map((p) => p[0]), ...(l.towers ?? []).map((t) => t[0])]) {
+    if (Math.abs(px - x) < 1) return null;
+    if (px < x) lo = Math.max(lo, px + 1);
+    else hi = Math.min(hi, px - 1);
+  }
+  return [lo, hi];
+}
+
+/** Road height a channel tapped in fills up to: the lower road end, so the deck can run over it. */
+export function deckTop(l: LevelDef): number {
+  return Math.min(0, l.rightY ?? 0);
+}
+
+/**
+ * The channel a drag from x0 to x1 marks: kept to the open water it starts in, so it can't
+ * swallow a pier. A tap (x0 equal to x1) fills that whole stretch of open water.
+ */
+export function channelSpan(l: LevelDef, x0: number, x1: number): { ok: true; a: number; b: number } | { ok: false; msg: string } {
+  const gap = openWaterAt(l, x0);
+  if (!gap) return { ok: false, msg: 'Start the channel in open water, clear of piers' };
+  const a = x0 === x1 ? gap[0] : Math.max(gap[0], Math.min(x0, x1));
+  const b = x0 === x1 ? gap[1] : Math.min(gap[1], Math.max(x0, x1));
+  if (b - a < 2) return { ok: false, msg: x0 === x1 ? 'Too little open water here for a channel' : 'Drag across at least 2 m for a channel' };
+  return { ok: true, a, b };
+}
+
+/**
+ * Marks a ship channel from x0 to x1, kept clear up to `top`, and replaces any channel it
+ * overlaps. The first channel brings a tall ship and offers rams, making the level a
+ * drawbridge; set the mast to 0 for a channel that only has to be kept clear.
+ */
 export function addChannel(l: LevelDef, x0: number, x1: number, top: number): { ok: boolean; msg: string } {
-  const a = Math.max(0, Math.min(x0, x1));
-  const b = Math.min(l.width, Math.max(x0, x1));
-  if (b - a < 2) return { ok: false, msg: 'Drag across at least 2 m for a channel' };
+  const span = channelSpan(l, x0, x1);
+  if (!span.ok) return span;
+  const { a, b } = span;
   const t = Math.max(l.waterY + 1, Math.min(12, top));
+  const first = !l.channels?.length;
   const kept = (l.channels ?? []).filter(([c0, c1]) => c1 <= a || c0 >= b);
   const added: [number, number, number] = [a, b, t];
   l.channels = [...kept, added].toSorted((p, q) => p[0] - q[0]);
-  return { ok: true, msg: `Channel ${b - a} m wide, clear to ${t >= 0 ? '+' : ''}${t} m` };
+  let msg = `Channel ${b - a} m wide, clear to ${t >= 0 ? '+' : ''}${t} m`;
+  if (first && !l.ship) {
+    l.ship = { mast: Math.min(20, Math.max(DEFAULT_MAST, Math.ceil(t) + DEFAULT_MAST)) };
+    if (!l.materials.includes('ram')) l.materials = MATERIAL_ORDER.filter((m) => m === 'ram' || l.materials.includes(m));
+    msg += ` · tall ship, ${l.ship.mast} m mast`;
+  }
+  return { ok: true, msg };
 }
 
 /** Removes the bolt, pylon or channel at a point, in that order. */
@@ -208,6 +255,16 @@ export function makerIssues(l: LevelDef): string[] {
   if (l.ship && !l.materials.includes('ram')) out.push('Offer rams, or the drawbridge cannot open.');
   if (l.bonus.kind === 'without' && !l.materials.includes(l.bonus.mat)) out.push(`The bonus goal bans ${MATERIALS[l.bonus.mat].name.toLowerCase()}, which the level does not offer.`);
   if (l.bonus.kind === 'cost' && l.bonus.max > l.money) out.push('The bonus cost cap is more than the budget.');
+  return out;
+}
+
+/** What still lets a level be played but probably isn't what was meant. */
+export function makerWarnings(l: LevelDef): string[] {
+  const out: string[] = [];
+  const end = rightEnd(l);
+  const reachesFar = l.channels?.some(([, b]) => b >= l.width - 1e-6);
+  if (l.ship && reachesFar && anchorIndex(l, end[0], end[1]) >= 0) out.push('The far road end is bolted, so a leaf can’t lift there. Tap it with the Bolt tool to free it.');
+  if (!l.ship && l.materials.includes('ram')) out.push('Rams only move for a tall ship: set its mast height in Settings.');
   return out;
 }
 

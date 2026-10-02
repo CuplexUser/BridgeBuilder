@@ -274,6 +274,39 @@ kbd {
   }
 }
 
+/* ───────── Level editor help ───────── */
+
+.panel.mk-help {
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+}
+
+.mk-help .brief-rules li::before {
+  content: '›';
+  color: var(--muted);
+}
+
+.mk-help .brief-rules b {
+  color: var(--gold);
+  margin-right: 6px;
+}
+
+.mk-steps {
+  margin: 0;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mk-steps b {
+  color: var(--gold);
+}
+
+.mk-help .brief-tip {
+  font-size: 14px;
+}
+
 /* ───────── Level briefing ───────── */
 
 .panel.brief {
@@ -1959,6 +1992,10 @@ h2 {
 .ws-info .bad,
 .mk-issues.bad {
   color: #ff9d8f;
+}
+
+.mk-issues.warn {
+  color: var(--gold);
 }
 
 .ws-btns {

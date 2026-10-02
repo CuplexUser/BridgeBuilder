@@ -3,6 +3,8 @@ import { bonusStatus } from './brief';
 import {
   addChannel,
   blankLevel,
+  channelSpan,
+  deckTop,
   eraseAt,
   exportLevel,
   isCustom,
@@ -447,8 +449,9 @@ export class Game {
   private toolPreview(x: number, y: number): { ok: boolean; msg: string } {
     const copy = structuredClone(this.customLevel!);
     if (this.tool === 'channel') {
-      if (!this.channelFrom) return { ok: true, msg: 'Drag across for a ship channel' };
-      return addChannel(copy, this.channelFrom[0], x, this.channelFrom[1]);
+      const [x0, top] = this.channelFrom ?? [x, deckTop(copy)];
+      const res = addChannel(copy, x0, x, top);
+      return this.channelFrom || !res.ok ? res : { ok: true, msg: 'Tap to fill the open water, or drag' };
     }
     return this.applyTool(copy, x, y);
   }
@@ -497,7 +500,9 @@ export class Game {
     if (!from) return;
     this.channelFrom = null;
     const p = this.snapAt(e.clientX, e.clientY);
-    this.makerChange((l) => addChannel(l, from[0], p[0], from[1]), [(from[0] + p[0]) / 2, from[1]]);
+    // A tap fills the open water around it up to the road; a drag marks its own span.
+    const tap = p[0] === from[0];
+    this.makerChange((l) => addChannel(l, from[0], p[0], tap ? deckTop(l) : from[1]), [(from[0] + p[0]) / 2, from[1]]);
   }
 
   /** Frames the level beside the settings panel and between the editor's bars. */
@@ -635,6 +640,14 @@ export class Game {
       case 'mk-redo':
         this.makerHistory(1);
         break;
+      case 'mk-help':
+        sfx.ui();
+        if (this.state === 'maker') this.ui.show('mkhelp');
+        break;
+      case 'mk-help-close':
+        sfx.ui();
+        this.ui.show(null);
+        break;
       case 'mk-settings':
         sfx.ui();
         this.makerUi.togglePanel();
@@ -665,6 +678,13 @@ export class Game {
       if (k === 'Escape') this.act('share-close');
       return;
     }
+    if (this.ui.current === 'mkhelp') {
+      if (k === 'Escape' || k === 'Enter' || lower === 'h' || k === '?') {
+        e.preventDefault();
+        this.act('mk-help-close');
+      }
+      return;
+    }
     if (this.state === 'workshop') {
       if (k === 'Escape' || k === 'Backspace') this.act('back');
       else if (lower === 'n') this.act('ws-new');
@@ -679,6 +699,7 @@ export class Game {
     if (k >= '1' && k <= String(MAKER_TOOLS.length) && k.length === 1) this.setTool(MAKER_TOOLS[Number(k) - 1].id);
     else if (lower === 'z') this.makerHistory(-1);
     else if (lower === 'y') this.makerHistory(1);
+    else if (lower === 'h' || k === '?') this.act('mk-help');
     else if (lower === 's') this.act('mk-settings');
     else if (lower === 'p') this.act('mk-play');
     else if (lower === 'f') this.fitMaker(false);
@@ -948,7 +969,7 @@ export class Game {
         return;
       }
       this.ui.collapse(this.run!.reason, this.lives, MAX_LIVES);
-    } else this.ui.collapse(this.run!.reason, null, MAX_LIVES);
+    } else this.ui.collapse(this.run!.reason, null, MAX_LIVES, this.mode === 'custom');
   }
 
   private nextLevel(): void {
@@ -1043,6 +1064,7 @@ export class Game {
     if (p) this.closeBrief();
     if (p === this.paused) return;
     this.paused = p;
+    if (p) this.ui.pauseMenu(this.state === 'test', this.mode === 'custom');
     this.ui.show(p ? 'pause' : null);
     if (p) this.editor?.cancel();
     if (this.state === 'test' && this.run?.status === 'running') {
@@ -1586,10 +1608,18 @@ export class Game {
     const p = this.makerHover;
     if (this.state !== 'maker' || !p || !this.customLevel || this.ui.current) return null;
     const res = this.toolPreview(p[0], p[1]);
-    const from = this.channelFrom;
     // The preview says what a tap will do: "Bolt added" reads as "Add bolt".
     const label = res.msg.replace(/^(.+) added$/, (_, w: string) => `Add ${w.toLowerCase()}`).replace(/^(.+) removed$/, (_, w: string) => `Remove ${w.toLowerCase()}`);
-    return { x: p[0], y: p[1], label, ok: res.ok, channel: from ? [Math.min(from[0], p[0]), Math.max(from[0], p[0]), from[1]] : null };
+    return { x: p[0], y: p[1], label, ok: res.ok, channel: this.tool === 'channel' ? this.channelPreview(p) : null };
+  }
+
+  /** The channel the current tap or drag would mark, outlined before it lands. */
+  private channelPreview(p: [number, number]): [number, number, number] | null {
+    const l = this.customLevel!;
+    const [x0, top] = this.channelFrom ?? [p[0], deckTop(l)];
+    const span = channelSpan(l, x0, p[0]);
+    if (span.ok) return [span.a, span.b, top];
+    return this.channelFrom ? [Math.min(x0, p[0]), Math.max(x0, p[0]), top] : null;
   }
 
   // ───────────────────────────── Input ─────────────────────────────
@@ -1933,7 +1963,7 @@ export class Game {
     }
     if (this.paused) {
       if (k === 'Escape' || lower === 'p') this.setPaused(false);
-      else if (lower === 'r') {
+      else if (lower === 'r' && this.state === 'test') {
         this.setPaused(false);
         this.backToBuild();
       } else if (lower === 'q') this.act('quit');

@@ -162,6 +162,37 @@
       </div>
     </section>
 
+    <!-- Level editor help: the tools, and how a drawbridge works -->
+    <section id="scr-mkhelp" class="screen dim hidden">
+      <div class="panel brief mk-help">
+        <h2>Level editor help</h2>
+        <h3>Tools</h3>
+        <ul class="brief-rules">
+          <li><b>Bolt <kbd>1</kbd></b> Tap to add an anchor the player can build from, or tap one to remove it. The near road end always stays.</li>
+          <li><b>Pier <kbd>2</kbd></b> Tap a bolt over the gap to stand a pier under it.</li>
+          <li><b>Pylon <kbd>3</kbd></b> Tap where a pylon top should go: it rises from the water with a bolt on top.</li>
+          <li><b>Channel <kbd>4</kbd></b> Tap open water to fill the stretch between the piers and banks either side, up to the road. Or drag to mark your own span, kept clear up to the height you start at. A dashed outline shows where it lands before you let go.</li>
+          <li><b>Erase <kbd>5</kbd></b> Tap a bolt, pylon or channel to remove it.</li>
+        </ul>
+        <h3>Drawbridges and rams</h3>
+        <ol class="mk-steps">
+          <li><b>Mark the channel.</b> The first channel brings a tall ship with a 3 m mast and offers rams. Change the mast under <i>Settings › Traffic</i>; a mast of 0 means no ship, just water to keep clear.</li>
+          <li><b>Give the ram something to push from.</b> Stand a pier beside the channel with its bolt below the road, say 3 m down.</li>
+          <li><b>Free the end that lifts.</b> When the channel reaches the far bank, tap the far road end with the Bolt tool so the leaf can rise off it. The header warns you while it is still bolted.</li>
+          <li><b>Playtest it.</b> Run the road from a bolted hinge out over the channel, put a ram from the pier bolt straight up to the road, and stiffen the leaf with a truss.</li>
+        </ol>
+        <p class="brief-tip">Rams extend by 75% while the bridge opens, hold while the ship passes, then pull it shut before traffic goes. Stand the ram square under the leaf, a few meters from the hinge: right under the hinge it runs out of reach and breaks something.</p>
+        <h3>Playtesting</h3>
+        <ul class="brief-rules">
+          <li><kbd>P</kbd> playtests the level. Playtests never count toward your career.</li>
+          <li>Pause, a collapse and a finished run each have <b>EDIT LEVEL</b> to bring you back here.</li>
+        </ul>
+        <div class="row">
+          <button class="btn primary" data-act="mk-help-close">GOT IT <kbd>Esc</kbd></button>
+        </div>
+      </div>
+    </section>
+
     <!-- Export or import a level as JSON -->
     <section id="scr-share" class="screen dim hidden">
       <div class="panel wide">
@@ -188,6 +219,7 @@
         <span id="mk-issues" class="mk-issues"></span>
       </div>
       <div class="mk-actions">
+        <button class="btn small" data-act="mk-help" title="How the editor works, and how to build a drawbridge (H)">HELP <kbd>H</kbd></button>
         <button class="btn small" data-act="mk-settings" id="mk-settings-btn">SETTINGS <kbd>S</kbd></button>
         <button class="btn small" data-act="mk-export">EXPORT</button>
         <button class="btn small" data-act="mk-done">DONE <kbd>Esc</kbd></button>
@@ -266,8 +298,8 @@
         <h2>Paused</h2>
         <div class="menu">
           <button class="btn primary" data-act="resume">RESUME <kbd>Esc</kbd></button>
-          <button class="btn" data-act="retry">BACK TO DRAWING BOARD <kbd>R</kbd></button>
-          <button class="btn" data-act="quit">QUIT TO MENU <kbd>Q</kbd></button>
+          <button class="btn" data-act="retry" id="pause-retry">BACK TO DRAWING BOARD <kbd>R</kbd></button>
+          <button class="btn" data-act="quit" id="pause-quit">QUIT TO MENU <kbd>Q</kbd></button>
         </div>
         <div class="keys">
           <div><kbd>Drag</kbd> build from a node</div>
@@ -330,7 +362,7 @@
         <p id="col-note" class="muted"></p>
         <button class="link-btn stress-link" data-act="stress">Where did it fail? Stress graph <kbd>G</kbd></button>
         <div class="row">
-          <button class="btn" data-act="quit">MENU <kbd>Esc</kbd></button>
+          <button class="btn" data-act="quit" id="col-quit">MENU <kbd>Esc</kbd></button>
           <button class="btn primary" data-act="retry">RETRY <kbd>R</kbd></button>
         </div>
       </div>
@@ -345,7 +377,7 @@
         <p id="over-rank" class="over-rank"></p>
         <table class="scores small"><tbody id="over-rows"></tbody></table>
         <div class="row">
-          <button class="btn" data-act="quit">MENU <kbd>Esc</kbd></button>
+          <button class="btn" data-act="quit" id="col-quit">MENU <kbd>Esc</kbd></button>
           <button class="btn primary" data-act="restart">TRY AGAIN <kbd>R</kbd></button>
         </div>
       </div>
