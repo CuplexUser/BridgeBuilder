@@ -34,6 +34,8 @@ export const CLOSE_TIME = 3;
 export const SHIP_HALF = 1.2;
 /** A seated joint this far above its pier, m, has lifted off and is no longer held. */
 const SEAT_SLACK = 1e-3;
+/** A member sunk this far below a seat, m, has gone under the pier top rather than onto it. */
+const REST_DEPTH = 0.5;
 
 export interface Link {
   a: number;
@@ -69,16 +71,24 @@ export interface Link {
   stroke: number;
 }
 
-/**
- * Bending stiffness across a deck joint: keeps joint b at its rest offset from the line a→c,
- * so a wheel load at one joint is shared with its neighbors. Yields past `limit` like a hinge.
- */
 /** A joint resting on a pier top at (x, y). */
 export interface Seat {
   p: number;
   x: number;
   y: number;
 }
+
+/** A member that crosses a pier top at (x, y) between its ends, and rests on it there. */
+export interface Rest {
+  link: Link;
+  x: number;
+  y: number;
+}
+
+/**
+ * Bending stiffness across a deck joint: keeps joint b at its rest offset from the line a→c,
+ * so a wheel load at one joint is shared with its neighbors. Yields past `limit` like a hinge.
+ */
 
 export interface Bend {
   a: number;
@@ -132,6 +142,8 @@ export class World {
   terrain: number[] = [];
   /** Joints resting on a pier with no bolt: held there while they bear down, free once they lift. */
   seats: Seat[] = [];
+  /** Members passing over a pier with no bolt: borne up there while they bear down, free once they lift. */
+  rests: Rest[] = [];
   breaks: BreakEvent[] = [];
   floorY: number;
   /** Scaled 0→1 at the start of a run so the bridge takes its own weight gently. */
@@ -308,13 +320,33 @@ export class World {
     }
   }
 
-  /** A seated joint can't sink into its pier or slide off it, but nothing holds it down. */
+  /**
+   * A seated joint can't sink into its pier or slide off it, and a member crossing a seat can't
+   * sink into it, though it may slide along it. Nothing holds either down.
+   */
   private solveSeats(): void {
-    const { x, y } = this;
+    const { x, y, im } = this;
     for (const s of this.seats) {
       if (y[s.p] > s.y + SEAT_SLACK) continue;
       if (y[s.p] < s.y) y[s.p] = s.y;
       x[s.p] = s.x;
+    }
+    for (const r of this.rests) {
+      const { a, b, broken } = r.link;
+      if (broken) continue;
+      const dx = x[b] - x[a];
+      if (Math.abs(dx) < 1e-9) continue;
+      // Where along the member the seat sits, and how far below the seat the member is there.
+      const t = (r.x - x[a]) / dx;
+      if (t <= 0 || t >= 1) continue;
+      const sink = r.y - (y[a] + (y[b] - y[a]) * t);
+      if (sink <= 0 || sink > REST_DEPTH) continue;
+      const wa = im[a] * (1 - t);
+      const wb = im[b] * t;
+      const w = wa * (1 - t) + wb * t;
+      if (w === 0) continue;
+      y[a] += (wa * sink) / w;
+      y[b] += (wb * sink) / w;
     }
   }
 
@@ -558,6 +590,7 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
     });
   });
 
+  addSeatRests(world, level);
   addDeckBends(world);
   world.indexJoints((p) => p < design.nodes.length && design.nodes[p].anchor);
 
@@ -636,6 +669,24 @@ function seatJoints(design: Design, level: LevelDef): { ends: [number, number][]
     });
   });
   return { ends, extra, seats };
+}
+
+/**
+ * Members built straight across a seat rest on it there, just as a joint built on it would,
+ * so a deck laid over a seat in long pieces is carried without needing a joint on top.
+ */
+function addSeatRests(world: World, level: LevelDef): void {
+  const { x, y } = world;
+  for (const [sx, sy] of seatPiers(level)) {
+    for (const link of world.links) {
+      const { a, b } = link;
+      const lo = Math.min(x[a], x[b]);
+      const hi = Math.max(x[a], x[b]);
+      if (sx <= lo + 1e-6 || sx >= hi - 1e-6) continue;
+      const at = y[a] + ((y[b] - y[a]) * (sx - x[a])) / (x[b] - x[a]);
+      if (Math.abs(at - sy) < 1e-6) world.rests.push({ link, x: sx, y: sy });
+    }
+  }
 }
 
 /** Bending stiffness at every joint where two deck pieces continue one another. */

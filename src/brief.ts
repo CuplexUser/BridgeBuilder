@@ -74,7 +74,7 @@ function rules(l: LevelDef): string[] {
     const top = Math.max(...l.channels.map((c) => c[2]));
     out.push(`Keep the ship channel clear: nothing may be built in it, up to ${top >= 0 ? '+' : ''}${top} m.`);
   }
-  if (seatPiers(l).length) out.push('A pier with no bolt is a seat: a joint built on top rests there. It carries the deck but holds nothing down, so a leaf can lift off it.');
+  if (seatPiers(l).length) out.push('A pier with no bolt is a seat: a deck laid on or across it rests there. It carries the deck but holds nothing down, so a leaf can lift off it.');
   if (l.convoy?.length) out.push(`A convoy: ${defs.length} vehicles cross nose to tail, so the bridge carries them all at once.`);
   if (l.anchorCost) out.push(`Toll bolts: building from any bolt off the road costs ${money(l.anchorCost)}, once per bolt.`);
   for (const [mat, max] of Object.entries(l.limits ?? {})) {

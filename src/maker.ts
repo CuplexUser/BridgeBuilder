@@ -97,7 +97,7 @@ function removeBolt(l: LevelDef, i: number, keepPier = false): void {
 
 /**
  * Stands a pier under a bolt in the gap, or takes it away. Anywhere else in the gap it stands
- * a seat: a pier with no bolt, where a deck joint rests and can lift off, as a drawbridge leaf
+ * a seat: a pier with no bolt, where a deck rests and can lift off, as a drawbridge leaf
  * does when it opens.
  */
 export function togglePier(l: LevelDef, x: number, y: number): { ok: boolean; msg: string } {

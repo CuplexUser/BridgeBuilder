@@ -37,7 +37,7 @@ export interface LevelDef {
   anchors: Pt[];
   /**
    * Concrete piers rise from the water to these points. Most are topped by a bolt; one without
-   * is a seat, where a deck joint rests and can lift off.
+   * is a seat, where a deck rests and can lift off.
    */
   piers: Pt[];
   /** Materials offered on this level, in toolbar order. */
@@ -567,7 +567,7 @@ export const LEVELS: LevelDef[] = BASE_LEVELS.map((b) => applyTuning(b, TUNED.le
 
 export const START_X = -8;
 
-/** Piers with no bolt on top: a joint built there rests on the pier and can lift off it. */
+/** Piers with no bolt on top: a deck built on or across one rests on the pier and can lift off it. */
 export function seatPiers(level: LevelDef): Pt[] {
   const bolted = (x: number, y: number) => level.anchors.some((a) => Math.abs(a[0] - x) < 1e-6 && Math.abs(a[1] - y) < 1e-6);
   return level.piers.filter(([x, y]) => !bolted(x, y));

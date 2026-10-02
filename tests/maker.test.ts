@@ -217,6 +217,46 @@ describe('level editor', () => {
     expect(Math.min(...lift)).toBeLessThan(0.01);
   });
 
+  it('carries a deck laid over a seat with no joint on it', () => {
+    // A leaf from the hinge at 6 to the free far road end at 17 lays joints at 8, 10, 12, 13, 15
+    // and 17, passing over the seat at 16. Without the seat this leaf sags and drops the truck.
+    const l = blankLevel(1000);
+    setSize(l, 17, 0, -5);
+    l.anchors = [[0, 0]];
+    for (const [x, y] of [[6, 0], [10, -3]]) {
+      toggleBolt(l, x, y);
+      togglePier(l, x, y);
+    }
+    togglePier(l, 16, 0);
+    addChannel(l, 13, 13, deckTop(l));
+    expect(makerWarnings(l)).toEqual([]);
+    l.money = 1_000_000;
+    l.target = 0;
+    const d = new Design(l);
+    trussOver(d, roadRun(d, [0, 0], [6, 0]), 2, WOOD);
+    const leaf = roadRun(d, [6, 0], [17, 0]);
+    expect(leaf.map(([x]) => x)).not.toContain(16);
+    trussOver(d, leaf, 2, { chord: 'steel', web: 'steel', vert: 'steel' });
+    d.add([10, -3], [10, 0], 'ram');
+    expect(designProblems(l, d)).toEqual([]);
+    const run = new TestRun(d, l);
+    const w = run.world;
+    expect(w.seats).toHaveLength(0);
+    expect(w.rests).toHaveLength(1);
+    const { link, x: sx, y: sy } = w.rests[0];
+    const deckAt = () => w.y[link.a] + ((w.y[link.b] - w.y[link.a]) * (sx - w.x[link.a])) / (w.x[link.b] - w.x[link.a]);
+    // As it settles, before the ship comes, the deck comes down onto the seat and no further.
+    while (run.phase === 'settle' || run.time === 0) run.step();
+    expect(Math.abs(deckAt() - sy)).toBeLessThan(1e-3);
+    let lift = 0;
+    for (let i = 0; i < 40 * 60 && run.status === 'running'; i++) {
+      run.step();
+      lift = Math.max(lift, Math.min(w.y[link.a], w.y[link.b]) - sy);
+    }
+    expect(run.status).toBe('success');
+    expect(lift).toBeGreaterThan(3);
+  });
+
   it('plays a drawbridge made in the editor', () => {
     // Bascule, from a blank level: a pier for the ram, the far end freed, a channel tapped in.
     const l = blankLevel(1000);
