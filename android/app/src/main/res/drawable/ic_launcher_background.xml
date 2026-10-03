@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Night-blue blueprint with its grid, and the river under the bridge. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:pathData="M0,0h108v108h-108z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="0"
+                android:startY="0"
+                android:endX="0"
+                android:endY="108"
+                android:startColor="#FF1A3C69"
+                android:endColor="#FF0B1D38" />
+        </aapt:attr>
+    </path>
+    <path
+        android:pathData="M6,0V108M0,6H108M18,0V108M0,18H108M30,0V108M0,30H108M42,0V108M0,42H108M54,0V108M0,54H108M66,0V108M0,66H108M78,0V108M0,78H108M90,0V108M0,90H108M102,0V108M0,102H108"
+        android:strokeColor="#1F6CC6FF"
+        android:strokeWidth="0.6" />
+    <path
+        android:fillColor="#FF12406A"
+        android:pathData="M0,76Q6.75,73.6 13.5,76T27,76T40.5,76T54,76T67.5,76T81,76T94.5,76T108,76V108H0Z" />
+    <path
+        android:pathData="M0,76Q6.75,73.6 13.5,76T27,76T40.5,76T54,76T67.5,76T81,76T94.5,76T108,76"
+        android:strokeColor="#8C6CC6FF"
+        android:strokeWidth="1" />
+</vector>

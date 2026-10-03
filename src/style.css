@@ -1601,6 +1601,39 @@ h2 {
   overscroll-behavior: contain;
 }
 
+/* A phone can't fit the four tabs in a row: a 2×2 grid instead of a panel that scrolls sideways. */
+@media (max-width: 560px) {
+  #scr-scores .panel {
+    padding: 20px 14px;
+  }
+  .tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .tab {
+    padding: 10px 6px;
+    letter-spacing: 0.08em;
+  }
+  .chapter-pills {
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  .board-note {
+    margin-bottom: 10px;
+  }
+  .scores {
+    font-size: 14px;
+  }
+  .scores td {
+    padding: 8px 4px;
+  }
+  .scores td:nth-child(2) {
+    letter-spacing: 0.06em;
+  }
+}
+
 @keyframes blink {
   50% {
     opacity: 0.3;
