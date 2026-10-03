@@ -7,3 +7,5 @@ data
 tools/tune/results/
 src/levels.tuned.json
 *.res.tmp
+android/app/capacitor.build.gradle
+android/capacitor.settings.gradle
