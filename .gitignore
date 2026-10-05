@@ -9,3 +9,7 @@ src/levels.tuned.json
 *.res.tmp
 android/app/capacitor.build.gradle
 android/capacitor.settings.gradle
+android/.idea/AndroidProjectSystem.xml
+android/.idea/migrations.xml
+android/.idea/misc.xml
+android/.idea/runConfigurations.xml
