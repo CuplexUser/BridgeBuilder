@@ -27,6 +27,11 @@ export interface AppHooks {
   suspend(): void;
 }
 
+/** The installed app's version, or null in a browser, where the site has no version to show. */
+export function appVersion(): string | null {
+  return native?.version ?? null;
+}
+
 export function bindApp(game: AppHooks): void {
   native?.bindApp(game);
 }

@@ -1,8 +1,11 @@
 import { Game } from './game';
-import { bindApp, initPlatform, isNative } from './platform';
+import { appVersion, bindApp, initPlatform, isNative } from './platform';
 import { LocalStore, pickStore } from './storage';
 
 await initPlatform();
+// Shows which build is installed, so testers can tell a Play update has arrived.
+const version = appVersion();
+if (version) document.getElementById('app-version')!.textContent = `v${version}`;
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 // The app has no server to look for: it keeps everything on the device.
 const game = new Game(canvas, isNative ? new LocalStore() : await pickStore());
