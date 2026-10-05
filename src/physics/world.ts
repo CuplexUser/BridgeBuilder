@@ -790,7 +790,7 @@ export class TestRun {
   private endedAt: number | null = null;
   private readonly speeds: number[];
   private done: boolean[];
-  private lastProgressX = START_X;
+  private lastProgressX: number;
   private lastProgressT = 0;
 
   constructor(design: Design, level: LevelDef) {
@@ -799,6 +799,8 @@ export class TestRun {
     this.world = built.world;
     this.vehicles = built.vehicles;
     this.done = this.vehicles.map(() => false);
+    // Progress is the tail's, so it starts where the last vehicle in line waits, not at the start line.
+    this.lastProgressX = Math.min(...this.vehicles.map((v) => this.xOf(v)));
     this.log = new StressLog(design.members.length);
     this.releaseAt = level.ship ? SETTLE_TIME + OPEN_TIME + SHIP_TIME + CLOSE_TIME : 0;
     this.speeds = this.vehicles.flatMap((v) => v.wheels.map((p) => this.world.drive[p]));

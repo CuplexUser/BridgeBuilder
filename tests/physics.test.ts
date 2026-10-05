@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Design, type GridPt } from '../src/design';
-import { LEVELS } from '../src/levels';
+import { LEVELS, type LevelDef } from '../src/levels';
 import { MATERIALS } from '../src/physics/materials';
 import { VEHICLES } from '../src/physics/vehicles';
 import { TestRun, World } from '../src/physics/world';
@@ -38,6 +38,17 @@ describe('failures', () => {
   it('a bare 8 m deck on level 3 fails', () => {
     const run = drive(deck(new Design(LEVELS[2]), 0, 8), 2);
     expect(run.status).toBe('fail');
+  });
+});
+
+describe('convoys', () => {
+  it('a four-vehicle convoy is not stuck while its tail rolls up to the start line', () => {
+    // The bus waits about 27 m back, more than the stuck timeout's worth of driving.
+    const level = { ...LEVELS[10], vehicle: 'car', convoy: ['truck', 'van', 'bus'] } satisfies LevelDef;
+    const run = new TestRun(SOLUTIONS[11](level), level);
+    for (let i = 0; i < 30 * 60 && run.status === 'running'; i++) run.step();
+    expect(run.reason).toBe('');
+    expect(run.status).toBe('success');
   });
 });
 
