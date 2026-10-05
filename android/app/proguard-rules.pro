@@ -19,3 +19,9 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Play Console checks the dex for a call to EdgeToEdge.enable to know the app handles edge-to-edge on
+# older Android versions. Keep the class and method names so R8 neither renames nor inlines that call.
+-keep class androidx.activity.EdgeToEdge {
+    public static void enable(...);
+}
