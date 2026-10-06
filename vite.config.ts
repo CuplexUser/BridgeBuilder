@@ -44,5 +44,7 @@ export default defineConfig({
   base: './',
   build: { target: 'es2022' },
   plugins: [levelResource(), sqliteApi(), tunerConsole()],
+  // The level editor's quick-tune worker runs the physics, which reads src/levels.res too.
+  worker: { plugins: () => [levelResource()] },
   test: { environment: 'node', include: ['tests/**/*.test.ts'] },
 } as never);

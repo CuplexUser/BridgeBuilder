@@ -2232,6 +2232,36 @@ label.btn {
   gap: 0 8px;
 }
 
+.mk-tune {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.maker-panel .mk-tune label {
+  margin-bottom: 0;
+}
+
+.mk-tune .btn {
+  min-width: 112px;
+}
+
+.mk-tune-note {
+  margin: 6px 0 10px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.mk-tune-note.found {
+  color: var(--bonus);
+}
+
+.mk-tune-note.bad {
+  color: #ff9d8f;
+}
+
 .mk-mats {
   display: flex;
   flex-direction: column;

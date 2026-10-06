@@ -3,30 +3,13 @@ import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import type { Design } from '../../src/design';
 import type { LevelDef } from '../../src/levels';
+import { canonical, failed, levelKey, type Runner } from './runner';
 import type { Outcome } from './simulate';
 import type { Task } from './worker';
 
 const WORKER = fileURLToPath(new URL('./worker.ts', import.meta.url));
 /** Workers load TypeScript and src/levels.res the same way the tuner does. */
 const EXEC_ARGV = ['--import', 'tsx', '--import', new URL('./res-register.mjs', import.meta.url).href];
-
-/** A design reduced to its members, independent of node order, so equal designs share a cache entry. */
-export function canonical(d: Design): string {
-  const parts = d.members.map((m) => {
-    const a = d.nodes[m.a];
-    const b = d.nodes[m.b];
-    const [p, q] = a.x < b.x || (a.x === b.x && a.y < b.y) ? [a, b] : [b, a];
-    return `${m.mat}:${p.x},${p.y}:${q.x},${q.y}`;
-  });
-  parts.sort();
-  return parts.join(' ');
-}
-
-/** The parts of a level that change how a design behaves. */
-export function levelKey(l: LevelDef): string {
-  const { width, rightY, anchors, piers, waterY, towers, overhangs, channels, vehicle, materials } = l;
-  return JSON.stringify({ width, rightY, anchors, piers, waterY, towers, overhangs, channels, vehicle, materials });
-}
 
 interface Slot {
   worker: Worker;
@@ -37,7 +20,7 @@ interface Slot {
  * Test drives designs on worker threads. A worker that crashes or hangs is replaced and its
  * design counts as a failure, so one bad run never stops a long optimization.
  */
-export class Pool {
+export class Pool implements Runner {
   private slots: Slot[] = [];
   private queue: { task: Task; resolve: (o: Outcome) => void }[] = [];
   private nextId = 1;
@@ -148,8 +131,4 @@ export class Pool {
     await Promise.all(this.slots.map((s) => s.worker.terminate()));
     this.slots = [];
   }
-}
-
-function failed(reason: string): Outcome {
-  return { valid: true, crossed: false, reason, peak: 1, cost: 0, parts: 0, progress: 0, broken: false };
 }

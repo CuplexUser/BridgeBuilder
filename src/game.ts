@@ -1,4 +1,5 @@
 import { sfx } from './audio';
+import { quickTune, TUNE_DIFFICULTIES, TUNE_SECONDS, tuneKey, type TuneResult } from './autotune';
 import { bonusStatus } from './brief';
 import {
   addChannel,
@@ -46,6 +47,7 @@ import {
 import { bonusLabel, scoreLevel, type LevelScore } from './scoring';
 import { bestPerLevel, blankProgress, loadPrefs, rankProfiles, savePrefs, type Prefs, type Profile, type Progress, type Store } from './storage';
 import { SOLUTIONS } from './solutions';
+import { TunePool } from './tunepool';
 import { StressGraph, type GraphPick } from './ui/graph';
 import { MAKER_TOOLS, MakerUi } from './ui/makerui';
 import { Ui } from './ui/ui';
@@ -113,6 +115,10 @@ export class Game {
   private channelFrom: [number, number] | null = null;
   /** A finger or button is down in the level editor and the tool acts where it lifts. */
   private makerPending = false;
+  /** The quick tune running in the level editor. */
+  private tuning: TunePool | null = null;
+  /** What the last quick tune of each custom level found, for the level as it was then. */
+  private tuned = new Map<number, { key: string; result: TuneResult }>();
   /** Level being exported in the share dialog, or null when importing. */
   private shareFor: LevelDef | null = null;
   /**
@@ -259,6 +265,7 @@ export class Game {
     this.customLevel = null;
     this.channelFrom = null;
     this.makerPending = false;
+    this.tuning?.close();
     this.makerUi.show(false);
     this.run = null;
     this.ui.setPlaying(false);
@@ -394,7 +401,7 @@ export class Game {
     this.makerUi.show(true);
     this.makerUi.setTool(this.tool);
     this.makerUi.fill(level);
-    this.makerUi.setStatus(level);
+    this.makerUi.setStatus(level, this.tuneFound(level));
     this.fitMaker(true);
   }
 
@@ -423,13 +430,72 @@ export class Game {
     const was = JSON.parse(before) as LevelDef;
     this.editor = new Editor(l, NO_EVENTS);
     this.makerUi.fill(l);
-    this.makerUi.setStatus(l);
+    this.makerUi.setStatus(l, this.tuneFound(l));
     this.renderer.setTheme(this.themeOf(l));
     if (was.width !== l.width || was.waterY !== l.waterY || (was.rightY ?? 0) !== (l.rightY ?? 0)) this.fitMaker(false);
     const i = this.custom.levels.findIndex((c) => c.id === l.id);
     if (i >= 0) this.custom.levels[i] = l;
     else this.custom.levels.push(l);
     if (!saveCustom(this.custom)) this.ui.showToast('Could not save: this browser has no storage. Export the level to keep it.');
+  }
+
+  /** What the last quick tune found, if the level still has the shape it was tuned with. */
+  private tuneFound(l: LevelDef): TuneResult | undefined {
+    const t = this.tuned.get(l.id);
+    return t && t.key === tuneKey(l) ? t.result : undefined;
+  }
+
+  /**
+   * Searches the level being edited for a few seconds, on workers, then sets its budget, star
+   * target and bonus goal as one undoable edit. The bridges found are never shown.
+   */
+  private async autoTune(): Promise<void> {
+    const l = this.customLevel;
+    if (!l || this.state !== 'maker' || this.tuning) return;
+    // Problems the tune would fix itself (the numbers and the bonus goal) don't stop it.
+    const blocking = makerIssues({ ...l, target: 0, bonus: { kind: 'stress', max: 0.5 } });
+    if (blocking.length) {
+      sfx.invalid();
+      this.ui.showToast(blocking[0], 3200);
+      return;
+    }
+    const difficulty = this.makerUi.tuneDifficulty();
+    const key = tuneKey(l);
+    const pool = new TunePool();
+    this.tuning = pool;
+    this.makerUi.tuneRunning(TUNE_SECONDS);
+    // Runs still going when the time is up are cut off.
+    const cutoff = setTimeout(() => pool.close(), TUNE_SECONDS * 1000 + 200);
+    let result: TuneResult | null = null;
+    try {
+      result = await quickTune(pool, structuredClone(l), difficulty, { seed: this.custom.designs[l.id] });
+    } catch (e) {
+      console.error(e);
+    }
+    clearTimeout(cutoff);
+    pool.close();
+    this.tuning = null;
+    if (this.state !== 'maker' || this.customLevel !== l) return;
+    if (tuneKey(l) !== key) {
+      this.makerUi.tuneDone('The level changed while tuning. Tune again.');
+      return;
+    }
+    if (!result) {
+      sfx.invalid();
+      this.makerUi.tuneDone(`No bridge found that crosses in ${TUNE_SECONDS} s. Build one and playtest it, then tune again: the tune starts from your bridge.`);
+      return;
+    }
+    const found = result;
+    this.tuned.set(l.id, { key, result: found });
+    this.makerUi.tuneDone();
+    this.makerChange((lv) => {
+      lv.money = found.money;
+      lv.target = found.target;
+      lv.bonus = found.bonus;
+    });
+    this.makerUi.setStatus(l, found);
+    sfx.select();
+    this.ui.showToast(`Tuned for ${TUNE_DIFFICULTIES[difficulty].name}: budget ${money(found.money)}, star target ${money(found.target)}, bonus “${bonusLabel(found.bonus)}”.`, 3600);
   }
 
   private makerHistory(dir: -1 | 1): void {
@@ -674,6 +740,10 @@ export class Game {
         sfx.ui();
         this.makerUi.togglePanel();
         this.fitMaker(false);
+        break;
+      case 'mk-tune':
+        sfx.ui();
+        void this.autoTune();
         break;
       case 'mk-export':
         sfx.ui();
@@ -1678,7 +1748,7 @@ export class Game {
     this.makerUi.onChange((live) => {
       if (live && this.customLevel) {
         this.customLevel.name = (document.getElementById('mk-name') as HTMLInputElement).value.trim().slice(0, 40) || 'My level';
-        this.makerUi.setStatus(this.customLevel);
+        this.makerUi.setStatus(this.customLevel, this.tuneFound(this.customLevel));
       }
       this.makerChange((l) => this.makerUi.read(l));
     });

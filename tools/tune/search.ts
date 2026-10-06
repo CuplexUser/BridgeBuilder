@@ -2,7 +2,7 @@ import { Design } from '../../src/design';
 import type { LevelDef } from '../../src/levels';
 import { MATERIALS, type MaterialId } from '../../src/physics/materials';
 import type { Grammar } from './genome';
-import type { Pool } from './pool';
+import type { Runner } from './runner';
 import type { Outcome } from './simulate';
 
 /** What a search minimizes. Designs that fail rank behind every one that works. */
@@ -79,6 +79,8 @@ export interface EvolveOptions {
   seed?: number;
   /** Starting genomes, e.g. a previous best, placed ahead of the random ones. */
   seeds?: number[][];
+  /** Stop starting new generations at this time (Date.now() milliseconds). */
+  stopAt?: number;
   log?: (msg: string) => void;
 }
 
@@ -86,7 +88,7 @@ export interface EvolveOptions {
  * Genetic search over a level's structure grammar: tournament selection, uniform crossover,
  * per-gene mutation and elitism. Returns the best design found.
  */
-export async function evolve(pool: Pool, level: LevelDef, g: Grammar, obj: Objective, opts: EvolveOptions = {}): Promise<Found> {
+export async function evolve(pool: Runner, level: LevelDef, g: Grammar, obj: Objective, opts: EvolveOptions = {}): Promise<Found> {
   const size = opts.population ?? 48;
   const gens = opts.generations ?? 40;
   const patience = opts.patience ?? 10;
@@ -133,7 +135,7 @@ export async function evolve(pool: Pool, level: LevelDef, g: Grammar, obj: Objec
   let scored = await evalAll(pop);
   let best = scored.reduce((a, b) => (b.score < a.score ? b : a));
   let stale = 0;
-  for (let gen = 0; gen < gens && stale < patience; gen++) {
+  for (let gen = 0; gen < gens && stale < patience && !late(opts.stopAt); gen++) {
     scored.sort((a, b) => a.score - b.score);
     const elite = scored.slice(0, Math.max(2, Math.floor(size / 12)));
     const tournament = () => {
@@ -175,6 +177,10 @@ export async function evolve(pool: Pool, level: LevelDef, g: Grammar, obj: Objec
   return best;
 }
 
+function late(stopAt: number | undefined): boolean {
+  return stopAt !== undefined && Date.now() >= stopAt;
+}
+
 /** Short summary of a found design for logs. */
 export function describe(f: Found): string {
   const o = f.outcome;
@@ -207,9 +213,9 @@ export const UPGRADE: Partial<Record<MaterialId, MaterialId>> = { wood: 'steel',
  * keeping the best improvement each round, until nothing helps. Finds the savings a
  * grammar can't express, like dropping one strut or one diagonal.
  */
-export async function polish(pool: Pool, level: LevelDef, start: Found, obj: Objective, opts: { rounds?: number; upgrades?: boolean; log?: (m: string) => void } = {}): Promise<Found> {
+export async function polish(pool: Runner, level: LevelDef, start: Found, obj: Objective, opts: { rounds?: number; upgrades?: boolean; stopAt?: number; log?: (m: string) => void } = {}): Promise<Found> {
   let best = start;
-  for (let round = 0; round < (opts.rounds ?? 60); round++) {
+  for (let round = 0; round < (opts.rounds ?? 60) && !late(opts.stopAt); round++) {
     const moves: Design[] = [];
     const base = best.design;
     base.members.forEach((m, i) => {
@@ -245,7 +251,7 @@ export async function polish(pool: Pool, level: LevelDef, start: Found, obj: Obj
  * How forgiving a design is: the share of its one-gene variations (each gene set to each
  * other option) that still meet the objective's requirements.
  */
-export async function room(pool: Pool, level: LevelDef, g: Grammar, genes: number[], obj: Objective): Promise<{ pass: number; total: number }> {
+export async function room(pool: Runner, level: LevelDef, g: Grammar, genes: number[], obj: Objective): Promise<{ pass: number; total: number }> {
   const variants: number[][] = [];
   g.genes.forEach((gene, i) => {
     for (let v = 0; v < gene.options.length; v++) if (v !== genes[i]) variants.push(genes.map((x, k) => (k === i ? v : x)));

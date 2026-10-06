@@ -9,7 +9,7 @@ import type { KeyValue } from './storage';
 
 export interface Native {
   storage: KeyValue;
-  /** The installed build, as "versionName (versionCode)". */
+  /** The installed app's versionName. */
   version: string;
   bindApp(game: AppHooks): void;
   exportFile(name: string, text: string): Promise<void>;
@@ -39,10 +39,10 @@ async function nativeStorage(): Promise<KeyValue> {
 }
 
 export async function createNative(): Promise<Native> {
-  const info = await App.getInfo();
+  const { version } = await App.getInfo();
   return {
     storage: await nativeStorage(),
-    version: `${info.version} (${info.build})`,
+    version,
     bindApp(game) {
       // Back where there's nothing left to close sends the app to the background, as Android apps do.
       void App.addListener('backButton', () => {

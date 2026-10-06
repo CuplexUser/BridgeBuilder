@@ -1,3 +1,4 @@
+import { money as usd } from './editor';
 import { seatPiers, type BonusGoal, type LevelDef, type Overhang, type Pt, type Tower } from './levels';
 import { MATERIAL_ORDER, MATERIALS, type MaterialId } from './physics/materials';
 import { VEHICLES, type VehicleId } from './physics/vehicles';
@@ -277,9 +278,15 @@ export function makerIssues(l: LevelDef): string[] {
   return out;
 }
 
-/** What still lets a level be played but probably isn't what was meant. */
-export function makerWarnings(l: LevelDef): string[] {
+/**
+ * What still lets a level be played but probably isn't what was meant. `found` is what a quick
+ * tune of the level as it is now found possible: numbers set past it may not be reachable.
+ */
+export function makerWarnings(l: LevelDef, found?: { cost: number; load: number }): string[] {
   const out: string[] = [];
+  if (found && l.money < found.cost) out.push(`The budget is under the cheapest bridge the tune found (${usd(found.cost)}), so the level may be impossible.`);
+  else if (found && l.target < found.cost) out.push(`The star target is under the cheapest bridge the tune found (${usd(found.cost)}), so the star may be out of reach.`);
+  if (found && l.bonus.kind === 'stress' && l.bonus.max < found.load) out.push(`The tune found no bridge with peak stress under ${Math.round(found.load * 100)}%, so the bonus may be out of reach.`);
   if (l.ship && l.channels?.length && spanLocked(l, l.channels[0])) {
     out.push('The deck over the ship channel is bolted at both ends, so it can’t lift. Tap one end’s bolt with the Bolt tool: on a pier, that makes a seat.');
   }

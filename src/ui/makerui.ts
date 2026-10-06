@@ -1,3 +1,4 @@
+import { TUNE_DIFFICULTIES, TUNE_SECONDS, type TuneDifficulty, type TuneResult } from '../autotune';
 import { traffic } from '../brief';
 import { money } from '../editor';
 import type { BonusGoal, LevelDef } from '../levels';
@@ -21,6 +22,7 @@ export const MAKER_TOOLS: { id: MakerTool; name: string; help: string }[] = [
 /** The level editor's DOM: tools, the settings form, the custom level list and the share dialog. */
 export class MakerUi {
   private toolBtns = new Map<MakerTool, HTMLButtonElement>();
+  private tuneTimer = 0;
   panelOpen = matchMedia('(min-width: 900px)').matches;
 
   constructor() {
@@ -45,6 +47,8 @@ export class MakerUi {
         `<label class="mk-limit" title="Most parts allowed; blank for no limit">max <input type="number" id="mk-limit-${m}" min="0" step="1" placeholder="∞" /></label></div>`,
     ).join('');
     $('mk-bonus-mat').innerHTML = MATERIAL_ORDER.map((m) => `<option value="${m}">${MATERIALS[m].name}</option>`).join('');
+    $('mk-tune-level').innerHTML = (Object.keys(TUNE_DIFFICULTIES) as TuneDifficulty[]).map((d) => `<option value="${d}">${TUNE_DIFFICULTIES[d].name}</option>`).join('');
+    $<HTMLSelectElement>('mk-tune-level').value = 'medium';
     $('mk-form').addEventListener('submit', (e) => e.preventDefault());
   }
 
@@ -79,16 +83,62 @@ export class MakerUi {
     for (const [id, b] of this.toolBtns) b.classList.toggle('active', id === tool);
   }
 
-  /** The header: the level's name and what still stops it from being played. */
-  setStatus(level: LevelDef): void {
+  /**
+   * The header: the level's name and what still stops it from being played. `found` is what a
+   * quick tune of the level as it is now found, shown under the tune button.
+   */
+  setStatus(level: LevelDef, found?: TuneResult): void {
     $('mk-title-name').textContent = level.name;
+    if (!this.tuneTimer) {
+      this.tuneNote(
+        found
+          ? `Bridges cross from about ${money(found.cost)}, with peak stress down to ${Math.round(found.load * 100)}%. Adjust the numbers from here.`
+          : `Searches for ${TUNE_SECONDS} s, then sets the budget, star target and bonus goal. Adjust them after.`,
+        found ? 'found' : '',
+      );
+    }
     const issues = makerIssues(level);
-    const warning = issues.length ? undefined : makerWarnings(level)[0];
+    const warning = issues.length ? undefined : makerWarnings(level, found)[0];
     const el = $('mk-issues');
     el.textContent = issues[0] ?? warning ?? `${traffic(level)} · ${level.width} m · ${money(level.money)}`;
     el.title = issues[0] ?? warning ?? '';
     el.classList.toggle('bad', issues.length > 0);
     el.classList.toggle('warn', !!warning);
+  }
+
+  /** The difficulty picked for the quick tune. */
+  tuneDifficulty(): TuneDifficulty {
+    return val('mk-tune-level') as TuneDifficulty;
+  }
+
+  /** Shows the quick tune running, counting down its seconds. */
+  tuneRunning(seconds: number): void {
+    const btn = $<HTMLButtonElement>('mk-tune-btn');
+    const end = Date.now() + seconds * 1000;
+    const tick = () => {
+      btn.textContent = `TUNING… ${Math.max(1, Math.ceil((end - Date.now()) / 1000))}`;
+    };
+    btn.disabled = true;
+    tick();
+    clearInterval(this.tuneTimer);
+    this.tuneTimer = window.setInterval(tick, 200);
+    this.tuneNote('Searching for bridges…', '');
+  }
+
+  /** The tune finished; `failure` explains why it set nothing. */
+  tuneDone(failure?: string): void {
+    clearInterval(this.tuneTimer);
+    this.tuneTimer = 0;
+    const btn = $<HTMLButtonElement>('mk-tune-btn');
+    btn.disabled = false;
+    btn.textContent = 'AUTO-TUNE';
+    if (failure) this.tuneNote(failure, 'bad');
+  }
+
+  private tuneNote(text: string, kind: '' | 'found' | 'bad'): void {
+    const el = $('mk-tune-note');
+    el.textContent = text;
+    el.className = `mk-tune-note ${kind}`.trim();
   }
 
   /** Puts the level's settings in the form. The field being edited is left alone. */

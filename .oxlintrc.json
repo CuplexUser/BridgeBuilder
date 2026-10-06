@@ -56,7 +56,10 @@
   "overrides": [
     {
       "files": [
-        "tools/**"
+        "tools/**",
+        "src/autotune.ts",
+        "src/tunepool.ts",
+        "src/tuneworker.ts"
       ],
       "rules": {
         "no-await-in-loop": "off",

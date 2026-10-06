@@ -269,6 +269,11 @@
         </fieldset>
         <fieldset>
           <legend>Money and goals</legend>
+          <div class="mk-tune">
+            <label>Difficulty <select id="mk-tune-level"></select></label>
+            <button type="button" class="btn small" id="mk-tune-btn" data-act="mk-tune" title="Search the level for a few seconds, then set the budget, star target and bonus goal for the difficulty">AUTO-TUNE</button>
+          </div>
+          <p id="mk-tune-note" class="mk-tune-note"></p>
           <div class="mk-row">
             <label>Budget, $ <input id="mk-money" type="number" min="100" step="100" /></label>
             <label>Star target, $ <input id="mk-target" type="number" min="0" step="100" /></label>
