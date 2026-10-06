@@ -367,26 +367,27 @@ export class Editor {
     const { nodes, members } = this.design;
     // pieces() lists indices in ascending order; remove from the back so they stay valid.
     const pieces = this.design.pieces(i);
+    const removed: Parameters<EditorEvents['remove']>[] = [];
     for (let j = pieces.length - 1; j >= 0; j--) {
       const k = pieces[j];
       const m = members[k];
-      this.ev.remove(nodes[m.a].x, nodes[m.a].y, nodes[m.b].x, nodes[m.b].y, m.mat);
+      removed.push([nodes[m.a].x, nodes[m.a].y, nodes[m.b].x, nodes[m.b].y, m.mat]);
       this.ages.splice(k, 1);
       members.splice(k, 1);
     }
     this.design.pruneNodes();
     for (const k of this.design.healSplits()) this.ages.splice(k, 1);
+    // Told only once the design has changed, so the budget shown includes the refund.
+    for (const r of removed) this.ev.remove(...r);
   }
 
   clear(): void {
     if (this.design.members.length === 0) return;
     this.snapshot();
-    const { nodes } = this.design;
-    for (const m of this.design.members) {
-      this.ev.remove(nodes[m.a].x, nodes[m.a].y, nodes[m.b].x, nodes[m.b].y, m.mat);
-    }
+    const { nodes, members } = this.design;
     this.design = new Design(this.level);
     this.ages = [];
+    for (const m of members) this.ev.remove(nodes[m.a].x, nodes[m.a].y, nodes[m.b].x, nodes[m.b].y, m.mat);
   }
 
   undo(): boolean {

@@ -23,6 +23,8 @@ export const MAKER_TOOLS: { id: MakerTool; name: string; help: string }[] = [
 export class MakerUi {
   private toolBtns = new Map<MakerTool, HTMLButtonElement>();
   private tuneTimer = 0;
+  /** What the last quick tune found for the level as it is now, if anything. */
+  private found?: TuneResult;
   panelOpen = matchMedia('(min-width: 900px)').matches;
 
   constructor() {
@@ -49,6 +51,10 @@ export class MakerUi {
     $('mk-bonus-mat').innerHTML = MATERIAL_ORDER.map((m) => `<option value="${m}">${MATERIALS[m].name}</option>`).join('');
     $('mk-tune-level').innerHTML = (Object.keys(TUNE_DIFFICULTIES) as TuneDifficulty[]).map((d) => `<option value="${d}">${TUNE_DIFFICULTIES[d].name}</option>`).join('');
     $<HTMLSelectElement>('mk-tune-level').value = 'medium';
+    if (import.meta.env.DEV) {
+      $('mk-tune-dev').classList.remove('hidden');
+      $('mk-tune-show').addEventListener('change', () => this.tuneViews());
+    }
     $('mk-form').addEventListener('submit', (e) => e.preventDefault());
   }
 
@@ -89,6 +95,8 @@ export class MakerUi {
    */
   setStatus(level: LevelDef, found?: TuneResult): void {
     $('mk-title-name').textContent = level.name;
+    this.found = found;
+    this.tuneViews();
     if (!this.tuneTimer) {
       this.tuneNote(
         found
@@ -133,6 +141,18 @@ export class MakerUi {
     btn.disabled = false;
     btn.textContent = 'AUTO-TUNE';
     if (failure) this.tuneNote(failure, 'bad');
+  }
+
+  /** Dev builds: buttons that drive the tune's bridges, when asked for and there are some. */
+  private tuneViews(): void {
+    if (!import.meta.env.DEV) return;
+    const f = this.found;
+    $('mk-tune-views').classList.toggle('hidden', !f || !$<HTMLInputElement>('mk-tune-show').checked);
+    if (!f) return;
+    $('mk-tune-cheapest').textContent = `▶ CHEAPEST · ${money(f.cost)}`;
+    const bonus = $<HTMLButtonElement>('mk-tune-bonus');
+    bonus.disabled = !f.proof.bonus;
+    bonus.title = f.proof.bonus ? `A bridge meeting “${bonusLabel(f.bonus)}”` : 'The tune kept the bonus goal without finding a bridge that meets it';
   }
 
   private tuneNote(text: string, kind: '' | 'found' | 'bad'): void {

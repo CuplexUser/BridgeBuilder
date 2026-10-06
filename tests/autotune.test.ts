@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { quickTune, tuneKey, tuneNumbers, type TimedRunner } from '../src/autotune';
-import type { Design } from '../src/design';
+import { Design } from '../src/design';
 import { levelById } from '../src/chapters';
 import type { LevelDef } from '../src/levels';
 import { blankLevel, CUSTOM_ID_BASE, makerWarnings } from '../src/maker';
+import { bonusMet } from '../src/scoring';
 import { SOLUTIONS } from '../src/solutions';
 import { failed } from '../tools/tune/runner';
 import { simulate } from '../tools/tune/simulate';
@@ -50,6 +51,14 @@ describe('quick tune', () => {
     expect(r!.load).toBeGreaterThan(0);
     expect(r!.load).toBeLessThan(1);
     expect(r!.bonus.kind !== 'stress' || r!.bonus.max >= r!.load).toBe(true);
+    // The bridges behind the numbers really do what the numbers say.
+    const cheapest = simulate(level, r!.proof.cheapest);
+    expect(cheapest.crossed && !cheapest.broken).toBe(true);
+    expect(cheapest.cost).toBe(r!.cost);
+    expect(r!.proof.bonus).not.toBeNull();
+    const bonus = simulate(level, r!.proof.bonus!);
+    expect(bonus.crossed && bonus.cost <= r!.money).toBe(true);
+    expect(bonusMet(r!.bonus, Design.deserialize(r!.proof.bonus!), bonus.peak)).toBe(true);
   });
 
   it('starts from the author’s bridge and keeps it within budget', async () => {

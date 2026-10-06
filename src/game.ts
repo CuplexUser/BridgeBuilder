@@ -20,6 +20,7 @@ import {
   type CustomSave,
   type MakerTool,
 } from './maker';
+import { Design } from './design';
 import { Editor, money, type AttachPick } from './editor';
 import { DebrisField, Particles, PK, Shake } from './fx/particles';
 import { bankY, goalX, LEVELS, START_X, type LevelDef } from './levels';
@@ -498,6 +499,22 @@ export class Game {
     this.ui.showToast(`Tuned for ${TUNE_DIFFICULTIES[difficulty].name}: budget ${money(found.money)}, star target ${money(found.target)}, bonus “${bonusLabel(found.bonus)}”.`, 3600);
   }
 
+  /** Dev builds: drives one of the quick tune's bridges over the level, from a playtest. */
+  private viewTuned(which: 'cheapest' | 'bonus'): void {
+    const l = this.customLevel;
+    const found = l && this.state === 'maker' ? this.tuneFound(l) : undefined;
+    const json = found?.proof[which];
+    if (!l || !found || !json) {
+      sfx.invalid();
+      return;
+    }
+    const design = Design.deserialize(json);
+    this.playCustom(l);
+    if (this.state !== 'build') return;
+    const what = which === 'cheapest' ? 'cheapest bridge' : `bridge for “${bonusLabel(found.bonus)}”`;
+    this.startExample({ design, note: `DEV: the tune’s ${what}, ${money(design.cost())}. Your blueprint is kept. Press T to go back.` });
+  }
+
   private makerHistory(dir: -1 | 1): void {
     const l = this.customLevel;
     if (!l || this.state !== 'maker') return;
@@ -745,6 +762,9 @@ export class Game {
         sfx.ui();
         void this.autoTune();
         break;
+      case 'mk-tune-view':
+        if (import.meta.env.DEV) this.viewTuned(el?.dataset.which === 'bonus' ? 'bonus' : 'cheapest');
+        break;
       case 'mk-export':
         sfx.ui();
         if (this.customLevel) this.openShare(this.customLevel);
@@ -916,13 +936,16 @@ export class Game {
     return this.mode === 'play' && !!this.level.hint && !!SOLUTIONS[this.level.id];
   }
 
-  /** Drives the level's example bridge so the player can see the idea work, then hands back the blueprint. */
-  private startExample(): void {
-    if (this.state !== 'build' || !this.editor || !this.hasExample()) return;
+  /**
+   * Drives the level's example bridge so the player can see the idea work, then hands back the
+   * blueprint. `shown` drives another bridge instead, with its own note.
+   */
+  private startExample(shown?: { design: Design; note: string }): void {
+    if (this.state !== 'build' || !this.editor || (!shown && !this.hasExample())) return;
     this.closeBrief();
     this.editor.cancel();
     this.example = true;
-    this.run = new TestRun(SOLUTIONS[this.level.id](this.level), this.level);
+    this.run = new TestRun(shown?.design ?? SOLUTIONS[this.level.id](this.level), this.level);
     this.state = 'test';
     this.developTarget = 1;
     this.endTimer = -1;
@@ -933,7 +956,7 @@ export class Game {
     this.debris.clear();
     this.resetWheels(this.run);
     this.ui.setTesting(true);
-    this.ui.showToast('EXAMPLE: one way across. Your own blueprint is kept. Press T to go back.', 120000);
+    this.ui.showToast(shown?.note ?? 'EXAMPLE: one way across. Your own blueprint is kept. Press T to go back.', 120000);
     this.fitCamera(false);
     sfx.whoosh();
     sfx.engineStart(this.engineBase());

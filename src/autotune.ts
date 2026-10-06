@@ -44,6 +44,11 @@ export interface TuneResult {
   cost: number;
   /** The lowest peak load a bridge found within the budget reached, 0 to 1. */
   load: number;
+  /**
+   * The bridges behind the numbers, serialized: the cheapest, and one meeting the bonus goal
+   * (null when the goal was kept unproven). Players never see them; the editor shows them in dev.
+   */
+  proof: { cheapest: string; bonus: string | null };
 }
 
 export interface TuneOptions {
@@ -102,29 +107,38 @@ export async function quickTune(runner: TimedRunner, level: LevelDef, difficulty
   stop = phase(1);
   const kinds = [...new Set<BonusGoal['kind']>([level.bonus.kind, 'stress', 'parts', 'cost'])];
   let bonus: BonusGoal | null = null;
+  let proof: Found | null = null;
   for (const kind of kinds) {
     if (kind === 'stress') {
+      // A cap under the cheapest bridge's peak only comes from a calmer bridge that worked.
       const max = Math.ceil((load + slack.load) * 20 - 1e-9) / 20;
-      if (max < ref.outcome.peak && max < 1) bonus = { kind, max };
+      if (max < ref.outcome.peak && max < 1) [bonus, proof] = [{ kind, max }, calm];
     } else if (kind === 'parts') {
       const obj = fewest(money, 0.98);
       const f = await polish(runner, level, found(obj, ref)!, obj, { upgrades: false, stopAt: stop });
       const max = f.outcome.parts + slack.parts;
-      if (obj.ok(f.outcome) && max < ref.outcome.parts) bonus = { kind, max };
+      if (obj.ok(f.outcome) && max < ref.outcome.parts) [bonus, proof] = [{ kind, max }, f];
     } else if (kind === 'without' && level.bonus.kind === 'without' && level.materials.includes(level.bonus.mat)) {
       const mat = level.bonus.mat;
       const without: LevelDef = { ...level, materials: level.materials.filter((m) => m !== mat) };
       const obj = cheapest(money, 0.98);
       let f = await evolve(runner, without, grammarFor(without), obj, { ...search, seed: random + 2, stopAt: stop });
       f = await polish(runner, without, f, obj, { stopAt: stop });
-      if (obj.ok(f.outcome)) bonus = { kind, mat };
+      if (obj.ok(f.outcome)) [bonus, proof] = [{ kind, mat }, f];
     } else if (kind === 'cost') {
       const max = ceilTo(ref.outcome.cost * slack.cost, 50);
-      if (max < target) bonus = { kind, max };
+      if (max < target) [bonus, proof] = [{ kind, max }, ref];
     }
     if (bonus) break;
   }
-  return { money, target, bonus: bonus ?? level.bonus, cost: ref.outcome.cost, load };
+  return {
+    money,
+    target,
+    bonus: bonus ?? level.bonus,
+    cost: ref.outcome.cost,
+    load,
+    proof: { cheapest: ref.design.serialize(), bonus: proof?.design.serialize() ?? null },
+  };
 }
 
 /**

@@ -2262,6 +2262,25 @@ label.btn {
   color: #ff9d8f;
 }
 
+/* Dev builds only: the tune's bridges, for checking its numbers. */
+.maker-panel .mk-tune-dev label {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  color: var(--gold);
+}
+
+.maker-panel .mk-tune-dev input[type='checkbox'] {
+  width: auto;
+}
+
+.mk-tune-views {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
 .mk-mats {
   display: flex;
   flex-direction: column;

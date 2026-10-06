@@ -274,6 +274,13 @@
             <button type="button" class="btn small" id="mk-tune-btn" data-act="mk-tune" title="Search the level for a few seconds, then set the budget, star target and bonus goal for the difficulty">AUTO-TUNE</button>
           </div>
           <p id="mk-tune-note" class="mk-tune-note"></p>
+          <div id="mk-tune-dev" class="mk-tune-dev hidden">
+            <label><input type="checkbox" id="mk-tune-show" /> Show the tune’s bridges (dev only)</label>
+            <div id="mk-tune-views" class="mk-tune-views hidden">
+              <button type="button" class="btn small" id="mk-tune-cheapest" data-act="mk-tune-view" data-which="cheapest">▶ CHEAPEST</button>
+              <button type="button" class="btn small" id="mk-tune-bonus" data-act="mk-tune-view" data-which="bonus">▶ BONUS</button>
+            </div>
+          </div>
           <div class="mk-row">
             <label>Budget, $ <input id="mk-money" type="number" min="100" step="100" /></label>
             <label>Star target, $ <input id="mk-target" type="number" min="0" step="100" /></label>

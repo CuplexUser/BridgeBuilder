@@ -262,6 +262,22 @@ describe('removing split beams', () => {
   });
 });
 
+describe('editor events', () => {
+  // The game refreshes the budget shown when it hears of a removal, so the refund must be in by then.
+  it('reports a removal after the design has changed', () => {
+    const seen: number[] = [];
+    const ed: Editor = new Editor(LEVELS[2], { ...noop, remove: () => seen.push(ed.spent()) });
+    ed.begin(ed.design.findNode(0, 0));
+    ed.aim(4, 0);
+    ed.commit();
+    ed.removeMember(0);
+    expect(seen.at(-1)).toBe(ed.spent());
+    ed.clear();
+    expect(ed.spent()).toBe(0);
+    expect(seen.at(-1)).toBe(0);
+  });
+});
+
 describe('Design parts', () => {
   it('counts split pieces as one part', () => {
     const d = new Design().add([0, 0], [4, 0], 'steel');
