@@ -70,6 +70,23 @@ describe('quick tune', () => {
     expect(r!.money).toBeGreaterThanOrEqual(own.cost());
   });
 
+  it('finds a drawbridge leaf: a ram post under an unbroken deck', async () => {
+    // The search used to start every pier support as wood or steel, which pins the leaf down.
+    const r = await quickTune(new LocalRunner(), asCustom(31), 'medium', { seconds: 2 });
+    expect(r).not.toBeNull();
+    expect(Design.deserialize(r!.proof.cheapest).members.some((m) => m.mat === 'ram')).toBe(true);
+  });
+
+  it('only searches longer when asked to', async () => {
+    const level: LevelDef = { ...asCustom(3), materials: ['road'], vehicle: 'semi' };
+    let t = Date.now();
+    expect(await quickTune(new LocalRunner(), level, 'medium', { seconds: 0.5 })).toBeNull();
+    expect(Date.now() - t).toBeLessThan(1500);
+    t = Date.now();
+    expect(await quickTune(new LocalRunner(), level, 'medium', { seconds: 0.5, maxSeconds: 1.5 })).toBeNull();
+    expect(Date.now() - t).toBeGreaterThanOrEqual(1000);
+  });
+
   it('sets nothing when no bridge crosses', async () => {
     const level: LevelDef = { ...blankLevel(CUSTOM_ID_BASE), materials: ['wood', 'steel'] };
     expect(await quickTune(new LocalRunner(), level, 'medium', { seconds: 0.5 })).toBeNull();

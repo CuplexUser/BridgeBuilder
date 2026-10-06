@@ -464,12 +464,13 @@ export class Game {
     const key = tuneKey(l);
     const pool = new TunePool();
     this.tuning = pool;
+    const maxSeconds = this.makerUi.tuneMaxSeconds();
     this.makerUi.tuneRunning(TUNE_SECONDS);
     // Runs still going when the time is up are cut off.
-    const cutoff = setTimeout(() => pool.close(), TUNE_SECONDS * 1000 + 200);
+    const cutoff = setTimeout(() => pool.close(), maxSeconds * 1000 + 500);
     let result: TuneResult | null = null;
     try {
-      result = await quickTune(pool, structuredClone(l), difficulty, { seed: this.custom.designs[l.id] });
+      result = await quickTune(pool, structuredClone(l), difficulty, { seed: this.custom.designs[l.id], maxSeconds });
     } catch (e) {
       console.error(e);
     }
@@ -483,7 +484,7 @@ export class Game {
     }
     if (!result) {
       sfx.invalid();
-      this.makerUi.tuneDone(`No bridge found that crosses in ${TUNE_SECONDS} s. Build one and playtest it, then tune again: the tune starts from your bridge.`);
+      this.makerUi.tuneDone(`No bridge found that crosses in ${maxSeconds} s. Build one and playtest it, then tune again: the tune starts from your bridge.`);
       return;
     }
     const found = result;

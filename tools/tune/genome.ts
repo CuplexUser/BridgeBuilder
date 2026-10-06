@@ -17,6 +17,8 @@ export interface Gene {
   name: string;
   /** Labels of the options; the gene value indexes into this. */
   options: string[];
+  /** The option the search's structured starting designs use, in place of their usual pick. */
+  prefer?: number;
 }
 
 export interface GrammarOptions {
@@ -44,15 +46,21 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
   // Supports may also be rams on drawbridge levels: a post that lifts the leaf.
   const supportMats: MaterialId[] = [...beams, ...(offered('ram') ? (['ram'] as MaterialId[]) : [])];
 
-  // Candidate places to break the deck into spans: interior anchors, snapped to even meters.
-  const breaks = [...new Set(level.anchors.map(([x]) => Math.round(x / 2) * 2).filter((x) => x > 1 && x < W - 1))].sort((a, b) => a - b);
+  // Candidate places to break the deck into spans: interior anchors, to the meter, so a post
+  // from a pier bolt can stand straight under the joint where two spans meet.
+  const breaks = [...new Set(level.anchors.map(([x]) => Math.round(x)).filter((x) => x > 1 && x < W - 1))].sort((a, b) => a - b);
   const high = level.anchors.filter(([x, y]) => y > deckY(Math.min(W, Math.max(0, x))) + 1).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
   const low = level.anchors.filter(([x, y]) => y < deckY(Math.min(W, Math.max(0, x))) - 0.5);
   const cablesOk = offered('cable');
 
   const genes: Gene[] = [];
-  const add = (name: string, options: string[]) => genes.push({ name, options }) - 1;
-  const breakGenes = breaks.map((x) => add(`break at ${x}`, ['no', 'yes']));
+  const add = (name: string, options: string[], prefer?: number) => genes.push({ name, options, prefer }) - 1;
+  // On a drawbridge, a support within a ram's reach of the channel most likely lifts the leaf.
+  // The search starts it as a single ram post, since a wood or steel one pins the leaf down, and
+  // with the deck unbroken above it, so the leaf runs whole from its hinge over the ram.
+  const ramReach = MATERIALS.ram.maxLen;
+  const lifts = (x: number) => !!level.ship && offered('ram') && (level.channels ?? []).some(([a, b]) => x >= a - ramReach && x <= b + ramReach);
+  const breakGenes = breaks.map((x) => add(`break at ${x}`, ['no', 'yes'], lifts(x) ? 0 : undefined));
   // Spans are only known once the breaks are chosen, so every possible span slot gets genes:
   // at most breaks + 1 spans, indexed left to right.
   const spanGenes = Array.from({ length: breaks.length + 1 }, (_, i) => ({
@@ -62,8 +70,8 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
   }));
   const supportGenes = low.map(([x, y]) => ({
     at: [x, y] as GridPt,
-    shape: add(`support ${x},${y}`, ['none', 'post', 'pair', 'fan', 'trestle']),
-    mat: add(`support ${x},${y} material`, supportMats.length ? supportMats : ['none']),
+    shape: add(`support ${x},${y}`, ['none', 'post', 'pair', 'fan', 'trestle'], lifts(x) ? 1 : undefined),
+    mat: add(`support ${x},${y} material`, supportMats.length ? supportMats : ['none'], lifts(x) ? supportMats.indexOf('ram') : undefined),
   }));
   const hangGenes = cablesOk
     ? high.map(([x, y]) => ({ at: [x, y] as GridPt, bits: [] as { joint: number; gene: number }[] }))

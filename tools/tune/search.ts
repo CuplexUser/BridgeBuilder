@@ -81,6 +81,8 @@ export interface EvolveOptions {
   seeds?: number[][];
   /** Stop starting new generations at this time (Date.now() milliseconds). */
   stopAt?: number;
+  /** Stop as soon as the best design found is good enough. */
+  enough?: (best: Found) => boolean;
   log?: (msg: string) => void;
 }
 
@@ -107,6 +109,7 @@ export async function evolve(pool: Runner, level: LevelDef, g: Grammar, obj: Obj
           starts.push(
             g.genes.map((gene) => {
               const k = gene.options.length;
+              if (gene.prefer !== undefined) return gene.prefer;
               if (gene.name.startsWith('break')) return broken;
               if (gene.name.endsWith(' truss')) return Math.min(kind, k - 1);
               if (/ (chord|web|vert|end|endWeb)$/.test(gene.name) || gene.name.endsWith(' material')) return Math.min(mat, k - 1);
@@ -135,7 +138,7 @@ export async function evolve(pool: Runner, level: LevelDef, g: Grammar, obj: Obj
   let scored = await evalAll(pop);
   let best = scored.reduce((a, b) => (b.score < a.score ? b : a));
   let stale = 0;
-  for (let gen = 0; gen < gens && stale < patience && !late(opts.stopAt); gen++) {
+  for (let gen = 0; gen < gens && stale < patience && !late(opts.stopAt) && !opts.enough?.(best); gen++) {
     scored.sort((a, b) => a.score - b.score);
     const elite = scored.slice(0, Math.max(2, Math.floor(size / 12)));
     const tournament = () => {

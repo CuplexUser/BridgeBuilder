@@ -1,4 +1,4 @@
-import { TUNE_DIFFICULTIES, TUNE_SECONDS, type TuneDifficulty, type TuneResult } from '../autotune';
+import { TUNE_DIFFICULTIES, TUNE_MAX_SECONDS, TUNE_SECONDS, type TuneDifficulty, type TuneResult } from '../autotune';
 import { traffic } from '../brief';
 import { money } from '../editor';
 import type { BonusGoal, LevelDef } from '../levels';
@@ -119,12 +119,22 @@ export class MakerUi {
     return val('mk-tune-level') as TuneDifficulty;
   }
 
-  /** Shows the quick tune running, counting down its seconds. */
+  /** The longest the quick tune may take: longer only when asked to, in dev builds. */
+  tuneMaxSeconds(): number {
+    return import.meta.env.DEV && $<HTMLInputElement>('mk-tune-longer').checked ? TUNE_MAX_SECONDS : TUNE_SECONDS;
+  }
+
+  /** Shows the quick tune running, counting down its usual seconds; past them, it is searching longer. */
   tuneRunning(seconds: number): void {
     const btn = $<HTMLButtonElement>('mk-tune-btn');
     const end = Date.now() + seconds * 1000;
     const tick = () => {
-      btn.textContent = `TUNING… ${Math.max(1, Math.ceil((end - Date.now()) / 1000))}`;
+      const left = Math.ceil((end - Date.now()) / 1000);
+      if (left > 0) btn.textContent = `TUNING… ${left}`;
+      else if (btn.textContent !== 'SEARCHING…') {
+        btn.textContent = 'SEARCHING…';
+        this.tuneNote('Nothing holds yet: searching longer…', '');
+      }
     };
     btn.disabled = true;
     tick();

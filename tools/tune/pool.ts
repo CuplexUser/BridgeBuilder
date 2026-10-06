@@ -22,7 +22,8 @@ interface Slot {
  */
 export class Pool implements Runner {
   private slots: Slot[] = [];
-  private queue: { task: Task; resolve: (o: Outcome) => void }[] = [];
+  /** `keep` is false for a run that was skipped, which mustn't be cached. */
+  private queue: { task: Task; resolve: (o: Outcome, keep?: boolean) => void }[] = [];
   private nextId = 1;
   private cache = new Map<string, Outcome>();
   runs = 0;
@@ -31,6 +32,8 @@ export class Pool implements Runner {
   private closing = false;
   /** Called after every design, simulated or cached; drives the progress display. */
   onResult?: () => void;
+  /** Runs that would start after this time (Date.now() milliseconds) are skipped as failures. */
+  until = Infinity;
 
   constructor(
     size = Math.max(1, availableParallelism() - 1),
@@ -78,6 +81,10 @@ export class Pool implements Runner {
   private pump(): void {
     for (const slot of this.slots) {
       if (slot.busy || !this.queue.length) continue;
+      if (Date.now() >= this.until) {
+        for (const late of this.queue.splice(0)) late.resolve(failed('out of time'), false);
+        return;
+      }
       const job = this.queue.shift()!;
       const timer = setTimeout(() => {
         // A hung run: drop the worker, count the design as a failure.
@@ -111,8 +118,8 @@ export class Pool implements Runner {
       const task: Task = { id: this.nextId++, level, design: d.serialize(), seconds };
       this.queue.push({
         task,
-        resolve: (o) => {
-          this.cache.set(key, o);
+        resolve: (o, keep = true) => {
+          if (keep) this.cache.set(key, o);
           this.onResult?.();
           resolve({ ...o, ...local });
         },
