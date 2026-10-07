@@ -1673,7 +1673,9 @@ export class Game {
     const s = Math.min(minScale, vr.h / (y1 - y0 + padBottom + padTop));
     this.cam.tscale = s;
     const halfW = this.renderer.w / 2 / s;
-    this.cam.tcx = Math.max(x0 + halfW - 1, Math.min(x1 - halfW + 1, run.convoyX + 2));
+    // While a drawbridge holds traffic, watch the channel: the opening is what the vehicle waits for.
+    const focus = run.level.ship && run.time < run.releaseAt ? run.shipX : run.convoyX + 2;
+    this.cam.tcx = Math.max(x0 + halfW - 1, Math.min(x1 - halfW + 1, focus));
     this.cam.tcy = (y0 - padBottom + y1 + padTop) / 2 + (vr.y + vr.h / 2 - this.renderer.h / 2) / s;
   }
 
