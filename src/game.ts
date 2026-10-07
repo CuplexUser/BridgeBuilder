@@ -1641,9 +1641,9 @@ export class Game {
     const w = this.renderer.w;
     const h = this.renderer.h;
     const playing = this.state === 'build' || this.state === 'test';
-    // Phones stack the budget meter under the HUD's top row.
+    // Phones stack the budget meter under the HUD's top row, and the toolbar's tools under its materials.
     const top = playing ? (w < 560 ? 104 : 70) : 20;
-    const bottom = playing ? (w < 560 ? 86 : 96) : 20;
+    const bottom = playing ? (w < 560 ? 140 : 96) : 20;
     return { x: 12, y: top, w: w - 24, h: Math.max(100, h - top - bottom) };
   }
 

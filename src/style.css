@@ -791,19 +791,23 @@ kbd {
   .budget span {
     font-size: 11px;
   }
+  /* Two rows: the materials get the full width, with the tools and TEST beneath them. */
   #toolbar {
-    gap: 6px;
-    padding-left: 8px;
-    padding-right: 8px;
+    flex-wrap: wrap;
+    gap: 8px 6px;
+    padding-left: calc(8px + var(--safe-l));
+    padding-right: calc(8px + var(--safe-r));
   }
   .mats {
     min-width: 0;
-    flex: 0 1 auto;
+    flex: 1 0 100%;
+    justify-content: center;
   }
   .mat {
-    width: 56px;
+    width: auto;
     min-width: 0;
-    flex: 0 1 56px;
+    flex: 1 1 0;
+    max-width: 84px;
     height: 54px;
   }
   .mat span {
@@ -819,19 +823,19 @@ kbd {
     width: 70%;
   }
   .tools .icon-btn {
-    width: 38px;
+    width: 44px;
     height: 44px;
-  }
-  #btn-clear {
-    display: none;
   }
   .go-btn {
     padding: 0 12px;
     font-size: 15px;
     min-height: 54px;
   }
-  .go-icon {
-    display: none;
+  #toolbar .go-btn {
+    flex: 1 1 auto;
+    max-width: 200px;
+    justify-content: center;
+    min-height: 48px;
   }
   #hud-name {
     max-width: 34vw;
@@ -847,12 +851,11 @@ kbd {
   .tools {
     gap: 4px;
   }
-  .mat {
-    width: 50px;
-    flex-basis: 50px;
-  }
   .mat span {
     font-size: 10px;
+  }
+  .mat b {
+    font-size: 11px;
   }
 }
 
@@ -2360,9 +2363,6 @@ label.btn {
   .maker-tools .go-label,
   .maker-tools .go-btn kbd {
     display: none;
-  }
-  .maker-tools .go-icon {
-    display: inline;
   }
   .ws-card {
     flex-direction: column;
