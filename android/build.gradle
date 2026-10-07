@@ -17,6 +17,13 @@ buildscript {
 
 apply from: "variables.gradle"
 
+// Capacitor's module scripts read these versions with project.hasProperty(), which finds them in the
+// root project only through an implicit parent lookup that Gradle 10 removes. A copy in every module
+// keeps the lookup local.
+subprojects {
+    apply from: "$rootDir/variables.gradle"
+}
+
 allprojects {
     repositories {
         google()

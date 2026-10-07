@@ -6,7 +6,7 @@ import type { LevelDef } from '../src/levels';
 import { blankLevel, CUSTOM_ID_BASE, makerWarnings } from '../src/maker';
 import { bonusMet } from '../src/scoring';
 import { SOLUTIONS } from '../src/solutions';
-import { failed } from '../tools/tune/runner';
+import { canonical, failed } from '../tools/tune/runner';
 import { simulate } from '../tools/tune/simulate';
 
 /** Test drives in this thread, skipping runs after `until` the way the browser's pool does. */
@@ -67,6 +67,24 @@ describe('quick tune', () => {
     const r = await quickTune(new LocalRunner(), level, 'hard', { seconds: 1, seed: own.serialize() });
     expect(r).not.toBeNull();
     expect(r!.cost).toBeLessThanOrEqual(own.cost());
+    expect(r!.money).toBeGreaterThanOrEqual(own.cost());
+  });
+
+  it('falls back on the author’s bridge when it only crosses losing a member', async () => {
+    // A playtest passes such a bridge, so the tune mustn't give up on a level that has one.
+    const level = asCustom(3);
+    const own = SOLUTIONS[3](level);
+    const runner: TimedRunner = {
+      until: Infinity,
+      async run(_l, d) {
+        const local = { cost: d.cost(), parts: d.parts() };
+        if (canonical(d) !== canonical(own)) return { ...failed('fell'), ...local };
+        return { valid: true, crossed: true, reason: '', peak: 0.97, progress: 1, broken: true, ...local };
+      },
+    };
+    const r = await quickTune(runner, level, 'medium', { seconds: 0.5, seed: own.serialize() });
+    expect(r).not.toBeNull();
+    expect(r!.cost).toBe(own.cost());
     expect(r!.money).toBeGreaterThanOrEqual(own.cost());
   });
 

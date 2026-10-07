@@ -46,7 +46,7 @@ export interface TuneResult {
   money: number;
   target: number;
   bonus: BonusGoal;
-  /** The cheapest bridge found that crosses with a safe margin. */
+  /** The cheapest bridge found that crosses with a safe margin, or failing that, that crosses at all. */
   cost: number;
   /** The lowest peak load a bridge found within the budget reached, 0 to 1. */
   load: number;
@@ -114,11 +114,13 @@ export async function quickTune(runner: TimedRunner, level: LevelDef, difficulty
     const more = await evolve(runner, level, grammar, refObj, { ...search, patience: 20, seed: random + 10 * round, seeds: genes ? [genes] : [], stopAt: last, enough: holds });
     if (more.score < ref.score) [ref, genes] = [more, more.genes];
   }
-  if (!refObj.ok(ref.outcome)) return null;
+  // Nothing crossed with a margin in time. A playtest still passes a bridge that runs hot or loses
+  // a member on the way, so the numbers come from the best that crossed at all, the author's included.
+  if (!ref.outcome.crossed) return null;
   origin = Math.max(t0, Date.now() - 0.38 * ms);
   let stop = phase(0.5);
   ref = await polish(runner, level, ref, refObj, { stopAt: stop });
-  const { money, target } = tuneNumbers(difficulty, ref.outcome.cost, author?.outcome.crossed && !author.outcome.broken ? author.outcome.cost : null);
+  const { money, target } = tuneNumbers(difficulty, ref.outcome.cost, author?.outcome.crossed ? author.outcome.cost : null);
 
   // The lowest load within the budget: always worked out, as the load-limit bonus and for the author.
   stop = phase(0.8);
