@@ -40,6 +40,16 @@ export function blockSpots(level: LevelDef): [number, number][] {
   return out;
 }
 
+/**
+ * Whether (x, y) is a bolt that won't hold a cable: on a level with concrete anchors, the
+ * bank and pier bolts are bearings for the deck, so backstays must go to concrete. Tower tops still hold cables.
+ */
+export function cableBolt(level: LevelDef, x: number, y: number): boolean {
+  if (!level.blocks) return false;
+  const at = (p: readonly number[]) => Math.abs(p[0] - x) < 1e-6 && Math.abs(p[1] - y) < 1e-6;
+  return level.anchors.some(at) && !(level.towers ?? []).some((t) => at([t[0], t[2]]));
+}
+
 /** Whether a new joint may go at (x, y): inside the level, above the water, and clear of piers, rock and channels. */
 export function pointAllowed(level: LevelDef, x: number, y: number): boolean {
   if (y > topY(level) || y <= level.waterY + 0.5) return false;
@@ -89,6 +99,7 @@ export function designProblems(level: LevelDef, d: Design, opts: { budget?: bool
     const b = nodes[m.b];
     const tag = `${m.mat} ${a.x},${a.y}-${b.x},${b.y}`;
     if (!level.materials.includes(m.mat)) out.push(`${tag}: material not offered`);
+    if (MATERIALS[m.mat].tensionOnly && (cableBolt(level, a.x, a.y) || cableBolt(level, b.x, b.y))) out.push(`${tag}: on a bolt that holds no cables`);
     const len = Math.hypot(b.x - a.x, b.y - a.y);
     if (len < 1e-6) out.push(`${tag}: zero length`);
     if (len > MATERIALS[m.mat].maxLen + 1e-9) out.push(`${tag}: too long`);

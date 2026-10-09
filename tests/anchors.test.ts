@@ -5,7 +5,7 @@ import type { LevelDef } from '../src/levels';
 import { exportLevel, parseLevel, setSize, toggleMast } from '../src/maker';
 import { BLOCK } from '../src/physics/materials';
 import { TestRun, World } from '../src/physics/world';
-import { blockSpot, blockSpots, designProblems, pointAllowed } from '../src/rules';
+import { blockSpot, blockSpots, cableBolt, designProblems, pointAllowed } from '../src/rules';
 import { roadRun, suspend } from '../src/solutions';
 
 const noop = { place() {}, remove() {}, invalid() {} };
@@ -114,6 +114,17 @@ describe('concrete anchors: rules', () => {
     expect(pointAllowed(MASTED, 4, -5)).toBe(true);
   });
 
+  it('lets no cable pull on a bolt where concrete anchors are offered', () => {
+    expect(cableBolt(MASTED, 0, 0)).toBe(true);
+    expect(cableBolt(MASTED, 20, -3)).toBe(true);
+    expect(cableBolt(MASTED, 4, 9)).toBe(false);
+    expect(cableBolt({ ...MASTED, blocks: undefined }, 0, 0)).toBe(false);
+    const d = hungDeck(MASTED, null).add([4, 9], [2, 6], 'cable').add([2, 6], [0, 0], 'cable');
+    expect(designProblems(MASTED, d).some((p) => p.includes('holds no cables'))).toBe(true);
+    // Struts still bear on them.
+    expect(designProblems(MASTED, hungDeck(MASTED, 4))).toEqual([]);
+  });
+
   it('flags a block that is not on an anchor spot', () => {
     const d = hungDeck(MASTED, 4);
     expect(designProblems(MASTED, d)).toEqual([]);
@@ -188,6 +199,25 @@ describe('concrete anchors: design and editor', () => {
     expect(ed.drag!.reason).toBe('Out of bounds');
     ed.aim(-2, 4);
     expect(ed.drag!.reason).toBe('');
+  });
+
+  it('refuses a cable onto a bolt, but not a beam', () => {
+    const ed = new Editor(MASTED, noop);
+    ed.setMaterial('cable');
+    ed.beginAt(0, 0, 0.1, 0.1);
+    ed.aim(2, 6);
+    expect(ed.drag!.reason).toBe('Anchor cables in concrete');
+    ed.cancel();
+    ed.setMaterial('wood');
+    ed.beginAt(0, 0, 0.1, 0.1);
+    ed.aim(2, 2);
+    expect(ed.drag!.reason).toBe('');
+  });
+
+  it('drops a saved design that hangs a cable on a bolt', () => {
+    const saved = hungDeck(MASTED, null).add([4, 9], [2, 6], 'cable').add([2, 6], [0, 0], 'cable').serialize();
+    expect(new Editor(MASTED, noop, saved).design.members).toEqual([]);
+    expect(new Editor({ ...MASTED, blocks: undefined }, noop, saved).design.members.length).toBeGreaterThan(0);
   });
 
   it('keeps a saved design with blocks, and drops it once the level no longer offers them', () => {

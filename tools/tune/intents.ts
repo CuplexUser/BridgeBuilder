@@ -1,6 +1,6 @@
 import { Design, type GridPt } from '../../src/design';
-import type { BonusGoal, GeometryKey, LevelDef } from '../../src/levels';
-import type { MaterialId } from '../../src/physics/materials';
+import { bankY, type BonusGoal, type GeometryKey, type LevelDef } from '../../src/levels';
+import { MATERIALS, type MaterialId } from '../../src/physics/materials';
 import { deck, hang, liftOff, roadRun, SOLUTIONS, trussOver, type TrussMats } from '../../src/solutions';
 
 /** A level's geometry for one choice of its tunable parameters. */
@@ -79,6 +79,25 @@ function farthestBlocks(l: LevelDef): Design {
   const right = Math.max(...xs.filter((x) => x > l.width));
   return dropBlocks(d, (x) => x !== left && x !== right);
 }
+
+/**
+ * The reference with its concrete anchors swapped for the deck bolts on the banks: each mast
+ * top stayed straight down to the nearer one, split where one cable would be too long. The
+ * bolts hold no cables on these levels, so this must never get through.
+ */
+const toBolts = {
+  name: 'backstays to the bank bolts',
+  build: (l: LevelDef) => {
+    const d = dropBlocks(SOLUTIONS[l.id](l), () => true);
+    for (const [mx, , top] of l.masts ?? []) {
+      const bolt: GridPt = mx < l.width / 2 ? [0, 0] : [l.width, bankY(l)];
+      const n = Math.ceil(Math.hypot(bolt[0] - mx, bolt[1] - top) / MATERIALS.cable.maxLen);
+      const pts = Array.from({ length: n + 1 }, (_, k): GridPt => [mx + ((bolt[0] - mx) * k) / n, top + ((bolt[1] - top) * k) / n]);
+      for (let k = 0; k < n; k++) d.add(pts[k], pts[k + 1], 'cable');
+    }
+    return d;
+  },
+};
 
 /** Deck bolts on the pylons, as deck waypoints from bank to bank. */
 function overPylons(l: LevelDef): GridPt[] {
@@ -174,14 +193,14 @@ export const INTENTS: Record<number, Intent> = {
       },
     })),
   },
-  36: { requires: ['cable'], shortcuts: [noBlocks] },
+  36: { requires: ['cable'], shortcuts: [noBlocks, toBolts] },
   // A steep backstay lifts its block out: one block per side, at the near end of the strip, fails.
-  37: { requires: ['cable'], shortcuts: [noBlocks, { name: 'one steep backstay per mast', build: (l) => liftOff(l, 2) }] },
+  37: { requires: ['cable'], shortcuts: [noBlocks, toBolts, { name: 'one steep backstay per mast', build: (l) => liftOff(l, 2) }] },
   38: { requires: ['cable', 'steel'], shortcuts: [noBlocks] },
-  39: { requires: ['cable'], shortcuts: [noBlocks] },
+  39: { requires: ['cable'], shortcuts: [noBlocks, toBolts] },
   40: {
     requires: ['cable'],
-    shortcuts: [noBlocks, { name: 'one block per side, nearest', build: nearestBlocks }, { name: 'one block per side, farthest', build: farthestBlocks }],
+    shortcuts: [noBlocks, toBolts, { name: 'one block per side, nearest', build: nearestBlocks }, { name: 'one block per side, farthest', build: farthestBlocks }],
   },
   30: {
     params: { clear: [2, 1.5, 1], side: [8, 10], top: [14, 16, 12] },

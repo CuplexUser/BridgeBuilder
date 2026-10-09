@@ -1,7 +1,7 @@
 import { Design, segmentsOverlap, type GridPt } from './design';
 import type { LevelDef } from './levels';
 import { BLOCK, MATERIALS, type MaterialId } from './physics/materials';
-import { blockSpot, crossesChannel, MIN_JOINT_GAP, pointAllowed, topY } from './rules';
+import { blockSpot, cableBolt, crossesChannel, MIN_JOINT_GAP, pointAllowed, topY } from './rules';
 
 export interface DragState {
   /**
@@ -71,9 +71,11 @@ export class Editor {
         const bolts = [...level.anchors, ...(level.masts ?? []).map(([x, , top]) => [x, top])];
         const same = anchors.length === bolts.length && bolts.every(([x, y]) => anchors.some((n) => n.x === x && n.y === y));
         const blocksOk = d.nodes.every((n) => !n.block || blockSpot(level, n.x, n.y));
+        const onBolt = (i: number) => cableBolt(level, d.nodes[i].x, d.nodes[i].y);
+        const cablesOk = d.members.every((m) => !MATERIALS[m.mat].tensionOnly || !(onBolt(m.a) || onBolt(m.b)));
         // Prices, budgets and materials may have changed since the design was saved.
         const affordable = d.cost() <= level.money && d.members.every((m) => level.materials.includes(m.mat));
-        if (same && blocksOk && affordable) {
+        if (same && blocksOk && cablesOk && affordable) {
           d.priceAnchors(level);
           this.design = d;
         }
@@ -359,6 +361,7 @@ export class Editor {
         if (segmentsOverlap(ax, ay, bx, by, c.x, c.y, e.x, e.y)) return MATERIALS[m.mat].drivable ? 'Overlaps the road' : 'Overlaps a beam';
       }
       if (crossesChannel(this.level, ax, ay, bx, by)) return 'Keep the channel clear';
+      if (mat.tensionOnly && (cableBolt(this.level, ax, ay) || cableBolt(this.level, bx, by))) return 'Anchor cables in concrete';
     }
     return '';
   }

@@ -78,7 +78,7 @@ function rules(l: LevelDef): string[] {
   if (l.convoy?.length) out.push(`A convoy: ${defs.length} vehicles cross nose to tail, so the bridge carries them all at once.`);
   if (l.masts?.length) out.push('The masts stand on hinges: they carry a load straight down but tip over if pulled sideways. Balance every cable on a mast top with a backstay pulling the other way.');
   if (l.blocks) {
-    out.push(`Concrete anchors: drag a member onto the bank, up to ${l.blocks.reach} m back, to set a ${BLOCK.mass / 1000} t block there for ${money(BLOCK.price)}. A steep pull lifts it out and a flat one slides it; past either it tears loose.`);
+    out.push(`Concrete anchors: drag a member onto the bank, up to ${l.blocks.reach} m back, to set a ${BLOCK.mass / 1000} t block there for ${money(BLOCK.price)}. Backstays need them: the bolts hold no cables here. A steep pull lifts a block out and a flat one slides it; past either it tears loose.`);
   }
   if (l.anchorCost) out.push(`Toll bolts: building from any bolt off the road costs ${money(l.anchorCost)}, once per bolt.`);
   for (const [mat, max] of Object.entries(l.limits ?? {})) {
