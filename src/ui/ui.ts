@@ -280,15 +280,15 @@ export class Ui {
       const prev = CHAPTERS[CHAPTERS.indexOf(c) - 1];
       card.innerHTML = `
         <button class="ch-open" data-act="chapter" data-chapter="${c.id}" ${open ? '' : 'aria-disabled="true"'}>
-          <span class="ch-no">CHAPTER ${c.id}</span>
+          <span class="ch-no"><span class="long">CHAPTER</span><span class="short">CH</span> ${c.id}</span>
           <span class="ch-name">${c.name}</span>
           ${pips(c.difficulty)}
           <span class="ch-blurb">${c.blurb}</span>
           <span class="ch-effort">${c.effort}</span>
-          <span class="ch-progress"><span class="bar"><i style="width:${(t.crossed / c.levels.length) * 100}%"></i></span><span>${t.crossed}/${c.levels.length} · ★ ${t.stars}/${c.levels.length * 3} · ${BONUS_MARK} ${t.bonus}/${c.levels.length}</span></span>
-          ${open ? '' : `<span class="ch-lock">🔒 Finish ${prev.name} to unlock</span>`}
+          <span class="ch-progress"><span class="bar"><i style="width:${(t.crossed / c.levels.length) * 100}%"></i></span><span class="long">★ ${t.stars}/${c.levels.length * 3} · ${BONUS_MARK} ${t.bonus}/${c.levels.length}</span><span class="short">★ ${t.stars}/${c.levels.length * 3}</span></span>
+          ${open ? '' : `<span class="ch-lock"><span class="long">🔒 Finish ${prev.name} to unlock</span><span class="short">🔒 Locked</span></span>`}
         </button>
-        ${done ? `<button class="btn small ch-challenge" data-act="challenge" data-chapter="${c.id}">CHALLENGE</button>` : ''}`;
+        ${done ? `<button class="btn small ch-challenge" data-act="challenge" data-chapter="${c.id}" aria-label="Challenge" title="Challenge: all five levels in a row, three lives">⚑</button>` : ''}`;
       grid.appendChild(card);
     }
   }

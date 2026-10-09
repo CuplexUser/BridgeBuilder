@@ -87,6 +87,14 @@ export const CHAPTERS: ChapterDef[] = [
     effort: 'Big builds · 30–60 parts',
     levels: [36, 37, 38, 39, 40],
   },
+  {
+    id: 9,
+    name: 'Main Cable',
+    blurb: 'Very long spans: a thick main cable hung over tall concrete towers, sagged just right and anchored deep in the banks.',
+    difficulty: 9,
+    effort: 'Grand builds · 60–120 parts',
+    levels: [41, 42, 43, 44, 45],
+  },
 ];
 
 export function levelById(id: number): LevelDef {

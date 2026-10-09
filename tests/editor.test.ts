@@ -329,10 +329,10 @@ describe('tutorial ghosts', () => {
         expect([ed.drag!.tx, ed.drag!.ty]).toEqual(to);
         expect(ed.drag!.reason).toBe('');
         ed.commit();
-        expect(ed.design.covers(a, b)).toBe(true);
+        expect(ed.design.covers(a, b, mat)).toBe(true);
       }
       // Ghosts stay built even when a later ghost splits an earlier one.
-      for (const [a, b] of level.hint!) expect(ed.design.covers(a, b)).toBe(true);
+      for (const [a, b, mat] of level.hint!) expect(ed.design.covers(a, b, mat)).toBe(true);
     });
   }
 

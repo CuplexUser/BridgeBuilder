@@ -98,6 +98,10 @@ export class Sfx {
     if (mat === 'steel' || mat === 'ram') {
       this.tone(1900, 0.5, 'sine', 0.12, 700);
       this.burst(0.3, 0.6, 'highpass', 2500, 0.7);
+    } else if (mat === 'main') {
+      // A thick cable lets go with a long, falling twang.
+      this.tone(420, 0.7, 'sawtooth', 0.1, 140);
+      this.burst(0.25, 0.6, 'highpass', 2000, 0.6);
     } else {
       this.burst(0.35, 0.8, 'bandpass', 900, 0.8, 200);
       this.burst(0.08, 0.6, 'highpass', 3000, 0.5);

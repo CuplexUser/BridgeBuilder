@@ -1,6 +1,6 @@
 import { money } from './editor';
 import { seatPiers, type LevelDef } from './levels';
-import { BLOCK, MATERIALS, type MaterialId } from './physics/materials';
+import { blockOf, MATERIALS, type MaterialId } from './physics/materials';
 import { VEHICLES } from './physics/vehicles';
 import { bonusLabel, SAFE_STRESS } from './scoring';
 import type { Design } from './design';
@@ -78,8 +78,12 @@ function rules(l: LevelDef): string[] {
   if (l.convoy?.length) out.push(`A convoy: ${defs.length} vehicles cross nose to tail, so the bridge carries them all at once.`);
   if (l.masts?.length) out.push('The masts stand on hinges: they carry a load straight down but tip over if pulled sideways. Balance every cable on a mast top with a backstay pulling the other way.');
   if (l.blocks) {
-    out.push(`Concrete anchors: drag a member onto the bank, up to ${l.blocks.reach} m back, to set a ${BLOCK.mass / 1000} t block there for ${money(BLOCK.price)}. Backstays need them: the bolts hold no cables here. A steep pull lifts a block out and a flat one slides it; past either it tears loose.`);
+    out.push(`Concrete anchors: drag a member onto the bank, up to ${l.blocks.reach} m back, to set a ${blockOf(l).mass / 1000} t block there for ${money(blockOf(l).price)}. Backstays need them: the bolts hold no cables here. A steep pull lifts a block out and a flat one slides it; past either it tears loose.`);
   }
+  if (l.materials.includes('main')) {
+    out.push('Main cable: drag it from peak to peak, or down to an anchor, and it hangs in a curve with a joint above each deck joint. Drag the ring on it up or down to set the sag: deeper pulls less on the anchors. It counts as one part.');
+  }
+  if (l.materials.includes('concrete')) out.push('Concrete crushes only under five times what steel takes, but it is heavy and cracks under a modest pull: stand it upright and brace it.');
   if (l.anchorCost) out.push(`Toll bolts: building from any bolt off the road costs ${money(l.anchorCost)}, once per bolt.`);
   for (const [mat, max] of Object.entries(l.limits ?? {})) {
     out.push(`At most ${max} ${MATERIALS[mat as MaterialId].name.toLowerCase()} part${max === 1 ? '' : 's'}.`);

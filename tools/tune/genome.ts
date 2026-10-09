@@ -1,7 +1,9 @@
 import { Design, q, type GridPt } from '../../src/design';
 import type { LevelDef } from '../../src/levels';
 import { BLOCK, MATERIALS, type MaterialId } from '../../src/physics/materials';
-import { blockSpot, pointAllowed } from '../../src/rules';
+import { defaultSag, layMain } from '../../src/maincable';
+import { blockSpot, pointAllowed, topY } from '../../src/rules';
+import { hangDeck, pylon } from '../../src/solutions';
 
 /**
  * A structure grammar for one level: each gene picks one option, and build() turns the gene
@@ -9,7 +11,9 @@ import { blockSpot, pointAllowed } from '../../src/rules';
  * deck spans, trusses over or under them, struts and posts from low anchors, trestles up
  * from deep piers, hangers from high anchors, and sagging main cables between them. On levels
  * with concrete anchors, braced towers on pairs of pier bolts and backstays from mast and tower
- * tops down to blocks on the banks, carrying the side spans on hangers.
+ * tops down to blocks on the banks, carrying the side spans on hangers. Where a main cable is
+ * on offer, concrete pylons on pier pairs 4 m apart, main cables between their peaks and the
+ * mast tops at a chosen sag, and main cable backstays to one or two blocks a side.
  */
 export interface Grammar {
   genes: Gene[];
@@ -104,6 +108,25 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
     hang: add(`side span under ${top} hangs from its backstay`, ['no', 'yes'], 1),
   }));
 
+  // Long spans: pylons of chosen height, main cables between their peaks, and main cable backstays.
+  const mainOk = offered('main') && !!level.blocks;
+  const pylonSpots = mainOk && offered('concrete') ? pylonCandidates(level) : [];
+  const pylonGenes = pylonSpots.map((p) => ({ ...p, gene: add(`pylon on ${p.a}`, ['none', ...p.heights.map((h) => `${h} m`)], Math.ceil(p.heights.length / 2)) }));
+  const fixedTops: GridPt[] = mainOk ? (level.masts ?? []).map(([x, , top]): GridPt => [x, top]) : [];
+  // Every place a peak may stand, left to right: a main span may join each to the next.
+  const slots = [...fixedTops.map((t) => t[0]), ...pylonSpots.map((p) => p.a[0] + 2)].sort((a, b) => a - b);
+  const spanSagGenes = slots.slice(0, -1).map((_, i) => add(`main span ${i} sag`, ['none', ...MAIN_SAGS.map((r) => `1/${r} of the span`)], 2));
+  const backs = level.blocks ? Array.from({ length: Math.floor(level.blocks.reach / 2) }, (_, i) => 2 * (i + 1)) : [];
+  const ends = slots.length ? [-1, 1] : [];
+  const mainStayGenes = ends.map((side) => ({
+    side,
+    first: add(`main backstay ${side < 0 ? 'left' : 'right'} block`, ['none', ...backs.map((b) => `${b} m back`)], backs.length),
+    second: add(`main backstay ${side < 0 ? 'left' : 'right'} second block`, ['none', ...backs.map((b) => `${b} m back`)]),
+    sag: add(`main backstay ${side < 0 ? 'left' : 'right'} sag`, ['natural', 'deeper', 'deepest']),
+    hang: add(`deck hangs from the ${side < 0 ? 'left' : 'right'} main backstay`, ['no', 'yes'], slots.length === 1 ? 1 : 0),
+  }));
+  const mainHangGene = mainOk ? add('main span hangers', ['every joint', 'every other joint']) : -1;
+
   // Deck joints of the straight bank-to-bank layout, used to size hanger genes.
   const probe = new Design(level);
   const probeJoints = layDeck(probe, waypoints, breaks, () => 'road');
@@ -153,6 +176,47 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
       if (sag === 0) continue;
       mainCable(d, mc.a, mc.b, SAGS[sag - 1], g[mc.layout] === 1, joints);
     }
+    // Pylons, main spans between the peaks, and main backstays from the outermost.
+    const peaks: GridPt[] = [...fixedTops];
+    for (const p of pylonGenes) {
+      const h = g[p.gene];
+      if (h === 0) continue;
+      const top = p.a[1] + p.heights[h - 1];
+      pylon(d, p.a[0], p.a[1], top, 4, 'concrete');
+      peaks.push([p.a[0] + 2, top]);
+    }
+    peaks.sort((a, b) => a[0] - b[0]);
+    for (let i = 0; i < peaks.length - 1; i++) {
+      const [a, b] = [peaks[i], peaks[i + 1]];
+      const slot = slots.indexOf(a[0]);
+      // A span over a missing pylon takes the gene of its left slot.
+      const r = g[spanSagGenes[slot]];
+      if (!r) continue;
+      try {
+        hangDeck(d, level, layMain(d, a, b, Math.abs(b[0] - a[0]) / MAIN_SAGS[r - 1]), g[mainHangGene] + 1);
+      } catch {
+        // A run that can't be laid is just left out.
+      }
+    }
+    for (const s of mainStayGenes) {
+      if (!peaks.length) break;
+      const peak = s.side < 0 ? peaks[0] : peaks[peaks.length - 1];
+      for (const k of new Set([g[s.first], g[s.second]])) {
+        if (!k) continue;
+        const end: GridPt = [s.side < 0 ? -backs[k - 1] : W + backs[k - 1], s.side < 0 ? 0 : right];
+        if (!blockSpot(level, end[0], end[1])) continue;
+        const [a, b] = s.side < 0 ? [end, peak] : [peak, end];
+        const sag = defaultSag(a, b) * [1, 1.5, 2][g[s.sag]];
+        try {
+          d.ensureBlock(end[0], end[1]);
+          const pts = layMain(d, a, b, sag);
+          if (g[s.hang] === 1 && k === g[s.first]) hangDeck(d, level, pts);
+        } catch {
+          // Left out.
+        }
+      }
+    }
+    d.pruneNodes();
     // Towers, then the backstays holding up free tops.
     for (const t of towerGenes) if (g[t.gene] === 1) tower(d, t.a, t.b, t.top);
     for (const s of stayGenes) {
@@ -180,6 +244,22 @@ function towerCandidates(level: LevelDef): { a: GridPt; b: GridPt; top: GridPt }
 }
 
 const TOWER_HEIGHT = 7;
+
+/** Main span sags, as fractions of the span: 1/12 to 1/5. */
+const MAIN_SAGS = [12, 10, 8, 6, 5];
+
+/** Pairs of bolts 4 m apart at the same height inside the gap, where a concrete pylon could stand, and heights it might rise to. */
+function pylonCandidates(level: LevelDef): { a: GridPt; heights: number[] }[] {
+  const out: { a: GridPt; heights: number[] }[] = [];
+  const ceiling = topY(level);
+  for (const a of level.anchors) {
+    const b = level.anchors.find(([x, y]) => Math.abs(x - a[0] - 4) < 1e-6 && Math.abs(y - a[1]) < 1e-6);
+    if (!b || a[0] <= 0 || b[0] >= level.width) continue;
+    const heights = [8, 10, 12, 14, 16, 18, 20].filter((h) => a[1] + h <= ceiling);
+    if (heights.length) out.push({ a, heights });
+  }
+  return out;
+}
 
 /** A braced steel tower on bolts a and b, 2 m apart: legs to a cross beam 3 m up, crossed diagonals, and two struts to the top. */
 function tower(d: Design, a: GridPt, b: GridPt, top: GridPt): void {

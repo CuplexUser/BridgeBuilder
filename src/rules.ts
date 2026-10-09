@@ -10,7 +10,7 @@ export function topY(level: LevelDef): number {
   const towers = [...(level.towers ?? []), ...(level.masts ?? [])].map((t) => t[2] + 1.5);
   // Anchored levels leave room to raise a tower a cable's reach above the banks.
   const blocks = level.blocks ? [Math.max(0, bankY(level)) + MATERIALS.cable.maxLen] : [];
-  return Math.max(4, ...level.anchors.map((a) => a[1] + 3), ...towers, ...blocks);
+  return Math.max(4, ...level.anchors.map((a) => a[1] + 3), ...towers, ...blocks, level.ceiling ?? 0);
 }
 
 /** How far back from the gap's edge (x) the point lies over a bank: positive behind either bank. */
@@ -50,6 +50,17 @@ export function cableBolt(level: LevelDef, x: number, y: number): boolean {
   return level.anchors.some(at) && !(level.towers ?? []).some((t) => at([t[0], t[2]]));
 }
 
+/**
+ * Whether (x, y) is low over an anchor strip, under the road clearance but off the ground: a
+ * place only a main cable's own joints may go, as it rises from its concrete anchor.
+ */
+export function lowOverStrip(level: LevelDef, x: number, y: number): boolean {
+  if (!level.blocks || (x >= -1e-9 && x <= level.width + 1e-9)) return false;
+  const back = behindBank(level, x);
+  const ground = bankTop(level, x);
+  return back <= level.blocks.reach + 1e-6 && y > ground + 0.05 && y < ground + BLOCK.clearance;
+}
+
 /** Whether a new joint may go at (x, y): inside the level, above the water, and clear of piers, rock and channels. */
 export function pointAllowed(level: LevelDef, x: number, y: number): boolean {
   if (y > topY(level) || y <= level.waterY + 0.5) return false;
@@ -87,7 +98,8 @@ export function designProblems(level: LevelDef, d: Design, opts: { budget?: bool
   nodes.forEach((n, i) => {
     if (n.block && !blockSpot(level, n.x, n.y)) out.push(`concrete anchor ${n.x},${n.y} not on an anchor spot`);
     if (n.anchor) return;
-    if (!pointAllowed(level, n.x, n.y)) out.push(`joint ${n.x},${n.y} out of bounds`);
+    const onlyMain = members.every((m) => (m.a !== i && m.b !== i) || MATERIALS[m.mat].curved);
+    if (!pointAllowed(level, n.x, n.y) && !(onlyMain && lowOverStrip(level, n.x, n.y))) out.push(`joint ${n.x},${n.y} out of bounds`);
     for (let j = 0; j < i; j++) {
       const o = nodes[j];
       if (Math.hypot(o.x - n.x, o.y - n.y) < MIN_JOINT_GAP) out.push(`joints ${o.x},${o.y} and ${n.x},${n.y} too close`);

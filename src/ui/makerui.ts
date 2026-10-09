@@ -235,7 +235,7 @@ export class MakerUi {
     if (toll) l.anchorCost = toll;
     else delete l.anchorCost;
     const reach = Math.max(0, Math.min(MAX_BLOCK_REACH, Math.round(n('mk-blocks', 0))));
-    if (reach) l.blocks = { reach };
+    if (reach) l.blocks = { ...l.blocks, reach };
     else delete l.blocks;
     // A new kind of goal starts from a sensible value, not the old kind's number.
     const kind = val('mk-bonus-kind');

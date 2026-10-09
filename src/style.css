@@ -15,6 +15,8 @@
   --heavy: #d6dbe3;
   --cable: #c7a6ff;
   --ram: #ff6ad5;
+  --main: #ff8f5a;
+  --concrete: #d8cfbe;
   --bonus: #7fe3ff;
   --font: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
@@ -631,6 +633,30 @@ kbd {
   height: 3px;
 }
 
+.mat[data-mat='main'] {
+  --c: var(--main);
+}
+
+.mat[data-mat='main'] i {
+  /* A thick cable hanging in a shallow curve. */
+  height: 7px;
+  border: 3px solid var(--main);
+  border-top: none;
+  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+  background: none;
+  box-shadow: none;
+}
+
+.mat[data-mat='concrete'] {
+  --c: var(--concrete);
+}
+
+.mat[data-mat='concrete'] i {
+  height: 10px;
+  border-radius: 1px;
+  box-shadow: none;
+}
+
 .mat[data-mat='ram'] {
   --c: var(--ram);
 }
@@ -1007,12 +1033,17 @@ kbd {
   text-align: left;
 }
 
-/* Seven chapters in two rows on a wide screen, so the list never needs a scrollbar. */
+/* Nine chapters in two rows on a wide screen, so the list never needs a scrollbar. */
 @media (min-width: 900px) {
   .chapter-grid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
   }
 }
+
+.ch-card .short {
+  display: none;
+}
+
 
 .ch-card {
   position: relative;
@@ -1121,9 +1152,9 @@ kbd {
   position: absolute;
   top: 8px;
   right: 10px;
-  min-height: 24px;
-  padding: 2px 9px;
-  font-size: 10px;
+  min-height: 26px;
+  padding: 0 8px;
+  font-size: 13px;
   box-shadow: 0 2px 0 #081a33;
 }
 
@@ -1161,6 +1192,88 @@ kbd {
 
 .ch-head h2 {
   margin: 4px 0;
+}
+
+/*
+ * Phones: every chapter on one screen, without scrolling. Cards become tiles, three across
+ * upright or five across sideways, with the name, difficulty and stars, and the blurb left
+ * for the chapter's own screen.
+ */
+@media (max-width: 560px), (max-height: 520px) {
+  #scr-chapters .panel {
+    padding: 14px 12px;
+  }
+  #scr-chapters .panel > p.muted {
+    display: none;
+  }
+  #scr-chapters h2 {
+    margin: 0 0 4px;
+    font-size: 24px;
+  }
+  #scr-chapters .row {
+    margin-top: 6px;
+  }
+  .chapter-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 8px 0 4px;
+  }
+  .ch-open {
+    gap: 3px;
+    padding: 9px 8px 8px;
+  }
+  .ch-no {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+  }
+  .ch-name {
+    font-size: 13px;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
+  .ch-blurb,
+  .ch-effort,
+  .ch-card .long {
+    display: none;
+  }
+  .ch-card .short {
+    display: inline;
+  }
+  .ch-card .pips {
+    gap: 2px;
+  }
+  .ch-card .pips i {
+    width: 6px;
+    height: 4px;
+  }
+  .ch-progress {
+    min-height: 0;
+    gap: 6px;
+    font-size: 10px;
+  }
+  .ch-progress .bar {
+    min-width: 16px;
+    height: 4px;
+  }
+  .ch-lock {
+    font-size: 11px;
+  }
+  .ch-card .btn.ch-challenge {
+    top: 5px;
+    right: 5px;
+    min-height: 22px;
+    padding: 0 7px;
+    font-size: 12px;
+  }
+}
+
+@media (max-height: 520px) and (min-width: 561px) {
+  .chapter-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+  .ch-open {
+    padding: 7px 8px 6px;
+  }
 }
 
 /* ───────── Leaderboards ───────── */

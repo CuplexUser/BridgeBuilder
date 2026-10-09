@@ -99,6 +99,19 @@ const toBolts = {
   },
 };
 
+/** The reference with every main cable swapped for plain cable along the same curve. */
+const thinCable = {
+  name: 'plain cable for the main cable',
+  build: (l: LevelDef) => {
+    const d = SOLUTIONS[l.id](l);
+    for (const m of d.members) if (m.mat === 'main') m.mat = 'cable';
+    return d;
+  },
+};
+
+/** Deck waypoints through every bolt on the banks and piers, left to right. */
+const throughBolts = (l: LevelDef): GridPt[] => [...l.anchors].filter(([x]) => x >= 0 && x <= l.width).sort((p, r) => p[0] - r[0]);
+
 /** Deck bolts on the pylons, as deck waypoints from bank to bank. */
 function overPylons(l: LevelDef): GridPt[] {
   const bolts = l.anchors.filter(([x, y]) => x > 0 && x < l.width && y >= 0 && (l.towers ?? []).some((t) => t[0] === x && t[2] > y + 5));
@@ -201,6 +214,16 @@ export const INTENTS: Record<number, Intent> = {
   40: {
     requires: ['cable'],
     shortcuts: [noBlocks, toBolts, { name: 'one block per side, nearest', build: nearestBlocks }, { name: 'one block per side, farthest', build: farthestBlocks }],
+  },
+  41: { requires: ['main'], shortcuts: [noBlocks, thinCable] },
+  42: { requires: ['main', 'concrete'], shortcuts: [noBlocks, thinCable] },
+  43: { requires: ['main', 'concrete'], shortcuts: [noBlocks, thinCable] },
+  44: { deck: throughBolts, requires: ['main', 'concrete'], shortcuts: [noBlocks, thinCable] },
+  // Forty tonnes: one anchor a side, near or far, gives way.
+  45: {
+    deck: () => [[0, 0], [2, 0], [6, 0], [20, 3], [44, 3], [58, 0], [62, 0], [64, 0]],
+    requires: ['main', 'concrete'],
+    shortcuts: [noBlocks, thinCable, { name: 'one block per side, nearest', build: nearestBlocks }, { name: 'one block per side, farthest', build: farthestBlocks }],
   },
   30: {
     params: { clear: [2, 1.5, 1], side: [8, 10], top: [14, 16, 12] },

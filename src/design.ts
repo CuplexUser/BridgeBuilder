@@ -1,5 +1,6 @@
 import type { LevelDef } from './levels';
-import { BLOCK, MATERIALS, type MaterialId } from './physics/materials';
+import { mainRuns } from './maincable';
+import { BLOCK, blockOf, MATERIALS, type MaterialId } from './physics/materials';
 
 export interface DNode {
   x: number;
@@ -133,6 +134,9 @@ export class Design {
   nodes: DNode[] = [];
   members: DMember[] = [];
 
+  /** What a concrete anchor costs on the level this design was made for. Not saved: set again by priceAnchors. */
+  private blockPrice = BLOCK.price;
+
   constructor(level?: LevelDef) {
     if (!level) return;
     for (const [x, y] of level.anchors) this.nodes.push({ x, y, anchor: true });
@@ -143,10 +147,11 @@ export class Design {
   /** Applies the level's anchor price to every anchor but the two road ends, and the block price to concrete anchors. */
   priceAnchors(level: LevelDef): void {
     const right = level.rightY ?? 0;
+    this.blockPrice = blockOf(level).price;
     for (const n of this.nodes) {
       if (!n.anchor) continue;
       if (n.block) {
-        n.price = BLOCK.price;
+        n.price = this.blockPrice;
         continue;
       }
       if (n.mast) {
@@ -192,7 +197,7 @@ export class Design {
   ensureBlock(x: number, y: number): number {
     const i = this.findNode(x, y);
     if (i >= 0) return i;
-    this.nodes.push({ x: q(x), y: q(y), anchor: true, price: BLOCK.price, block: true });
+    this.nodes.push({ x: q(x), y: q(y), anchor: true, price: this.blockPrice, block: true });
     return this.nodes.length - 1;
   }
 
@@ -303,19 +308,46 @@ export class Design {
   splitMember(i: number, x: number, y: number): number {
     const m = this.members[i];
     const mid = this.ensureNode(x, y);
-    if (m.part === undefined) {
-      let next = 0;
-      for (const o of this.members) if (o.part !== undefined) next = Math.max(next, o.part + 1);
-      m.part = next;
-    }
+    m.part ??= this.newPart();
     const b = m.b;
     m.b = mid;
     this.members.push({ a: mid, b, mat: m.mat, part: m.part });
     return mid;
   }
 
-  /** True when members run the whole way from a to b along that straight line, in one piece or several. */
-  covers(a: GridPt, b: GridPt): boolean {
+  /** Whether a plumb member of mat rises from the joint at p to a joint on a main cable above it. */
+  private hangerAt(p: GridPt, mat: MaterialId): boolean {
+    const i = this.findNode(p[0], p[1]);
+    if (i < 0) return false;
+    const onMain = new Set(this.members.flatMap((m) => (MATERIALS[m.mat].curved ? [m.a, m.b] : [])));
+    return this.members.some((m) => {
+      if (m.mat !== mat || (m.a !== i && m.b !== i)) return false;
+      const o = m.a === i ? m.b : m.a;
+      return onMain.has(o) && Math.abs(this.nodes[o].x - p[0]) < EPS && this.nodes[o].y > p[1];
+    });
+  }
+
+  /** A part id no member uses yet. */
+  newPart(): number {
+    let next = 0;
+    for (const o of this.members) if (o.part !== undefined) next = Math.max(next, o.part + 1);
+    return next;
+  }
+
+  /**
+   * True when members run the whole way from a to b along that straight line, in one piece or
+   * several; for a curved material, when one of its runs hangs from a to b. A plumb hanger
+   * counts wherever the cable above it now hangs, so long as it rises from the same joint.
+   */
+  covers(a: GridPt, b: GridPt, mat?: MaterialId): boolean {
+    if (mat && MATERIALS[mat].tensionOnly && !MATERIALS[mat].curved && Math.abs(a[0] - b[0]) < EPS && this.hangerAt(a[1] < b[1] ? a : b, mat)) return true;
+    if (mat && MATERIALS[mat].curved) {
+      const at = (i: number, p: GridPt) => Math.abs(this.nodes[i].x - p[0]) < EPS && Math.abs(this.nodes[i].y - p[1]) < EPS;
+      return mainRuns(this).some(({ chain }) => {
+        const [s, e] = [chain[0], chain[chain.length - 1]];
+        return (at(s, a) && at(e, b)) || (at(s, b) && at(e, a));
+      });
+    }
     const dx = b[0] - a[0];
     const dy = b[1] - a[1];
     const L2 = dx * dx + dy * dy;
@@ -366,6 +398,11 @@ export class Design {
         const [i, j] = at[n];
         const part = this.members[i].part;
         if (part === undefined || this.members[j].part !== part) continue;
+        // Only a straight beam heals: the joints of a curved main cable stay.
+        const p = this.nodes[otherEnd(this.members[i], n)];
+        const r = this.nodes[otherEnd(this.members[j], n)];
+        const o = this.nodes[n];
+        if (Math.abs((r.x - p.x) * (o.y - p.y) - (r.y - p.y) * (o.x - p.x)) > 3e-4 * Math.hypot(r.x - p.x, r.y - p.y)) continue;
         // Two pieces of one beam meeting at a bare joint: the lower index takes over the whole run.
         const keep = this.members[Math.min(i, j)];
         const drop = this.members[Math.max(i, j)];

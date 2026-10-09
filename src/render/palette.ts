@@ -30,6 +30,9 @@ export const PAL = {
   heavyEdge: '#8d939c',
   cable: '#3b4450',
   cableHi: '#c9d3de',
+  main: '#b8482a',
+  mainDark: '#5e2214',
+  mainHi: '#ffab7d',
   ram: '#c8369f',
   ramDark: '#5c1048',
   chrome: '#dfe6ee',
@@ -50,6 +53,8 @@ export const MATERIAL_CHALK: Record<string, string> = {
   steel: '#9fdcff',
   heavy: '#d6dbe3',
   cable: '#c7a6ff',
+  main: '#ff8f5a',
+  concrete: '#d8cfbe',
   ram: '#ff6ad5',
 };
 

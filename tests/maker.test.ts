@@ -58,8 +58,8 @@ describe('level editor', () => {
   });
 
   it('reads a bare LevelDef and clamps what is out of range', () => {
-    const l = parseLevel(JSON.stringify({ width: 400, anchors: [[0, 0], [50, 0], [3, -100], [2, 'x']], materials: ['road', 'unobtanium'], vehicle: 'tank', money: -5 }), 1001);
-    expect(l.width).toBe(40);
+    const l = parseLevel(JSON.stringify({ width: 400, anchors: [[0, 0], [70, 0], [3, -100], [2, 'x']], materials: ['road', 'unobtanium'], vehicle: 'tank', money: -5 }), 1001);
+    expect(l.width).toBe(64);
     expect(l.anchors).toEqual([[0, 0]]);
     expect(l.materials).toEqual(['road']);
     expect(l.vehicle).toBe('car');

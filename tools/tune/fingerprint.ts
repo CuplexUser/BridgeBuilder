@@ -1,6 +1,6 @@
 import type { Design } from '../../src/design';
 import { BASE_LEVELS, type LevelBase, type LevelDef } from '../../src/levels';
-import { BLOCK, MAST, MATERIALS } from '../../src/physics/materials';
+import { blockOf, MAST, MATERIALS, type MaterialId } from '../../src/physics/materials';
 import { VEHICLES } from '../../src/physics/vehicles';
 import { PHYSICS_VERSION } from '../../src/physics/world';
 import { INTENTS, paramCombos, type Intent } from './intents';
@@ -23,14 +23,19 @@ function hash(s: string): string {
  * the materials and vehicles, and the physics and tuner versions. Names, tips and hints
  * don't count, so rewording a level doesn't call for a new tuning run.
  */
+/** Materials added after levels 1–40 were tuned: they count only where offered. */
+const LATER = new Set<MaterialId>(['main', 'concrete']);
+
 export function levelFingerprint(id: number): string {
   const base = BASE_LEVELS.find((l) => l.id === id);
   if (!base) throw new Error(`No level ${id}`);
   const { name: _name, tip: _tip, hint: _hint, hintSolves: _solves, ...geometry } = base;
   const intent = intentData(base, INTENTS[id] ?? {});
   // Concrete anchors and masts count only on levels that have them, so other levels keep their fingerprints.
-  const parts = { block: base.blocks ? BLOCK : undefined, mast: base.masts ? MAST : undefined };
-  return hash(JSON.stringify({ geometry, intent, MATERIALS, VEHICLES, PHYSICS_VERSION, TUNER_VERSION, ...parts }));
+  const parts = { block: base.blocks ? blockOf(base) : undefined, mast: base.masts ? MAST : undefined };
+  // Likewise the main cable and concrete, on levels that offer them.
+  const materials = Object.fromEntries(Object.entries(MATERIALS).filter(([mat]) => !LATER.has(mat as MaterialId) || base.materials.includes(mat as MaterialId)));
+  return hash(JSON.stringify({ geometry, intent, MATERIALS: materials, VEHICLES, PHYSICS_VERSION, TUNER_VERSION, ...parts }));
 }
 
 /**

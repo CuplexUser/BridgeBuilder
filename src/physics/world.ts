@@ -1,6 +1,6 @@
 import { segmentHitsRect, type Design } from '../design';
 import { bankY, goalX, seatPiers, START_X, type LevelDef } from '../levels';
-import { BLOCK, compressionLimit, MAST, MATERIALS, type MaterialId } from './materials';
+import { BLOCK, blockOf, compressionLimit, MAST, MATERIALS, type BlockDef, type MaterialId } from './materials';
 import { StressLog } from './stresslog';
 import { VEHICLES, type VehicleDef } from './vehicles';
 
@@ -161,6 +161,8 @@ export class World {
   breaks: BreakEvent[] = [];
   /** Concrete anchors set into the banks. */
   blocks: Block[] = [];
+  /** The size of every concrete anchor in this world. */
+  block: BlockDef = BLOCK;
   /** Hinged masts: the fixed joint at the foot and the bolt on top, which tips freely. */
   masts: { base: number; top: number }[] = [];
   /** Concrete anchors that tore loose, by index into blocks, for effects to pick up. */
@@ -326,14 +328,14 @@ export class World {
     for (const b of this.blocks) {
       if (!b.loose) continue;
       const p = b.p;
-      const out = Math.min(1, Math.abs(x[p] - b.x0) / BLOCK.width);
-      const g = this.groundAt(x[p]) + BLOCK.depth * out;
+      const out = Math.min(1, Math.abs(x[p] - b.x0) / this.block.width);
+      const g = this.groundAt(x[p]) + this.block.depth * out;
       const sink = g - y[p];
       if (sink <= 0) continue;
       y[p] = g;
       // Kinetic friction: the slide this substep shrinks by friction times how hard it pressed in.
       const slide = x[p] - px[p];
-      const grip = BLOCK.sliding * sink;
+      const grip = this.block.sliding * sink;
       x[p] = Math.abs(slide) <= grip ? px[p] : x[p] - Math.sign(slide) * grip;
     }
   }
@@ -346,7 +348,8 @@ export class World {
   private updateBlocks(): void {
     if (!this.blocks.length) return;
     const { x, y } = this;
-    const weight = BLOCK.mass * -GRAVITY;
+    const { mass, friction, bearing } = this.block;
+    const weight = mass * -GRAVITY;
     for (const [i, b] of this.blocks.entries()) {
       if (b.loose) continue;
       const p = b.p;
@@ -363,13 +366,13 @@ export class World {
         fy += (f * dy) / len;
       }
       const lift = fy / weight;
-      const hold = Math.max(0, BLOCK.friction * (weight - fy)) + BLOCK.bearing;
+      const hold = Math.max(0, friction * (weight - fy)) + bearing;
       const ratio = Math.max(lift, Math.abs(fx) / hold);
       b.util += (ratio - b.util) * STRESS_SMOOTHING;
       b.peak = Math.max(b.peak, b.util);
       if (b.util >= 1) {
         b.loose = true;
-        this.im[p] = 1 / BLOCK.mass;
+        this.im[p] = 1 / mass;
         this.loosened.push(i);
       }
     }
@@ -660,6 +663,7 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
   });
   design.nodes.forEach((n, i) => world.addParticle(n.x, n.y, n.mast ? mass[i] + MAST.mass : n.anchor ? 0 : mass[i]));
   world.banks = { width: level.width, rightY: bankY(level) };
+  world.block = blockOf(level);
   design.nodes.forEach((n, p) => {
     if (n.block) world.blocks.push({ p, x0: n.x, ground: n.y, util: 0, peak: 0, loose: false });
   });
@@ -873,6 +877,8 @@ export class TestRun {
   world: World;
   vehicles: VehicleHandle[];
   level: LevelDef;
+  /** The design as built: its main cables' runs shape how they are drawn. */
+  readonly design: Design;
   time = 0;
   status: RunStatus = 'running';
   reason = '';
@@ -896,6 +902,7 @@ export class TestRun {
 
   constructor(design: Design, level: LevelDef) {
     this.level = level;
+    this.design = design;
     const built = buildWorld(design, level);
     this.world = built.world;
     this.vehicles = built.vehicles;

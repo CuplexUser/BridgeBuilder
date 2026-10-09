@@ -1,4 +1,5 @@
 import { money as usd } from './editor';
+import { q as fine } from './design';
 import { seatPiers, type BonusGoal, type LevelDef, type Overhang, type Pt, type Tower } from './levels';
 import { MATERIAL_ORDER, MATERIALS, type MaterialId } from './physics/materials';
 import { VEHICLES, type VehicleId } from './physics/vehicles';
@@ -12,7 +13,7 @@ import { safeLocalStorage, type KeyValue } from './storage';
 
 /** Custom levels get ids from here up, clear of the built-in ones. */
 export const CUSTOM_ID_BASE = 1000;
-export const LIMITS = { minWidth: 4, maxWidth: 40, maxHeight: 24, minWater: -14, maxWater: -1, maxConvoy: 4, maxMoney: 1_000_000 };
+export const LIMITS = { minWidth: 4, maxWidth: 64, maxHeight: 24, minWater: -14, maxWater: -1, maxConvoy: 4, maxMoney: 1_000_000 };
 /** Tag on exported files, so an import can tell a level from any other JSON. */
 const FORMAT = 'bridge-builder-level';
 
@@ -420,8 +421,10 @@ export function parseLevel(json: string, id: number): LevelDef {
   if (masts.length) level.masts = masts;
   if (isObj(r.blocks)) {
     const reach = clampInt(num(r.blocks.reach, 0), 0, MAX_BLOCK_REACH);
-    if (reach) level.blocks = { reach };
+    const tonnes = clampInt(num(r.blocks.tonnes, 5), 5, 40);
+    if (reach) level.blocks = tonnes === 5 ? { reach } : { reach, tonnes };
   }
+  if (typeof r.ceiling === 'number') level.ceiling = clampInt(r.ceiling, 0, LIMITS.maxHeight);
   if (channels.length) level.channels = channels;
   if (overhangs.length) level.overhangs = overhangs;
   if (convoy.length) level.convoy = convoy;
@@ -433,8 +436,8 @@ export function parseLevel(json: string, id: number): LevelDef {
   }
   const hint = list(r.hint, (v): [Pt, Pt, MaterialId] | null => {
     if (!Array.isArray(v) || v.length !== 3 || !isMaterial(v[2]) || !materials.includes(v[2])) return null;
-    const a = pt(v[0]);
-    const b = pt(v[1]);
+    const a = finePt(v[0]);
+    const b = finePt(v[1]);
     return a && b ? [a, b, v[2]] : null;
   });
   if (hint.length) level.hint = hint;
@@ -540,6 +543,11 @@ function round(v: number): number {
 
 function pt(v: unknown): Pt | null {
   return Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === 'number' && Number.isFinite(n)) ? [round(v[0]), round(v[1])] : null;
+}
+
+/** A point at a joint's full precision: a ghost member may end on a main cable's curve. */
+function finePt(v: unknown): Pt | null {
+  return Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === 'number' && Number.isFinite(n)) ? [fine(v[0]), fine(v[1])] : null;
 }
 
 function list<T>(v: unknown, read: (x: unknown) => T | null): T[] {

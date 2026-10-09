@@ -1,7 +1,8 @@
 import { Design, segmentsOverlap, type GridPt } from './design';
 import type { LevelDef } from './levels';
-import { BLOCK, MATERIALS, type MaterialId } from './physics/materials';
-import { blockSpot, cableBolt, crossesChannel, MIN_JOINT_GAP, pointAllowed, topY } from './rules';
+import { defaultSag, mainPathIn, mainRuns, MIN_MAIN_SPAN, MIN_SAG, resag, sagHandle } from './maincable';
+import { blockOf, MATERIALS, type MaterialId } from './physics/materials';
+import { blockSpot, cableBolt, crossesChannel, lowOverStrip, MIN_JOINT_GAP, pointAllowed, topY } from './rules';
 
 export interface DragState {
   /**
@@ -25,6 +26,29 @@ export interface DragState {
   reason: string;
 }
 
+/** A main cable's sag being dragged by its handle. */
+export interface SagDrag {
+  part: number;
+  /** The run's joints, end to end. */
+  chain: number[];
+  /** Where the handle sits now. */
+  x: number;
+  y: number;
+  /** The design before the drag, for undo, and the joints' heights to put back if it is let go invalid. */
+  before: string;
+  ys: number[];
+  valid: boolean;
+  reason: string;
+}
+
+/** A main cable's sag handle. */
+export interface SagHandle {
+  part: number;
+  chain: number[];
+  x: number;
+  y: number;
+}
+
 export interface AttachPick {
   member: number;
   x: number;
@@ -42,6 +66,8 @@ export interface EditorEvents {
 const JOINT_BONUS = 0.2;
 /** Most pieces one deck run may lay. */
 const MAX_RUN = 40;
+/** Farthest a main cable reaches in one drag, m. */
+const MAX_MAIN_REACH = 80;
 
 /** Formats dollars the way the whole UI shows them, e.g. $12,500. */
 export function money(v: number): string {
@@ -54,6 +80,7 @@ export class Editor {
   level: LevelDef;
   mat: MaterialId = 'road';
   drag: DragState | null = null;
+  sag: SagDrag | null = null;
   cursorX = 0;
   cursorY = 0;
   /** Seconds since each member was placed, parallel to design.members. */
@@ -215,9 +242,15 @@ export class Editor {
     this.drag = { from: -1, sx: x, sy: y, fromSplit: -1, tx: x, ty: y, toSplit: -1, path: [[x, y]], cost: 0, valid: false, reason: '' };
   }
 
-  /** Starts a drag at a node, a beam attach point or an empty anchor spot. Returns what was picked. */
-  beginAt(wx: number, wy: number, nodeRadius: number, attachRadius: number): 'node' | 'split' | 'block' | null {
+  /** Starts a drag at a node, a main cable's sag handle, a beam attach point or an empty anchor spot. Returns what was picked. */
+  beginAt(wx: number, wy: number, nodeRadius: number, attachRadius: number, handleRadius = nodeRadius): 'node' | 'sag' | 'split' | 'block' | null {
     const node = this.nodeAt(wx, wy, nodeRadius);
+    const handle = this.sagHandleAt(wx, wy, handleRadius);
+    const nodeDist = node >= 0 ? Math.hypot(this.design.nodes[node].x - wx, this.design.nodes[node].y - wy) : Infinity;
+    if (handle && Math.hypot(handle.x - wx, handle.y - wy) < nodeDist) {
+      this.beginSag(handle);
+      return 'sag';
+    }
     if (node >= 0) {
       this.begin(node);
       return 'node';
@@ -248,7 +281,7 @@ export class Editor {
     const fy = drag.sy;
     const maxLen = MATERIALS[this.mat].maxLen;
     const pieces = this.runs ? MAX_RUN : 1;
-    const reach = maxLen * pieces;
+    const reach = MATERIALS[this.mat].curved ? MAX_MAIN_REACH : maxLen * pieces;
     const dx = wx - fx;
     const dy = wy - fy;
     const d = Math.hypot(dx, dy);
@@ -286,7 +319,8 @@ export class Editor {
     drag.tx = bx;
     drag.ty = by;
     drag.toSplit = split;
-    const run = this.runs ? this.design.runPath(fx, fy, bx, by, maxLen, pieces) : null;
+    const curved = MATERIALS[this.mat].curved;
+    const run = this.runs ? this.design.runPath(fx, fy, bx, by, maxLen, pieces) : curved ? mainPathIn(this.design, [fx, fy], [bx, by], defaultSag([fx, fy], [bx, by])) : null;
     drag.path = run ?? [
       [fx, fy],
       [bx, by],
@@ -305,8 +339,9 @@ export class Editor {
     for (const i of new Set([drag.from, this.design.findNode(drag.tx, drag.ty)])) {
       if (i >= 0 && nodes[i].price && !members.some((m) => m.a === i || m.b === i)) c += nodes[i].price!;
     }
-    if (this.newBlockAtStart(drag)) c += BLOCK.price;
-    if (this.design.findNode(drag.tx, drag.ty) < 0 && blockSpot(this.level, drag.tx, drag.ty)) c += BLOCK.price;
+    const price = blockOf(this.level).price;
+    if (this.newBlockAtStart(drag)) c += price;
+    if (this.design.findNode(drag.tx, drag.ty) < 0 && blockSpot(this.level, drag.tx, drag.ty)) c += price;
     return c;
   }
 
@@ -338,7 +373,10 @@ export class Editor {
     const mat = MATERIALS[this.mat];
     const left = this.left();
     if (drag.cost > left) return `Over budget by ${money(drag.cost - left)}`;
-    // A run lays several parts; a single beam is one.
+    const curved = !!mat.curved;
+    if (curved && Math.abs(ex - sx) < MIN_MAIN_SPAN - 1e-9) return 'Needs 2 m of span';
+    if (curved && segs === 1) return 'Too long';
+    // A run lays several parts; a single beam, or a main cable, is one.
     const newParts = this.runs ? path.length - 1 : 1;
     const partsLeft = this.partsLeft();
     if (partsLeft !== null && newParts > partsLeft) return `Only ${this.level.limits![this.mat]} ${mat.name.toLowerCase()} parts on this level`;
@@ -348,10 +386,15 @@ export class Editor {
       const [bx, by] = path[i + 1];
       const last = i === segs - 1;
       if (Math.hypot(bx - ax, by - ay) > mat.maxLen + 1e-9) return 'Too long';
-      if (!(last && drag.toSplit >= 0) && !this.pointAllowed(bx, by)) return 'Out of bounds';
+      // A main cable's own joints may hang low over an anchor strip as it rises from a block; nothing else may join them there.
+      const low = lowOverStrip(this.level, bx, by);
+      if (!(last && drag.toSplit >= 0) && !this.pointAllowed(bx, by) && !(curved && !last && low)) return 'Out of bounds';
+      if (low && (i === 0 ? false : !curved || last)) return 'Out of bounds';
+      if (i === 0 && lowOverStrip(this.level, ax, ay) && !curved) return 'Out of bounds';
       const ia = this.design.findNode(ax, ay);
       const ib = this.design.findNode(bx, by);
       if (ib < 0 && nodes.some((n) => Math.hypot(n.x - bx, n.y - by) < MIN_JOINT_GAP)) return 'Too close to a joint';
+      if (curved && !last && ib >= 0) return 'Runs into a joint';
       if (ia >= 0 && ib >= 0 && this.design.findMember(ia, ib) >= 0) return 'Already joined';
       const ground = this.groundSide(ax, ay);
       if (ground && ground === this.groundSide(bx, by)) return 'Lies on the ground';
@@ -368,6 +411,10 @@ export class Editor {
 
   /** Places the aimed member (or road run). Returns the end node index, or -1 if invalid. */
   commit(): number {
+    if (this.sag) {
+      this.commitSag();
+      return -1;
+    }
     const drag = this.drag;
     if (!drag) return -1;
     if (!drag.valid) {
@@ -386,11 +433,13 @@ export class Editor {
     if (drag.toSplit >= 0) split(drag.toSplit, drag.tx, drag.ty);
     const path = drag.path;
     const count = path.length - 1;
+    // A main cable's pieces are one part: it is placed, counted and removed whole.
+    const part = MATERIALS[this.mat].curved ? this.design.newPart() : undefined;
     for (let i = 0; i < count; i++) {
       const [ax, ay] = path[i];
       const [bx, by] = path[i + 1];
       const to = blockSpot(this.level, bx, by) ? this.design.ensureBlock(bx, by) : this.design.ensureNode(bx, by);
-      this.design.members.push({ a: from, b: to, mat: this.mat });
+      this.design.members.push(part === undefined ? { a: from, b: to, mat: this.mat } : { a: from, b: to, mat: this.mat, part });
       // Negative age delays the pop-in so a road run unrolls piece by piece.
       this.ages.push(-i * 0.07);
       this.ev.place(ax, ay, bx, by, this.mat, i, count);
@@ -402,6 +451,107 @@ export class Editor {
 
   cancel(): void {
     this.drag = null;
+    const s = this.sag;
+    if (s) {
+      s.chain.forEach((n, i) => (this.design.nodes[n].y = s.ys[i]));
+      this.sag = null;
+    }
+  }
+
+  /** Every main cable's sag handle. */
+  sagHandles(): SagHandle[] {
+    return mainRuns(this.design)
+      .filter(({ chain }) => chain.length > 2)
+      .map(({ part, chain }) => {
+        const [x, y] = sagHandle(this.design, chain);
+        return { part, chain, x, y };
+      });
+  }
+
+  /** The nearest sag handle within radius, or null. */
+  sagHandleAt(wx: number, wy: number, radius: number): SagHandle | null {
+    let best: SagHandle | null = null;
+    let bd = radius;
+    for (const h of this.sagHandles()) {
+      const d = Math.hypot(h.x - wx, h.y - wy);
+      if (d < bd) {
+        bd = d;
+        best = h;
+      }
+    }
+    return best;
+  }
+
+  /** Picks up a main cable by its sag handle. */
+  beginSag(h: SagHandle): void {
+    this.drag = null;
+    const { nodes } = this.design;
+    this.sag = { part: h.part, chain: h.chain, x: h.x, y: h.y, before: this.design.serialize(), ys: h.chain.map((n) => nodes[n].y), valid: true, reason: '' };
+  }
+
+  /** Hangs the main cable being dragged so its handle comes as near height wy as it may. */
+  aimSag(wy: number): void {
+    const s = this.sag;
+    if (!s) return;
+    const { nodes } = this.design;
+    const a = nodes[s.chain[0]];
+    const b = nodes[s.chain[s.chain.length - 1]];
+    const t = (s.x - a.x) / (b.x - a.x);
+    const w = 4 * t * (1 - t);
+    const chord = a.y + (b.y - a.y) * t;
+    // Sag in tenths of a meter, so the handle steps like the grid does.
+    const sag = Math.max(MIN_SAG, Math.round(((chord - wy) / w) * 10) / 10);
+    resag(this.design, s.chain, sag);
+    s.y = chord - w * sag;
+    s.reason = this.sagProblem(s.chain);
+    s.valid = s.reason === '';
+  }
+
+  /** Moves the dragged sag handle up (positive) or down by dy meters. */
+  nudgeSag(dy: number): void {
+    if (this.sag) this.aimSag(this.sag.y + dy);
+  }
+
+  /** What is wrong with a main cable's joints where they hang now, or ''. */
+  private sagProblem(chain: number[]): string {
+    const { nodes, members } = this.design;
+    const moved = new Set(chain.slice(1, -1));
+    for (const i of moved) {
+      const n = nodes[i];
+      const onlyMain = members.every((m) => (m.a !== i && m.b !== i) || MATERIALS[m.mat].curved);
+      if (!pointAllowed(this.level, n.x, n.y) && !(onlyMain && lowOverStrip(this.level, n.x, n.y))) return 'Out of bounds';
+      if (nodes.some((o, j) => j !== i && Math.hypot(o.x - n.x, o.y - n.y) < MIN_JOINT_GAP)) return 'Too close to a joint';
+    }
+    for (const m of members) {
+      if (!moved.has(m.a) && !moved.has(m.b)) continue;
+      const [p, r] = [nodes[m.a], nodes[m.b]];
+      if (Math.hypot(r.x - p.x, r.y - p.y) > MATERIALS[m.mat].maxLen + 1e-9) return MATERIALS[m.mat].curved ? 'Too deep' : 'A hanger would be too long';
+      if (crossesChannel(this.level, p.x, p.y, r.x, r.y)) return 'Keep the channel clear';
+      for (const o of members) {
+        if (o === m || (o.part !== undefined && o.part === m.part)) continue;
+        const [c, e] = [nodes[o.a], nodes[o.b]];
+        if (segmentsOverlap(p.x, p.y, r.x, r.y, c.x, c.y, e.x, e.y)) return 'Overlaps a beam';
+      }
+    }
+    const over = this.design.cost() - this.level.money;
+    if (over > 0) return `Over budget by ${money(over)}`;
+    return '';
+  }
+
+  /** Lets go of a sag handle: keeps the new sag if it is valid, or puts the cable back. */
+  private commitSag(): void {
+    const s = this.sag!;
+    this.sag = null;
+    const { nodes } = this.design;
+    if (!s.valid) {
+      s.chain.forEach((n, i) => (nodes[n].y = s.ys[i]));
+      this.ev.invalid(s.reason, s.x, s.y);
+      return;
+    }
+    if (s.chain.every((n, i) => nodes[n].y === s.ys[i])) return;
+    this.undoStack.push(s.before);
+    if (this.undoStack.length > 200) this.undoStack.shift();
+    this.redoStack.length = 0;
   }
 
   /**

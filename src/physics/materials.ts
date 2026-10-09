@@ -1,4 +1,4 @@
-export type MaterialId = 'road' | 'heavy' | 'wood' | 'steel' | 'cable' | 'ram';
+export type MaterialId = 'road' | 'heavy' | 'wood' | 'steel' | 'cable' | 'main' | 'concrete' | 'ram';
 
 export interface Material {
   id: MaterialId;
@@ -34,6 +34,11 @@ export interface Material {
   runs: boolean;
   /** Carries no load when pushed: it simply goes slack. */
   tensionOnly: boolean;
+  /**
+   * Laid in one drag as a sagging chain, a piece every 2 m along a parabola, whose sag the
+   * player sets afterward. Drawn as one smooth curve.
+   */
+  curved?: boolean;
   /** How much longer it gets when a drawbridge opens, as a share of its built length. 0 for fixed members. */
   stroke: number;
 }
@@ -134,6 +139,50 @@ export const MATERIALS: Record<MaterialId, Material> = {
     tensionOnly: true,
     stroke: 0,
   },
+  // A long span's main cable: three times a cable's strength, laid as a curve from saddle to
+  // saddle or down to a concrete anchor. Hangers of plain cable drop from its joints to the deck.
+  main: {
+    id: 'main',
+    name: 'Main cable',
+    price: 300,
+    short: 'Main',
+    // One piece of a run: room for a deep sag between joints 2 m apart.
+    maxLen: 3.2,
+    density: 20,
+    EA: 2e7,
+    tension: 220000,
+    compression: Infinity,
+    buckleRef: 1,
+    bend: 0,
+    bendLimit: 0,
+    rating: 0,
+    drivable: false,
+    runs: false,
+    tensionOnly: true,
+    curved: true,
+    stroke: 0,
+  },
+  // Pylons for long spans: crushes only under five times what steel takes and barely buckles,
+  // but it is heavy and cracks under a modest pull, so it carries load straight down its length.
+  concrete: {
+    id: 'concrete',
+    name: 'Concrete',
+    price: 160,
+    short: 'Concr.',
+    maxLen: 4.25,
+    density: 150,
+    EA: 2e7,
+    tension: 20000,
+    compression: 320000,
+    buckleRef: 8,
+    bend: 0,
+    bendLimit: 0,
+    rating: 0,
+    drivable: false,
+    runs: false,
+    tensionOnly: false,
+    stroke: 0,
+  },
   ram: {
     id: 'ram',
     name: 'Ram',
@@ -157,7 +206,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
   },
 };
 
-export const MATERIAL_ORDER: MaterialId[] = ['road', 'heavy', 'wood', 'steel', 'cable', 'ram'];
+export const MATERIAL_ORDER: MaterialId[] = ['road', 'heavy', 'wood', 'steel', 'cable', 'ram', 'main', 'concrete'];
 
 /** Effective compressive capacity for a member of the given rest length. */
 export function compressionLimit(m: Material, len: number): number {
@@ -200,3 +249,24 @@ export const BLOCK = {
   /** Joints above an anchor strip must be at least this high over the bank, m, to keep the road clear. */
   clearance: 3.5,
 };
+
+export type BlockDef = typeof BLOCK;
+
+/**
+ * A level's concrete anchor: the standard 5 t block, or a heavier one where a long span's main
+ * cable pulls far harder. A heavier block is bigger in every direction, so the soil packed
+ * against its face holds more too, and it costs in proportion to its weight.
+ */
+export function blockOf(level: { blocks?: { tonnes?: number } }): BlockDef {
+  const k = (level.blocks?.tonnes ?? BLOCK.mass / 1000) / (BLOCK.mass / 1000);
+  if (k === 1) return BLOCK;
+  const s = Math.cbrt(k);
+  return {
+    ...BLOCK,
+    price: Math.round((BLOCK.price * k) / 100) * 100,
+    mass: BLOCK.mass * k,
+    bearing: BLOCK.bearing * s * s,
+    width: BLOCK.width * s,
+    depth: BLOCK.depth * s,
+  };
+}

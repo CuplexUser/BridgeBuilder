@@ -2,7 +2,7 @@
 
 A physics bridge-building game for the browser. Build a bridge within a cash budget from road, heavy deck, wood, steel and cable, then send a vehicle across it. The bridge either holds, sags, or snaps into the river.
 
-There are 40 levels in eight chapters that get harder as you go: from a 4 m brook in *Groundwork* to a 36 m, forty-tonne crossing in *Master Works*, then bridges that move in *Moving Parts*, and suspension bridges you anchor yourself in *Anchorage*. Along the way the game introduces piers, slopes, lattice pylons, heavy deck, rock overhangs, cables, flood water, ship channels, drawbridges on hydraulic rams, convoys, toll bolts, rationed materials, hinged masts and concrete anchors. Each chapter has its own scene when you test: a river at golden hour, a desert canyon, a flood plain in the rain, the coast, snowy mountains, a city at night, a harbor and a fjord at dawn. `TODO.md` lists planned features and improvements by priority.
+There are 45 levels in nine chapters that get harder as you go: from a 4 m brook in *Groundwork* to a 36 m, forty-tonne crossing in *Master Works*, then bridges that move in *Moving Parts*, suspension bridges you anchor yourself in *Anchorage*, and spans of 40 to 64 m on concrete towers in *Main Cable*. Along the way the game introduces piers, slopes, lattice pylons, heavy deck, rock overhangs, cables, flood water, ship channels, drawbridges on hydraulic rams, convoys, toll bolts, rationed materials, hinged masts, concrete anchors, the curved main cable and concrete. Each chapter has its own scene when you test: a river at golden hour, a desert canyon, a flood plain in the rain, the coast, snowy mountains, a city at night, a harbor, a fjord at dawn and a golden bay. `TODO.md` lists planned features and improvements by priority.
 
 ## Run
 
@@ -68,7 +68,7 @@ Run `npm run android` after every web change before building in Android Studio. 
 | Goals and rules | ⓘ button, or tap the ✦ goal under the level name | I |
 | Stress graph after a test | Link on the result or collapse screen; tap the graph or a member | G, ←/→ to step, Esc back |
 | Pause | II button | P / Esc |
-| Menus | Buttons | Title: Enter continue, C chapters, H leaderboards, L level editor. Chapters: 1–8. Chapter: 1–5 plays a level. Leaderboards: ←/→ tabs, 1–8 chapter. |
+| Menus | Buttons | Title: Enter continue, C chapters, H leaderboards, L level editor. Chapters: 1–9. Chapter: 1–5 plays a level. Leaderboards: ←/→ tabs, 1–9 chapter. |
 | Mute | Speaker button | M |
 
 Members can cross each other (X-bracing), but they can't lie along an existing member. For example, a wood beam can't run on top of the road.
@@ -98,6 +98,8 @@ Custom levels and the last bridge built on each are kept in this browser's local
 | Wood | $90/m | 3.2 m | Light and cheap. Buckles early in compression. |
 | Steel | $240/m | 4.25 m | Strong in tension and compression. |
 | Cable | $140/m | 10 m | Tension only: it goes slack instead of pushing. Hang decks from pylons and overhangs. |
+| Main cable | $300/m | one drag | Thick and orange, three times a cable's strength. One drag from peak to peak, or down to a concrete anchor, lays it as a curve with a joint above each deck joint, and it counts as one part. Drag the ring on it up or down to set the sag; tapping any piece removes the whole cable. Hang the deck from it with plain cable. |
+| Concrete | $160/m | 4.25 m | Five times steel's strength in compression and barely buckles, but heavy, and it cracks under a 20 kN pull. For tall towers on long spans. |
 | Hydraulic ram | $420/m | 4.25 m | Magenta, drawn as a cylinder: a fat barrel on its lower end, a chrome rod above. Strong, heavy and expensive. On drawbridge levels it extends by 75% to lift the leaf, then pulls it back down. Elsewhere it's a stiff, pricey strut. |
 
 You pay by length, so splitting a beam to add a joint costs nothing. Each level lists the materials it offers.
@@ -125,6 +127,15 @@ Chapter 8 is about suspension bridges anchored in the ground:
 - **Concrete anchors.** Drag a member onto the bank, from 1 m up to the level's reach behind the edge, and a 5 t concrete block is set there for $1,500. Removing the last member on it removes it, and refunds it. Joints may also go in the air above the anchor strip, 3.5 m or more over the road, to break a long backstay.
 - **Holding and tearing loose.** A block holds by its weight against lift, and by friction plus the soil packed against it against a sideways pull. Lifting it also takes weight off the friction. So a steep backstay lifts it out and a flat one slides it; a block glows as it nears its limit, and past it the block tears out of its pit and drags. Two backstays to two blocks share the pull.
 - **Your own towers.** On 8-3 there are no masts: brace a steel tower on each pair of piers, then backstay it.
+
+## Main Cable
+
+Chapter 9 is about very long spans, 40 to 64 m:
+
+- **The main cable.** It is laid in one drag and hangs on a parabola, its joints above the deck's joints so hangers drop plumb, and it is drawn as one smooth curve that keeps moving smoothly under load. The ring near its middle sets the sag: a deeper sag pulls less on the towers and anchors, but needs longer hangers near the towers (a hanger is plain cable, at most 10 m). A main cable may hang low over the anchor strip as it rises from its block, where nothing else may go.
+- **Concrete towers.** Steel crushes under the weight of a long span long before any traffic arrives, so towers are concrete legs on a pier pair with steel struts and chevrons between them. The level sets a build ceiling for them.
+- **Heavier anchors.** A level can set heavier concrete anchors (`blocks.tonnes`): bigger in every direction, they hold more and cost in proportion. These levels use 20 t blocks for $6,000. The bolts hold no cables, so every main cable ends in concrete.
+- **The levels.** *Saddle* teaches the main cable on hinged masts with a full ghost. *Concrete Pylons* raises two towers, *One Tower* hangs both spans from a single tall one, *Uneven Banks* has a far bank 6 m higher, and *Tall Ships* lifts a 64 m deck over a ship channel for a semi, with two anchors a side.
 
 ## How it works
 

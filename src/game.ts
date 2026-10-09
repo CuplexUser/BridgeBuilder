@@ -1386,7 +1386,7 @@ export class Game {
     // Nudge first-timers toward the test button once the hint is built, on levels whose ghost
     // is a whole bridge; other ghosts just show off a new mechanic.
     const hint = this.level.hintSolves ? this.level.hint : undefined;
-    this.ui.testBtn.classList.toggle('pulse', !!hint && hint.every(([a, b]) => ed.design.covers(a, b)) && this.attempts === 0);
+    this.ui.testBtn.classList.toggle('pulse', !!hint && hint.every(([a, b, mat]) => ed.design.covers(a, b, mat)) && this.attempts === 0);
   }
 
   private float(x: number, y: number, text: string, color: string, size = 18, life = 1.1): void {
@@ -1518,14 +1518,14 @@ export class Game {
     if (breaks.length === 0) return;
     for (const b of breaks) {
       const mat = b.link.mat!;
-      if (mat === 'heavy') this.debris.crumble(b.ax, b.ay, b.bx, b.by, b.vx, b.vy, mat);
-      else if (mat === 'cable') this.debris.whip(b.link.a, b.link.b, b.ax, b.ay, b.bx, b.by);
+      if (mat === 'heavy' || mat === 'concrete') this.debris.crumble(b.ax, b.ay, b.bx, b.by, b.vx, b.vy, mat);
+      else if (mat === 'cable' || mat === 'main') this.debris.whip(b.link.a, b.link.b, b.ax, b.ay, b.bx, b.by);
       else this.debris.add(b.ax, b.ay, b.bx, b.by, b.vx, b.vy, mat);
       if (mat === 'wood') {
         this.particles.burst(PK.Splinter, b.x, b.y, 22, 7, 1.2, 0.18, [PAL.wood, PAL.woodDark, '#e8b27a'], 2);
-      } else if (mat === 'steel' || mat === 'cable' || mat === 'ram') {
-        this.particles.burst(PK.Spark, b.x, b.y, mat === 'cable' ? 18 : 30, 12, 0.6, 0.04, ['#fff3b0', PAL.gold, '#ff9d3b'], 2);
-      } else if (mat === 'heavy') {
+      } else if (mat === 'steel' || mat === 'cable' || mat === 'main' || mat === 'ram') {
+        this.particles.burst(PK.Spark, b.x, b.y, mat === 'cable' ? 18 : mat === 'main' ? 40 : 30, 12, 0.6, 0.04, ['#fff3b0', PAL.gold, '#ff9d3b'], 2);
+      } else if (mat === 'heavy' || mat === 'concrete') {
         this.particles.burst(PK.Splinter, b.x, b.y, 22, 6, 1.3, 0.22, [PAL.concrete, PAL.concreteDark, PAL.heavy], 2);
         this.particles.burst(PK.Dust, b.x, b.y, 16, 2.2, 1.4, 0.35, ['#b9b4aa', '#d8d2c6'], 0.6);
       } else {
@@ -1537,7 +1537,7 @@ export class Game {
         sfx.crack(mat);
         this.shake.add(0.45);
         this.flash = Math.max(this.flash, 0.25);
-        const word = b.link.crushed ? 'TOO HEAVY!' : mat === 'steel' || mat === 'ram' ? 'CLANG!' : mat === 'cable' ? 'PING!' : mat === 'heavy' ? 'CRUNCH!' : 'SNAP!';
+        const word = b.link.crushed ? 'TOO HEAVY!' : mat === 'steel' || mat === 'ram' ? 'CLANG!' : mat === 'cable' ? 'PING!' : mat === 'main' ? 'TWANG!' : mat === 'heavy' || mat === 'concrete' ? 'CRUNCH!' : 'SNAP!';
         this.float(b.x, b.y + 0.8, word, PAL.bad, 24, 0.9);
         if (!this.anyBreak) this.slowmo = 0.7;
       }
@@ -1680,7 +1680,9 @@ export class Game {
 
   private testBounds(): [number, number, number, number] {
     const L = this.level;
-    const top = Math.max(4, bankY(L) + 4, ...L.anchors.map((a) => a[1] + 2.5), ...(L.masts ?? []).map((m) => m[2] + 2.5));
+    // Tall towers the player raised count too, so their peaks stay in view.
+    const built = this.editor?.design.nodes.map((n) => n.y + 1.5) ?? [];
+    const top = Math.max(4, bankY(L) + 4, ...L.anchors.map((a) => a[1] + 2.5), ...(L.masts ?? []).map((m) => m[2] + 2.5), ...built);
     return [Math.min(START_X - 2, -sideRoom(L)), Math.max(goalX(L) + 2.5, L.width + sideRoom(L)), L.waterY - 1, top];
   }
 
@@ -1929,6 +1931,12 @@ export class Game {
       }
       const touch = e.pointerType === 'touch';
       const picked = ed.beginAt(wx, wy, this.pickRadius(touch ? 26 : 18, 0.4), this.pickRadius(touch ? 18 : 12, 0.3));
+      if (picked === 'sag') {
+        this.dragging = true;
+        this.pendingDelete = -1;
+        sfx.tick();
+        return;
+      }
       if (picked) {
         ed.aim(wx, wy);
         this.dragging = true;
@@ -1983,6 +1991,15 @@ export class Game {
 
     const [wx, wy] = this.worldAt(e.clientX, e.clientY);
     const ed = this.editor;
+    if (this.dragging && ed?.sag) {
+      const before = ed.sag.y;
+      ed.aimSag(wy);
+      if (ed.sag.y !== before) {
+        sfx.tick();
+        this.refreshHud();
+      }
+      return;
+    }
     if (this.dragging && ed?.drag) {
       if (this.pendingDelete >= 0 && p && Math.hypot(e.clientX - p.startX, e.clientY - p.startY) > 10) this.pendingDelete = -1;
       const before = `${ed.drag.tx},${ed.drag.ty}`;
@@ -2021,8 +2038,10 @@ export class Game {
     }
     const ed = this.editor;
     if (this.dragging && ed) {
+      const sag = !!ed.sag;
       if (cancelled || this.pendingDelete >= 0) ed.cancel();
       else ed.commit();
+      if (sag) this.refreshHud();
       this.dragging = false;
       if (e.pointerType !== 'mouse') this.hoverNode = -1;
     }
@@ -2175,6 +2194,13 @@ export class Game {
     const move = (dx: number, dy: number) => {
       e.preventDefault();
       this.keyboardMode = true;
+      // A main cable held by its sag handle moves only up and down, half a meter a press.
+      if (ed.sag) {
+        if (dy) ed.nudgeSag(dy * 0.5);
+        sfx.tick();
+        this.refreshHud();
+        return;
+      }
       const nx = ed.cursorX + dx;
       const ny = ed.cursorY + dy;
       const side = sideRoom(this.level) - 1.5;
@@ -2220,7 +2246,10 @@ export class Game {
     if (k === ' ' || k === 'Enter') {
       e.preventDefault();
       this.keyboardMode = true;
-      if (ed.drag) {
+      if (ed.sag) {
+        ed.commit();
+        this.refreshHud();
+      } else if (ed.drag) {
         const to = ed.commit();
         // Chain: keep building from where the last member ended.
         if (to >= 0) {
@@ -2228,7 +2257,7 @@ export class Game {
           ed.aim(ed.cursorX, ed.cursorY);
         }
       } else {
-        if (ed.beginAt(ed.cursorX, ed.cursorY, 0.05, 0.45)) {
+        if (ed.beginAt(ed.cursorX, ed.cursorY, 0.05, 0.45, 0.8)) {
           ed.aim(ed.cursorX, ed.cursorY);
           sfx.tick();
         } else {
@@ -2239,7 +2268,7 @@ export class Game {
       return;
     }
     if (k === 'Escape') {
-      if (ed.drag) ed.cancel();
+      if (ed.drag || ed.sag) ed.cancel();
       else this.setPaused(true);
       return;
     }

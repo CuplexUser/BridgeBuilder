@@ -1,5 +1,6 @@
 import { Design, q, type GridPt } from './design';
 import type { LevelDef } from './levels';
+import { deckStations, layMain } from './maincable';
 import { MATERIALS, type MaterialId } from './physics/materials';
 
 /** Road run from a to b, split exactly the way the editor's road tool splits it. */
@@ -281,6 +282,50 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
   // Forty tonnes: a second, flatter backstay to its own block shares each mast's pull, and steel
   // struts from the low bolts take the side spans' ends.
   40: (l) => suspensionWithSideSpans(l, 8, 28, [12, 9, 7, 5, 4, 4, 4, 5, 7, 9, 12], 20, true).add([0, -3], [2, 0], 'steel').add([36, -3], [34, 0], 'steel'),
+  // Chapter 9: main cables over masts and then concrete towers, down to concrete anchors.
+  41: (l) =>
+    steelSuspension(l, {
+      deck: [[0, 0], [16, 0], [32, 0], [40, 0]],
+      deckMat: 'road',
+      towers: [],
+      hangers: [[[4, 10], [4, 0]], [[36, 10], [36, 0]]],
+      cables: [[[4, 10], [36, 10]], [[-8, 0], [4, 10], undefined, true], [[36, 10], [48, 0], undefined, true]],
+    }),
+  42: (l) =>
+    steelSuspension(l, {
+      deck: [[0, 0], [2, 0], [6, 0], [42, 0], [46, 0], [48, 0]],
+      deckMat: 'heavy',
+      towers: [[2, 0, 13, 4], [42, 0, 13, 4]],
+      legs: 'concrete',
+      cables: [[[4, 13], [44, 13], 6], [[-9, 0], [4, 13]], [[44, 13], [57, 0]]],
+    }),
+  // Each half hangs from the cable down to its bank, shallow enough to stay off the ground at the anchor.
+  43: (l) =>
+    steelSuspension(l, {
+      deck: [[0, 0], [26, 0], [30, 0], [56, 0]],
+      deckMat: 'heavy',
+      towers: [[26, 0, 16, 4]],
+      legs: 'concrete',
+      struts: [[[0, -3], [2, 0]], [[56, -3], [54, 0]]],
+      cables: [[[-9, 0], [28, 16], 3.5, true], [[28, 16], [65, 0], 3.5, true]],
+    }),
+  44: (l) =>
+    steelSuspension(l, {
+      deck: [[0, 0], [2, 0], [6, 0], [46, 6], [50, 6], [52, 6]],
+      deckMat: 'heavy',
+      towers: [[2, 0, 14, 4], [46, 6, 20, 4]],
+      legs: 'concrete',
+      cables: [[[4, 14], [48, 20], 6], [[-9, 0], [4, 14]], [[48, 20], [61, 6]]],
+    }),
+  // Two anchors a side share forty tonnes' pull; the deck ramps up over the channel.
+  45: (l) =>
+    steelSuspension(l, {
+      deck: [[0, 0], [2, 0], [6, 0], [20, 3], [44, 3], [58, 0], [62, 0], [64, 0]],
+      deckMat: 'heavy',
+      towers: [[2, 0, 18, 4], [58, 0, 18, 4]],
+      legs: 'concrete',
+      cables: [[[4, 18], [60, 18], 8], [[-12, 0], [4, 18]], [[-8, 0], [4, 18]], [[60, 18], [76, 0]], [[60, 18], [72, 0]]],
+    }),
   30: (l) => {
     const d = new Design(l);
     const [a, b] = l.anchors.filter(([x, y]) => x > 0 && x < l.width && y >= 0 && y < 5).toSorted((p, r) => p[0] - r[0]);
@@ -432,4 +477,87 @@ export function hang(d: Design, from: GridPt, to: GridPt[]): Design {
 function on(a: GridPt, b: GridPt, x: number): GridPt {
   // Rounded like roadPath's joints, so a strut lands on the deck joint rather than beside it.
   return [x, q(a[1] + ((b[1] - a[1]) * (x - a[0])) / (b[0] - a[0]))];
+}
+
+/**
+ * A steel tower on the pier bolts at (a, y0) and (a + w, y0): two straight legs braced every
+ * 3 m by a strut with a chevron down to each leg, and a peak `top` high where the main cable
+ * rests, as near as one piece of steel from each leg reaches.
+ */
+export function steelTower(d: Design, a: number, y0: number, top: number, w = 6, legs: MaterialId = 'steel'): Design {
+  const b = a + w;
+  const m = a + w / 2;
+  const reach = Math.sqrt(MATERIALS.steel.maxLen ** 2 - (w / 2) ** 2) - 0.01;
+  let y = y0;
+  for (; top - y > reach; y += 3) {
+    d.add([a, y], [a, y + 3], legs).add([b, y], [b, y + 3], legs);
+    d.add([a, y + 3], [m, y + 3], 'steel').add([m, y + 3], [b, y + 3], 'steel');
+    d.add([a, y], [m, y + 3], 'steel').add([b, y], [m, y + 3], 'steel');
+  }
+  d.add([a, y], [m, top], legs).add([b, y], [m, top], legs);
+  return y > y0 ? d.add([m, y], [m, top], 'steel') : d;
+}
+
+/** What a long-span suspension bridge is made of, for steelSuspension. */
+export interface SuspensionPlan {
+  /** Deck waypoints from bank to bank: a run of deck between each pair. */
+  deck: GridPt[];
+  deckMat: MaterialId;
+  /** Towers: the left pier bolt's x, the height they stand on, their peak, and their width if not 6 m. */
+  towers: [number, number, number, number?][];
+  /** What the towers' legs are made of, if not steel. */
+  legs?: MaterialId;
+  /** Steel struts, say from low bolts up under the deck's ends. */
+  struts?: [GridPt, GridPt][];
+  /** Plain cable hangers besides those under the main cables, say straight down from a mast top. */
+  hangers?: [GridPt, GridPt][];
+  /**
+   * Main cables: from, to, the sag if not the natural one, and whether hangers drop from it (by
+   * default only from a cable across the gap). Ends behind a bank get a concrete anchor.
+   */
+  cables: [GridPt, GridPt, number?, boolean?][];
+}
+
+/**
+ * Chapter 9: a deck, steel towers, main cables over their peaks down to concrete anchors, and
+ * a hanger from each main cable joint to the deck joint below it wherever one fits.
+ */
+export function steelSuspension(l: LevelDef, plan: SuspensionPlan): Design {
+  const d = new Design(l);
+  for (let i = 0; i < plan.deck.length - 1; i++) roadRun(d, plan.deck[i], plan.deck[i + 1], plan.deckMat);
+  for (const [a, y0, top, w = 6] of plan.towers) pylon(d, a, y0, top, w, plan.legs);
+  for (const [a, b] of plan.struts ?? []) d.add(a, b, 'steel');
+  for (const [a, b] of plan.hangers ?? []) d.add(a, b, 'cable');
+  for (const [a, b, sag, hangs] of plan.cables) {
+    for (const [x, y] of [a, b]) if (x < 0 || x > l.width) d.ensureBlock(x, y);
+    const pts = layMain(d, a, b, sag);
+    if (hangs ?? [a, b].every(([x]) => x >= 0 && x <= l.width)) hangDeck(d, l, pts);
+  }
+  return d;
+}
+
+/** A tower as steelTower builds it, with the deck joints between its legs hung from its lowest strut. */
+export function pylon(d: Design, a: number, y0: number, top: number, w = 6, legs: MaterialId = 'steel'): Design {
+  const joints = deckStations(d);
+  steelTower(d, a, y0, top, w, legs);
+  for (const x of joints) if (x > a && x < a + w) d.add([a + w / 2, y0 + 3], [x, y0], 'steel');
+  return d;
+}
+
+/**
+ * A plain cable hanger from each of a main cable's joints that sits plumb above a deck joint,
+ * where it would be over 0.8 m long and fits in one cable, and the deck joint isn't a bolt.
+ */
+export function hangDeck(d: Design, l: LevelDef, pts: GridPt[], every = 1): Design {
+  const decked = new Map<number, number>();
+  d.nodes.forEach((n, i) => {
+    if (d.members.some((m) => MATERIALS[m.mat].drivable && (m.a === i || m.b === i))) decked.set(n.x, n.y);
+  });
+  const bolted = (x: number, y: number) => l.anchors.some(([ax, ay]) => ax === x && ay === y);
+  pts.slice(1, -1).forEach(([x, y], k) => {
+    const below = decked.get(x);
+    if (below === undefined || k % every !== 0) return;
+    if (y - below > 0.8 && y - below <= MATERIALS.cable.maxLen && !bolted(x, below) && d.findMember(d.findNode(x, y), d.findNode(x, below)) < 0) d.add([x, y], [x, below], 'cable');
+  });
+  return d;
 }

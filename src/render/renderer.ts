@@ -2,11 +2,12 @@ import type { AttachPick, Editor } from '../editor';
 import type { Debris, DebrisField, Particles, Whip } from '../fx/particles';
 import { PK, WHIP_LIFE } from '../fx/particles';
 import { bankY, goalX, seatPiers, type LevelDef, type Overhang } from '../levels';
-import { BLOCK, MATERIALS, type MaterialId } from '../physics/materials';
+import { BLOCK, blockOf, MATERIALS, type BlockDef, type MaterialId } from '../physics/materials';
 import type { VehicleDef } from '../physics/vehicles';
 import { convoyLayout, SHIP_HALF, type Link, type TestRun, type VehicleHandle } from '../physics/world';
 import type { Camera } from './camera';
 import { blockSpots } from '../rules';
+import { defaultSag, mainPathIn } from '../maincable';
 import { MATERIAL_CHALK, PAL, stressColor } from './palette';
 import { THEMES, type Land, type Theme } from './themes';
 import { drawBody, drawWheel } from './vehicles';
@@ -48,7 +49,7 @@ export interface SceneView {
 const TAU = Math.PI * 2;
 /** Shades of broken concrete deck. */
 const CHUNK_SHADES = ['#8d939c', '#6f757e', '#a4a9b1', '#5d6168'];
-const MEMBER_WIDTH: Record<MaterialId, number> = { road: 0.3, heavy: 0.36, wood: 0.17, steel: 0.15, cable: 0.06, ram: 0.2 };
+const MEMBER_WIDTH: Record<MaterialId, number> = { road: 0.3, heavy: 0.36, wood: 0.17, steel: 0.15, cable: 0.06, main: 0.14, concrete: 0.34, ram: 0.2 };
 
 /** Piers, and the footing under each mast's hinge: concrete columns up from the riverbed. */
 function footings(L: LevelDef): [number, number][] {
@@ -126,6 +127,44 @@ function inside(p: [number, number], a: [number, number], b: [number, number]): 
 /** Paint order for a bridge link: cables, then truss, then deck. */
 function drawLayer(l: Link): number {
   return l.tensionOnly ? 0 : l.drivable ? 2 : 1;
+}
+
+/** Bézier control points for the piece p1→p2 of a smooth curve through p0, p1, p2, p3 (Catmull–Rom). */
+function curveControls(p0: Pt2, p1: Pt2, p2: Pt2, p3: Pt2): Ctl {
+  return [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6, p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+}
+
+type Pt2 = [number, number];
+type Ctl = [number, number, number, number];
+
+/**
+ * Control points for each piece of the curved runs among the given segments, keyed by
+ * segment index. A piece's neighbors are the pieces of the same run that share its ends;
+ * at a run's end the curve leaves along the piece itself.
+ */
+function runControls(segs: { a: number; b: number; run: number }[], at: (p: number) => Pt2): Map<number, Ctl> {
+  const byEnd = new Map<string, number[]>();
+  segs.forEach((g, i) => {
+    for (const p of [g.a, g.b]) byEnd.set(`${g.run}:${p}`, [...(byEnd.get(`${g.run}:${p}`) ?? []), i]);
+  });
+  const beyond = (i: number, p: number): Pt2 => {
+    const g = segs[i];
+    const j = byEnd.get(`${g.run}:${p}`)!.find((k) => k !== i);
+    if (j === undefined) return at(p);
+    return at(segs[j].a === p ? segs[j].b : segs[j].a);
+  };
+  const out = new Map<number, Ctl>();
+  segs.forEach((g, i) => out.set(i, curveControls(beyond(i, g.a), at(g.a), at(g.b), beyond(i, g.b))));
+  return out;
+}
+
+/** Traces a smooth curve through screen points. */
+function smoothPath(ctx: CanvasRenderingContext2D, pts: Pt2[]): void {
+  ctx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 0; i < pts.length - 1; i++) {
+    const c = curveControls(pts[Math.max(0, i - 1)], pts[i], pts[i + 1], pts[Math.min(pts.length - 1, i + 2)]);
+    ctx.bezierCurveTo(c[0], c[1], c[2], c[3], pts[i + 1][0], pts[i + 1][1]);
+  }
 }
 
 function easeOutBack(t: number): number {
@@ -261,7 +300,11 @@ export class Renderer {
     this.hatch = this.ctx.createPattern(tile, 'repeat');
   }
 
+  /** The concrete anchor size on the level being drawn. */
+  private blockDef: BlockDef = BLOCK;
+
   draw(v: SceneView): void {
+    this.blockDef = blockOf(v.level);
     const { ctx } = this;
     ctx.save();
     ctx.fillStyle = PAL.paperDeep;
@@ -492,7 +535,7 @@ export class Renderer {
         [-reach - 0.5, 0],
         [W + 0.5, bankY(L)],
       ]) {
-        ctx.strokeRect(cam.sx(left), cam.sy(y), reach * cam.scale, BLOCK.depth * cam.scale);
+        ctx.strokeRect(cam.sx(left), cam.sy(y), reach * cam.scale, this.blockDef.depth * cam.scale);
       }
       ctx.setLineDash([]);
       ctx.beginPath();
@@ -1257,8 +1300,8 @@ export class Renderer {
    */
   private block(x: number, top: number, ground: number, util: number, chalk: boolean): void {
     const { ctx, cam } = this;
-    const hw = (BLOCK.width / 2) * cam.scale;
-    const h = BLOCK.depth * cam.scale;
+    const hw = (this.blockDef.width / 2) * cam.scale;
+    const h = this.blockDef.depth * cam.scale;
     const sx = cam.sx(x);
     const sy = cam.sy(top);
     if (chalk) {
@@ -1292,9 +1335,9 @@ export class Renderer {
   /** The hole a concrete anchor left when it tore loose. */
   private pit(x: number, ground: number): void {
     const { ctx, cam } = this;
-    const hw = (BLOCK.width / 2) * cam.scale;
+    const hw = (this.blockDef.width / 2) * cam.scale;
     ctx.fillStyle = 'rgba(30,20,12,0.75)';
-    ctx.fillRect(cam.sx(x) - hw, cam.sy(ground) - 1, hw * 2, BLOCK.depth * cam.scale * 0.6);
+    ctx.fillRect(cam.sx(x) - hw, cam.sy(ground) - 1, hw * 2, this.blockDef.depth * cam.scale * 0.6);
   }
 
   /**
@@ -1443,7 +1486,7 @@ export class Renderer {
    * Paints one member in the golden-hour style. Coordinates are screen px; `sag` bows a slack
    * cable downward by that many px at its middle.
    */
-  private memberPaint(ax: number, ay: number, bx: number, by: number, mat: MaterialId, stress: number | null, alpha = 1, sag = 0, time = 0): void {
+  private memberPaint(ax: number, ay: number, bx: number, by: number, mat: MaterialId, stress: number | null, alpha = 1, sag = 0, time = 0, ctl?: Ctl): void {
     const { ctx, cam } = this;
     const w = Math.max(mat === 'cable' ? 1.5 : 2, MEMBER_WIDTH[mat] * cam.scale);
     const len = Math.hypot(bx - ax, by - ay) || 1;
@@ -1457,7 +1500,8 @@ export class Renderer {
     const line = (off: number) => {
       ctx.beginPath();
       ctx.moveTo(ax + nx * off, ay + ny * off);
-      if (sag > 0) ctx.quadraticCurveTo((ax + bx) / 2 + nx * off, (ay + by) / 2 + ny * off + sag * 2, bx + nx * off, by + ny * off);
+      if (ctl) ctx.bezierCurveTo(ctl[0] + nx * off, ctl[1] + ny * off, ctl[2] + nx * off, ctl[3] + ny * off, bx + nx * off, by + ny * off);
+      else if (sag > 0) ctx.quadraticCurveTo((ax + bx) / 2 + nx * off, (ay + by) / 2 + ny * off + sag * 2, bx + nx * off, by + ny * off);
       else ctx.lineTo(bx + nx * off, by + ny * off);
     };
     ctx.globalAlpha = alpha;
@@ -1550,6 +1594,44 @@ export class Renderer {
       }
     } else if (mat === 'ram') {
       this.ramShape(ax, ay, bx, by, w, false);
+    } else if (mat === 'concrete') {
+      line(0);
+      ctx.lineCap = 'butt';
+      ctx.strokeStyle = PAL.concreteDark;
+      ctx.lineWidth = w + 2;
+      ctx.stroke();
+      ctx.strokeStyle = PAL.concrete;
+      ctx.lineWidth = w;
+      ctx.stroke();
+      // Lit face, and the seams of the formwork every meter or so.
+      line(w * 0.3);
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+      ctx.lineWidth = Math.max(1, w * 0.18);
+      ctx.stroke();
+      if (w > 5) {
+        line(0);
+        ctx.setLineDash([1.5, Math.max(6, cam.scale * 0.9)]);
+        ctx.strokeStyle = 'rgba(40,36,30,0.35)';
+        ctx.lineWidth = w * 0.9;
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.lineCap = 'round';
+    } else if (mat === 'main') {
+      line(0);
+      ctx.strokeStyle = PAL.mainDark;
+      ctx.lineWidth = w + 2;
+      ctx.stroke();
+      ctx.strokeStyle = PAL.main;
+      ctx.lineWidth = w;
+      ctx.stroke();
+      // Wrapping wire catching the light along its top.
+      line(w * 0.22);
+      ctx.setLineDash([1.6, 2.4]);
+      ctx.strokeStyle = PAL.mainHi;
+      ctx.lineWidth = Math.max(0.8, w * 0.3);
+      ctx.stroke();
+      ctx.setLineDash([]);
     } else {
       line(0);
       ctx.strokeStyle = PAL.cable;
@@ -1566,7 +1648,7 @@ export class Renderer {
       const s = Math.abs(stress);
       line(0);
       ctx.strokeStyle = stressColor(s, 0.35 + 0.6 * Math.min(1, s * 1.3));
-      ctx.lineWidth = Math.max(1.5, w * (MATERIALS[mat].drivable ? 0.3 : mat === 'cable' ? 0.9 : 0.55));
+      ctx.lineWidth = Math.max(1.5, w * (MATERIALS[mat].drivable ? 0.3 : mat === 'cable' ? 0.9 : mat === 'main' ? 0.7 : mat === 'concrete' ? 0.35 : 0.55));
       ctx.lineCap = 'butt';
       ctx.stroke();
       if (s > 0.75) {
@@ -1581,13 +1663,14 @@ export class Renderer {
     ctx.globalAlpha = 1;
   }
 
-  private chalkMember(ax: number, ay: number, bx: number, by: number, mat: MaterialId, highlight: 'none' | 'hover' | 'delete'): void {
+  private chalkMember(ax: number, ay: number, bx: number, by: number, mat: MaterialId, highlight: 'none' | 'hover' | 'delete', ctl?: Ctl): void {
     const { ctx, cam } = this;
     const w = Math.max(mat === 'cable' ? 1.5 : 2.5, MEMBER_WIDTH[mat] * cam.scale * 0.8);
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(ax, ay);
-    ctx.lineTo(bx, by);
+    if (ctl) ctx.bezierCurveTo(ctl[0], ctl[1], ctl[2], ctl[3], bx, by);
+    else ctx.lineTo(bx, by);
     if (highlight === 'delete') {
       ctx.strokeStyle = 'rgba(255,90,78,0.3)';
       ctx.lineWidth = w + 12;
@@ -1628,6 +1711,7 @@ export class Renderer {
   private drawEditor(v: SceneView, ed: Editor): void {
     const { ctx, cam } = this;
     const { nodes, members } = ed.design;
+    const curved = this.designCurves(ed.design.members, (n): Pt2 => [cam.sx(nodes[n].x), cam.sy(nodes[n].y)]);
 
     members.forEach((m, i) => {
       const a = nodes[m.a];
@@ -1639,7 +1723,7 @@ export class Renderer {
       const ay = cam.sy(a.y);
       const bx = ax + (cam.sx(b.x) - ax) * p;
       const by = ay + (cam.sy(b.y) - ay) * p;
-      this.chalkMember(ax, ay, bx, by, m.mat, i === v.hoverMember ? 'delete' : 'none');
+      this.chalkMember(ax, ay, bx, by, m.mat, i === v.hoverMember ? 'delete' : 'none', p >= 1 ? curved.get(i) : undefined);
     });
 
     const drag = ed.drag;
@@ -1647,14 +1731,17 @@ export class Renderer {
       const f = { x: drag.sx, y: drag.sy };
       const fx = cam.sx(f.x);
       const fy = cam.sy(f.y);
-      const maxR = MATERIALS[ed.mat].maxLen * cam.scale;
-      ctx.strokeStyle = 'rgba(233,243,255,0.25)';
-      ctx.setLineDash([3, 5]);
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(fx, fy, maxR, 0, TAU);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      const curvedDrag = !!MATERIALS[ed.mat].curved;
+      if (!curvedDrag) {
+        const maxR = MATERIALS[ed.mat].maxLen * cam.scale;
+        ctx.strokeStyle = 'rgba(233,243,255,0.25)';
+        ctx.setLineDash([3, 5]);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(fx, fy, maxR, 0, TAU);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
       const tx = cam.sx(drag.tx);
       const ty = cam.sy(drag.ty);
       if (drag.tx !== f.x || drag.ty !== f.y) {
@@ -1665,7 +1752,8 @@ export class Renderer {
         ctx.setLineDash([8, 6]);
         ctx.lineDashOffset = -v.time * 30;
         ctx.beginPath();
-        drag.path.forEach(([x, y], i) => (i ? ctx.lineTo(cam.sx(x), cam.sy(y)) : ctx.moveTo(cam.sx(x), cam.sy(y))));
+        if (curvedDrag) smoothPath(ctx, drag.path.map(([x, y]): Pt2 => [cam.sx(x), cam.sy(y)]));
+        else drag.path.forEach(([x, y], i) => (i ? ctx.lineTo(cam.sx(x), cam.sy(y)) : ctx.moveTo(cam.sx(x), cam.sy(y))));
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.lineDashOffset = 0;
@@ -1684,7 +1772,12 @@ export class Renderer {
         const segs = drag.path.length - 1;
         const len = Math.hypot(drag.tx - f.x, drag.ty - f.y);
         const grade = MATERIALS[ed.mat].drivable && drag.tx !== f.x && drag.ty !== f.y ? ` · ${Math.round((Math.abs(drag.ty - f.y) / Math.abs(drag.tx - f.x)) * 100)}% grade` : '';
-        const what = segs > 1 ? `${segs} × ${MATERIALS[ed.mat].name.toLowerCase()} · ${len.toFixed(1)} m` : `${len.toFixed(1)} m`;
+        const span = Math.abs(drag.tx - f.x);
+        const what = curvedDrag
+          ? `Main cable · ${span.toFixed(1)} m across · ${defaultSag([f.x, f.y], [drag.tx, drag.ty]).toFixed(1)} m sag`
+          : segs > 1
+            ? `${segs} × ${MATERIALS[ed.mat].name.toLowerCase()} · ${len.toFixed(1)} m`
+            : `${len.toFixed(1)} m`;
         const reason = drag.valid ? '' : ` · ${drag.reason}`;
         this.label(what + grade + reason, (fx + tx) / 2, (fy + ty) / 2 - 16, drag.valid ? PAL.chalk : PAL.invalid);
         if (drag.toSplit >= 0) this.splitMark(tx, ty, col);
@@ -1740,6 +1833,8 @@ export class Renderer {
         ctx.stroke();
       }
     });
+
+    if (!drag) this.sagHandles(ed, v.time);
 
     if (v.showCursor) {
       const x = cam.sx(ed.cursorX);
@@ -1920,6 +2015,72 @@ export class Renderer {
   }
 
   /** A small cross-hair marking where a beam will be split. */
+  /**
+   * Each main cable's sag handle: a ring with arrows up and down on the curve, near mid-span.
+   * The one being dragged shows its sag and a guide from the chord, red while it can't be let go there.
+   */
+  private sagHandles(ed: Editor, time: number): void {
+    const { ctx, cam } = this;
+    const active = ed.sag;
+    for (const h of ed.sagHandles()) {
+      const on = active?.part === h.part;
+      const x = cam.sx(h.x);
+      const y = cam.sy(h.y);
+      const col = on && !active!.valid ? PAL.invalid : MATERIAL_CHALK.main;
+      if (on) {
+        const a = ed.design.nodes[h.chain[0]];
+        const b = ed.design.nodes[h.chain[h.chain.length - 1]];
+        const chord = a.y + ((b.y - a.y) * (h.x - a.x)) / (b.x - a.x);
+        ctx.strokeStyle = col;
+        ctx.globalAlpha = 0.5;
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cam.sx(a.x), cam.sy(a.y));
+        ctx.lineTo(cam.sx(b.x), cam.sy(b.y));
+        ctx.moveTo(x, cam.sy(chord));
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+        const reason = active!.valid ? '' : ` · ${active!.reason}`;
+        this.label(`Sag ${(chord - h.y).toFixed(1)} m${reason}`, x, y + 30, col);
+      }
+      const r = (on ? 10 : 8) + (on ? 0 : Math.sin(time * 3) * 0.8);
+      ctx.fillStyle = 'rgba(16,24,40,0.75)';
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+      // Arrows up and down: it moves only that way.
+      ctx.fillStyle = col;
+      for (const dir of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(x, y + dir * r * 0.75);
+        ctx.lineTo(x - r * 0.38, y + dir * r * 0.2);
+        ctx.lineTo(x + r * 0.38, y + dir * r * 0.2);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+  }
+
+  /** Control points for the pieces of every main cable in a design, keyed by member index. */
+  private designCurves(members: { a: number; b: number; mat: MaterialId; part?: number }[], at: (n: number) => Pt2): Map<number, Ctl> {
+    const idx: number[] = [];
+    const segs: { a: number; b: number; run: number }[] = [];
+    members.forEach((m, i) => {
+      if (!MATERIALS[m.mat].curved || m.part === undefined) return;
+      idx.push(i);
+      segs.push({ a: m.a, b: m.b, run: m.part });
+    });
+    const out = new Map<number, Ctl>();
+    for (const [k, c] of runControls(segs, at)) out.set(idx[k], c);
+    return out;
+  }
+
   private splitMark(x: number, y: number, color: string): void {
     const { ctx } = this;
     ctx.strokeStyle = color;
@@ -1946,7 +2107,7 @@ export class Renderer {
     const pulse = 0.25 + 0.15 * Math.sin(v.time * 4);
     let firstTodo = -1;
     hint.forEach(([a, b, mat], i) => {
-      if (d.covers(a, b)) return;
+      if (d.covers(a, b, mat)) return;
       const reachable = d.findNode(a[0], a[1]) >= 0 || d.findNode(b[0], b[1]) >= 0;
       if (firstTodo < 0 && reachable) firstTodo = i;
       ctx.strokeStyle = MATERIAL_CHALK[mat];
@@ -1954,8 +2115,9 @@ export class Renderer {
       ctx.lineWidth = Math.max(2, MEMBER_WIDTH[mat] * cam.scale * 0.8);
       ctx.setLineDash([6, 8]);
       ctx.beginPath();
-      ctx.moveTo(cam.sx(a[0]), cam.sy(a[1]));
-      ctx.lineTo(cam.sx(b[0]), cam.sy(b[1]));
+      // A main cable's ghost hangs at the sag it is laid with.
+      const pts = (MATERIALS[mat].curved && mainPathIn(d, a, b, defaultSag(a, b))) || [a, b];
+      smoothPath(ctx, pts.map(([x, y]): Pt2 => [cam.sx(x), cam.sy(y)]));
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.globalAlpha = 1;
@@ -1991,11 +2153,22 @@ export class Renderer {
       const len = Math.hypot(w.x[l.b] - w.x[l.a], w.y[l.b] - w.y[l.a]);
       return len < l.rest ? (Math.sqrt(l.rest * l.rest - len * len) / 2) * cam.scale * 0.5 : 0;
     };
+    // Main cables hang as smooth curves through their joints as they move.
+    const curved: Link[] = [];
+    const segs: { a: number; b: number; run: number }[] = [];
+    for (const l of w.links) {
+      const part = l.bridge && !l.broken && l.mat && MATERIALS[l.mat].curved ? run.design.members[l.member]?.part : undefined;
+      if (part === undefined) continue;
+      curved.push(l);
+      segs.push({ a: l.a, b: l.b, run: part });
+    }
+    const ctls = runControls(segs, (p): Pt2 => [cam.sx(w.x[p]), cam.sy(w.y[p])]);
+    const ctlOf = new Map(curved.map((l, k) => [l, ctls.get(k)]));
     // Cables behind the truss, deck on top of everything.
     for (const pass of [0, 1, 2]) {
       for (const l of w.links) {
         if (!l.bridge || l.broken || drawLayer(l) !== pass) continue;
-        this.memberPaint(cam.sx(w.x[l.a]), cam.sy(w.y[l.a]), cam.sx(w.x[l.b]), cam.sy(w.y[l.b]), l.mat!, l.stress, 1, sag(l), time);
+        this.memberPaint(cam.sx(w.x[l.a]), cam.sy(w.y[l.a]), cam.sx(w.x[l.b]), cam.sy(w.y[l.b]), l.mat!, l.stress, 1, sag(l), time, ctlOf.get(l));
       }
     }
     this.guardRails(run);
