@@ -18,22 +18,27 @@
     "android:open": "cap open android"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.5.2",
-    "@types/node": "^26.6.3",
-    "oxlint": "^1.85.0",
+    "@capacitor/cli": "^8.5.3",
+    "@types/node": "^26.6.4",
+    "oxlint": "^1.87.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "vite": "^8.3.1",
-    "vitest": "^5.0.2"
+    "vite": "^8.3.4",
+    "vitest": "^5.0.3"
+  },
+  "overrides": {
+    "xcode": {
+      "uuid": "^11.1.1"
+    }
   },
   "engines": {
     "node": ">=22.15"
   },
   "dependencies": {
-    "@capacitor/android": "^8.5.2",
+    "@capacitor/android": "^8.5.3",
     "@capacitor/app": "^8.1.2",
     "@capacitor/clipboard": "^8.0.1",
-    "@capacitor/core": "^8.5.2",
+    "@capacitor/core": "^8.5.3",
     "@capacitor/filesystem": "^8.1.4",
     "@capacitor/preferences": "^8.0.1",
     "@capacitor/share": "^8.0.3"
