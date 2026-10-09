@@ -38,10 +38,15 @@ Features and improvements, by priority. Finished items stay checked for a releas
 - [x] **Joint strength.** Past a joint's two busiest members, the rest of their stress ratios may add up to at most 180%, or the busiest member breaks. Every hand-made design stays under it (the highest is 145%, on 2-5).
 - [x] **Anchor costs.** A level can charge for building from each bolt but the two road ends, shown on the blueprint.
 - [x] **Material limits.** A level can cap the parts of a material; the toolbar shows how many are left. The cable levels 4-1, 4-2, 4-3, 5-2, 5-5, 6-3 and 6-4 use them to rule out a truss under the deck, which the optimizer found could otherwise cross them without cables; 4-2 also allows only four cables.
+- [x] **Concrete anchors and hinged masts.** Drag a member onto a bank to set a 5 t concrete block there ($1,500). It holds until the pull beats its weight, friction and the soil, so a steep backstay lifts it and a flat one slides it, then it tears out of its pit and drags. Masts stand on hinges and tip over unless backstayed. Chapter 8, *Anchorage*, has five levels in a new fjord scene: *Deadweight*, *Lift-Off*, *Raise Your Own* (brace your own towers), *Side Spans* and *Anchorage* (a semi that needs two blocks per side). The level editor has a Mast tool and an anchor-strip setting, and the optimizer builds towers and backstays.
 - [x] **Chapter 7, Moving Parts**, with a harbor theme: *Bascule* (first drawbridge), *Convoy* (three vans, six steel parts), *Toll Bridge* ($1,000 per bolt), *Harbor Gate* (a fixed span, then a leaf) and *Rush Hour* (car, van and dump truck over one ram).
 
 ### Next
 
+- [ ] **Dynamics chapter: wind, resonance and earthquakes.** Gusts as horizontal loads, ground shaking at the banks, and a column of marching runners or soldiers that excites resonance. A damper member as a new material. XPBD handles all of it well.
+- [ ] **Railway chapter.** Trains are long, heavy, distributed loads with a strict maximum grade, so geometry becomes a real constraint and not just cost. Two-track levels, and a train braking on the bridge (a horizontal load on the deck).
+- [ ] **Concrete and arches chapter.** A material strong in compression and weak in tension, so arches become the natural answer instead of trusses. Combined with cable it makes prestressed designs, a whole new family of shapes.
+- [ ] **Foundations chapter.** Soft ground where anchors settle under load, scour around piers during floods, and pile anchors you pay extra for. Fits the flood plain theme, and reuses the concrete anchor's soil model.
 - [ ] Ideas: double-leaf bascules, lift bridges, a swing bridge, and a ship that has to wait for traffic instead of the other way around.
 
 ## P3: Polish and social
@@ -63,6 +68,12 @@ Features and improvements, by priority. Finished items stay checked for a releas
 - [ ] **Quit confirmation** during a challenge, showing how many points will be banked.
 - [ ] **Accessibility.** A color-blind-safe stress palette (with patterns, not just hue), a reduced-motion mode that turns off shake and wobble, and a larger-UI option.
 
+Let the optimizer teach:
+
+- [ ] **Efficiency view.** After a successful test, mark under-used members (say under 20% peak) as wasted material and suggest downgrading steel to wood. Cheap to build, and it makes players better without giving the answer away.
+- [ ] **Engineer's review.** Show how far the cost is from the optimizer's best ("14% above the best known design"), plus hints that each reveal one member of the reference design, for a points penalty.
+- [ ] **Verified community levels.** On top of design sharing: upload custom levels to the server, run the optimizer before publishing, and set budget and target from it. Every community level gets a *Verified solvable* badge and fair numbers without its creator balancing anything. Builds on `src/autotune.ts`.
+
 ## P4: Platforms and tech
 
 - [ ] **Desktop and Android from one codebase.** Keep a single game codebase and add two build targets rather than forking:
@@ -72,4 +83,9 @@ Features and improvements, by priority. Finished items stay checked for a releas
 - [ ] Profile physics on the 30 m+ levels on low-end phones. If needed, lower substeps adaptively, or move the simulation to a worker.
 - [ ] An end-to-end smoke test in headless Chromium: build a bridge with the keyboard, test it, and check the result screen and leaderboards.
 - [ ] Cache static scene layers (mountains, trees, banks) in offscreen canvases per level and camera zoom level.
+- [ ] **Android extras.** The Play upload still waits on account verification.
+  - **Haptics synced to stress:** a light buzz as members creak, a hard pulse when something snaps (Capacitor Haptics).
+  - **Collapse clip export:** record the last seconds of the canvas with MediaRecorder and share the video through the share sheet. Collapses are the best marketing material.
+  - **Play Games Services:** achievements, cloud save and sign-in, so Android players reach the server leaderboards without the name-based profile.
+  - **Monetization:** the first two or three chapters free, then a one-time unlock for the rest and future chapters. No ads while building; they kill a puzzle game's flow.
 - [ ] Save format versioning for designs, so price or material changes can migrate old saves instead of discarding them.

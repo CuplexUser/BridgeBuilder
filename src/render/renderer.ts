@@ -2,10 +2,11 @@ import type { AttachPick, Editor } from '../editor';
 import type { Debris, DebrisField, Particles, Whip } from '../fx/particles';
 import { PK, WHIP_LIFE } from '../fx/particles';
 import { bankY, goalX, seatPiers, type LevelDef, type Overhang } from '../levels';
-import { MATERIALS, type MaterialId } from '../physics/materials';
+import { BLOCK, MATERIALS, type MaterialId } from '../physics/materials';
 import type { VehicleDef } from '../physics/vehicles';
 import { convoyLayout, SHIP_HALF, type Link, type TestRun, type VehicleHandle } from '../physics/world';
 import type { Camera } from './camera';
+import { blockSpots } from '../rules';
 import { MATERIAL_CHALK, PAL, stressColor } from './palette';
 import { THEMES, type Land, type Theme } from './themes';
 import { drawBody, drawWheel } from './vehicles';
@@ -48,6 +49,11 @@ const TAU = Math.PI * 2;
 /** Shades of broken concrete deck. */
 const CHUNK_SHADES = ['#8d939c', '#6f757e', '#a4a9b1', '#5d6168'];
 const MEMBER_WIDTH: Record<MaterialId, number> = { road: 0.3, heavy: 0.36, wood: 0.17, steel: 0.15, cable: 0.06, ram: 0.2 };
+
+/** Piers, and the footing under each mast's hinge: concrete columns up from the riverbed. */
+function footings(L: LevelDef): [number, number][] {
+  return [...L.piers, ...(L.masts ?? []).map(([x, base]): [number, number] => [x, base])];
+}
 
 /** Deterministic 0..1 noise so scenery stays put between frames. */
 function hash(n: number): number {
@@ -451,7 +457,7 @@ export class Renderer {
       [[-80, 0], [0, 0], [0, deep], [-80, deep]],
       [[W, bankY(L)], [W + 80, bankY(L)], [W + 80, deep], [W, deep]],
     ];
-    for (const [px, py] of L.piers) {
+    for (const [px, py] of footings(L)) {
       banks.push([[px - 0.45, py], [px + 0.45, py], [px + 0.45, deep], [px - 0.45, deep]]);
     }
     for (const o of L.overhangs ?? []) banks.push(overhangPoly(o, W));
@@ -474,6 +480,29 @@ export class Renderer {
 
     for (const [px, py] of seatPiers(L)) this.seat(px, py, true);
     for (const t of L.towers ?? []) this.tower(t[0], t[1], t[2], true);
+    for (const [x, base, top] of L.masts ?? []) this.mast(x, base, x, top, true);
+    // Where concrete anchors may go: a dashed strip in each bank, with a tick at every free spot.
+    if (L.blocks) {
+      const reach = L.blocks.reach;
+      const design = v.editor?.design;
+      ctx.strokeStyle = PAL.chalkDim;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      for (const [left, y] of [
+        [-reach - 0.5, 0],
+        [W + 0.5, bankY(L)],
+      ]) {
+        ctx.strokeRect(cam.sx(left), cam.sy(y), reach * cam.scale, BLOCK.depth * cam.scale);
+      }
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      for (const [x, y] of blockSpots(L)) {
+        if (design && design.findNode(x, y) >= 0) continue;
+        ctx.moveTo(cam.sx(x), cam.sy(y));
+        ctx.lineTo(cam.sx(x), cam.sy(y) + Math.max(4, 0.25 * cam.scale));
+      }
+      ctx.stroke();
+    }
     (L.channels ?? []).forEach(([cx0, cx1, top], i) => this.channelBlueprint(cx0, cx1, top, L.waterY, i === 0 ? L.ship?.mast : undefined));
 
     // Dimension line across the gap.
@@ -589,8 +618,8 @@ export class Renderer {
 
     for (const o of L.overhangs ?? []) this.overhang(o, W);
 
-    // Piers.
-    for (const [px, py] of L.piers) {
+    // Piers, and the footings masts stand on.
+    for (const [px, py] of footings(L)) {
       const l = cam.sx(px - 0.45);
       const r = cam.sx(px + 0.45);
       const t = cam.sy(py);
@@ -605,6 +634,7 @@ export class Renderer {
     for (const [px, py] of seatPiers(L)) this.seat(px, py, false);
 
     for (const t of L.towers ?? []) this.tower(t[0], t[1], t[2], false);
+    this.sceneMastsAndBlocks(v);
     (L.channels ?? []).forEach(([x0, x1, top], i) => {
       // On a drawbridge level the first channel's boat is the tall ship, waiting or under way.
       const ship = i === 0 && L.ship ? { x: (x0 + x1) / 2, mast: L.ship.mast, progress: v.run ? v.run.shipProgress : -1 } : undefined;
@@ -1204,6 +1234,123 @@ export class Renderer {
     ctx.restore();
   }
 
+  /** Masts and concrete anchors in the painted scene: where the run has moved them, or as built. */
+  private sceneMastsAndBlocks(v: SceneView): void {
+    const L = v.level;
+    const w = v.run?.world;
+    if (w) {
+      for (const m of w.masts) this.mast(w.x[m.base], w.y[m.base], w.x[m.top], w.y[m.top], false);
+      for (const b of w.blocks) {
+        // A block that tore loose leaves its pit behind.
+        if (b.loose) this.pit(b.x0, b.ground);
+        this.block(w.x[b.p], w.y[b.p], b.ground, b.loose ? 0 : b.util, false);
+      }
+      return;
+    }
+    for (const [x, base, top] of L.masts ?? []) this.mast(x, base, x, top, false);
+    for (const n of v.editor?.design.nodes ?? []) if (n.block) this.block(n.x, n.y, n.y, 0, false);
+  }
+
+  /**
+   * A concrete anchor with its bolt at (x, top): a slab hanging below it, clipped to show only what
+   * is above the ground while it sits in its pit. Glows as it nears tearing loose.
+   */
+  private block(x: number, top: number, ground: number, util: number, chalk: boolean): void {
+    const { ctx, cam } = this;
+    const hw = (BLOCK.width / 2) * cam.scale;
+    const h = BLOCK.depth * cam.scale;
+    const sx = cam.sx(x);
+    const sy = cam.sy(top);
+    if (chalk) {
+      ctx.fillStyle = 'rgba(154,160,168,0.25)';
+      ctx.fillRect(sx - hw, sy, hw * 2, h);
+      ctx.strokeStyle = PAL.chalk;
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(sx - hw, sy, hw * 2, h);
+      return;
+    }
+    // Set in the ground, only its top face shows; once out it shows whole.
+    const buried = Math.abs(top - ground) < 1e-3;
+    const g = ctx.createLinearGradient(sx - hw, 0, sx + hw, 0);
+    g.addColorStop(0, PAL.concrete);
+    g.addColorStop(1, PAL.concreteDark);
+    ctx.fillStyle = g;
+    if (buried) ctx.fillRect(sx - hw, sy - 2, hw * 2, Math.max(4, h * 0.18));
+    else {
+      ctx.fillRect(sx - hw, sy, hw * 2, h);
+      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(sx - hw, sy, hw * 2, h);
+    }
+    if (util > 0.6) {
+      ctx.strokeStyle = stressColor(util, Math.min(1, (util - 0.6) * 2.5));
+      ctx.lineWidth = Math.max(2, 0.08 * cam.scale);
+      ctx.strokeRect(sx - hw - 2, sy - 3, hw * 2 + 4, Math.max(6, h * 0.18) + 2);
+    }
+  }
+
+  /** The hole a concrete anchor left when it tore loose. */
+  private pit(x: number, ground: number): void {
+    const { ctx, cam } = this;
+    const hw = (BLOCK.width / 2) * cam.scale;
+    ctx.fillStyle = 'rgba(30,20,12,0.75)';
+    ctx.fillRect(cam.sx(x) - hw, cam.sy(ground) - 1, hw * 2, BLOCK.depth * cam.scale * 0.6);
+  }
+
+  /**
+   * A hinged mast from its foot (bx, by) to its top (tx, ty), at whatever lean the run gives it:
+   * two tapering legs with cross bracing, a cap, and the hinge pin at its foot.
+   */
+  private mast(bx: number, by: number, tx: number, ty: number, chalk: boolean): void {
+    const { ctx, cam } = this;
+    const len = Math.hypot(tx - bx, ty - by) || 1;
+    const ux = (tx - bx) / len;
+    const uy = (ty - by) / len;
+    // Sideways, perpendicular to the mast.
+    const nx = uy;
+    const ny = -ux;
+    const halfBase = 0.4;
+    const halfTop = 0.2;
+    const at = (d: number, side: number): [number, number] => {
+      const half = halfBase + ((halfTop - halfBase) * d) / len;
+      return [cam.sx(bx + ux * d + nx * side * half), cam.sy(by + uy * d + ny * side * half)];
+    };
+    const lw = chalk ? 1.5 : Math.max(1.5, cam.scale * 0.07);
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = chalk ? PAL.chalkDim : PAL.towerDark;
+    ctx.lineWidth = lw;
+    ctx.beginPath();
+    for (let d = 0.6; d < len - 0.5; d += 1) {
+      const d2 = Math.min(len, d + 1);
+      ctx.moveTo(...at(d, -1));
+      ctx.lineTo(...at(d2, 1));
+      ctx.moveTo(...at(d, 1));
+      ctx.lineTo(...at(d2, -1));
+    }
+    ctx.stroke();
+    ctx.strokeStyle = chalk ? PAL.chalk : PAL.tower;
+    ctx.lineWidth = lw * 1.8;
+    ctx.beginPath();
+    // The legs pinch together at the foot, onto the hinge.
+    for (const side of [-1, 1]) {
+      ctx.moveTo(cam.sx(bx), cam.sy(by));
+      ctx.lineTo(...at(0.6, side));
+      ctx.lineTo(...at(len, side));
+    }
+    ctx.moveTo(...at(len, -1));
+    ctx.lineTo(...at(len, 1));
+    ctx.stroke();
+    // The hinge: a pin in a round shoe.
+    const r = Math.max(4, 0.22 * cam.scale);
+    ctx.fillStyle = chalk ? PAL.paper : PAL.towerDark;
+    ctx.strokeStyle = chalk ? PAL.chalk : PAL.tower;
+    ctx.lineWidth = chalk ? 1.5 : lw;
+    ctx.beginPath();
+    ctx.arc(cam.sx(bx), cam.sy(by), r, 0, TAU);
+    ctx.fill();
+    ctx.stroke();
+  }
+
   /** Lattice pylon: two legs with cross bracing and a cap. `chalk` draws the blueprint version. */
   private tower(x: number, base: number, top: number, chalk: boolean): void {
     const { ctx, cam } = this;
@@ -1569,6 +1716,7 @@ export class Renderer {
       const y = cam.sy(n.y);
       const hover = i === v.hoverNode || (drag && drag.from === i);
       if (n.anchor) {
+        if (n.block) this.block(n.x, n.y, n.y, 0, true);
         this.bolt(x, y, hover ? 1.25 : 1, v.time, !drag && v.showHint);
         // Paid anchors show their price until they're in use.
         if (n.price && !ed.design.members.some((m) => m.a === i || m.b === i)) this.label(`$${n.price.toLocaleString('en-US')}`, x, y - 16, PAL.gold);
@@ -1860,7 +2008,10 @@ export class Renderer {
       degree[l.a]++;
       degree[l.b]++;
     }
+    // A mast's foot is drawn as its hinge, not as a bolt.
+    const feet = new Set(w.masts.map((m) => m.base));
     for (let i = 0; i < nodeCount; i++) {
+      if (feet.has(i)) continue;
       const x = cam.sx(w.x[i]);
       const y = cam.sy(w.y[i]);
       if (w.im[i] === 0 && w.y[i] > run.level.waterY - 1) {

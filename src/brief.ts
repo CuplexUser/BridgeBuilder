@@ -1,6 +1,6 @@
 import { money } from './editor';
 import { seatPiers, type LevelDef } from './levels';
-import { MATERIALS, type MaterialId } from './physics/materials';
+import { BLOCK, MATERIALS, type MaterialId } from './physics/materials';
 import { VEHICLES } from './physics/vehicles';
 import { bonusLabel, SAFE_STRESS } from './scoring';
 import type { Design } from './design';
@@ -76,6 +76,10 @@ function rules(l: LevelDef): string[] {
   }
   if (seatPiers(l).length) out.push('A pier with no bolt is a seat: a deck laid on or across it rests there. It carries the deck but holds nothing down, so a leaf can lift off it.');
   if (l.convoy?.length) out.push(`A convoy: ${defs.length} vehicles cross nose to tail, so the bridge carries them all at once.`);
+  if (l.masts?.length) out.push('The masts stand on hinges: they carry a load straight down but tip over if pulled sideways. Balance every cable on a mast top with a backstay pulling the other way.');
+  if (l.blocks) {
+    out.push(`Concrete anchors: drag a member onto the bank, up to ${l.blocks.reach} m back, to set a ${BLOCK.mass / 1000} t block there for ${money(BLOCK.price)}. A steep pull lifts it out and a flat one slides it; past either it tears loose.`);
+  }
   if (l.anchorCost) out.push(`Toll bolts: building from any bolt off the road costs ${money(l.anchorCost)}, once per bolt.`);
   for (const [mat, max] of Object.entries(l.limits ?? {})) {
     out.push(`At most ${max} ${MATERIALS[mat as MaterialId].name.toLowerCase()} part${max === 1 ? '' : 's'}.`);

@@ -16,7 +16,9 @@ export const LIMITS = { minWidth: 4, maxWidth: 40, maxHeight: 24, minWater: -14,
 /** Tag on exported files, so an import can tell a level from any other JSON. */
 const FORMAT = 'bridge-builder-level';
 
-export type MakerTool = 'bolt' | 'pier' | 'pylon' | 'channel' | 'erase';
+export type MakerTool = 'bolt' | 'pier' | 'pylon' | 'mast' | 'channel' | 'erase';
+/** Most a level's concrete anchors may sit back from each bank, m. */
+export const MAX_BLOCK_REACH = 12;
 
 export function blankLevel(id: number): LevelDef {
   return {
@@ -139,6 +141,29 @@ export function togglePylon(l: LevelDef, x: number, y: number): { ok: boolean; m
   return { ok: true, msg: 'Pylon added' };
 }
 
+/** Raises a hinged mast from the water to a free top at (x, y), or removes the one topped there. */
+export function toggleMast(l: LevelDef, x: number, y: number): { ok: boolean; msg: string } {
+  const masts = (l.masts ??= []);
+  const i = masts.findIndex((t) => same([t[0], t[2]], x, y));
+  if (i >= 0) {
+    masts.splice(i, 1);
+    if (!masts.length) delete l.masts;
+    return { ok: true, msg: 'Mast removed' };
+  }
+  const fail = (msg: string) => {
+    if (!masts.length) delete l.masts;
+    return { ok: false, msg };
+  };
+  if (x <= 0 || x >= l.width) return fail('Masts stand in the gap');
+  if (y < 2) return fail('Mast tops go at least 2 m up');
+  if (y > LIMITS.maxHeight) return fail('Too high');
+  if (anchorIndex(l, x, y) >= 0) return fail('A bolt is already there');
+  const near = [...masts, ...(l.towers ?? [])].some((t) => Math.abs(t[0] - x) < 1.5) || l.piers.some(([px]) => Math.abs(px - x) < 1.5);
+  if (near) return fail('Too close to a pier, pylon or mast');
+  masts.push([x, l.waterY, y]);
+  return { ok: true, msg: l.blocks ? 'Mast added: it tips freely, so backstay it' : 'Mast added: offer concrete anchors in Settings so it can be backstayed' };
+}
+
 /** Mast height a new drawbridge's ship gets: 3 m over the channel, as on the built-in levels. */
 const DEFAULT_MAST = 3;
 
@@ -149,7 +174,7 @@ const DEFAULT_MAST = 3;
 export function openWaterAt(l: LevelDef, x: number): [number, number] | null {
   let lo = 0;
   let hi = l.width;
-  for (const px of [...l.piers.map((p) => p[0]), ...(l.towers ?? []).map((t) => t[0])]) {
+  for (const px of [...l.piers.map((p) => p[0]), ...[...(l.towers ?? []), ...(l.masts ?? [])].map((t) => t[0])]) {
     if (Math.abs(px - x) < 1) return null;
     if (px < x) lo = Math.max(lo, px + 1);
     else hi = Math.min(hi, px - 1);
@@ -218,6 +243,8 @@ export function eraseAt(l: LevelDef, x: number, y: number): { ok: boolean; msg: 
     const [tx, , ty] = l.towers![t];
     return togglePylon(l, tx, ty);
   }
+  const m = l.masts?.find((tw) => Math.abs(tw[0] - x) < 0.6 && y >= tw[1] && y <= tw[2]);
+  if (m) return toggleMast(l, m[0], m[2]);
   const c = l.channels?.findIndex(([c0, c1, top]) => x > c0 && x < c1 && y <= top + 0.5) ?? -1;
   if (c >= 0) {
     l.channels!.splice(c, 1);
@@ -251,6 +278,10 @@ export function setSize(l: LevelDef, width: number, rightY: number, waterY: numb
   if (l.towers) {
     l.towers = l.towers.filter(([x, , top]) => x >= 0 && x <= W && top > water).map(([x, , top]): Tower => [x, water, top]);
     if (!l.towers.length) delete l.towers;
+  }
+  if (l.masts) {
+    l.masts = l.masts.filter(([x, , top]) => x > 0 && x < W && top > water).map(([x, , top]): Tower => [x, water, top]);
+    if (!l.masts.length) delete l.masts;
   }
   if (l.channels) {
     l.channels = l.channels.map(([a, b, t]): [number, number, number] => [a, Math.min(b, W), Math.max(t, water + 1)]).filter(([a, b]) => b - a >= 2);
@@ -290,6 +321,8 @@ export function makerWarnings(l: LevelDef, found?: { cost: number; load: number 
     out.push('The deck over the ship channel is bolted at both ends, so it can’t lift. Tap one end’s bolt with the Bolt tool: on a pier, that makes a seat.');
   }
   if (!l.ship && l.materials.includes('ram')) out.push('Rams only move for a tall ship: set its mast height in Settings.');
+  if (l.masts?.length && !l.blocks) out.push('Masts tip over unless they are backstayed: offer concrete anchors in Settings.');
+  if (l.masts?.length && !l.materials.includes('cable')) out.push('Offer cable, or nothing can hold the masts up.');
   return out;
 }
 
@@ -342,6 +375,11 @@ export function parseLevel(json: string, id: number): LevelDef {
     const [x, base, top] = v.map(round);
     return inGap(x) && top > base && top <= LIMITS.maxHeight ? [x, Math.max(base, waterY - 10), top] : null;
   });
+  const masts = list(r.masts, (v): Tower | null => {
+    if (!Array.isArray(v) || v.length !== 3 || !v.every((n) => typeof n === 'number' && Number.isFinite(n))) return null;
+    const [x, base, top] = v.map(round);
+    return x > 0 && x < width && top > base && top <= LIMITS.maxHeight ? [x, Math.max(base, waterY - 10), top] : null;
+  });
   const channels = list(r.channels, (v): [number, number, number] | null => {
     if (!Array.isArray(v) || v.length !== 3 || !v.every((n) => typeof n === 'number' && Number.isFinite(n))) return null;
     const [a, b, top] = v.map(round);
@@ -379,6 +417,11 @@ export function parseLevel(json: string, id: number): LevelDef {
   };
   if (rightY) level.rightY = rightY;
   if (towers.length) level.towers = towers;
+  if (masts.length) level.masts = masts;
+  if (isObj(r.blocks)) {
+    const reach = clampInt(num(r.blocks.reach, 0), 0, MAX_BLOCK_REACH);
+    if (reach) level.blocks = { reach };
+  }
   if (channels.length) level.channels = channels;
   if (overhangs.length) level.overhangs = overhangs;
   if (convoy.length) level.convoy = convoy;

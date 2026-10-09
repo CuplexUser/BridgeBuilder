@@ -165,3 +165,38 @@ export function compressionLimit(m: Material, len: number): number {
   const f = m.buckleRef / Math.max(len, 1e-6);
   return m.compression * Math.min(1, f * f);
 }
+
+/**
+ * A mast stands on a hinge at its foot, so its top bolt tips freely: it carries a load straight
+ * down its length but nothing sideways. Cables pulling its top one way need backstays pulling
+ * the other, down to concrete anchors.
+ */
+export const MAST = {
+  /** Mass carried at its top, kg. */
+  mass: 800,
+  /** Axial stiffness E·A, N: far stiffer than any member, so it barely shortens. */
+  EA: 1e9,
+};
+
+/**
+ * A concrete anchor: a gravity block the player sets into the bank behind the gap. It holds
+ * by its own weight, by friction on the soil and by the soil packed against it, so a steep
+ * pull lifts it out and a flat one slides it. Past either it tears loose and drags.
+ */
+export const BLOCK = {
+  /** What one block costs, in dollars. */
+  price: 1500,
+  /** Mass, kg: its weight is what holds it down. */
+  mass: 5000,
+  /** Friction between the block and the soil under it while it holds. */
+  friction: 0.6,
+  /** Friction once it has torn loose and slides, lower than while it held. */
+  sliding: 0.3,
+  /** Sideways pull the soil packed against it takes on top of friction, N. */
+  bearing: 10000,
+  /** Width and depth of the block, m: it sits in a pit with its top, the bolt, flush with the ground. */
+  width: 1.4,
+  depth: 1,
+  /** Joints above an anchor strip must be at least this high over the bank, m, to keep the road clear. */
+  clearance: 3.5,
+};

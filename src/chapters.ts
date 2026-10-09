@@ -79,6 +79,14 @@ export const CHAPTERS: ChapterDef[] = [
     effort: 'Medium builds · 15–40 parts',
     levels: [31, 32, 33, 34, 35],
   },
+  {
+    id: 8,
+    name: 'Anchorage',
+    blurb: 'Hinged masts and concrete anchors you set yourself. Balance every pull, or the bank lets go.',
+    difficulty: 8,
+    effort: 'Big builds · 30–60 parts',
+    levels: [36, 37, 38, 39, 40],
+  },
 ];
 
 export function levelById(id: number): LevelDef {

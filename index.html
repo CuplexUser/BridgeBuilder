@@ -153,7 +153,7 @@
     <section id="scr-workshop" class="screen hidden">
       <div class="panel wide">
         <h2>Level editor</h2>
-        <p class="muted">Make your own levels: banks, bolts, piers, pylons, ship channels, vehicles, budget and goals. They're kept in this browser. Export one to share it, and import levels others made.</p>
+        <p class="muted">Make your own levels: banks, bolts, piers, pylons, masts, concrete anchors, ship channels, vehicles, budget and goals. They're kept in this browser. Export one to share it, and import levels others made.</p>
         <div id="ws-list" class="ws-list"></div>
         <div class="row">
           <button class="btn" data-act="back">BACK <kbd>Esc</kbd></button>
@@ -172,8 +172,9 @@
           <li><b>Bolt <kbd>1</kbd></b> Tap to add an anchor the player can build from, or tap one to remove it. Taking the bolt off a pier leaves a seat. The near road end always stays.</li>
           <li><b>Pier <kbd>2</kbd></b> Tap a bolt over the gap to stand a pier under it. Tap anywhere else in the gap for a <i>seat</i>: a pier with no bolt. A deck laid on it or across it rests there, carried without being held down.</li>
           <li><b>Pylon <kbd>3</kbd></b> Tap where a pylon top should go: it rises from the water with a bolt on top.</li>
-          <li><b>Channel <kbd>4</kbd></b> Tap open water to fill the stretch between the piers and banks either side, up to the road. Or drag to mark your own span, kept clear up to the height you start at. A dashed outline shows where it lands before you let go.</li>
-          <li><b>Erase <kbd>5</kbd></b> Tap a bolt, seat, pylon or channel to remove it.</li>
+          <li><b>Mast <kbd>4</kbd></b> Tap where a mast top should go: it rises from the water on a hinge, so its top tips freely. Players hold it up with backstays to concrete anchors, which you offer in Settings.</li>
+          <li><b>Channel <kbd>5</kbd></b> Tap open water to fill the stretch between the piers and banks either side, up to the road. Or drag to mark your own span, kept clear up to the height you start at. A dashed outline shows where it lands before you let go.</li>
+          <li><b>Erase <kbd>6</kbd></b> Tap a bolt, seat, pylon, mast or channel to remove it.</li>
         </ul>
         <p class="dock-note">A tap acts where your finger lifts, so you can slide it into place first, watching the magnifier. Two fingers pan and zoom without placing anything.</p>
         <h3>Drawbridges and rams</h3>
@@ -266,6 +267,7 @@
         <fieldset>
           <legend>Materials</legend>
           <div id="mk-mats" class="mk-mats"></div>
+          <label>Concrete anchors: how far back on each bank, m (0 for none) <input id="mk-blocks" type="number" min="0" max="12" step="1" /></label>
         </fieldset>
         <fieldset>
           <legend>Money and goals</legend>

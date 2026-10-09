@@ -1,6 +1,6 @@
 import { segmentHitsRect, type Design } from '../design';
 import { bankY, goalX, seatPiers, START_X, type LevelDef } from '../levels';
-import { compressionLimit, MATERIALS, type MaterialId } from './materials';
+import { BLOCK, compressionLimit, MAST, MATERIALS, type MaterialId } from './materials';
 import { StressLog } from './stresslog';
 import { VEHICLES, type VehicleDef } from './vehicles';
 
@@ -104,6 +104,20 @@ export interface Bend {
   bc: Link;
 }
 
+/** A concrete anchor: bolted down while it holds, a heavy free mass dragging over the bank once it tears loose. */
+export interface Block {
+  /** Its joint: the bolt on top. */
+  p: number;
+  /** Where it was set, its bolt flush with the ground. */
+  x0: number;
+  ground: number;
+  /** Signed, smoothed share of what it can hold, 0 to 1: it tears loose at 1. */
+  util: number;
+  /** Highest utilization so far. */
+  peak: number;
+  loose: boolean;
+}
+
 export interface BreakEvent {
   link: Link;
   x: number;
@@ -145,6 +159,14 @@ export class World {
   /** Members passing over a pier with no bolt: borne up there while they bear down, free once they lift. */
   rests: Rest[] = [];
   breaks: BreakEvent[] = [];
+  /** Concrete anchors set into the banks. */
+  blocks: Block[] = [];
+  /** Hinged masts: the fixed joint at the foot and the bolt on top, which tips freely. */
+  masts: { base: number; top: number }[] = [];
+  /** Concrete anchors that tore loose, by index into blocks, for effects to pick up. */
+  loosened: number[] = [];
+  /** Left bank's x edge and the right bank's x edge and height, for blocks dragged over the ground. */
+  banks = { width: 0, rightY: 0 };
   floorY: number;
   /** Scaled 0→1 at the start of a run so the bridge takes its own weight gently. */
   gravityScale = 1;
@@ -262,6 +284,7 @@ export class World {
       this.solveBends(h);
       this.solveContacts();
       this.solveSeats();
+      this.solveBlocks();
 
       const invH = 1 / h;
       for (let i = 0; i < n; i++) {
@@ -284,6 +307,72 @@ export class World {
     }
 
     this.updateStress(dt);
+    this.updateBlocks();
+  }
+
+  /** Height of the ground under x, or -Infinity over the gap: a block dragged off the edge falls in. */
+  private groundAt(x: number): number {
+    if (x <= 0) return 0;
+    if (x >= this.banks.width) return this.banks.rightY;
+    return -Infinity;
+  }
+
+  /**
+   * A loose block can't sink into the bank, and drags along it against friction. Dragged out of
+   * its pit, it rides up the pit's edge onto the ground.
+   */
+  private solveBlocks(): void {
+    const { x, y, px } = this;
+    for (const b of this.blocks) {
+      if (!b.loose) continue;
+      const p = b.p;
+      const out = Math.min(1, Math.abs(x[p] - b.x0) / BLOCK.width);
+      const g = this.groundAt(x[p]) + BLOCK.depth * out;
+      const sink = g - y[p];
+      if (sink <= 0) continue;
+      y[p] = g;
+      // Kinetic friction: the slide this substep shrinks by friction times how hard it pressed in.
+      const slide = x[p] - px[p];
+      const grip = BLOCK.sliding * sink;
+      x[p] = Math.abs(slide) <= grip ? px[p] : x[p] - Math.sign(slide) * grip;
+    }
+  }
+
+  /**
+   * Adds up what the members pull on each concrete anchor. Its weight holds it down against
+   * lift, and friction under it plus the soil packed against it hold it against a sideways
+   * pull; lifting it also takes weight off the friction. Past either, it tears loose.
+   */
+  private updateBlocks(): void {
+    if (!this.blocks.length) return;
+    const { x, y } = this;
+    const weight = BLOCK.mass * -GRAVITY;
+    for (const [i, b] of this.blocks.entries()) {
+      if (b.loose) continue;
+      const p = b.p;
+      let fx = 0;
+      let fy = 0;
+      for (const l of this.links) {
+        if (!l.bridge || l.broken || (l.a !== p && l.b !== p)) continue;
+        const o = l.a === p ? l.b : l.a;
+        const dx = x[o] - x[p];
+        const dy = y[o] - y[p];
+        const len = Math.hypot(dx, dy) || 1;
+        const f = MATERIALS[l.mat!].EA * l.strain;
+        fx += (f * dx) / len;
+        fy += (f * dy) / len;
+      }
+      const lift = fy / weight;
+      const hold = Math.max(0, BLOCK.friction * (weight - fy)) + BLOCK.bearing;
+      const ratio = Math.max(lift, Math.abs(fx) / hold);
+      b.util += (ratio - b.util) * STRESS_SMOOTHING;
+      b.peak = Math.max(b.peak, b.util);
+      if (b.util >= 1) {
+        b.loose = true;
+        this.im[p] = 1 / BLOCK.mass;
+        this.loosened.push(i);
+      }
+    }
   }
 
   private solveBends(h: number): void {
@@ -559,7 +648,8 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
   const defs = convoyLayout(level).map((c) => c.def);
   const { ends, extra, seats } = seatJoints(design, level);
   const joints = design.nodes.length + extra.length;
-  const world = new World(joints + 6 * defs.length + 2, level.waterY - 8);
+  const masts = level.masts ?? [];
+  const world = new World(joints + masts.length + 6 * defs.length + 2, level.waterY - 8);
   const mass = new Float64Array(joints).fill(JOINT_MASS);
   design.members.forEach((m, i) => {
     const a = design.nodes[m.a];
@@ -568,9 +658,20 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
     mass[ends[i][0]] += half;
     mass[ends[i][1]] += half;
   });
-  design.nodes.forEach((n, i) => world.addParticle(n.x, n.y, n.anchor ? 0 : mass[i]));
+  design.nodes.forEach((n, i) => world.addParticle(n.x, n.y, n.mast ? mass[i] + MAST.mass : n.anchor ? 0 : mass[i]));
+  world.banks = { width: level.width, rightY: bankY(level) };
+  design.nodes.forEach((n, p) => {
+    if (n.block) world.blocks.push({ p, x0: n.x, ground: n.y, util: 0, peak: 0, loose: false });
+  });
   extra.forEach((node, k) => world.addParticle(design.nodes[node].x, design.nodes[node].y, mass[design.nodes.length + k]));
-  world.bridgeCount = joints;
+  // Each mast's foot is a fixed hinge, joined to its top by one very stiff strut.
+  for (const [x, base, top] of masts) {
+    const foot = world.addParticle(x, base, 0);
+    const head = design.findNode(x, top);
+    world.addLink(foot, head, (top - base) / MAST.EA);
+    world.masts.push({ base: foot, top: head });
+  }
+  world.bridgeCount = joints + masts.length;
   for (const p of seats) world.seats.push({ p, x: world.x[p], y: world.y[p] });
   design.members.forEach((m, i) => {
     const mat = MATERIALS[m.mat];
@@ -879,6 +980,7 @@ export class TestRun {
       if (l.bridge && !l.broken) this.peakStress = Math.max(this.peakStress, Math.abs(l.stress));
     }
     for (const p of w.jointLinks.keys()) if (w.jointLinks[p]) this.peakStress = Math.max(this.peakStress, Math.min(1, w.jointRatio(p)));
+    for (const b of w.blocks) this.peakStress = Math.max(this.peakStress, Math.min(1, b.util));
     if (this.status !== 'running') this.endedAt ??= this.time;
     this.log.record(this.time, w, this.phase, this.endedAt);
     if (this.status !== 'running') return;
@@ -923,6 +1025,8 @@ export class TestRun {
       const mat = MATERIALS[crushed.mat!];
       const def = this.vehicles.map((v) => v.def).find((d) => d.tonnes === crushed.crushedBy) ?? this.vehicle.def;
       reason = `The ${def.name.toLowerCase()} weighs ${def.tonnes} t. ${mat.name} carries only ${mat.rating} t.`;
+    } else if (this.world.blocks.some((b) => b.loose)) {
+      reason = 'A concrete anchor tore loose. Too steep a pull lifts it, too flat a pull slides it; or share it between two.';
     }
     this.reason = reason;
   }

@@ -16,6 +16,7 @@ import {
   saveCustom,
   toggleBolt,
   togglePier,
+  toggleMast,
   togglePylon,
   type CustomSave,
   type MakerTool,
@@ -554,6 +555,8 @@ export class Game {
         return togglePier(l, x, y);
       case 'pylon':
         return togglePylon(l, x, y);
+      case 'mast':
+        return toggleMast(l, x, y);
       case 'erase':
         return eraseAt(l, x, y);
       case 'channel':
@@ -624,7 +627,7 @@ export class Game {
     const right = w < 560 ? 0 : this.makerUi.panelWidth();
     const rect = { x: 12, y: top, w: Math.max(120, w - 24 - right), h: Math.max(100, this.renderer.h - top - bottom) };
     // Leave headroom above the banks for pylons.
-    this.cam.fit(-2.5, l.width + 2.5, l.waterY - 0.5, Math.max(this.editor.topY + 0.5, 10), rect, snap);
+    this.cam.fit(-sideRoom(l), l.width + sideRoom(l), l.waterY - 0.5, Math.max(this.editor.topY + 0.5, 10), rect, snap);
   }
 
   /** Plays a custom level: build, test and score it, with nothing saved to the career. */
@@ -1510,6 +1513,7 @@ export class Game {
   }
 
   private handleBreaks(sim: TestRun): void {
+    this.handleLooseBlocks(sim);
     const breaks = sim.world.breaks;
     if (breaks.length === 0) return;
     for (const b of breaks) {
@@ -1540,6 +1544,26 @@ export class Game {
       this.anyBreak = true;
     }
     breaks.length = 0;
+  }
+
+  /** A concrete anchor tearing out of the bank: soil and dust thrown up, and a heavy thud. */
+  private handleLooseBlocks(sim: TestRun): void {
+    const w = sim.world;
+    for (const i of w.loosened) {
+      const b = w.blocks[i];
+      const x = w.x[b.p];
+      const y = w.y[b.p];
+      this.particles.burst(PK.Splinter, x, y, 20, 5, 1.3, 0.22, ['#6b4f36', '#8a6a4a', PAL.concrete], 3);
+      this.particles.burst(PK.Dust, x, y, 18, 2.4, 1.5, 0.4, ['#b9a88f', '#d8cbb4'], 1);
+      if (!this.demo) {
+        sfx.crack('heavy');
+        this.shake.add(0.5);
+        this.float(x, y + 1.2, 'PULLED OUT!', PAL.bad, 24, 0.9);
+        if (!this.anyBreak) this.slowmo = 0.7;
+      }
+      this.anyBreak = true;
+    }
+    w.loosened.length = 0;
   }
 
   private trackRun(dt: number): void {
@@ -1650,13 +1674,14 @@ export class Game {
   private buildBounds(): [number, number, number, number] {
     const L = this.level;
     const top = this.editor?.topY ?? 4;
-    return [-2.5, L.width + 2.5, L.waterY - 0.5, top + 0.5];
+    const side = sideRoom(L);
+    return [-side, L.width + side, L.waterY - 0.5, top + 0.5];
   }
 
   private testBounds(): [number, number, number, number] {
     const L = this.level;
-    const top = Math.max(4, bankY(L) + 4, ...L.anchors.map((a) => a[1] + 2.5));
-    return [START_X - 2, goalX(L) + 2.5, L.waterY - 1, top];
+    const top = Math.max(4, bankY(L) + 4, ...L.anchors.map((a) => a[1] + 2.5), ...(L.masts ?? []).map((m) => m[2] + 2.5));
+    return [Math.min(START_X - 2, -sideRoom(L)), Math.max(goalX(L) + 2.5, L.width + sideRoom(L)), L.waterY - 1, top];
   }
 
   private fitCamera(snap: boolean): void {
@@ -2152,7 +2177,8 @@ export class Game {
       this.keyboardMode = true;
       const nx = ed.cursorX + dx;
       const ny = ed.cursorY + dy;
-      if (nx < -1 || nx > this.level.width + 1 || ny > ed.topY || ny < this.level.waterY + 1) return;
+      const side = sideRoom(this.level) - 1.5;
+      if (nx < -side || nx > this.level.width + side || ny > ed.topY || ny < this.level.waterY + 1) return;
       ed.cursorX = nx;
       ed.cursorY = ny;
       sfx.tick();
@@ -2239,4 +2265,9 @@ export class Game {
       this.refreshHud();
     }
   }
+}
+
+/** How far past each bank edge to frame the build view: a little ground, or the whole anchor strip. */
+function sideRoom(level: LevelDef): number {
+  return level.blocks ? level.blocks.reach + 1.5 : 2.5;
 }

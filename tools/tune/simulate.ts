@@ -33,6 +33,7 @@ export function simulate(level: LevelDef, designJson: string, seconds = 30): Out
   }
   const crossed = run.status === 'success';
   const progress = crossed ? 1 : Math.max(0, Math.min(1, (furthest - START_X) / (goalX(level) - START_X)));
-  const broken = run.world.links.some((l) => l.bridge && l.broken);
+  // A concrete anchor torn out of the bank is as much a failure as a snapped member.
+  const broken = run.world.links.some((l) => l.bridge && l.broken) || run.world.blocks.some((b) => b.loose);
   return { ...base, valid: true, crossed, reason: crossed ? '' : run.reason || 'timed out', peak: run.peakStress, progress, broken };
 }

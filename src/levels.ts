@@ -49,6 +49,11 @@ export interface LevelDef {
   vehicle: VehicleId;
   waterY: number;
   towers?: Tower[];
+  /**
+   * Steel masts on a hinge at their foot: [x, baseY, topY], with a bolt on top that is not one of
+   * the level's anchors, since it tips freely. It only pushes down, so backstays have to hold it.
+   */
+  masts?: Tower[];
   overhangs?: Overhang[];
   /** Ship channels: [x0, x1, top]. Nothing may be built between x0 and x1 from the water up to `top`. */
   channels?: [number, number, number][];
@@ -64,6 +69,11 @@ export interface LevelDef {
   limits?: Partial<Record<MaterialId, number>>;
   /** Price of building from an anchor, charged once per anchor used; the two road ends are free. */
   anchorCost?: number;
+  /**
+   * Concrete anchors on offer: blocks the player sets into either bank, on whole meters from
+   * 1 m to `reach` m back from the edge, at a price each. See BLOCK in materials.
+   */
+  blocks?: { reach: number };
   /** Scene for the test drive, by theme id. Built-in levels use their chapter's; custom levels pick one. */
   theme?: string;
   /**
@@ -561,9 +571,103 @@ export const BASE_LEVELS: LevelBase[] = [
     limits: { ram: 1 },
     waterY: -5,
   },
+  {
+    id: 36,
+    name: 'Deadweight',
+    tip: 'The masts only push down. Run a backstay from each mast top to a concrete anchor on the bank, or the main cable pulls them over.',
+    width: 16,
+    anchors: [[0, 0], [16, 0], [0, -2], [16, -2]],
+    piers: [],
+    masts: [[3, -5, 8], [13, -5, 8]],
+    blocks: { reach: 6 },
+    materials: ['road', 'wood', 'cable'],
+    vehicle: 'car',
+    // A wood truss could carry the car alone; this leaves enough for a strut or two.
+    limits: { wood: 4 },
+    waterY: -5,
+    hint: [
+      [[0, 0], [16, 0], 'road'],
+      [[3, 8], [4, 6], 'cable'],
+      [[4, 6], [6, 4], 'cable'],
+      [[6, 4], [8, 3], 'cable'],
+      [[8, 3], [10, 4], 'cable'],
+      [[10, 4], [12, 6], 'cable'],
+      [[12, 6], [13, 8], 'cable'],
+      [[4, 6], [4, 0], 'cable'],
+      [[6, 4], [6, 0], 'cable'],
+      [[8, 3], [8, 0], 'cable'],
+      [[10, 4], [10, 0], 'cable'],
+      [[12, 6], [12, 0], 'cable'],
+      [[3, 8], [2, 0], 'cable'],
+      [[13, 8], [14, 0], 'cable'],
+      [[3, 8], [0, 4], 'cable'],
+      [[0, 4], [-3, 0], 'cable'],
+      [[13, 8], [16, 4], 'cable'],
+      [[16, 4], [19, 0], 'cable'],
+    ],
+    hintSolves: true,
+  },
+  {
+    id: 37,
+    name: 'Lift-Off',
+    tip: 'Tall masts and little room behind them. A steep backstay pulls straight up, and a block only weighs so much.',
+    width: 18,
+    anchors: [[0, 0], [18, 0], [0, -2], [18, -2]],
+    piers: [],
+    masts: [[2, -5, 10], [16, -5, 10]],
+    blocks: { reach: 4 },
+    materials: ['road', 'wood', 'cable'],
+    vehicle: 'truck',
+    limits: { wood: 4 },
+    waterY: -5,
+  },
+  {
+    id: 38,
+    name: 'Raise Your Own',
+    tip: 'No masts this time. Brace a steel tower on each pair of piers, anchor it back, and hang a stiff heavy deck from it.',
+    width: 24,
+    anchors: [[0, 0], [24, 0], [2, 0], [4, 0], [20, 0], [22, 0]],
+    piers: [[2, 0], [4, 0], [20, 0], [22, 0]],
+    blocks: { reach: 6 },
+    materials: ['road', 'heavy', 'wood', 'steel', 'cable'],
+    vehicle: 'bus',
+    limits: { wood: 6, steel: 14 },
+    waterY: -6,
+  },
+  {
+    id: 39,
+    name: 'Side Spans',
+    tip: 'The backstays can carry more than the masts: hang the side spans from them too.',
+    width: 30,
+    anchors: [[0, 0], [30, 0], [0, -3], [30, -3]],
+    piers: [],
+    masts: [[8, -6, 12], [22, -6, 12]],
+    blocks: { reach: 8 },
+    materials: ['road', 'heavy', 'wood', 'steel', 'cable'],
+    vehicle: 'truck',
+    limits: { wood: 4, steel: 4 },
+    waterY: -6,
+  },
+  {
+    id: 40,
+    name: 'Anchorage',
+    tip: 'Forty tonnes on a hung deck. One block per side will not hold it.',
+    width: 36,
+    anchors: [[0, 0], [36, 0], [0, -3], [36, -3]],
+    piers: [],
+    masts: [[8, -7, 12], [28, -7, 12]],
+    blocks: { reach: 10 },
+    materials: ['road', 'heavy', 'wood', 'steel', 'cable'],
+    vehicle: 'semi',
+    limits: { wood: 4, steel: 4 },
+    waterY: -7,
+  },
 ];
 
-export const LEVELS: LevelDef[] = BASE_LEVELS.map((b) => applyTuning(b, TUNED.levels[b.id]));
+/** Stand-in numbers for a level the tuner hasn't run on yet: playable, but with no real target. */
+export const UNTUNED: Tuned = { money: 100000, target: 0, bonus: { kind: 'stress', max: 0.5 } };
+
+export const LEVELS: LevelDef[] = BASE_LEVELS.map((b) => applyTuning(b, TUNED.levels[b.id] ?? UNTUNED));
 
 export const START_X = -8;
 

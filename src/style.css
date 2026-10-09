@@ -2163,6 +2163,10 @@ label.btn {
   --c: var(--steel);
 }
 
+.mk-tool[data-tool='mast'] {
+  --c: var(--wood);
+}
+
 .mk-tool[data-tool='channel'] {
   --c: var(--cyan);
 }

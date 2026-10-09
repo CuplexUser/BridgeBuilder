@@ -24,8 +24,8 @@ export function canonical(d: Design): string {
 
 /** The parts of a level that change how a design behaves. */
 export function levelKey(l: LevelDef): string {
-  const { width, rightY, anchors, piers, waterY, towers, overhangs, channels, vehicle, materials } = l;
-  return JSON.stringify({ width, rightY, anchors, piers, waterY, towers, overhangs, channels, vehicle, materials });
+  const { width, rightY, anchors, piers, waterY, towers, masts, blocks, overhangs, channels, vehicle, materials } = l;
+  return JSON.stringify({ width, rightY, anchors, piers, waterY, towers, masts, blocks, overhangs, channels, vehicle, materials });
 }
 
 /** The outcome of a run that never finished: it counts as a design that didn't cross. */

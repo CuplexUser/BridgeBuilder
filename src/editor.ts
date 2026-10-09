@@ -1,10 +1,13 @@
 import { Design, segmentsOverlap, type GridPt } from './design';
 import type { LevelDef } from './levels';
-import { MATERIALS, type MaterialId } from './physics/materials';
-import { crossesChannel, MIN_JOINT_GAP, pointAllowed, topY } from './rules';
+import { BLOCK, MATERIALS, type MaterialId } from './physics/materials';
+import { blockSpot, crossesChannel, MIN_JOINT_GAP, pointAllowed, topY } from './rules';
 
 export interface DragState {
-  /** Start node index, or -1 when the drag starts from a point on a beam that will be split. */
+  /**
+   * Start node index, or -1 when the drag starts from a point on a beam that will be split,
+   * or from an empty concrete anchor spot that gets a block when the member is placed.
+   */
   from: number;
   sx: number;
   sy: number;
@@ -64,11 +67,13 @@ export class Editor {
     if (saved) {
       try {
         const d = Design.deserialize(saved);
-        const anchors = d.nodes.filter((n) => n.anchor);
-        const same = anchors.length === level.anchors.length && level.anchors.every(([x, y]) => anchors.some((n) => n.x === x && n.y === y));
+        const anchors = d.nodes.filter((n) => n.anchor && !n.block);
+        const bolts = [...level.anchors, ...(level.masts ?? []).map(([x, , top]) => [x, top])];
+        const same = anchors.length === bolts.length && bolts.every(([x, y]) => anchors.some((n) => n.x === x && n.y === y));
+        const blocksOk = d.nodes.every((n) => !n.block || blockSpot(level, n.x, n.y));
         // Prices, budgets and materials may have changed since the design was saved.
         const affordable = d.cost() <= level.money && d.members.every((m) => level.materials.includes(m.mat));
-        if (same && affordable) {
+        if (same && blocksOk && affordable) {
           d.priceAnchors(level);
           this.design = d;
         }
@@ -107,7 +112,17 @@ export class Editor {
   }
 
   pointAllowed(x: number, y: number): boolean {
-    return this.design.findNode(x, y) >= 0 || pointAllowed(this.level, x, y);
+    return this.design.findNode(x, y) >= 0 || pointAllowed(this.level, x, y) || blockSpot(this.level, x, y);
+  }
+
+  /** The nearest empty concrete anchor spot within radius, or null. */
+  blockSpotAt(wx: number, wy: number, radius: number): [number, number] | null {
+    const L = this.level;
+    if (!L.blocks) return null;
+    const x = wx < L.width / 2 ? Math.round(wx) : L.width + Math.round(wx - L.width);
+    const y = x < 0 ? 0 : (L.rightY ?? 0);
+    if (!blockSpot(L, x, y) || this.design.findNode(x, y) >= 0 || Math.hypot(x - wx, y - wy) > radius) return null;
+    return [x, y];
   }
 
   nodeAt(wx: number, wy: number, radius: number): number {
@@ -193,8 +208,13 @@ export class Editor {
     this.drag = { from: -1, sx: p.x, sy: p.y, fromSplit: p.member, tx: p.x, ty: p.y, toSplit: -1, path: [[p.x, p.y]], cost: 0, valid: false, reason: '' };
   }
 
-  /** Starts a drag at a node, or failing that at a beam attach point. Returns what was picked. */
-  beginAt(wx: number, wy: number, nodeRadius: number, attachRadius: number): 'node' | 'split' | null {
+  /** Starts a drag from an empty concrete anchor spot; the block is set there when the member is placed. */
+  beginBlock(x: number, y: number): void {
+    this.drag = { from: -1, sx: x, sy: y, fromSplit: -1, tx: x, ty: y, toSplit: -1, path: [[x, y]], cost: 0, valid: false, reason: '' };
+  }
+
+  /** Starts a drag at a node, a beam attach point or an empty anchor spot. Returns what was picked. */
+  beginAt(wx: number, wy: number, nodeRadius: number, attachRadius: number): 'node' | 'split' | 'block' | null {
     const node = this.nodeAt(wx, wy, nodeRadius);
     if (node >= 0) {
       this.begin(node);
@@ -204,6 +224,11 @@ export class Editor {
     if (p) {
       this.beginSplit(p);
       return 'split';
+    }
+    const spot = this.blockSpotAt(wx, wy, nodeRadius);
+    if (spot) {
+      this.beginBlock(spot[0], spot[1]);
+      return 'block';
     }
     return null;
   }
@@ -252,6 +277,8 @@ export class Editor {
     for (const n of this.design.nodes) {
       if (Math.abs(n.x - px) < 1.5 && Math.abs(n.y - py) < 1.5) consider(n.x, n.y, JOINT_BONUS, -1);
     }
+    const spot = this.blockSpotAt(px, py, 1.5);
+    if (spot) consider(spot[0], spot[1], JOINT_BONUS, -1);
     const near = this.attachAt(px, py, 1.5, drag.fromSplit);
     if (near) consider(near.x, near.y, JOINT_BONUS, near.member);
     drag.tx = bx;
@@ -269,14 +296,29 @@ export class Editor {
     drag.valid = drag.reason === '';
   }
 
-  /** What any paid anchor this drag starts using would add to the bill. */
+  /** What any paid anchor this drag starts using, or any concrete anchor it sets, would add to the bill. */
   private newAnchorCost(drag: DragState): number {
     const { nodes, members } = this.design;
     let c = 0;
     for (const i of new Set([drag.from, this.design.findNode(drag.tx, drag.ty)])) {
       if (i >= 0 && nodes[i].price && !members.some((m) => m.a === i || m.b === i)) c += nodes[i].price!;
     }
+    if (this.newBlockAtStart(drag)) c += BLOCK.price;
+    if (this.design.findNode(drag.tx, drag.ty) < 0 && blockSpot(this.level, drag.tx, drag.ty)) c += BLOCK.price;
     return c;
+  }
+
+  /** The drag starts from an empty anchor spot. */
+  private newBlockAtStart(drag: DragState): boolean {
+    return drag.from < 0 && drag.fromSplit < 0;
+  }
+
+  /** Which bank's ground the point is on, at or behind the gap's edge where concrete anchors sit: -1 left, 1 right, 0 neither. */
+  private groundSide(x: number, y: number): number {
+    const L = this.level;
+    if (x <= 1e-9 && Math.abs(y) < 1e-9) return -1;
+    if (x >= L.width - 1e-9 && Math.abs(y - (L.rightY ?? 0)) < 1e-9) return 1;
+    return 0;
   }
 
   /** Parts of the current material still allowed on this level, or null when there's no limit. */
@@ -309,6 +351,8 @@ export class Editor {
       const ib = this.design.findNode(bx, by);
       if (ib < 0 && nodes.some((n) => Math.hypot(n.x - bx, n.y - by) < MIN_JOINT_GAP)) return 'Too close to a joint';
       if (ia >= 0 && ib >= 0 && this.design.findMember(ia, ib) >= 0) return 'Already joined';
+      const ground = this.groundSide(ax, ay);
+      if (ground && ground === this.groundSide(bx, by)) return 'Lies on the ground';
       for (const m of members) {
         const c = nodes[m.a];
         const e = nodes[m.b];
@@ -335,14 +379,14 @@ export class Editor {
       this.ages.push(this.ages[member] ?? 10);
       return node;
     };
-    let from = drag.fromSplit >= 0 ? split(drag.fromSplit, drag.sx, drag.sy) : drag.from;
+    let from = drag.fromSplit >= 0 ? split(drag.fromSplit, drag.sx, drag.sy) : drag.from >= 0 ? drag.from : this.design.ensureBlock(drag.sx, drag.sy);
     if (drag.toSplit >= 0) split(drag.toSplit, drag.tx, drag.ty);
     const path = drag.path;
     const count = path.length - 1;
     for (let i = 0; i < count; i++) {
       const [ax, ay] = path[i];
       const [bx, by] = path[i + 1];
-      const to = this.design.ensureNode(bx, by);
+      const to = blockSpot(this.level, bx, by) ? this.design.ensureBlock(bx, by) : this.design.ensureNode(bx, by);
       this.design.members.push({ a: from, b: to, mat: this.mat });
       // Negative age delays the pop-in so a road run unrolls piece by piece.
       this.ages.push(-i * 0.07);

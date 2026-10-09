@@ -1,7 +1,7 @@
 import { Design, type GridPt } from '../../src/design';
 import type { BonusGoal, GeometryKey, LevelDef } from '../../src/levels';
 import type { MaterialId } from '../../src/physics/materials';
-import { deck, hang, roadRun, SOLUTIONS, trussOver, type TrussMats } from '../../src/solutions';
+import { deck, hang, liftOff, roadRun, SOLUTIONS, trussOver, type TrussMats } from '../../src/solutions';
 
 /** A level's geometry for one choice of its tunable parameters. */
 export type Shape = Partial<Pick<LevelDef, GeometryKey>>;
@@ -36,6 +36,48 @@ function finale(p: Params): Shape {
     towers: [[a, -8, p.top], [b, -8, p.top]],
     channels: p.clear > 0 ? [[a + 1, b - 1, p.clear]] : [],
   };
+}
+
+/**
+ * A design without some of its concrete anchors, and the cable chains that led only to them:
+ * the shortcut a level with masts should rule out.
+ */
+function dropBlocks(d0: Design, drop: (x: number, y: number) => boolean): Design {
+  const d = Design.deserialize(d0.serialize());
+  const gone = new Set(d.nodes.flatMap((n, i) => (n.block && drop(n.x, n.y) ? [i] : [])));
+  for (let before = -1; before !== d.members.length; ) {
+    before = d.members.length;
+    const degree = d.nodes.map(() => 0);
+    for (const m of d.members) {
+      degree[m.a]++;
+      degree[m.b]++;
+    }
+    const loose = (i: number) => gone.has(i) || (!d.nodes[i].anchor && degree[i] === 1);
+    d.members = d.members.filter((m) => !loose(m.a) && !loose(m.b));
+  }
+  d.pruneNodes();
+  return d;
+}
+
+/** The reference with no concrete anchors at all: the masts or towers just tip over. */
+const noBlocks = { name: 'no concrete anchors', build: (l: LevelDef) => dropBlocks(SOLUTIONS[l.id](l), () => true) };
+
+/** The reference keeping only the block nearest each bank: the steepest pull. */
+function nearestBlocks(l: LevelDef): Design {
+  const d = SOLUTIONS[l.id](l);
+  const xs = d.nodes.filter((n) => n.block).map((n) => n.x);
+  const left = Math.max(...xs.filter((x) => x < 0));
+  const right = Math.min(...xs.filter((x) => x > l.width));
+  return dropBlocks(d, (x) => x !== left && x !== right);
+}
+
+/** The reference keeping one block per bank, the one farthest back. */
+function farthestBlocks(l: LevelDef): Design {
+  const d = SOLUTIONS[l.id](l);
+  const xs = d.nodes.filter((n) => n.block).map((n) => n.x);
+  const left = Math.min(...xs.filter((x) => x < 0));
+  const right = Math.max(...xs.filter((x) => x > l.width));
+  return dropBlocks(d, (x) => x !== left && x !== right);
 }
 
 /** Deck bolts on the pylons, as deck waypoints from bank to bank. */
@@ -131,6 +173,15 @@ export const INTENTS: Record<number, Intent> = {
         return d.add([0, -3], [2, 0], 'steel').add([34, -3], [32, 0], 'steel');
       },
     })),
+  },
+  36: { requires: ['cable'], shortcuts: [noBlocks] },
+  // A steep backstay lifts its block out: one block per side, at the near end of the strip, fails.
+  37: { requires: ['cable'], shortcuts: [noBlocks, { name: 'one steep backstay per mast', build: (l) => liftOff(l, 2) }] },
+  38: { requires: ['cable', 'steel'], shortcuts: [noBlocks] },
+  39: { requires: ['cable'], shortcuts: [noBlocks] },
+  40: {
+    requires: ['cable'],
+    shortcuts: [noBlocks, { name: 'one block per side, nearest', build: nearestBlocks }, { name: 'one block per side, farthest', build: farthestBlocks }],
   },
   30: {
     params: { clear: [2, 1.5, 1], side: [8, 10], top: [14, 16, 12] },

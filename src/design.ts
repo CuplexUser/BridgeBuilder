@@ -1,5 +1,5 @@
 import type { LevelDef } from './levels';
-import { MATERIALS, type MaterialId } from './physics/materials';
+import { BLOCK, MATERIALS, type MaterialId } from './physics/materials';
 
 export interface DNode {
   x: number;
@@ -7,6 +7,10 @@ export interface DNode {
   anchor: boolean;
   /** What building from this anchor costs, on levels that charge for anchors. */
   price?: number;
+  /** A concrete anchor the player set into a bank. It goes again once nothing is built from it. */
+  block?: true;
+  /** The bolt on top of a hinged mast: built from like an anchor, but it tips freely. */
+  mast?: true;
 }
 
 export interface DMember {
@@ -132,14 +136,23 @@ export class Design {
   constructor(level?: LevelDef) {
     if (!level) return;
     for (const [x, y] of level.anchors) this.nodes.push({ x, y, anchor: true });
+    for (const [x, , top] of level.masts ?? []) this.nodes.push({ x, y: top, anchor: true, mast: true });
     this.priceAnchors(level);
   }
 
-  /** Applies the level's anchor price to every anchor but the two road ends. */
+  /** Applies the level's anchor price to every anchor but the two road ends, and the block price to concrete anchors. */
   priceAnchors(level: LevelDef): void {
     const right = level.rightY ?? 0;
     for (const n of this.nodes) {
       if (!n.anchor) continue;
+      if (n.block) {
+        n.price = BLOCK.price;
+        continue;
+      }
+      if (n.mast) {
+        delete n.price;
+        continue;
+      }
       const roadEnd = (n.x === 0 && n.y === 0) || (n.x === level.width && n.y === right);
       if (level.anchorCost && !roadEnd) n.price = level.anchorCost;
       else delete n.price;
@@ -173,6 +186,19 @@ export class Design {
     if (i >= 0) return i;
     this.nodes.push({ x: q(x), y: q(y), anchor: false });
     return this.nodes.length - 1;
+  }
+
+  /** The concrete anchor at (x, y), set into the bank if it isn't there yet. */
+  ensureBlock(x: number, y: number): number {
+    const i = this.findNode(x, y);
+    if (i >= 0) return i;
+    this.nodes.push({ x: q(x), y: q(y), anchor: true, price: BLOCK.price, block: true });
+    return this.nodes.length - 1;
+  }
+
+  /** Concrete anchors set into the banks. */
+  blocks(): number[] {
+    return this.nodes.flatMap((n, i) => (n.block ? [i] : []));
   }
 
   /**
@@ -359,14 +385,14 @@ export class Design {
     return removed;
   }
 
-  /** Drops free nodes that no member uses, remapping member indices. */
+  /** Drops free nodes and concrete anchors that no member uses, remapping member indices. */
   pruneNodes(): void {
     const used = new Uint8Array(this.nodes.length);
     for (const m of this.members) used[m.a] = used[m.b] = 1;
     const remap = new Int32Array(this.nodes.length);
     const kept: DNode[] = [];
     for (let i = 0; i < this.nodes.length; i++) {
-      if (this.nodes[i].anchor || used[i]) {
+      if ((this.nodes[i].anchor && !this.nodes[i].block) || used[i]) {
         remap[i] = kept.length;
         kept.push(this.nodes[i]);
       } else remap[i] = -1;

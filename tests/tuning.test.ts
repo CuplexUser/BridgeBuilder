@@ -66,9 +66,12 @@ describe('tuned levels', () => {
       for (const s of INTENTS[level.id]?.shortcuts ?? []) {
         it(`shuts out the shortcut "${s.name}"`, () => {
           const d = s.build(level);
-          // Ruled out by breaking the level's rules (such as a part limit), going over budget, or failing.
+          // Ruled out by breaking the level's rules (such as a part limit), going over budget, failing,
+          // or only getting across by breaking a member or tearing out a concrete anchor.
           const blocked = designProblems(level, d, { budget: false }).length > 0 || d.cost() > level.money;
-          expect(blocked || drive(d, level).status === 'fail').toBe(true);
+          const run = blocked ? null : drive(d, level);
+          const broke = !!run && (run.world.links.some((l) => l.bridge && l.broken) || run.world.blocks.some((b) => b.loose));
+          expect(blocked || run!.status === 'fail' || broke).toBe(true);
         });
       }
     });

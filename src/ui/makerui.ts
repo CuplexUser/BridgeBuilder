@@ -2,7 +2,7 @@ import { TUNE_DIFFICULTIES, TUNE_MAX_SECONDS, TUNE_SECONDS, type TuneDifficulty,
 import { traffic } from '../brief';
 import { money } from '../editor';
 import type { BonusGoal, LevelDef } from '../levels';
-import { makerIssues, makerWarnings, setSize, type MakerTool } from '../maker';
+import { makerIssues, makerWarnings, MAX_BLOCK_REACH, setSize, type MakerTool } from '../maker';
 import { MATERIAL_ORDER, MATERIALS, type MaterialId } from '../physics/materials';
 import { VEHICLES, type VehicleId } from '../physics/vehicles';
 import { THEMES } from '../render/themes';
@@ -15,8 +15,9 @@ export const MAKER_TOOLS: { id: MakerTool; name: string; help: string }[] = [
   { id: 'bolt', name: 'Bolt', help: 'Tap to add a bolt, or tap one to remove it.' },
   { id: 'pier', name: 'Pier', help: 'Tap a bolt in the gap to stand a pier under it, or tap anywhere else in the gap for a seat: a pier with no bolt that a deck rests on and can lift off.' },
   { id: 'pylon', name: 'Pylon', help: 'Tap where a pylon top should go: it rises from the water with a bolt on top.' },
+  { id: 'mast', name: 'Mast', help: 'Tap where a mast top should go: it rises from the water on a hinge, so players have to backstay it to concrete anchors.' },
   { id: 'channel', name: 'Channel', help: 'Tap open water to fill it between the piers and banks, up to the road. Or drag for your own span, clear up to the height you start at.' },
-  { id: 'erase', name: 'Erase', help: 'Tap a bolt, seat, pylon or channel to remove it.' },
+  { id: 'erase', name: 'Erase', help: 'Tap a bolt, seat, pylon, mast or channel to remove it.' },
 ];
 
 /** The level editor's DOM: tools, the settings form, the custom level list and the share dialog. */
@@ -197,6 +198,7 @@ export class MakerUi {
     put('mk-money', l.money);
     put('mk-target', l.target);
     put('mk-toll', l.anchorCost ?? 0);
+    put('mk-blocks', l.blocks?.reach ?? 0);
     put('mk-bonus-kind', l.bonus.kind);
     const b = l.bonus;
     put('mk-bonus-val', b.kind === 'stress' ? Math.round(b.max * 100) : b.kind === 'without' ? 0 : b.max);
@@ -232,6 +234,9 @@ export class MakerUi {
     const toll = Math.max(0, Math.round(n('mk-toll', 0)));
     if (toll) l.anchorCost = toll;
     else delete l.anchorCost;
+    const reach = Math.max(0, Math.min(MAX_BLOCK_REACH, Math.round(n('mk-blocks', 0))));
+    if (reach) l.blocks = { reach };
+    else delete l.blocks;
     // A new kind of goal starts from a sensible value, not the old kind's number.
     const kind = val('mk-bonus-kind');
     l.bonus = readBonus(kind, kind === l.bonus.kind ? n('mk-bonus-val', Number.NaN) : Number.NaN, val('mk-bonus-mat') as MaterialId, l);

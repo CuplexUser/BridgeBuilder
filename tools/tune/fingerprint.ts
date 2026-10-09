@@ -1,6 +1,6 @@
 import type { Design } from '../../src/design';
 import { BASE_LEVELS, type LevelBase, type LevelDef } from '../../src/levels';
-import { MATERIALS } from '../../src/physics/materials';
+import { BLOCK, MAST, MATERIALS } from '../../src/physics/materials';
 import { VEHICLES } from '../../src/physics/vehicles';
 import { PHYSICS_VERSION } from '../../src/physics/world';
 import { INTENTS, paramCombos, type Intent } from './intents';
@@ -28,7 +28,9 @@ export function levelFingerprint(id: number): string {
   if (!base) throw new Error(`No level ${id}`);
   const { name: _name, tip: _tip, hint: _hint, hintSolves: _solves, ...geometry } = base;
   const intent = intentData(base, INTENTS[id] ?? {});
-  return hash(JSON.stringify({ geometry, intent, MATERIALS, VEHICLES, PHYSICS_VERSION, TUNER_VERSION }));
+  // Concrete anchors and masts count only on levels that have them, so other levels keep their fingerprints.
+  const parts = { block: base.blocks ? BLOCK : undefined, mast: base.masts ? MAST : undefined };
+  return hash(JSON.stringify({ geometry, intent, MATERIALS, VEHICLES, PHYSICS_VERSION, TUNER_VERSION, ...parts }));
 }
 
 /**

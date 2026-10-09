@@ -1,21 +1,57 @@
 import { segmentHitsRect, segmentsOverlap, type Design } from './design';
-import type { LevelDef } from './levels';
-import { MATERIALS, type MaterialId } from './physics/materials';
+import { bankY, type LevelDef } from './levels';
+import { BLOCK, MATERIALS, type MaterialId } from './physics/materials';
 
 /** A new joint this close to an existing one is refused as too fiddly. */
 export const MIN_JOINT_GAP = 0.2;
 
 /** Highest point anyone may build to on a level. */
 export function topY(level: LevelDef): number {
-  const towers = (level.towers ?? []).map((t) => t[2] + 1.5);
-  return Math.max(4, ...level.anchors.map((a) => a[1] + 3), ...towers);
+  const towers = [...(level.towers ?? []), ...(level.masts ?? [])].map((t) => t[2] + 1.5);
+  // Anchored levels leave room to raise a tower a cable's reach above the banks.
+  const blocks = level.blocks ? [Math.max(0, bankY(level)) + MATERIALS.cable.maxLen] : [];
+  return Math.max(4, ...level.anchors.map((a) => a[1] + 3), ...towers, ...blocks);
+}
+
+/** How far back from the gap's edge (x) the point lies over a bank: positive behind either bank. */
+function behindBank(level: LevelDef, x: number): number {
+  return x < 0 ? -x : x - level.width;
+}
+
+/** Height of the bank top under x, for x off the gap. */
+function bankTop(level: LevelDef, x: number): number {
+  return x < 0 ? 0 : bankY(level);
+}
+
+/** Whether a concrete anchor may be set at (x, y): on a bank's ground, whole meters from 1 m to the level's reach back. */
+export function blockSpot(level: LevelDef, x: number, y: number): boolean {
+  if (!level.blocks) return false;
+  const back = behindBank(level, x);
+  if (back < 1 - 1e-6 || back > level.blocks.reach + 1e-6 || Math.abs(back - Math.round(back)) > 1e-6) return false;
+  return Math.abs(y - bankTop(level, x)) < 1e-6;
+}
+
+/** Every spot a concrete anchor may go on the level, left bank first. */
+export function blockSpots(level: LevelDef): [number, number][] {
+  const out: [number, number][] = [];
+  const reach = Math.floor(level.blocks?.reach ?? 0);
+  for (let k = reach; k >= 1; k--) out.push([-k, 0]);
+  for (let k = 1; k <= reach; k++) out.push([level.width + k, bankY(level)]);
+  return out;
 }
 
 /** Whether a new joint may go at (x, y): inside the level, above the water, and clear of piers, rock and channels. */
 export function pointAllowed(level: LevelDef, x: number, y: number): boolean {
-  if (x < -1e-9 || x > level.width + 1e-9) return false;
   if (y > topY(level) || y <= level.waterY + 0.5) return false;
+  if (x < -1e-9 || x > level.width + 1e-9) {
+    // Over a bank that offers concrete anchors, high enough to keep the road clear.
+    const back = behindBank(level, x);
+    if (!level.blocks || back > level.blocks.reach + 1e-6 || y < bankTop(level, x) + BLOCK.clearance - 1e-9) return false;
+    return !(level.overhangs ?? []).some((o) => (o.side === 'left') === x < 0 && y > o.bottom - 0.3);
+  }
   for (const [px, py] of level.piers) if (Math.abs(x - px) < 0.6 && y < py) return false;
+  // A mast's footing stands below its hinge, like a pier.
+  for (const [mx, base] of level.masts ?? []) if (Math.abs(x - mx) < 0.6 && y < base) return false;
   for (const o of level.overhangs ?? []) {
     const inside = o.side === 'left' ? x <= o.reach + 0.3 : x >= level.width - o.reach - 0.3;
     if (inside && y > o.bottom - 0.3) return false;
@@ -37,7 +73,9 @@ export function designProblems(level: LevelDef, d: Design, opts: { budget?: bool
   const out: string[] = [];
   const { nodes, members } = d;
   for (const [x, y] of level.anchors) if (d.findNode(x, y) < 0) out.push(`missing anchor ${x},${y}`);
+  for (const [x, , y] of level.masts ?? []) if (d.findNode(x, y) < 0) out.push(`missing mast top ${x},${y}`);
   nodes.forEach((n, i) => {
+    if (n.block && !blockSpot(level, n.x, n.y)) out.push(`concrete anchor ${n.x},${n.y} not on an anchor spot`);
     if (n.anchor) return;
     if (!pointAllowed(level, n.x, n.y)) out.push(`joint ${n.x},${n.y} out of bounds`);
     for (let j = 0; j < i; j++) {

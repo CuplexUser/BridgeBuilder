@@ -19,7 +19,7 @@
  */
 import { chapterOf, levelCode } from '../../src/chapters';
 import { Design } from '../../src/design';
-import { applyTuning, BASE_LEVELS, type BonusGoal, type LevelBase, type LevelDef, type Tuned } from '../../src/levels';
+import { applyTuning, BASE_LEVELS, UNTUNED, type BonusGoal, type LevelBase, type LevelDef, type Tuned } from '../../src/levels';
 import { MATERIALS, type MaterialId } from '../../src/physics/materials';
 import { bonusMet, SAFE_STRESS } from '../../src/scoring';
 import { deriveNumbers, PEAK_CAP } from './difficulty';
@@ -124,7 +124,7 @@ function plannedUnits(base: LevelBase, e: Effort): number {
 /** Measures how many simulations per second this machine manages, on every level's hand-made design. */
 async function calibrate(): Promise<number> {
   const runs = BASE_LEVELS.flatMap((b) => {
-    const level = applyTuning(b, resource.levels[b.id]);
+    const level = applyTuning(b, resource.levels[b.id] ?? UNTUNED);
     const seed = handSeed(level);
     return seed ? [{ level, seed }] : [];
   });
@@ -141,7 +141,8 @@ function summary(o: { cost: number; peak: number; parts: number; crossed: boolea
 }
 
 async function tuneLevel(base: LevelBase, intent: Intent): Promise<LevelResult> {
-  const current = resource.levels[base.id];
+  // A new level starts from stand-in numbers.
+  const current = resource.levels[base.id] ?? UNTUNED;
   const ch = chapterOf(base.id).id - 1;
   const combos = paramCombos(intent);
   let fallback: LevelResult | null = null;
@@ -234,7 +235,8 @@ async function tryGeometry(base: LevelBase, intent: Intent, current: Tuned, ch: 
       continue;
     }
     const o = await pool.run(tuned, d);
-    const ok = !o.crossed || o.cost > money || !o.valid;
+    // A shortcut that only gets across by breaking something is no way to solve the level.
+    const ok = !o.crossed || o.broken || o.cost > money || !o.valid;
     shortcuts.push({ name: s.name, result: summary(o), ok });
     if (!ok) notes.push(`shortcut "${s.name}" crosses for ${usd(o.cost)}`);
   }

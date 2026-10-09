@@ -249,6 +249,38 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
     trussOver(d, roadRun(d, [0, 0], [10, 0]), 2, STEELY);
     return d.add([6, -4], [6, 0], 'ram');
   },
+  // A main cable between the masts, each mast backstayed to one block per bank.
+  36: (l) => {
+    const d = deck(new Design(l), 0, 16);
+    mainCable(d, [[3, 8], [4, 6], [6, 4], [8, 3], [10, 4], [12, 6], [13, 8]]);
+    hang(d, [3, 8], [[2, 0]]);
+    hang(d, [13, 8], [[14, 0]]);
+    backstay(d, [[3, 8], [0, 4], [-3, 0]]);
+    return backstay(d, [[13, 8], [16, 4], [19, 0]]);
+  },
+  // Only 4 m behind each bank: a backstay to the far end of the strip is as flat as it gets, and holds.
+  37: (l) => liftOff(l, 4),
+  // A braced steel tower on each pair of piers, a main cable between them, and two blocks per side.
+  38: (l) => {
+    const d = new Design(l);
+    roadRun(d, [0, 0], [24, 0], 'heavy');
+    for (const [a, b] of [[2, 4], [20, 22]]) {
+      const m = (a + b) / 2;
+      d.add([a, 0], [a, 3], 'steel').add([b, 0], [b, 3], 'steel').add([a, 3], [b, 3], 'steel');
+      d.add([a, 0], [b, 3], 'steel').add([b, 0], [a, 3], 'steel');
+      d.add([a, 3], [m, 7], 'steel').add([b, 3], [m, 7], 'steel');
+    }
+    mainCable(d, [[3, 7], [6, 4], [8, 2], [10, 1], [12, 1], [14, 1], [16, 2], [18, 4], [21, 7]]);
+    backstay(d, [[3, 7], [-1, 0]]);
+    backstay(d, [[3, 7], [0, 4], [-4, 0]]);
+    backstay(d, [[21, 7], [25, 0]]);
+    return backstay(d, [[21, 7], [24, 4], [28, 0]]);
+  },
+  // The middle of each side span hangs from the backstay.
+  39: (l) => suspensionWithSideSpans(l, 8, 22, [12, 8, 6, 5, 5, 6, 8, 12], 16, false),
+  // Forty tonnes: a second, flatter backstay to its own block shares each mast's pull, and steel
+  // struts from the low bolts take the side spans' ends.
+  40: (l) => suspensionWithSideSpans(l, 8, 28, [12, 9, 7, 5, 4, 4, 4, 5, 7, 9, 12], 20, true).add([0, -3], [2, 0], 'steel').add([36, -3], [34, 0], 'steel'),
   30: (l) => {
     const d = new Design(l);
     const [a, b] = l.anchors.filter(([x, y]) => x > 0 && x < l.width && y >= 0 && y < 5).toSorted((p, r) => p[0] - r[0]);
@@ -305,6 +337,45 @@ function longWay(l: LevelDef): Design {
   return d.add([26, 6], [24, 0], 'cable').add([22, 7], [24, 0], 'cable');
 }
 
+/**
+ * Level 37: a road deck hung between the masts, each backstayed with one cable to a block `back`
+ * meters behind its bank (2 or 4), broken halfway so neither piece is longer than a cable.
+ */
+export function liftOff(l: LevelDef, back: 2 | 4): Design {
+  const d = deck(new Design(l), 0, 18);
+  mainCable(d, [[2, 10], [4, 7], [6, 5], [8, 4], [10, 4], [12, 5], [14, 7], [16, 10]]);
+  hang(d, [2, 10], [[2, 0]]);
+  hang(d, [16, 10], [[16, 0]]);
+  const mid = back === 2 ? 0 : -1;
+  backstay(d, [[2, 10], [mid, 5], [-back, 0]]);
+  return backstay(d, [[16, 10], [18 - mid, 5], [18 + back, 0]]);
+}
+
+/**
+ * Levels 39 and 40: a heavy deck hung from a main cable between masts at x = a and b, both 12 m
+ * tall, sagging through the given heights every 2 m. Each mast's backstay runs at 45° down to a
+ * block 4 m behind its bank, carrying the middle of the side span on a hanger; with `second`, a flatter second
+ * backstay goes to a block 7 m back. The deck is laid in two runs, split at `split`, so that every
+ * piece is 2 m long and a hanger every 2 m lands on a joint.
+ */
+function suspensionWithSideSpans(l: LevelDef, a: number, b: number, sag: number[], split: number, second: boolean): Design {
+  const d = new Design(l);
+  roadRun(d, [0, 0], [split, 0], 'heavy');
+  roadRun(d, [split, 0], [l.width, 0], 'heavy');
+  mainCable(d, alongX(a, sag));
+  for (const [mx, side, edge] of [[a, -1, 0], [b, 1, l.width]] as const) {
+    const top = 12;
+    const at = (dx: number): GridPt => [mx + side * dx, top - dx];
+    const back = top - Math.abs(edge - mx);
+    backstay(d, [at(0), at(4), at(Math.abs(edge - mx)), [edge + side * back, 0]]);
+    d.add(at(4), [mx + side * 4, 0], 'cable');
+    // The deck joint under the mast hangs from the main cable's first point.
+    d.add([mx - side * 2, sag[1]], [mx, 0], 'cable');
+    if (second) backstay(d, [at(0), [mx + side * 5, top - 4], [edge + side * 2, top - 8], [edge + side * 7, 0]]);
+  }
+  return d;
+}
+
 /** Points from x0 every `step` meters, at the given heights. */
 function alongX(x0: number, ys: number[], step = 2): GridPt[] {
   return ys.map((y, i): GridPt => [x0 + step * i, y]);
@@ -327,6 +398,16 @@ function span(x0: number, x1: number): GridPt[] {
 /** Five 2 m deck panels starting at x0. */
 function panels(x0: number): GridPt[] {
   return [0, 2, 4, 6, 8, 10].map((k): GridPt => [x0 + k, 0]);
+}
+
+/**
+ * A backstay: a cable chain from a mast top through the given points, ending at a concrete
+ * anchor set into the bank at the last one.
+ */
+export function backstay(d: Design, pts: GridPt[]): Design {
+  const [x, y] = pts[pts.length - 1];
+  d.ensureBlock(x, y);
+  return suspend(d, pts);
 }
 
 /** A cable chain through the given points: a main cable. */

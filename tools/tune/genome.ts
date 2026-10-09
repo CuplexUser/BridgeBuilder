@@ -1,12 +1,15 @@
 import { Design, q, type GridPt } from '../../src/design';
 import type { LevelDef } from '../../src/levels';
-import { MATERIALS, type MaterialId } from '../../src/physics/materials';
+import { BLOCK, MATERIALS, type MaterialId } from '../../src/physics/materials';
+import { blockSpot, pointAllowed } from '../../src/rules';
 
 /**
  * A structure grammar for one level: each gene picks one option, and build() turns the gene
  * values into a design. Genes cover the building blocks every hand-made reference uses:
  * deck spans, trusses over or under them, struts and posts from low anchors, trestles up
- * from deep piers, hangers from high anchors, and sagging main cables between them.
+ * from deep piers, hangers from high anchors, and sagging main cables between them. On levels
+ * with concrete anchors, braced towers on pairs of pier bolts and backstays from mast and tower
+ * tops down to blocks on the banks, carrying the side spans on hangers.
  */
 export interface Grammar {
   genes: Gene[];
@@ -49,7 +52,11 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
   // Candidate places to break the deck into spans: interior anchors, to the meter, so a post
   // from a pier bolt can stand straight under the joint where two spans meet.
   const breaks = [...new Set(level.anchors.map(([x]) => Math.round(x)).filter((x) => x > 1 && x < W - 1))].sort((a, b) => a - b);
-  const high = level.anchors.filter(([x, y]) => y > deckY(Math.min(W, Math.max(0, x))) + 1).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  // Towers a player could raise on two bolts 2 m apart in the gap, at the same height, where steel and anchors are on offer.
+  const towerSpots = offered('steel') && level.blocks ? towerCandidates(level) : [];
+  // Tops that tip freely: masts, and towers when built. Backstays hold them.
+  const freeTops: GridPt[] = [...(level.masts ?? []).map(([x, , top]): GridPt => [x, top]), ...towerSpots.map((t) => t.top)].sort((a, b) => a[0] - b[0]);
+  const high = [...level.anchors, ...freeTops].filter(([x, y]) => y > deckY(Math.min(W, Math.max(0, x))) + 1).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
   const low = level.anchors.filter(([x, y]) => y < deckY(Math.min(W, Math.max(0, x))) - 0.5);
   const cablesOk = offered('cable');
 
@@ -83,6 +90,19 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
         return [{ a, b, sag: add(`main cable ${a}–${b} sag`, ['none', ...SAGS.map((s) => `${s} m`)]), layout: add(`main cable ${a}–${b} hangers`, ['every joint', 'pairs']) }];
       })
     : [];
+
+  const towerGenes = towerSpots.map(({ a, b, top }) => ({ a, b, top, gene: add(`tower on ${a}–${b}`, ['no', 'yes'], 1) }));
+  // Backstays from the outermost free tops: up to two blocks each, at whole meters back, and side span hangers off the first.
+  const reach = level.blocks && cablesOk ? Math.floor(level.blocks.reach) : 0;
+  const backOpts = ['none', ...Array.from({ length: reach }, (_, i) => `${i + 1} m back`)];
+  const sides = freeTops.length && reach ? [...new Map([[freeTops[0], -1], [freeTops[freeTops.length - 1], 1]] as [GridPt, number][]).entries()] : [];
+  const stayGenes = sides.map(([top, side]) => ({
+    top,
+    side,
+    first: add(`backstay ${top} block`, backOpts, Math.min(reach, 4)),
+    second: add(`backstay ${top} second block`, backOpts),
+    hang: add(`side span under ${top} hangs from its backstay`, ['no', 'yes'], 1),
+  }));
 
   // Deck joints of the straight bank-to-bank layout, used to size hanger genes.
   const probe = new Design(level);
@@ -133,10 +153,73 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
       if (sag === 0) continue;
       mainCable(d, mc.a, mc.b, SAGS[sag - 1], g[mc.layout] === 1, joints);
     }
+    // Towers, then the backstays holding up free tops.
+    for (const t of towerGenes) if (g[t.gene] === 1) tower(d, t.a, t.b, t.top);
+    for (const s of stayGenes) {
+      const first = g[s.first];
+      const second = g[s.second];
+      if (first > 0) backstay(d, level, s.top, s.side, first, g[s.hang] === 1 ? joints : []);
+      if (second > 0 && second !== first) backstay(d, level, s.top, s.side, second, []);
+    }
     return d;
   }
 
   return { genes, build };
+}
+
+/** Pairs of bolts 2 m apart at the same height inside the gap, and where a braced tower on them would top out. */
+function towerCandidates(level: LevelDef): { a: GridPt; b: GridPt; top: GridPt }[] {
+  const out: { a: GridPt; b: GridPt; top: GridPt }[] = [];
+  for (const a of level.anchors) {
+    const b = level.anchors.find(([x, y]) => Math.abs(x - a[0] - 2) < 1e-6 && Math.abs(y - a[1]) < 1e-6);
+    if (!b || a[0] <= 0 || b[0] >= level.width) continue;
+    const top: GridPt = [a[0] + 1, a[1] + TOWER_HEIGHT];
+    if (pointAllowed(level, top[0], top[1])) out.push({ a, b, top });
+  }
+  return out;
+}
+
+const TOWER_HEIGHT = 7;
+
+/** A braced steel tower on bolts a and b, 2 m apart: legs to a cross beam 3 m up, crossed diagonals, and two struts to the top. */
+function tower(d: Design, a: GridPt, b: GridPt, top: GridPt): void {
+  const a3: GridPt = [a[0], a[1] + 3];
+  const b3: GridPt = [b[0], b[1] + 3];
+  d.add(a, a3, 'steel').add(b, b3, 'steel').add(a3, b3, 'steel').add(a, b3, 'steel').add(b, a3, 'steel');
+  d.add(a3, top, 'steel').add(b3, top, 'steel');
+}
+
+/**
+ * A backstay from a free top straight down to a concrete anchor `back` meters behind the bank
+ * on `side` (-1 left, 1 right). It takes a joint above each given deck joint it passes at least
+ * 1 m over, with a hanger down to it, and more joints wherever a piece would be too long for a
+ * cable, kept clear of the road over the bank.
+ */
+function backstay(d: Design, level: LevelDef, top: GridPt, side: number, back: number, deck: GridPt[]): void {
+  const edge = side < 0 ? 0 : level.width;
+  const end: GridPt = [edge + side * back, side < 0 ? 0 : (level.rightY ?? 0)];
+  if (!blockSpot(level, end[0], end[1])) return;
+  const yAt = (x: number) => top[1] + ((end[1] - top[1]) * (x - top[0])) / (end[0] - top[0]);
+  const between = (x: number) => (x - top[0]) * side > 1e-6 && (x - end[0]) * side < -1e-6;
+  const bolted = ([x, y]: GridPt) => d.nodes[d.findNode(x, y)]?.anchor;
+  const hung = deck.filter((j) => between(j[0]) && (j[0] - edge) * side < 0 && !bolted(j) && yAt(j[0]) - j[1] >= 1 && yAt(j[0]) - j[1] <= MATERIALS.cable.maxLen);
+  const xs = [top[0], ...hung.map(([x]) => x).sort((p, r) => (p - r) * side), end[0]];
+  // Split any piece too long for one cable, keeping joints over the bank high enough to clear the road.
+  const clearX = top[0] + ((end[0] - top[0]) * (top[1] - end[1] - BLOCK.clearance)) / (top[1] - end[1] || 1);
+  for (let i = 0; i < xs.length - 1 && xs.length < 20; i++) {
+    const len = Math.hypot(xs[i + 1] - xs[i], yAt(xs[i + 1]) - yAt(xs[i]));
+    if (len <= MATERIALS.cable.maxLen - 0.2) continue;
+    let mid = (xs[i] + xs[i + 1]) / 2;
+    if (!pointAllowed(level, mid, yAt(mid))) mid = clearX;
+    if (!between(mid) || Math.abs(mid - xs[i]) < 0.5) return;
+    xs.splice(i + 1, 0, mid);
+    i--;
+  }
+  const pts = xs.map((x, i): GridPt => (i === xs.length - 1 ? end : [q(x), q(yAt(x))]));
+  if (pts.slice(1, -1).some(([x, y]) => !pointAllowed(level, x, y))) return;
+  d.ensureBlock(end[0], end[1]);
+  for (let i = 0; i < pts.length - 1; i++) d.add(pts[i], pts[i + 1], 'cable');
+  for (const [x, y] of hung) d.add([q(x), q(yAt(x))], [x, y], 'cable');
 }
 
 /** Height of the deck polyline at x. */
@@ -252,5 +335,7 @@ function mainCable(d: Design, a: GridPt, b: GridPt, sag: number, pairs: boolean,
   }
   nodes.push(b);
   for (let i = 0; i < nodes.length - 1; i++) d.add(nodes[i], nodes[i + 1], 'cable');
-  for (const [node, group] of hangs) for (const j of group) if (node[1] - j[1] >= 1) d.add(node, j, 'cable');
+  // A hanger down to a bolt holds nothing up.
+  const bolted = (j: GridPt) => d.nodes[d.findNode(j[0], j[1])]?.anchor;
+  for (const [node, group] of hangs) for (const j of group) if (node[1] - j[1] >= 1 && !bolted(j)) d.add(node, j, 'cable');
 }
