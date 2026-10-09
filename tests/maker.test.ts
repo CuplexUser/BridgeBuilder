@@ -291,6 +291,23 @@ describe('level editor', () => {
     expect(l.waterY).toBe(-5);
   });
 
+  it('moves the bolts on the far bank wall with the bank', () => {
+    const l = blankLevel(1000);
+    setSize(l, 16, 0, -5);
+    expect(l.anchors).toEqual([[0, 0], [16, 0], [0, -2], [16, -2]]);
+    // They keep their height below the road when the bank rises or drops.
+    setSize(l, 16, 3, -5);
+    expect(l.anchors).toContainEqual([16, 3]);
+    expect(l.anchors).toContainEqual([16, 1]);
+    expect(l.anchors).not.toContainEqual([16, -2]);
+    // A pylon at the old bank edge stands in the water, so it stays put.
+    togglePylon(l, 16, 6);
+    setSize(l, 20, 3, -5);
+    expect(l.towers).toEqual([[16, -5, 6]]);
+    expect(l.anchors).toContainEqual([16, 6]);
+    expect(l.anchors).toContainEqual([20, 1]);
+  });
+
   it('keeps custom levels and designs in storage', () => {
     const store = memoryStore();
     const a = blankLevel(CUSTOM_ID_BASE);

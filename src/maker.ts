@@ -231,23 +231,22 @@ export function eraseAt(l: LevelDef, x: number, y: number): { ok: boolean; msg: 
 }
 
 /**
- * Resizes the gap: the right road end moves with it, and anything that no longer fits goes.
+ * Resizes the gap: the right bank moves with it, carrying its bolts (the road end and any on
+ * its wall) at the same height relative to the road, and anything that no longer fits goes.
  * The water stays below both banks.
  */
 export function setSize(l: LevelDef, width: number, rightY: number, waterY: number): void {
-  const oldEnd = rightEnd(l);
-  const hadEnd = l.anchors.some((a) => same(a, oldEnd[0], oldEnd[1]));
+  const [oldW, oldR] = rightEnd(l);
   const W = clampInt(width, LIMITS.minWidth, LIMITS.maxWidth);
   const R = clampInt(rightY, -8, 8);
   const water = clampWater(waterY, R);
-  l.anchors = l.anchors.filter((a) => !same(a, oldEnd[0], oldEnd[1]));
+  const pylonTop = (x: number, y: number) => !!l.towers?.some((t) => same([t[0], t[2]], x, y));
+  l.anchors = l.anchors.map(([x, y]): Pt => (Math.abs(x - oldW) < 1e-6 && !pylonTop(x, y) ? [W, y + R - oldR] : [x, y]));
   l.width = W;
   if (R) l.rightY = R;
   else delete l.rightY;
   l.waterY = water;
-  l.anchors = l.anchors.filter(([x, y]) => x >= 0 && x <= W && y >= water);
-  if (hadEnd) l.anchors.push([W, R]);
-  l.anchors = dedupe(l.anchors);
+  l.anchors = dedupe(l.anchors.filter(([x, y]) => x >= 0 && x <= W && y >= water && y <= LIMITS.maxHeight));
   l.piers = l.piers.filter(([x, y]) => x > 0 && x < W && y > water);
   if (l.towers) {
     l.towers = l.towers.filter(([x, , top]) => x >= 0 && x <= W && top > water).map(([x, , top]): Tower => [x, water, top]);
