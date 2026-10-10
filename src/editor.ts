@@ -1,4 +1,4 @@
-import { Design, segmentsOverlap, type GridPt } from './design';
+import { Design, segmentsOverlap, type DMember, type GridPt } from './design';
 import type { LevelDef } from './levels';
 import { defaultSag, mainPathIn, mainRuns, MIN_MAIN_SPAN, MIN_SAG, resag, sagHandle } from './maincable';
 import { blockOf, MATERIALS, type MaterialId } from './physics/materials';
@@ -69,6 +69,64 @@ const MAX_RUN = 40;
 /** Farthest a main cable reaches in one drag, m. */
 const MAX_MAIN_REACH = 80;
 
+/**
+ * A saved design brought up to date with its level, which may have changed since it was
+ * saved: rebuilt on the level's own bolts, without the parts that no longer fit. A part goes
+ * when its material is no longer offered, a joint it uses is gone or now out of bounds, it
+ * crosses a channel, it's a cable on a bolt that holds none, or it's over a material limit
+ * (the latest placed go first). A split beam or main cable goes whole. Prices come from the
+ * level; the budget isn't checked, so a design that now costs too much loads for trimming.
+ */
+export function fitDesign(level: LevelDef, saved: Design): { design: Design; removed: number } {
+  const d = new Design(level);
+  const before = saved.parts();
+  const bolt = (x: number, y: number) => d.findNode(x, y);
+  const nodeOk = saved.nodes.map((n) => {
+    if (n.block) return blockSpot(level, n.x, n.y);
+    if (n.anchor) return bolt(n.x, n.y) >= 0;
+    return true;
+  });
+  const memberOk = (m: DMember) => {
+    const [a, b] = [saved.nodes[m.a], saved.nodes[m.b]];
+    const mat = MATERIALS[m.mat];
+    if (!level.materials.includes(m.mat) || !nodeOk[m.a] || !nodeOk[m.b]) return false;
+    // A main cable's own joints may hang low over an anchor strip.
+    const free = (n: typeof a) => n.anchor || pointAllowed(level, n.x, n.y) || (!!mat.curved && lowOverStrip(level, n.x, n.y));
+    if (!free(a) || !free(b)) return false;
+    if (mat.tensionOnly && (cableBolt(level, a.x, a.y) || cableBolt(level, b.x, b.y))) return false;
+    if (Math.hypot(b.x - a.x, b.y - a.y) > mat.maxLen + 1e-9) return false;
+    return !crossesChannel(level, a.x, a.y, b.x, b.y);
+  };
+  // Whole parts: a beam or run with any piece that doesn't fit goes entirely.
+  const badParts = new Set(saved.members.flatMap((m) => (m.part !== undefined && !memberOk(m) ? [m.part] : [])));
+  let keep = saved.members.filter((m) => (m.part === undefined ? memberOk(m) : !badParts.has(m.part)));
+  for (const [mat, max] of Object.entries(level.limits ?? {}) as [MaterialId, number][]) {
+    const parts: (number | DMember)[] = [];
+    for (const m of keep) if (m.mat === mat && !parts.includes(m.part ?? m)) parts.push(m.part ?? m);
+    const extra = new Set(parts.slice(max));
+    keep = keep.filter((m) => !extra.has(m.part ?? m));
+  }
+  // Rebuild on the level's own nodes: its bolts first, then the joints and blocks the design uses.
+  const map = new Map<number, number>();
+  const at = (i: number) => {
+    let j = map.get(i);
+    if (j === undefined) {
+      const n = saved.nodes[i];
+      j = n.block ? d.ensureBlock(n.x, n.y) : n.anchor ? bolt(n.x, n.y) : d.ensureNode(n.x, n.y);
+      map.set(i, j);
+    }
+    return j;
+  };
+  for (const m of keep) {
+    const [a, b] = [at(m.a), at(m.b)];
+    if (a !== b && d.findMember(a, b) < 0) d.members.push(m.part === undefined ? { a, b, mat: m.mat } : { a, b, mat: m.mat, part: m.part });
+  }
+  d.healSplits();
+  d.pruneNodes();
+  d.priceAnchors(level);
+  return { design: d, removed: Math.max(0, before - d.parts()) };
+}
+
 /** Formats dollars the way the whole UI shows them, e.g. $12,500. */
 export function money(v: number): string {
   return `$${Math.round(v).toLocaleString('en-US')}`;
@@ -85,27 +143,26 @@ export class Editor {
   cursorY = 0;
   /** Seconds since each member was placed, parallel to design.members. */
   ages: number[] = [];
+  /** Goes up with every change to the design, so marks made on one version know when they're stale. */
+  revision = 0;
   private undoStack: string[] = [];
   private redoStack: string[] = [];
+
+  /**
+   * What happened to the saved design when it was loaded into a level that has changed since:
+   * parts that no longer fit were removed, or it now costs more than the budget. Null when it loaded as saved.
+   */
+  readonly fitted: { removed: number; over: number } | null = null;
 
   constructor(level: LevelDef, private ev: EditorEvents, saved?: string) {
     this.level = level;
     this.design = new Design(level);
     if (saved) {
       try {
-        const d = Design.deserialize(saved);
-        const anchors = d.nodes.filter((n) => n.anchor && !n.block);
-        const bolts = [...level.anchors, ...(level.masts ?? []).map(([x, , top]) => [x, top])];
-        const same = anchors.length === bolts.length && bolts.every(([x, y]) => anchors.some((n) => n.x === x && n.y === y));
-        const blocksOk = d.nodes.every((n) => !n.block || blockSpot(level, n.x, n.y));
-        const onBolt = (i: number) => cableBolt(level, d.nodes[i].x, d.nodes[i].y);
-        const cablesOk = d.members.every((m) => !MATERIALS[m.mat].tensionOnly || !(onBolt(m.a) || onBolt(m.b)));
-        // Prices, budgets and materials may have changed since the design was saved.
-        const affordable = d.cost() <= level.money && d.members.every((m) => level.materials.includes(m.mat));
-        if (same && blocksOk && cablesOk && affordable) {
-          d.priceAnchors(level);
-          this.design = d;
-        }
+        const fit = fitDesign(level, Design.deserialize(saved));
+        this.design = fit.design;
+        const over = Math.max(0, fit.design.cost() - level.money);
+        if (fit.removed || over) this.fitted = { removed: fit.removed, over };
       } catch {
         // Corrupt save: start fresh.
       }
@@ -552,6 +609,7 @@ export class Editor {
     this.undoStack.push(s.before);
     if (this.undoStack.length > 200) this.undoStack.shift();
     this.redoStack.length = 0;
+    this.revision++;
   }
 
   /**
@@ -605,14 +663,18 @@ export class Editor {
 
   private restore(s: string): void {
     this.drag = null;
+    this.revision++;
     const before = this.design.members.length;
     this.design = Design.deserialize(s);
+    // Prices aren't saved with the design: a block set after an undo costs what the level says.
+    this.design.priceAnchors(this.level);
     const n = this.design.members.length;
     this.ages = this.design.members.map((_, i) => (i >= before ? 0 : 10));
     this.ages.length = n;
   }
 
   private snapshot(): void {
+    this.revision++;
     this.undoStack.push(this.design.serialize());
     if (this.undoStack.length > 200) this.undoStack.shift();
     this.redoStack.length = 0;

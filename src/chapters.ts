@@ -7,6 +7,10 @@ export interface Best {
   stars: number;
   /** The bonus goal was met at least once. */
   bonus?: boolean;
+  /** The best-scoring run: what its bridge cost, its peak stress (0–1) and the design itself. */
+  cost?: number;
+  peak?: number;
+  design?: string;
 }
 export type BestMap = Record<number, Best | undefined>;
 

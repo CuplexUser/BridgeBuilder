@@ -64,6 +64,28 @@ function contract(name: string, make: () => Store) {
       expect(await s.submitScore(p.id, 0, 0, 3)).toBe(-1);
     });
 
+    it("keeps the record run's cost, peak stress and bridge with the best score", async () => {
+      const s = make();
+      const p = await s.openProfile('Detailer');
+      const design = '{"v":2,"n":[],"m":[]}';
+      await s.saveProgress(p.id, { unlocked: 1, best: { 5: { score: 1500, stars: 3, cost: 9000, peak: 0.61, design } }, designs: {} });
+      expect((await s.loadProgress(p.id)).best[5]).toMatchObject({ score: 1500, cost: 9000, peak: 0.61 });
+      const rec = (await s.levelScores()).find((r) => r.level === 5 && r.name === 'Detailer');
+      expect(rec).toMatchObject({ cost: 9000, peak: 0.61, hasDesign: true });
+      expect(await s.recordDesign(5, 'detailer')).toBe(design);
+      expect(await s.recordDesign(6, 'Detailer')).toBeNull();
+      expect(await s.recordDesign(5, 'Nobody')).toBeNull();
+    });
+
+    it("round-trips the engineer's hints taken on each level", async () => {
+      const s = make();
+      const p = await s.openProfile('Hinted');
+      await s.saveProgress(p.id, { unlocked: 1, best: {}, designs: {}, hints: { 9: [0, 3] } });
+      const got = await s.loadProgress(p.id);
+      expect(got.hints?.[9]).toEqual([0, 3]);
+      expect(got.best[9]).toBeUndefined();
+    });
+
     it('reports the record holder for each level', async () => {
       const s = make();
       const a = await s.openProfile('Recorder A');
@@ -102,6 +124,30 @@ describe('sqlite server details', () => {
     const got = await s.loadProgress(p.id);
     expect(got.best[2]).toEqual({ score: 800, stars: 3 });
     expect(got.unlocked).toBe(3);
+  });
+
+  it('changes the record details only along with the score they belong to', async () => {
+    const s = new ServerStore(base);
+    const p = await s.openProfile('Record Keeper');
+    const first = '{"v":2,"n":[],"m":[{"first":1}]}';
+    await s.saveProgress(p.id, { unlocked: 1, best: { 7: { score: 1000, stars: 2, cost: 5000, peak: 0.8, design: first } }, designs: {} });
+    // A lower score doesn't touch them, and a save without the bridge keeps it.
+    await s.saveProgress(p.id, { unlocked: 1, best: { 7: { score: 900, stars: 3, cost: 4000, peak: 0.5, design: '{}' } }, designs: {} });
+    await s.saveProgress(p.id, { unlocked: 1, best: { 7: { score: 1000, stars: 3, cost: 5000, peak: 0.8 } }, designs: {} });
+    expect((await s.loadProgress(p.id)).best[7]).toEqual({ score: 1000, stars: 3, cost: 5000, peak: 0.8 });
+    expect(await s.recordDesign(7, 'Record Keeper')).toBe(first);
+    // A higher one replaces them all.
+    await s.saveProgress(p.id, { unlocked: 1, best: { 7: { score: 1200, stars: 3, cost: 4500, peak: 0.7, design: '{"v":2}' } }, designs: {} });
+    expect((await s.loadProgress(p.id)).best[7]).toEqual({ score: 1200, stars: 3, cost: 4500, peak: 0.7 });
+    expect(await s.recordDesign(7, 'Record Keeper')).toBe('{"v":2}');
+  });
+
+  it('never forgets a hint', async () => {
+    const s = new ServerStore(base);
+    const p = await s.openProfile('Forgetful');
+    await s.saveProgress(p.id, { unlocked: 1, best: {}, designs: {}, hints: { 4: [1, 2] } });
+    await s.saveProgress(p.id, { unlocked: 1, best: {}, designs: {}, hints: { 4: [1] } });
+    expect((await s.loadProgress(p.id)).hints?.[4]).toEqual([1, 2]);
   });
 
   it('answers the health probe and 404s unknown profiles', async () => {

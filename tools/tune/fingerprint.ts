@@ -57,7 +57,9 @@ function intentData(base: LevelBase, intent: Intent): unknown {
 /** A shortcut's design on one geometry, or null where it can't be built. */
 function tryBuild(build: (l: LevelDef) => Design, l: LevelDef): string | null {
   try {
-    return build(l).serialize();
+    // The version 1 save format, so a new save version doesn't retune every level.
+    const d = build(l);
+    return JSON.stringify({ n: d.nodes, m: d.members });
   } catch {
     return null;
   }

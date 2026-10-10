@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LEVELS } from '../src/levels';
-import { BASE_SCORE, bonusLabel, bonusMet, GOAL_SCORE, SAVINGS_MAX, scoreLevel } from '../src/scoring';
+import { BASE_SCORE, bonusLabel, bonusMet, GOAL_SCORE, HINT_PENALTY, SAVINGS_MAX, scoreLevel } from '../src/scoring';
 import { SOLUTIONS } from '../src/solutions';
 import { insertHigh, MAX_HIGHS, type HighScore } from '../src/storage';
 
@@ -42,6 +42,15 @@ describe('scoreLevel', () => {
     const s = scoreLevel(level, design, 0.9);
     expect(s.stars).toBe(2);
     expect(s.safetyBonus).toBe(40);
+  });
+
+  it('takes points off for hints, but never below crossing', () => {
+    const plain = scoreLevel(level, design, 0.25);
+    const two = scoreLevel(level, design, 0.25, 2);
+    expect(two.hintPenalty).toBe(2 * HINT_PENALTY);
+    expect(two.total).toBe(plain.total - 2 * HINT_PENALTY);
+    expect(two.stars).toBe(plain.stars);
+    expect(scoreLevel(level, design, 0.25, 99).total).toBe(BASE_SCORE);
   });
 
   it('never gives a negative bonus', () => {

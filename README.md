@@ -13,6 +13,7 @@ npm install
 npm run dev      # game + SQLite API at the printed localhost URL
 npm test         # physics, editor, scoring and storage tests
 npm run lint     # Oxlint
+npm run smoke    # end-to-end smoke test in a headless Chrome or Edge: build 1-1 with the keyboard, test, check the result and leaderboards
 npm run build    # static build in dist/
 npm start        # production: serves dist/ + the SQLite API on :3000
 npm run tuner    # tuner page: pick levels and effort, run the optimizer, edit the difficulty
@@ -24,7 +25,9 @@ npm run tune:unpack  # readable JSON copies of src/levels.res in tools/tune/resu
 
 ## Saving: SQLite or browser
 
-On first launch you enter your name, which creates a profile (or continues an existing one with that name). Each profile keeps its best score and stars per level, and its saved design for each level. Chapter challenge runs go into a shared top-10 table per chapter, under the profile name.
+On first launch you enter your name, which creates a profile (or continues an existing one with that name). Each profile keeps its best score and stars per level, with what that best bridge cost, its peak stress and the bridge itself, plus its saved design for each level and the engineer's hints taken. Chapter challenge runs go into a shared top-10 table per chapter, under the profile name.
+
+Saved designs carry a format version. A design saved before a level changed is fitted to the level as it is now instead of being thrown away: parts that no longer fit come off (a material no longer offered, a bolt that moved, a joint now out of bounds, parts over a new material limit), the game says how many, and a bridge that now costs more than the budget loads for trimming but can't be tested until it fits.
 
 At startup the game probes `api/health`:
 
@@ -185,11 +188,13 @@ Everything the tuner decides lives in one committed file, `src/levels.res`: the 
 
 **Career.** Your career score is the sum of your best score on every level. Improving any level raises it, so you never need to replay from the start.
 
-**Chapter challenges.** A finished chapter unlocks its challenge: all five levels in a row, from blank designs, with three lives. Each collapse costs a life, and a 3-star crossing earns one back. The run's total goes on that chapter's challenge board, even if you quit part-way.
+**Chapter challenges.** A finished chapter unlocks its challenge: all five levels in a row, from blank designs, with three lives. Each collapse costs a life, and a 3-star crossing earns one back. The run's total goes on that chapter's challenge board, even if you quit part-way; quitting asks first, and says how many points will be banked.
+
+**Engineer's review.** After a crossing the result card says how the cost compares with the best known design (the optimizer's or the hand-made one, whichever is cheaper), counts parts that never carried more than 20% of their strength, and steel that wood could carry under 75% load, with what each costs. IMPROVE marks them on the blueprint until you change the bridge. The briefing offers **hints**: each one shows one more member of the best known design as a ghost to trace, and takes 100 points off every score on that level from then on (a crossing always keeps its 500). Challenges have no hints.
 
 **Leaderboards** have four tabs:
 
 - **Career**: every engineer, ranked by career score.
 - **Chapter**: ranked by best scores on one chapter's five levels.
-- **Levels**: the record holder on each level of a chapter, with your own best when someone else holds it.
+- **Levels**: the record holder on each level of a chapter, with what the record bridge cost and its peak stress, and your own best when someone else holds it. Once you've crossed a level yourself, **Watch it** drives the record bridge across, keeping your own blueprint.
 - **Challenges**: the top challenge runs on one chapter.

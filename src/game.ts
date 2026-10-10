@@ -22,7 +22,7 @@ import {
   type MakerTool,
 } from './maker';
 import { Design } from './design';
-import { Editor, money, type AttachPick } from './editor';
+import { Editor, fitDesign, money, type AttachPick } from './editor';
 import { DebrisField, Particles, PK, Shake } from './fx/particles';
 import { bankY, goalX, LEVELS, START_X, type LevelDef } from './levels';
 import { MATERIAL_ORDER, MATERIALS, type MaterialId } from './physics/materials';
@@ -38,6 +38,7 @@ import {
   chapterUnlocked,
   CHAPTERS,
   continueLevel,
+  crossed,
   highestUnlocked,
   levelById,
   levelCode,
@@ -46,13 +47,15 @@ import {
   totals,
   type ChapterDef,
 } from './chapters';
-import { bonusLabel, scoreLevel, type LevelScore } from './scoring';
+import { bonusLabel, HINT_PENALTY, scoreLevel, type LevelScore } from './scoring';
+import { efficiency, IDLE_LOAD } from './efficiency';
+import { bestKnown, costReview, ghosts, nextHint, type Ghost } from './review';
 import { bestPerLevel, blankProgress, loadPrefs, rankProfiles, savePrefs, type Prefs, type Profile, type Progress, type Store } from './storage';
 import { SOLUTIONS } from './solutions';
 import { TunePool } from './tunepool';
 import { StressGraph, type GraphPick } from './ui/graph';
 import { MAKER_TOOLS, MakerUi } from './ui/makerui';
-import { Ui } from './ui/ui';
+import { recordDetail, Ui, type ScreenId } from './ui/ui';
 
 type State = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'workshop' | 'maker' | 'build' | 'test' | 'result' | 'collapse' | 'over';
 export type Board = 'career' | 'chapter' | 'levels' | 'challenge';
@@ -64,6 +67,16 @@ const COLLAPSE_DELAY = 1.7;
 
 /** The level editor's bolt preview never places members, so it ignores editor events. */
 const NO_EVENTS = { place() {}, remove() {}, invalid() {} };
+
+/** A grid point as players read it, e.g. "4, 2.5". */
+function gridText(p: [number, number]): string {
+  return `${+p[0].toFixed(2)}, ${+p[1].toFixed(2)}`;
+}
+
+/** A count and its noun, e.g. "1 part" or "3 parts". */
+function plural(k: number, what: string): string {
+  return `${k} ${what}${k === 1 ? '' : 's'}`;
+}
 
 /** A load ratio as a whole percentage. */
 function pct(v: number): string {
@@ -100,6 +113,12 @@ export class Game {
   private briefing = false;
   /** The test drive running is the level's example bridge, not the player's design. */
   private example = false;
+  /** What the last successful test showed about the material, marked on the blueprint until the design changes. */
+  private marks: { idle: number[]; wood: number[]; revision: number; told: boolean } | null = null;
+  /** Each built-in level's best known design, as the members the engineer's hints reveal. */
+  private hintGhosts = new Map<number, Ghost[] | null>();
+  /** Quitting a challenge is waiting on a yes or no, asked over this screen. */
+  private quitAsk: ScreenId | null = null;
   /** The stress graph is docked over a finished run, with what it highlights. */
   private graphOpen = false;
   private pick: GraphPick | null = null;
@@ -360,6 +379,12 @@ export class Game {
     this.ui.hideToast();
     this.openBrief();
     sfx.whoosh();
+    const fit = this.editor.fitted;
+    if (fit) {
+      const parts = fit.removed ? `${fit.removed} part${fit.removed === 1 ? '' : 's'} of your saved bridge no longer fit this level and came off.` : '';
+      const over = fit.over ? `Your saved bridge is ${money(fit.over)} over the budget now: trim it before testing.` : '';
+      this.ui.showToast(`${fit.removed ? 'This level has changed. ' : ''}${[parts, over].filter(Boolean).join(' ')}`, 7000);
+    }
   }
 
   /** Shows the level's goals and rules over the blueprint. Opens with every level, and on demand. */
@@ -368,8 +393,63 @@ export class Game {
     if (this.paused) this.setPaused(false);
     this.editor.cancel();
     this.briefing = true;
-    this.ui.brief(this.level, this.codeOf(this.level), this.mode === 'play' ? this.data.best[this.level.id] : undefined, this.hasExample());
+    const all = this.mode === 'play' ? this.allGhosts() : null;
+    const hints = all ? { shown: this.hintsShown().length, penalty: HINT_PENALTY, left: nextHint(all, this.editor.design, this.hintsShown()) >= 0 } : null;
+    this.ui.brief(this.level, this.codeOf(this.level), this.mode === 'play' ? this.data.best[this.level.id] : undefined, this.hasExample(), hints);
   }
+
+  // ───────────────────────────── Engineer's review ─────────────────────────────
+
+  /** The level's best known design as hint ghosts, or null for levels without one. */
+  private allGhosts(): Ghost[] | null {
+    const level = this.level;
+    if (isCustom(level.id)) return null;
+    if (!this.hintGhosts.has(level.id)) {
+      const best = bestKnown(level);
+      this.hintGhosts.set(level.id, best ? ghosts(best) : null);
+    }
+    return this.hintGhosts.get(level.id)!;
+  }
+
+  /** Which of the level's hint ghosts have been shown, in the order they were taken. */
+  private hintsShown(): number[] {
+    return this.data.hints?.[this.level.id] ?? [];
+  }
+
+  /** Shows one more member of the best known design, for points off every score on the level. */
+  private takeHint(): void {
+    const all = this.mode === 'play' && this.state === 'build' && this.editor ? this.allGhosts() : null;
+    if (!all || !this.editor) return;
+    const shown = this.hintsShown();
+    const i = nextHint(all, this.editor.design, shown);
+    if (i < 0) {
+      sfx.invalid();
+      this.ui.showToast('Your bridge already has every member a hint could show.');
+      return;
+    }
+    (this.data.hints ??= {})[this.level.id] = [...shown, i];
+    this.persist();
+    this.closeBrief();
+    sfx.select();
+    const [a, b, mat] = all[i];
+    this.ui.showToast(`Hint ${shown.length + 1}: ${MATERIALS[mat].name.toLowerCase()} from (${gridText(a)}) to (${gridText(b)}), dashed on the blueprint. −${HINT_PENALTY} points on scores here.`, 5000);
+  }
+
+  /** The engineer's notes on a bridge that crossed: its cost against the best known design, and material it barely used. */
+  private review(level: LevelDef, run: TestRun, canRetry: boolean): string[] {
+    const d = this.editor!.design;
+    const out: string[] = [];
+    const best = isCustom(level.id) ? null : bestKnown(level);
+    if (best) out.push(costReview(d.cost(), best.cost(), money));
+    const e = efficiency(level, d, run.peakPull, run.peakPush);
+    if (e.idleParts) out.push(`${plural(e.idleParts, 'part')} never carried over ${Math.round(IDLE_LOAD * 100)}% of ${e.idleParts === 1 ? 'its' : 'their'} strength (${money(e.idleCost)}). Some may only brace others.`);
+    if (e.woodParts) out.push(`${plural(e.woodParts, 'steel part')} could be wood and save ${money(e.woodSaving)}.`);
+    if (!e.idleParts && !e.woodParts) out.push('Every part pulls its weight.');
+    else if (canRetry) out.push('IMPROVE marks them on the blueprint.');
+    this.marks = e.idle.length || e.toWood.length ? { idle: e.idle, wood: e.toWood, revision: this.editor!.revision, told: false } : null;
+    return out;
+  }
+
 
   // ───────────────────────────── Level editor ─────────────────────────────
 
@@ -976,6 +1056,11 @@ export class Game {
     if (this.state !== 'build' || !this.editor || this.paused) return;
     this.closeBrief();
     this.editor.cancel();
+    if (this.editor.left() < 0) {
+      sfx.invalid();
+      this.ui.showToast(`Over budget by ${money(-this.editor.left())}. Remove some parts, then test.`, 3200);
+      return;
+    }
     this.persistDesign();
     this.run = new TestRun(this.editor.design, this.level);
     this.state = 'test';
@@ -1016,6 +1101,11 @@ export class Game {
     this.ui.setTesting(false);
     this.refreshHud();
     this.fitCamera(false);
+    if (this.marks && !this.marks.told && this.marks.revision === this.editor.revision) {
+      this.marks.told = true;
+      const what = [this.marks.idle.length ? 'white: barely loaded' : '', this.marks.wood.length ? 'wood-colored: steel that wood could carry' : ''].filter(Boolean).join(' · ');
+      this.ui.showToast(`Marked on the blueprint (${what}). The marks go when you change the bridge.`, 4500);
+    }
   }
 
   private finishSuccess(): void {
@@ -1027,20 +1117,27 @@ export class Game {
       this.persistDesign();
       this.state = 'result';
       this.stopEngine();
-      this.ui.result(level, s, run.peakStress, 'PLAYTEST · NOT ON YOUR CAREER', true, 'EDIT LEVEL');
+      this.ui.result(level, s, run.peakStress, 'PLAYTEST · NOT ON YOUR CAREER', true, 'EDIT LEVEL', this.review(level, run, true));
       this.resultAnim = { t: 0, score: s, shown: 0, stars: 0, bonusShown: false };
       return;
     }
     const ch = this.chapter;
     const best = this.data.best;
-    const score = scoreLevel(level, this.editor!.design, run.peakStress);
+    // Hints count against free play only: a challenge starts from scratch and offers none.
+    const score = scoreLevel(level, this.editor!.design, run.peakStress, this.mode === 'play' ? this.hintsShown().length : 0);
     const prev = best[level.id];
     const careerBefore = totals(best).score;
     const wasComplete = chapterComplete(ch, best);
+    // The record run's cost, peak stress and bridge go with the best score, for the level boards.
+    const record = !prev || score.total > prev.score;
+    const { cost, peak, design } = record ? { cost: score.spent, peak: run.peakStress, design: this.editor!.design.serialize() } : prev;
     best[level.id] = {
       score: Math.max(prev?.score ?? 0, score.total),
       stars: Math.max(prev?.stars ?? 0, score.stars),
       ...(prev?.bonus || score.bonus ? { bonus: true } : {}),
+      ...(cost === undefined ? {} : { cost }),
+      ...(peak === undefined ? {} : { peak }),
+      ...(design === undefined ? {} : { design }),
     };
     this.data.unlocked = highestUnlocked(best);
     // Challenge runs start from scratch; they never overwrite your saved free-play design.
@@ -1073,7 +1170,7 @@ export class Game {
     this.stopEngine();
     const next = nextInChapter(level.id);
     const nextLabel = next ? 'NEXT' : this.mode === 'challenge' ? 'FINISH' : 'CHAPTERS';
-    this.ui.result(level, score, run.peakStress, lines.join(' · '), this.mode === 'play', nextLabel);
+    this.ui.result(level, score, run.peakStress, lines.join(' · '), this.mode === 'play', nextLabel, this.review(level, run, this.mode === 'play'));
     this.resultAnim = { t: 0, score, shown: 0, stars: 0, bonusShown: false };
   }
 
@@ -1305,10 +1402,28 @@ export class Game {
         break;
       case 'quit':
         sfx.ui();
-        if (this.state !== 'over') void this.bankAbandonedRun();
-        if (this.mode === 'custom') this.enterMaker(this.level);
-        else if (this.mode === 'play') this.enterChapter(this.chapter);
-        else this.enterChapters();
+        // Leaving a challenge part-way ends the run, so ask first.
+        if (this.mode === 'challenge' && this.state !== 'over') {
+          this.askQuit();
+          break;
+        }
+        this.quit();
+        break;
+      case 'review-hint':
+        this.takeHint();
+        break;
+      case 'record-view':
+        sfx.select();
+        void this.watchRecord(Number(el?.dataset.level), el?.dataset.name ?? '');
+        break;
+      case 'quit-confirm':
+        sfx.ui();
+        this.quitAsk = null;
+        this.quit();
+        break;
+      case 'quit-cancel':
+        sfx.ui();
+        this.cancelQuit();
         break;
       case 'restart':
         sfx.select();
@@ -1317,6 +1432,49 @@ export class Game {
       default:
         this.makerAct(a, el);
     }
+  }
+
+  /**
+   * Drives a level's record bridge from the boards, once you've crossed the level yourself. It
+   * opens the level with your own blueprint kept, as the level's example does.
+   */
+  private async watchRecord(id: number, name: string): Promise<void> {
+    if (!crossed(this.data.best, id) || !name) return;
+    let design: Design;
+    try {
+      const saved = await this.store.recordDesign(id, name);
+      if (!saved) throw new Error('No design');
+      // Fitted to the level as it is now, in case it changed since the record was set.
+      design = fitDesign(levelById(id), Design.deserialize(saved)).design;
+    } catch {
+      this.ui.showToast('That record bridge is not available.');
+      return;
+    }
+    if (this.state !== 'scores') return;
+    const r = (await this.store.levelScores().catch(() => [])).find((x) => x.level === id && x.name === name);
+    this.playLevel(id);
+    const detail = r ? recordDetail(r) : '';
+    this.startExample({ design, note: `RECORD: ${name}’s bridge${detail ? `, ${detail}` : ''}. Your own blueprint is kept. Press T to go back.` });
+  }
+
+  /** Asks before ending a challenge run, over whichever screen asked to quit. */
+  private askQuit(): void {
+    this.quitAsk = this.ui.current ?? 'pause';
+    this.ui.confirmQuit(this.runScore, this.levelsCleared, this.chapter);
+  }
+
+  private cancelQuit(): void {
+    if (!this.quitAsk) return;
+    this.ui.show(this.quitAsk);
+    this.quitAsk = null;
+  }
+
+  /** Back to the menus, or the level editor from a playtest. A challenge banks what it scored. */
+  private quit(): void {
+    if (this.state !== 'over') void this.bankAbandonedRun();
+    if (this.mode === 'custom') this.enterMaker(this.level);
+    else if (this.mode === 'play') this.enterChapter(this.chapter);
+    else this.enterChapters();
   }
 
   private selectMaterial(m: MaterialId): void {
@@ -1746,6 +1904,8 @@ export class Game {
       highlight: this.graphOpen && this.pick ? { member: this.pick.member, node: this.pick.node, ghost: this.ghostOf(this.pick.member) } : null,
       maker: this.makerView(),
       loupe: this.loupeView(),
+      reviewHint: this.state === 'build' && this.mode === 'play' && this.hintsShown().length ? this.hintsShown().flatMap((i) => this.allGhosts()?.slice(i, i + 1) ?? []) : null,
+      marks: this.state === 'build' && this.marks && this.marks.revision === this.editor?.revision ? this.marks : null,
     });
   }
 
@@ -2083,6 +2243,11 @@ export class Game {
 
     if (lower === 'm') {
       this.toggleMute();
+      return;
+    }
+    if (this.quitAsk) {
+      if (k === 'Escape' || k === 'Backspace') this.act('quit-cancel');
+      else if (lower === 'q') this.act('quit-confirm');
       return;
     }
 

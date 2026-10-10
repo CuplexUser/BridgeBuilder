@@ -3,7 +3,7 @@ import { Design, type GridPt } from '../src/design';
 import { Editor } from '../src/editor';
 import type { LevelDef } from '../src/levels';
 import { exportLevel, parseLevel, setSize, toggleMast } from '../src/maker';
-import { BLOCK } from '../src/physics/materials';
+import { BLOCK, blockOf } from '../src/physics/materials';
 import { TestRun, World } from '../src/physics/world';
 import { blockSpot, blockSpots, cableBolt, designProblems, pointAllowed } from '../src/rules';
 import { roadRun, suspend } from '../src/solutions';
@@ -186,6 +186,21 @@ describe('concrete anchors: design and editor', () => {
     expect(ed.spent()).toBe(spent);
   });
 
+  it("prices a block set after an undo at the level's own block price", () => {
+    const heavy: LevelDef = { ...NEAR, blocks: { reach: 4, tonnes: 20 } };
+    const ed = new Editor(heavy, noop);
+    ed.setMaterial('cable');
+    ed.beginAt(3, 8, 0.1, 0.1);
+    ed.aim(-3, 0);
+    ed.commit();
+    ed.undo();
+    ed.beginAt(3, 8, 0.1, 0.1);
+    ed.aim(-3, 0);
+    ed.commit();
+    expect(ed.design.nodes[ed.design.findNode(-3, 0)].price).toBe(blockOf(heavy).price);
+    expect(blockOf(heavy).price).toBeGreaterThan(BLOCK.price);
+  });
+
   it('refuses a member lying along the ground, and joints low over the bank', () => {
     const ed = new Editor(MASTED, noop);
     ed.setMaterial('wood');
@@ -214,16 +229,25 @@ describe('concrete anchors: design and editor', () => {
     expect(ed.drag!.reason).toBe('');
   });
 
-  it('drops a saved design that hangs a cable on a bolt', () => {
+  it('takes a cable on a bolt off a saved design and keeps the rest', () => {
+    const plain = hungDeck(MASTED, null);
     const saved = hungDeck(MASTED, null).add([4, 9], [2, 6], 'cable').add([2, 6], [0, 0], 'cable').serialize();
-    expect(new Editor(MASTED, noop, saved).design.members).toEqual([]);
-    expect(new Editor({ ...MASTED, blocks: undefined }, noop, saved).design.members.length).toBeGreaterThan(0);
+    const ed = new Editor(MASTED, noop, saved);
+    expect(ed.design.members).toHaveLength(plain.members.length + 1);
+    expect(ed.fitted).toEqual({ removed: 1, over: 0 });
+    expect(designProblems(MASTED, ed.design)).toEqual([]);
+    expect(new Editor({ ...MASTED, blocks: undefined }, noop, saved).fitted).toBeNull();
   });
 
-  it('keeps a saved design with blocks, and drops it once the level no longer offers them', () => {
+  it('keeps a saved design with blocks, and takes off backstays to spots the level no longer offers', () => {
     const saved = hungDeck(MASTED, 4).serialize();
     expect(new Editor(MASTED, noop, saved).design.blocks()).toHaveLength(2);
-    expect(new Editor({ ...MASTED, blocks: { reach: 2 } }, noop, saved).design.members).toEqual([]);
+    const level = { ...MASTED, blocks: { reach: 2 } };
+    const ed = new Editor(level, noop, saved);
+    expect(ed.design.blocks()).toEqual([]);
+    // The piece down to each block goes; the rest of each backstay is left for the player to move.
+    expect(ed.fitted).toEqual({ removed: 2, over: 0 });
+    expect(designProblems(level, ed.design)).toEqual([]);
   });
 });
 

@@ -432,6 +432,46 @@ kbd {
   color: var(--gold);
 }
 
+.brief-hints {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--gold);
+}
+
+.brief-hints:empty {
+  display: none;
+}
+
+#brief-hint small {
+  font-size: 0.8em;
+  color: var(--gold);
+}
+
+.res-review {
+  margin: 8px auto 0;
+  max-width: 440px;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.res-review:empty {
+  display: none;
+}
+
+.res-review b {
+  color: var(--chalk);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.res-review ul {
+  margin: 3px 0 0;
+  padding-left: 18px;
+}
+
 .brief-best:empty {
   display: none;
 }
@@ -1632,6 +1672,7 @@ h2 {
 .scores td:first-child {
   color: var(--muted);
   width: 2em;
+  white-space: nowrap;
 }
 
 .scores td:nth-child(2) {
@@ -1677,6 +1718,19 @@ h2 {
   color: var(--gold);
   letter-spacing: 0.1em;
   white-space: nowrap;
+}
+
+.scores .rec-view {
+  display: inline-block;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  padding: 2px 0 0;
+}
+
+.scores small.rec-locked {
+  font-style: italic;
 }
 
 .scores td.open {
@@ -1885,6 +1939,25 @@ h2 {
   animation: slidein 0.3s ease-out forwards;
 }
 
+/* Short landscape screens: the breakdown beside the total, review and buttons. */
+@media (max-height: 520px) and (min-width: 561px) {
+  .panel.result {
+    width: min(820px, 100%);
+    display: flex;
+    gap: 22px;
+    align-items: flex-start;
+    padding: 16px 20px;
+  }
+  .res-main,
+  .res-side {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .res-side .total {
+    margin-top: 0;
+  }
+}
+
 @keyframes slidein {
   from {
     opacity: 0;
@@ -1985,6 +2058,19 @@ h2 {
   margin: 6px 0 0;
   color: var(--gold);
   font-weight: 700;
+}
+
+.panel.confirm {
+  max-width: 420px;
+}
+
+.confirm-bank {
+  margin: 10px 0 4px;
+  font-size: 17px;
+}
+
+.confirm-bank b {
+  color: var(--gold);
 }
 
 /* Profiles */

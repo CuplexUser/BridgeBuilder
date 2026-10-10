@@ -893,6 +893,9 @@ export class TestRun {
   readonly releaseAt: number;
   /** Stress over time, for the graph after the run. */
   readonly log: StressLog;
+  /** Each design member's highest pull and push during the run, as load ratios (0–1). */
+  readonly peakPull: Float32Array;
+  readonly peakPush: Float32Array;
   /** When the run succeeded or failed, s. */
   private endedAt: number | null = null;
   private readonly speeds: number[];
@@ -910,6 +913,8 @@ export class TestRun {
     // Progress is the tail's, so it starts where the last vehicle in line waits, not at the start line.
     this.lastProgressX = Math.min(...this.vehicles.map((v) => this.xOf(v)));
     this.log = new StressLog(design.members.length);
+    this.peakPull = new Float32Array(design.members.length);
+    this.peakPush = new Float32Array(design.members.length);
     this.releaseAt = level.ship ? SETTLE_TIME + OPEN_TIME + SHIP_TIME + CLOSE_TIME : 0;
     this.speeds = this.vehicles.flatMap((v) => v.wheels.map((p) => this.world.drive[p]));
     if (level.ship) {
@@ -984,7 +989,11 @@ export class TestRun {
       this.lastProgressT = this.time;
     }
     for (const l of w.links) {
-      if (l.bridge && !l.broken) this.peakStress = Math.max(this.peakStress, Math.abs(l.stress));
+      if (!l.bridge || l.broken) continue;
+      this.peakStress = Math.max(this.peakStress, Math.abs(l.stress));
+      if (l.member < 0) continue;
+      if (l.stress > this.peakPull[l.member]) this.peakPull[l.member] = l.stress;
+      else if (-l.stress > this.peakPush[l.member]) this.peakPush[l.member] = -l.stress;
     }
     for (const p of w.jointLinks.keys()) if (w.jointLinks[p]) this.peakStress = Math.max(this.peakStress, Math.min(1, w.jointRatio(p)));
     for (const b of w.blocks) this.peakStress = Math.max(this.peakStress, Math.min(1, b.util));

@@ -6,7 +6,8 @@ import { dirname } from 'node:path';
 
 const MAX_NAME = 16;
 const MAX_HIGHS = 10;
-const MAX_BODY = 512 * 1024;
+const MAX_BODY = 2 * 1024 * 1024;
+const MAX_DESIGN = 64 * 1024;
 
 export function openDb(file) {
   if (file !== ':memory:') mkdirSync(dirname(file), { recursive: true });
@@ -46,6 +47,12 @@ export function openDb(file) {
   if (!db.prepare('PRAGMA table_info(level_progress)').all().some((c) => c.name === 'bonus')) {
     db.exec('ALTER TABLE level_progress ADD COLUMN bonus INTEGER NOT NULL DEFAULT 0');
   }
+  // The best-scoring run's cost, peak stress and bridge, for the level boards. Older databases predate them.
+  const cols = db.prepare('PRAGMA table_info(level_progress)').all();
+  // And the engineer's hints taken on the level, as a JSON list.
+  for (const [name, type] of [['best_cost', 'INTEGER'], ['best_peak', 'REAL'], ['best_design', 'TEXT'], ['hints', 'TEXT']]) {
+    if (!cols.some((c) => c.name === name)) db.exec(`ALTER TABLE level_progress ADD COLUMN ${name} ${type}`);
+  }
   return db;
 }
 
@@ -69,15 +76,23 @@ export function createApi(db) {
     insertProfile: db.prepare('INSERT INTO profiles (name) VALUES (?)'),
     touchProfile: db.prepare("UPDATE profiles SET played_at = datetime('now') WHERE id = ?"),
     totalsFor: db.prepare('SELECT COALESCE(SUM(stars), 0) AS stars, COALESCE(SUM(best_score), 0) AS score FROM level_progress WHERE profile_id = ?'),
-    levels: db.prepare('SELECT level_id, best_score, stars, bonus, design FROM level_progress WHERE profile_id = ?'),
+    levels: db.prepare('SELECT level_id, best_score, stars, bonus, design, best_cost, best_peak, hints FROM level_progress WHERE profile_id = ?'),
     setUnlocked: db.prepare('UPDATE profiles SET unlocked = MAX(unlocked, ?) WHERE id = ?'),
+    // The record run's details come with the score they belong to: they change only along with a
+    // score at least as high, and a save that doesn't carry them (such as the bridge) keeps them.
     upsertLevel: db.prepare(`
-      INSERT INTO level_progress (profile_id, level_id, best_score, stars, bonus, design) VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO level_progress (profile_id, level_id, best_score, stars, bonus, design, best_cost, best_peak, best_design, hints) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT (profile_id, level_id) DO UPDATE SET
-        best_score = MAX(best_score, excluded.best_score),
-        stars      = MAX(stars, excluded.stars),
-        bonus      = MAX(bonus, excluded.bonus),
-        design     = COALESCE(excluded.design, design)`),
+        best_score  = MAX(best_score, excluded.best_score),
+        stars       = MAX(stars, excluded.stars),
+        bonus       = MAX(bonus, excluded.bonus),
+        design      = COALESCE(excluded.design, design),
+        best_cost   = CASE WHEN excluded.best_score >= best_score AND excluded.best_cost IS NOT NULL THEN excluded.best_cost ELSE best_cost END,
+        best_peak   = CASE WHEN excluded.best_score >= best_score AND excluded.best_peak IS NOT NULL THEN excluded.best_peak ELSE best_peak END,
+        best_design = CASE WHEN excluded.best_score > best_score THEN excluded.best_design
+                           WHEN excluded.best_score = best_score THEN COALESCE(excluded.best_design, best_design)
+                           ELSE best_design END,
+        hints       = CASE WHEN length(excluded.hints) > length(COALESCE(hints, '')) THEN excluded.hints ELSE hints END`),
     topScores: db.prepare(`
       SELECT s.id, p.name, s.score, s.levels, s.chapter, substr(s.created_at, 1, 10) AS date
       FROM scores s JOIN profiles p ON p.id = s.profile_id
@@ -85,10 +100,13 @@ export function createApi(db) {
       ORDER BY s.score DESC, s.id ASC LIMIT ${MAX_HIGHS}`),
     insertScore: db.prepare('INSERT INTO scores (profile_id, score, levels, chapter) VALUES (?, ?, ?, ?)'),
     levelScores: db.prepare(`
-      SELECT l.level_id AS level, p.name, l.best_score AS score, l.stars
+      SELECT l.level_id AS level, p.name, l.best_score AS score, l.stars, l.best_cost AS cost, l.best_peak AS peak, l.best_design IS NOT NULL AS has_design
       FROM level_progress l JOIN profiles p ON p.id = l.profile_id
       WHERE l.best_score > 0
       ORDER BY l.level_id, l.best_score DESC, l.stars DESC, p.id ASC`),
+    recordDesign: db.prepare(`
+      SELECT l.best_design AS design FROM level_progress l JOIN profiles p ON p.id = l.profile_id
+      WHERE l.level_id = ? AND p.name = ?`),
   };
 
   const profileOut = (p) => ({ id: String(p.id), name: p.name, unlocked: p.unlocked, ...q.totalsFor.get(p.id) });
@@ -115,11 +133,13 @@ export function createApi(db) {
         const p = mustProfile(q, m[1]);
         const best = {};
         const designs = {};
+        const hints = {};
         for (const l of q.levels.all(p.id)) {
-          if (l.best_score > 0 || l.stars > 0) best[l.level_id] = { score: l.best_score, stars: l.stars, ...(l.bonus ? { bonus: true } : {}) };
+          if (l.hints) hints[l.level_id] = JSON.parse(l.hints);
+          if (l.best_score > 0 || l.stars > 0) best[l.level_id] = { score: l.best_score, stars: l.stars, ...(l.bonus ? { bonus: true } : {}), ...record(l.best_cost, l.best_peak) };
           if (l.design) designs[l.level_id] = l.design;
         }
-        return { unlocked: p.unlocked, best, designs };
+        return { unlocked: p.unlocked, best, designs, hints };
       },
     ],
     [
@@ -129,14 +149,20 @@ export function createApi(db) {
         const p = mustProfile(q, m[1]);
         const best = body?.best ?? {};
         const designs = body?.designs ?? {};
-        const ids = new Set([...Object.keys(best), ...Object.keys(designs)]);
+        const hints = body?.hints ?? {};
+        const ids = new Set([...Object.keys(best), ...Object.keys(designs), ...Object.keys(hints)]);
         db.exec('BEGIN');
         try {
           q.setUnlocked.run(int(body?.unlocked, 1, 99), p.id);
           for (const id of ids) {
             const b = best[id] ?? {};
-            const design = typeof designs[id] === 'string' ? designs[id].slice(0, 64 * 1024) : null;
-            q.upsertLevel.run(p.id, int(id, 1, 99), int(b.score, 0, 1e7), int(b.stars, 0, 3), b.bonus === true ? 1 : 0, design);
+            const design = typeof designs[id] === 'string' ? designs[id].slice(0, MAX_DESIGN) : null;
+            // A record bridge too big to keep whole isn't kept at all: a cut one wouldn't load.
+            const bestDesign = typeof b.design === 'string' && b.design.length <= MAX_DESIGN ? b.design : null;
+            const cost = Number.isFinite(b.cost) ? int(b.cost, 0, 1e9) : null;
+            const peak = Number.isFinite(b.peak) ? Math.max(0, Math.min(1, b.peak)) : null;
+            const shown = Array.isArray(hints[id]) ? JSON.stringify(hints[id].slice(0, 500).map((h) => int(h, 0, 9999))) : null;
+            q.upsertLevel.run(p.id, int(id, 1, 99), int(b.score, 0, 1e7), int(b.stars, 0, 3), b.bonus === true ? 1 : 0, design, cost, peak, bestDesign, shown);
           }
           q.touchProfile.run(p.id);
           db.exec('COMMIT');
@@ -148,7 +174,17 @@ export function createApi(db) {
       },
     ],
     ['GET', /^scores$/, (_m, _b, query) => q.topScores.all(int(query.get('chapter'), 0, 99)).map(({ id: _id, ...s }) => s)],
-    ['GET', /^level-scores$/, () => q.levelScores.all().map((r) => ({ level: r.level, name: r.name, score: r.score, stars: r.stars }))],
+    [
+      'GET',
+      /^level-scores$/,
+      () =>
+        q.levelScores.all().map((r) => {
+          const out = Object.assign({ level: r.level, name: r.name, score: r.score, stars: r.stars }, record(r.cost, r.peak));
+          if (r.has_design) out.hasDesign = true;
+          return out;
+        }),
+    ],
+    ['GET', /^level-design$/, (_m, _b, query) => ({ design: q.recordDesign.get(int(query.get('level'), 0, 99), cleanName(query.get('name')))?.design ?? null })],
     [
       'POST',
       /^scores$/,
@@ -180,6 +216,11 @@ export function createApi(db) {
       if (!e.status) console.error(e);
     }
   };
+}
+
+/** A record run's cost and peak stress, left out where they weren't kept. */
+function record(cost, peak) {
+  return { ...(cost === null || cost === undefined ? {} : { cost }), ...(peak === null || peak === undefined ? {} : { peak }) };
 }
 
 function mustProfile(q, id) {

@@ -22,6 +22,23 @@ export interface LevelRecord {
   name: string;
   score: number;
   stars: number;
+  /** What the best-scoring bridge cost and its peak stress (0–1), for records set since they were kept. */
+  cost?: number;
+  peak?: number;
+  /** The best-scoring bridge was kept and can be fetched with Store.recordDesign. */
+  hasDesign?: boolean;
+}
+
+/** One level's best result in a profile's progress. */
+export interface BestEntry {
+  score: number;
+  stars: number;
+  /** The level's bonus goal was met at least once. */
+  bonus?: boolean;
+  /** The best-scoring run: what its bridge cost, its peak stress (0–1) and the design itself. */
+  cost?: number;
+  peak?: number;
+  design?: string;
 }
 
 export interface Profile {
@@ -35,9 +52,11 @@ export interface Profile {
 
 export interface Progress {
   /** Best result per level; `bonus` is set once the level's bonus goal has been met. */
-  best: Record<number, { score: number; stars: number; bonus?: boolean }>;
+  best: Record<number, BestEntry>;
   unlocked: number;
   designs: Record<number, string>;
+  /** The engineer's hints shown on each level: which members of its best known design. */
+  hints?: Record<number, number[]>;
 }
 
 export interface Store {
@@ -51,6 +70,8 @@ export interface Store {
   highScores(chapter: number): Promise<HighScore[]>;
   /** Every profile's best on every level it has crossed: the source for career, chapter and level boards. */
   levelScores(): Promise<LevelRecord[]>;
+  /** The bridge behind a profile's best score on a level, by profile name, or null if it wasn't kept. */
+  recordDesign(level: number, name: string): Promise<string | null>;
   /** Records a finished chapter challenge. Returns its rank (0-based) on that chapter's board, or -1. */
   submitScore(profileId: string, score: number, levels: number, chapter: number): Promise<number>;
 }
@@ -109,6 +130,15 @@ export function bestPerLevel(entries: LevelRecord[]): LevelRecord[] {
   const out = [...best.values()];
   out.sort((a, b) => a.level - b.level);
   return out;
+}
+
+/** A profile's best on one level as the boards show it, with the record run's details where they were kept. */
+function recordOf(level: number, name: string, b: BestEntry): LevelRecord {
+  const r: LevelRecord = { level, name, score: b.score, stars: b.stars };
+  if (b.cost !== undefined) r.cost = b.cost;
+  if (b.peak !== undefined) r.peak = b.peak;
+  if (b.design) r.hasDesign = true;
+  return r;
 }
 
 /** Inserts a score, keeps the table sorted and trimmed, returns its rank (0-based) or -1. */
@@ -214,9 +244,15 @@ export class LocalStore implements Store {
     const d = this.read();
     const all: LevelRecord[] = [];
     for (const p of d.profiles) {
-      for (const [level, b] of Object.entries(d.progress[p.id]?.best ?? {})) all.push({ level: Number(level), name: p.name, score: b.score, stars: b.stars });
+      for (const [level, b] of Object.entries(d.progress[p.id]?.best ?? {})) all.push(recordOf(Number(level), p.name, b));
     }
     return all;
+  }
+
+  async recordDesign(level: number, name: string): Promise<string | null> {
+    const d = this.read();
+    const p = d.profiles.find((x) => x.name.toLowerCase() === name.toLowerCase());
+    return (p && d.progress[p.id]?.best[level]?.design) ?? null;
   }
 
   async submitScore(profileId: string, score: number, levels: number, chapter: number): Promise<number> {
@@ -288,6 +324,11 @@ export class ServerStore implements Store {
 
   levelScores(): Promise<LevelRecord[]> {
     return this.req('GET', 'level-scores');
+  }
+
+  async recordDesign(level: number, name: string): Promise<string | null> {
+    const r = await this.req<{ design: string | null }>('GET', `level-design?level=${level}&name=${encodeURIComponent(name)}`);
+    return r.design;
   }
 
   async submitScore(profileId: string, score: number, levels: number, chapter: number): Promise<number> {

@@ -6,7 +6,7 @@ import { levelBrief, traffic } from '../brief';
 import { bonusLabel, GOAL_SCORE, type LevelScore } from '../scoring';
 import type { BoardRow, HighScore, LevelRecord, Profile, Progress } from '../storage';
 
-export type ScreenId = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'workshop' | 'share' | 'mkhelp' | 'pause' | 'brief' | 'result' | 'collapse' | 'over';
+export type ScreenId = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'workshop' | 'share' | 'mkhelp' | 'pause' | 'confirm' | 'brief' | 'result' | 'collapse' | 'over';
 type BoardTab = 'career' | 'chapter' | 'levels' | 'challenge';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -39,6 +39,7 @@ export class Ui {
     share: $('scr-share'),
     mkhelp: $('scr-mkhelp'),
     pause: $('scr-pause'),
+    confirm: $('scr-confirm'),
     brief: $('scr-brief'),
     result: $('scr-result'),
     collapse: $('scr-collapse'),
@@ -146,7 +147,7 @@ export class Ui {
   }
 
   /** The level briefing: who crosses, the tip, the three stars, the bonus goal and any special rules. */
-  brief(level: LevelDef, code: string, best: Best | undefined, example: boolean): void {
+  brief(level: LevelDef, code: string, best: Best | undefined, example: boolean, hints: { shown: number; penalty: number; left: boolean } | null = null): void {
     const b = levelBrief(level);
     $('brief-code').textContent = code;
     $('brief-name').textContent = level.name;
@@ -161,7 +162,13 @@ export class Ui {
     $('brief-rules').innerHTML = b.rules.map((r) => `<li>${escapeHtml(r)}</li>`).join('');
     $('brief-rules-box').classList.toggle('hidden', b.rules.length === 0);
     $('brief-example').classList.toggle('hidden', !example);
-    $('brief-best').textContent = best ? `Your best: ${best.score.toLocaleString('en-US')} · ${starText(best.stars)}${best.bonus ? ` ${BONUS_MARK}` : ''}` : '';
+    $('brief-best').textContent = best ? `Your best: ${best.score.toLocaleString('en-US')} · ${starText(best.stars)}${best.bonus ? ` ${BONUS_MARK}` : ''}${best.cost === undefined ? '' : ` · ${money(best.cost)}`}` : '';
+    // The engineer's hints: each shows one member of the best known design, for points off every score here.
+    const hint = $('brief-hint');
+    hint.classList.toggle('hidden', !hints?.left);
+    hint.innerHTML = `HINT <small>−${hints?.penalty ?? 0}</small>`;
+    hint.title = `Shows one member of the best known design. Every score on this level loses ${hints?.penalty ?? 0} points per hint.`;
+    $('brief-hints').textContent = hints?.shown ? `Hints taken here: ${hints.shown} (−${(hints.shown * hints.penalty).toLocaleString('en-US')} points on each score).` : '';
     this.show('brief');
   }
 
@@ -376,7 +383,11 @@ export class Ui {
     });
   }
 
-  /** One row per level: the record holder, plus your own best when someone else holds it. */
+  /**
+   * One row per level: the record holder, with what the record bridge cost and its peak stress,
+   * plus your own best when someone else holds it. A record bridge that was kept can be watched
+   * once you've crossed the level yourself.
+   */
   levelRecordTable(levels: LevelDef[], records: LevelRecord[], mine: Progress, me: string): void {
     const body = $('score-rows');
     body.innerHTML = '';
@@ -387,8 +398,15 @@ export class Ui {
       const holder = !!r && r.name.toLowerCase() === me.toLowerCase();
       if (holder) tr.className = 'mine';
       const you = own && !holder ? `<small>you ${own.score.toLocaleString('en-US')}</small>` : '';
+      const detail = r ? recordDetail(r) : '';
+      const crossedIt = (own?.stars ?? 0) > 0;
+      const view = r?.hasDesign
+        ? crossedIt
+          ? `<button class="link-btn rec-view" data-act="record-view" data-level="${l.id}" data-name="${escapeHtml(r.name)}">Watch it ▶</button>`
+          : '<small class="rec-locked">Cross it yourself to watch the record</small>'
+        : '';
       tr.innerHTML = r
-        ? `<td>${levelCode(l.id)}</td><td>${escapeHtml(r.name)}${you}</td><td class="st">${starText(r.stars)}</td><td>${r.score.toLocaleString('en-US')}</td>`
+        ? `<td>${levelCode(l.id)}</td><td>${escapeHtml(r.name)}${detail ? `<small>${detail}</small>` : ''}${you}${view}</td><td class="st">${starText(r.stars)}</td><td>${r.score.toLocaleString('en-US')}</td>`
         : `<td>${levelCode(l.id)}</td><td class="open">${escapeHtml(l.name)}: open</td><td></td><td>—</td>`;
       body.appendChild(tr);
     }
@@ -396,7 +414,11 @@ export class Ui {
 
   // ───────────────────────────── Results ─────────────────────────────
 
-  result(level: LevelDef, s: LevelScore, peak: number, runLine: string, canRetry: boolean, nextLabel: string): void {
+  /**
+   * The result card. `review` is the engineer's notes on the bridge: how its cost compares with
+   * the best known design, and material it barely used.
+   */
+  result(level: LevelDef, s: LevelScore, peak: number, runLine: string, canRetry: boolean, nextLabel: string, review: string[] = []): void {
     const rows = $('res-rows');
     const lines: [string, string][] = [
       ['Bridge held', `${s.base}`],
@@ -404,6 +426,8 @@ export class Ui {
       [`Safety (peak ${Math.round(peak * 100)}%)`, `+${s.safetyBonus}`],
       [`Bonus goal: ${bonusLabel(level.bonus)}`, s.bonus ? `+${GOAL_SCORE}` : 'missed'],
     ];
+    if (s.hintPenalty) lines.push(["Engineer's hints", `−${s.hintPenalty}`]);
+    $('res-review').innerHTML = review.length ? `<b>Engineer's review</b><ul>${review.map((r) => `<li>${escapeHtml(r)}</li>`).join('')}</ul>` : '';
     rows.innerHTML = lines.map(([a, b], i) => `<tr style="animation-delay:${0.25 + i * 0.18}s"><td>${a}</td><td>${b}</td></tr>`).join('');
     $('res-total').textContent = '0';
     $('res-run').textContent = runLine;
@@ -435,6 +459,16 @@ export class Ui {
   pauseMenu(testing: boolean, playtest: boolean): void {
     $('pause-retry').classList.toggle('hidden', !testing);
     $('pause-quit').innerHTML = playtest ? 'EDIT LEVEL <kbd>Q</kbd>' : 'QUIT TO MENU <kbd>Q</kbd>';
+  }
+
+  /** Asks before leaving a chapter challenge part-way, saying what goes on the board. */
+  confirmQuit(score: number, cleared: number, chapter: ChapterDef): void {
+    $('confirm-bank').innerHTML =
+      score > 0
+        ? `<b>${score.toLocaleString('en-US')}</b> points for ${cleared} of ${chapter.levels.length} level${chapter.levels.length === 1 ? '' : 's'} go on the ${escapeHtml(chapter.name)} board.`
+        : 'Nothing goes on the board: no level cleared yet.';
+    $('confirm-note').textContent = 'The run ends here. A new challenge starts again from the first level.';
+    this.show('confirm');
   }
 
   collapse(reason: string, lives: number | null, maxLives: number, playtest = false): void {
@@ -474,6 +508,11 @@ export const BONUS_MARK = '✦';
 /** Difficulty as filled and empty pips. */
 function pips(n: number): string {
   return `<span class="pips" aria-label="Difficulty ${n} of ${CHAPTERS.length}">${'<i class="on"></i>'.repeat(n)}${'<i></i>'.repeat(CHAPTERS.length - n)}</span>`;
+}
+
+/** A record run's cost and peak stress, e.g. "$12,340 · peak 62%", or '' for records from before they were kept. */
+export function recordDetail(r: { cost?: number; peak?: number }): string {
+  return [r.cost === undefined ? '' : money(r.cost), r.peak === undefined ? '' : `peak ${Math.round(r.peak * 100)}%`].filter(Boolean).join(' · ');
 }
 
 function starText(n: number): string {

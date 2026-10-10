@@ -1,4 +1,5 @@
 import type { AttachPick, Editor } from '../editor';
+import type { GridPt } from '../design';
 import type { Debris, DebrisField, Particles, Whip } from '../fx/particles';
 import { PK, WHIP_LIFE } from '../fx/particles';
 import { bankY, goalX, seatPiers, type LevelDef, type Overhang } from '../levels';
@@ -44,6 +45,10 @@ export interface SceneView {
   maker?: { x: number; y: number; label: string; ok: boolean; channel: [number, number, number] | null } | null;
   /** A magnifier for touch: the screen point to enlarge (x, y) and the finger hiding it (fx, fy). */
   loupe?: { x: number; y: number; fx: number; fy: number } | null;
+  /** Members of the best known design revealed by the engineer's hints, drawn as ghosts to trace. */
+  reviewHint?: [GridPt, GridPt, MaterialId][] | null;
+  /** After a successful test: members that barely carried load, and steel that wood could replace. */
+  marks?: { idle: number[]; wood: number[] } | null;
 }
 
 const TAU = Math.PI * 2;
@@ -136,6 +141,48 @@ function curveControls(p0: Pt2, p1: Pt2, p2: Pt2, p3: Pt2): Ctl {
 
 type Pt2 = [number, number];
 type Ctl = [number, number, number, number];
+
+/** One member to paint in a batch, in screen space, with its unit normal pointing up the screen. */
+interface Seg {
+  ax: number;
+  ay: number;
+  bx: number;
+  by: number;
+  nx: number;
+  ny: number;
+  mat: MaterialId;
+  stress: number;
+  /** How far a slack cable droops at its middle, px. */
+  sag: number;
+  ctl?: Ctl;
+}
+
+function segOf(ax: number, ay: number, bx: number, by: number, mat: MaterialId, stress: number, sag: number, ctl?: Ctl): Seg {
+  const len = Math.hypot(bx - ax, by - ay) || 1;
+  let nx = (by - ay) / len;
+  let ny = -(bx - ax) / len;
+  if (ny > 0) {
+    nx = -nx;
+    ny = -ny;
+  }
+  return { ax, ay, bx, by, nx, ny, mat, stress, sag, ctl };
+}
+
+/** Adds a full circle to a path as its own subpath. */
+function disk(p: Path2D, x: number, y: number, r: number): void {
+  p.moveTo(x + r, y);
+  p.arc(x, y, r, 0, TAU);
+}
+
+/** Adds a member's line to a path, `off` px along its normal: straight, drooping, or along its curve. */
+function segPath(p: Path2D, s: Seg, off: number): void {
+  const ox = s.nx * off;
+  const oy = s.ny * off;
+  p.moveTo(s.ax + ox, s.ay + oy);
+  if (s.ctl) p.bezierCurveTo(s.ctl[0] + ox, s.ctl[1] + oy, s.ctl[2] + ox, s.ctl[3] + oy, s.bx + ox, s.by + oy);
+  else if (s.sag > 0) p.quadraticCurveTo((s.ax + s.bx) / 2 + ox, (s.ay + s.by) / 2 + oy + s.sag * 2, s.bx + ox, s.by + oy);
+  else p.lineTo(s.bx + ox, s.by + oy);
+}
 
 /**
  * Control points for each piece of the curved runs among the given segments, keyed by
@@ -369,7 +416,8 @@ export class Renderer {
       if (v.highlight) this.drawHighlight(v.run, v.highlight, v.time);
     } else if (v.editor) {
       this.drawVehicleParked(v.level);
-      if (v.showHint) this.drawHint(v);
+      if (v.showHint && v.level.hint) this.drawHint(v, v.level.hint);
+      if (v.reviewHint?.length) this.drawHint(v, v.reviewHint);
       this.drawEditor(v, v.editor);
       if (v.maker) this.drawMakerCursor(v.maker, v.level, v.time);
     }
@@ -1663,6 +1711,115 @@ export class Renderer {
     ctx.globalAlpha = 1;
   }
 
+  /**
+   * Paints many members the way memberPaint paints one, in a few strokes per material instead
+   * of several per member: every member's outline, then every body, then each detail, then the
+   * stress overlay in a stroke per shade. A big bridge is hundreds of members, and canvas
+   * strokes, not their length, are what a frame pays for.
+   */
+  private paintBatch(segs: Seg[], time: number): void {
+    const { ctx, cam } = this;
+    const byMat = new Map<MaterialId, Seg[]>();
+    for (const sg of segs) byMat.set(sg.mat, [...(byMat.get(sg.mat) ?? []), sg]);
+    const width = (mat: MaterialId) => Math.max(mat === 'cable' ? 1.5 : 2, MEMBER_WIDTH[mat] * cam.scale);
+    const stroke = (list: Seg[], off: number, style: string, lineWidth: number, cap: CanvasLineCap = 'round', dash: number[] | null = null) => {
+      const path = new Path2D();
+      for (const sg of list) segPath(path, sg, off);
+      ctx.strokeStyle = style;
+      ctx.lineWidth = lineWidth;
+      ctx.lineCap = cap;
+      if (dash) ctx.setLineDash(dash);
+      ctx.stroke(path);
+      if (dash) ctx.setLineDash([]);
+    };
+    for (const [mat, list] of byMat) {
+      const w = width(mat);
+      switch (mat) {
+        case 'road':
+        case 'heavy': {
+          const heavy = mat === 'heavy';
+          stroke(list, 0, '#1b1d22', w + 2);
+          stroke(list, 0, heavy ? PAL.heavy : PAL.road, w);
+          // Slab edge below, lit surface above, and the lane line.
+          stroke(list, -w * 0.32, heavy ? PAL.heavyEdge : '#2a2c32', Math.max(1, w * (heavy ? 0.3 : 0.2)));
+          stroke(list, w * 0.36, 'rgba(255,255,255,0.14)', Math.max(1, w * 0.14));
+          if (w > 5) stroke(list, w * 0.05, PAL.roadLine, Math.max(1, w * 0.11), 'butt', [w * 0.9, w * 0.9]);
+          break;
+        }
+        case 'wood':
+          stroke(list, 0, PAL.woodDark, w + 2);
+          stroke(list, 0, PAL.wood, w);
+          if (w > 4) {
+            // Grain: two broken streaks along the length.
+            stroke(list, w * 0.22, 'rgba(110,62,24,0.45)', Math.max(0.8, w * 0.1), 'butt', [11, 6.6]);
+            stroke(list, -w * 0.2, 'rgba(110,62,24,0.45)', Math.max(0.8, w * 0.1), 'butt', [7, 4.2]);
+          }
+          stroke(list, w * 0.1, 'rgba(255,230,190,0.3)', Math.max(1, w * 0.2));
+          break;
+        case 'steel': {
+          stroke(list, 0, PAL.steelDark, w + 2);
+          stroke(list, 0, PAL.steel, w);
+          // I-beam flanges, and a rivet near each end.
+          stroke(list, w * 0.34, PAL.steelDark, Math.max(0.8, w * 0.16), 'butt');
+          stroke(list, -w * 0.34, PAL.steelDark, Math.max(0.8, w * 0.16), 'butt');
+          if (w > 4) {
+            const rivets = new Path2D();
+            const r = Math.max(1, w * 0.14);
+            for (const sg of list) {
+              for (const t of [0.14, 0.86]) {
+                const x = sg.ax + (sg.bx - sg.ax) * t;
+                const y = sg.ay + (sg.by - sg.ay) * t;
+                disk(rivets, x, y, r);
+              }
+            }
+            ctx.fillStyle = PAL.steelDark;
+            ctx.fill(rivets);
+          }
+          break;
+        }
+        case 'concrete':
+          stroke(list, 0, PAL.concreteDark, w + 2, 'butt');
+          stroke(list, 0, PAL.concrete, w, 'butt');
+          // Lit face, and the seams of the formwork every meter or so.
+          stroke(list, w * 0.3, 'rgba(255,255,255,0.22)', Math.max(1, w * 0.18), 'butt');
+          if (w > 5) stroke(list, 0, 'rgba(40,36,30,0.35)', w * 0.9, 'butt', [1.5, Math.max(6, cam.scale * 0.9)]);
+          break;
+        case 'main':
+          stroke(list, 0, PAL.mainDark, w + 2);
+          stroke(list, 0, PAL.main, w);
+          // Wrapping wire catching the light along its top.
+          stroke(list, w * 0.22, PAL.mainHi, Math.max(0.8, w * 0.3), 'round', [1.6, 2.4]);
+          break;
+        case 'ram':
+          for (const sg of list) this.ramShape(sg.ax, sg.ay, sg.bx, sg.by, w, false);
+          break;
+        default:
+          stroke(list, 0, PAL.cable, w + 1);
+          // Braided highlight.
+          stroke(list, 0, PAL.cableHi, Math.max(0.8, w * 0.45), 'round', [2.5, 2]);
+      }
+    }
+    // Stress shading, a stroke per material and shade.
+    const shades = new Map<string, Seg[]>();
+    for (const sg of segs) {
+      const key = `${sg.mat} ${Math.round(Math.min(1, Math.abs(sg.stress)) * 20)}`;
+      shades.set(key, [...(shades.get(key) ?? []), sg]);
+    }
+    for (const [key, list] of shades) {
+      const mat = list[0].mat;
+      const s = Number(key.split(' ')[1]) / 20;
+      const w = width(mat);
+      stroke(list, 0, stressColor(s, 0.35 + 0.6 * Math.min(1, s * 1.3)), Math.max(1.5, w * (MATERIALS[mat].drivable ? 0.3 : mat === 'cable' ? 0.9 : mat === 'main' ? 0.7 : mat === 'concrete' ? 0.35 : 0.55)), 'butt');
+    }
+    // Members near failure throb, each at its own strength.
+    const pulse = 0.75 + 0.25 * Math.sin(time * 18);
+    for (const sg of segs) {
+      const s = Math.abs(sg.stress);
+      if (s <= 0.75) continue;
+      stroke([sg], 0, `rgba(255,59,59,${(s - 0.75) * 1.4 * pulse})`, width(sg.mat) + 10 * (s - 0.5) * pulse);
+    }
+  }
+
   private chalkMember(ax: number, ay: number, bx: number, by: number, mat: MaterialId, highlight: 'none' | 'hover' | 'delete', ctl?: Ctl): void {
     const { ctx, cam } = this;
     const w = Math.max(mat === 'cable' ? 1.5 : 2.5, MEMBER_WIDTH[mat] * cam.scale * 0.8);
@@ -1708,11 +1865,45 @@ export class Renderer {
     }
   }
 
+  /**
+   * Marks under the blueprint after a successful test: a pulsing white dashed halo on members
+   * that barely carried any load, and a wood-colored one on steel that wood could take over.
+   */
+  private drawMarks(ed: Editor, marks: NonNullable<SceneView['marks']>, curved: Map<number, Ctl>, time: number): void {
+    const { ctx, cam } = this;
+    const { nodes, members } = ed.design;
+    const pulse = 0.45 + 0.2 * Math.sin(time * 3);
+    for (const [list, color] of [
+      [marks.idle, '#ffffff'],
+      [marks.wood, MATERIAL_CHALK.wood],
+    ] as const) {
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = pulse;
+      ctx.lineCap = 'round';
+      ctx.setLineDash([4, 6]);
+      for (const i of list) {
+        const m = members[i];
+        if (!m) continue;
+        const w = Math.max(2.5, MEMBER_WIDTH[m.mat] * cam.scale * 0.8);
+        const ctl = curved.get(i);
+        ctx.lineWidth = w + 12;
+        ctx.beginPath();
+        ctx.moveTo(cam.sx(nodes[m.a].x), cam.sy(nodes[m.a].y));
+        if (ctl) ctx.bezierCurveTo(ctl[0], ctl[1], ctl[2], ctl[3], cam.sx(nodes[m.b].x), cam.sy(nodes[m.b].y));
+        else ctx.lineTo(cam.sx(nodes[m.b].x), cam.sy(nodes[m.b].y));
+        ctx.stroke();
+      }
+    }
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  }
+
   private drawEditor(v: SceneView, ed: Editor): void {
     const { ctx, cam } = this;
     const { nodes, members } = ed.design;
     const curved = this.designCurves(ed.design.members, (n): Pt2 => [cam.sx(nodes[n].x), cam.sy(nodes[n].y)]);
 
+    if (v.marks) this.drawMarks(ed, v.marks, curved, v.time);
     members.forEach((m, i) => {
       const a = nodes[m.a];
       const b = nodes[m.b];
@@ -2098,10 +2289,9 @@ export class Renderer {
     ctx.stroke();
   }
 
-  private drawHint(v: SceneView): void {
-    const hint = v.level.hint;
+  private drawHint(v: SceneView, hint: readonly [GridPt, GridPt, MaterialId][]): void {
     const ed = v.editor;
-    if (!hint || !ed) return;
+    if (!ed) return;
     const { ctx, cam } = this;
     const d = ed.design;
     const pulse = 0.25 + 0.15 * Math.sin(v.time * 4);
@@ -2164,12 +2354,14 @@ export class Renderer {
     }
     const ctls = runControls(segs, (p): Pt2 => [cam.sx(w.x[p]), cam.sy(w.y[p])]);
     const ctlOf = new Map(curved.map((l, k) => [l, ctls.get(k)]));
-    // Cables behind the truss, deck on top of everything.
+    // Cables behind the truss, deck on top of everything. Each layer is painted in batches.
     for (const pass of [0, 1, 2]) {
+      const layer: Seg[] = [];
       for (const l of w.links) {
         if (!l.bridge || l.broken || drawLayer(l) !== pass) continue;
-        this.memberPaint(cam.sx(w.x[l.a]), cam.sy(w.y[l.a]), cam.sx(w.x[l.b]), cam.sy(w.y[l.b]), l.mat!, l.stress, 1, sag(l), time, ctlOf.get(l));
+        layer.push(segOf(cam.sx(w.x[l.a]), cam.sy(w.y[l.a]), cam.sx(w.x[l.b]), cam.sy(w.y[l.b]), l.mat!, l.stress, sag(l), ctlOf.get(l)));
       }
+      this.paintBatch(layer, time);
     }
     this.guardRails(run);
 
@@ -2181,8 +2373,13 @@ export class Renderer {
       degree[l.a]++;
       degree[l.b]++;
     }
-    // A mast's foot is drawn as its hinge, not as a bolt.
+    // A mast's foot is drawn as its hinge, not as a bolt. Gusset plates go in one fill per shade.
     const feet = new Set(w.masts.map((m) => m.base));
+    const plates = new Path2D();
+    const faces = new Path2D();
+    const holes = new Path2D();
+    const shines = new Path2D();
+    const glows: [number, number, number, number][] = [];
     for (let i = 0; i < nodeCount; i++) {
       if (feet.has(i)) continue;
       const x = cam.sx(w.x[i]);
@@ -2191,38 +2388,35 @@ export class Renderer {
         this.bolt(x, y, 1, 0, false);
       } else if (degree[i]) {
         const r = Math.max(3, (0.09 + 0.025 * Math.min(degree[i], 6)) * cam.scale);
-        ctx.fillStyle = '#2d3138';
-        ctx.beginPath();
-        ctx.arc(x, y, r, 0, TAU);
-        ctx.fill();
-        ctx.fillStyle = '#8d97a3';
-        ctx.beginPath();
-        ctx.arc(x, y, r * 0.78, 0, TAU);
-        ctx.fill();
+        disk(plates, x, y, r);
+        disk(faces, x, y, r * 0.78);
         if (r > 5) {
-          ctx.fillStyle = '#2d3138';
           const bolts = Math.min(degree[i], 5);
           for (let k = 0; k < bolts; k++) {
             const a = (k / bolts) * TAU + 0.4;
-            ctx.beginPath();
-            ctx.arc(x + Math.cos(a) * r * 0.45, y + Math.sin(a) * r * 0.45, Math.max(0.8, r * 0.12), 0, TAU);
-            ctx.fill();
+            disk(holes, x + Math.cos(a) * r * 0.45, y + Math.sin(a) * r * 0.45, Math.max(0.8, r * 0.12));
           }
         }
-        ctx.fillStyle = 'rgba(255,255,255,0.35)';
-        ctx.beginPath();
-        ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.22, 0, TAU);
-        ctx.fill();
+        disk(shines, x - r * 0.3, y - r * 0.3, r * 0.22);
         // A joint taking too much at once glows, like an overloaded member.
         const j = w.jointRatio(i);
-        if (j > 0.6) {
-          ctx.strokeStyle = stressColor(j, Math.min(1, (j - 0.6) * 2.5));
-          ctx.lineWidth = Math.max(2, r * 0.35);
-          ctx.beginPath();
-          ctx.arc(x, y, r * 1.35, 0, TAU);
-          ctx.stroke();
-        }
+        if (j > 0.6) glows.push([x, y, r, j]);
       }
+    }
+    ctx.fillStyle = '#2d3138';
+    ctx.fill(plates);
+    ctx.fillStyle = '#8d97a3';
+    ctx.fill(faces);
+    ctx.fillStyle = '#2d3138';
+    ctx.fill(holes);
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.fill(shines);
+    for (const [x, y, r, j] of glows) {
+      ctx.strokeStyle = stressColor(j, Math.min(1, (j - 0.6) * 2.5));
+      ctx.lineWidth = Math.max(2, r * 0.35);
+      ctx.beginPath();
+      ctx.arc(x, y, r * 1.35, 0, TAU);
+      ctx.stroke();
     }
   }
 

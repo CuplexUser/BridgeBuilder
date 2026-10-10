@@ -12,6 +12,8 @@ export interface LevelScore {
   safetyBonus: number;
   /** Points for meeting the level's bonus goal. */
   goalBonus: number;
+  /** Points taken off for the engineer's hints used on this level. */
+  hintPenalty: number;
   total: number;
   /** The three main stars: crossing, cost and safety. */
   stars: number;
@@ -27,6 +29,8 @@ export const SAVINGS_MAX = 1000;
 export const SAFETY_MAX = 400;
 export const GOAL_SCORE = 250;
 export const SAFE_STRESS = 0.75;
+/** Points each engineer's hint takes off every score on its level. A crossing still earns BASE_SCORE. */
+export const HINT_PENALTY = 100;
 
 /** Whether a design that crossed with the given peak stress meets a bonus goal. */
 export function bonusMet(goal: BonusGoal, design: Design, peakStress: number): boolean {
@@ -56,7 +60,8 @@ export function bonusLabel(goal: BonusGoal): string {
   }
 }
 
-export function scoreLevel(level: LevelDef, design: Design, peakStress: number): LevelScore {
+/** Scores a crossing. `hints` is how many of the engineer's hints were taken on the level. */
+export function scoreLevel(level: LevelDef, design: Design, peakStress: number, hints = 0): LevelScore {
   const spent = design.cost();
   const savingsBonus = Math.round(SAVINGS_MAX * Math.max(0, Math.min(1, 1 - spent / level.money)));
   const safetyBonus = Math.round(SAFETY_MAX * Math.max(0, Math.min(1, 1 - peakStress)));
@@ -64,13 +69,16 @@ export function scoreLevel(level: LevelDef, design: Design, peakStress: number):
   const safe = peakStress < SAFE_STRESS;
   const bonus = bonusMet(level.bonus, design, peakStress);
   const goalBonus = bonus ? GOAL_SCORE : 0;
+  const earned = savingsBonus + safetyBonus + goalBonus;
+  const hintPenalty = Math.min(earned, hints * HINT_PENALTY);
   return {
     spent,
     base: BASE_SCORE,
     savingsBonus,
     safetyBonus,
     goalBonus,
-    total: BASE_SCORE + savingsBonus + safetyBonus + goalBonus,
+    hintPenalty,
+    total: BASE_SCORE + earned - hintPenalty,
     stars: 1 + (underTarget ? 1 : 0) + (safe ? 1 : 0),
     underTarget,
     safe,

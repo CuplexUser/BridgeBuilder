@@ -54,6 +54,10 @@ Features and improvements, by priority. Finished items stay checked for a releas
 
 ### Done
 
+- [x] **Engineer's review.** The result card compares the cost with the best known design ("14% above the best known design ($8,204)"). Hints in the briefing each reveal one member of that design as a ghost, for 100 points off every score on the level.
+- [x] **Efficiency view.** After a crossing, parts that never passed 20% load and steel that wood could carry under 75% are counted on the result card with their cost, and marked on the blueprint until the bridge changes.
+- [x] **Level records detail.** Each best score keeps its bridge's cost, peak stress and design. The Levels board shows them, and Watch it drives the record bridge for anyone who has crossed the level.
+- [x] **Quit confirmation** during a challenge, saying how many points go on the board.
 - [x] **Level briefing.** Each level opens with a card listing the three stars, the bonus goal with what it means, and the level's special rules; the ⓘ button or I reopens it. The bonus goal under the level name is clickable and shows ✓ or ✗ live for cost, parts and banned materials, with the current part count.
 - [x] **Stress graph** after a run: the busiest member's load over time with the safety and breaking lines, breaks and drawbridge phases. Tap the graph to ring that moment's busiest member on the bridge, or tap a member to see its own curve.
 - [x] **Easier drawbridge intro and roomier budgets.** 7-1's ghost is the whole working bridge, tutorial levels can play an example first, and the ram is magenta and drawn as a cylinder so it can't be mistaken for wood. Targets now sit 18–30% over the optimizer's best (never below the hand-made design) and budgets 55–100% over.
@@ -65,14 +69,9 @@ Features and improvements, by priority. Finished items stay checked for a releas
 - [ ] **Replay and ghost** of your best run, plus a slow-motion replay of the moment of collapse. The stress graph could scrub through it.
 - [ ] **Design sharing** through a short code or URL that loads a design. Custom levels could share the same way.
 - [ ] **Level editor extras:** rock overhangs and raised road ends as tools, a solvability check that runs the optimizer on a custom level, and saving custom levels to the server profile.
-- [ ] **Level records detail.** Store cost and peak stress with each record, and show the record holder's design.
-- [ ] **Quit confirmation** during a challenge, showing how many points will be banked.
-- [ ] **Accessibility.** A color-blind-safe stress palette (with patterns, not just hue), a reduced-motion mode that turns off shake and wobble, and a larger-UI option.
 
 Let the optimizer teach:
 
-- [ ] **Efficiency view.** After a successful test, mark under-used members (say under 20% peak) as wasted material and suggest downgrading steel to wood. Cheap to build, and it makes players better without giving the answer away.
-- [ ] **Engineer's review.** Show how far the cost is from the optimizer's best ("14% above the best known design"), plus hints that each reveal one member of the reference design, for a points penalty.
 - [ ] **Verified community levels.** On top of design sharing: upload custom levels to the server, run the optimizer before publishing, and set budget and target from it. Every community level gets a *Verified solvable* badge and fair numbers without its creator balancing anything. Builds on `src/autotune.ts`.
 
 ## P4: Platforms and tech
@@ -82,11 +81,11 @@ Let the optimizer teach:
   - **Android:** the same web build wrapped with Capacitor, with a touch-first UI profile, native storage, and app-store packaging.
   - Put platform differences (input, UI density, storage, level caps) behind one small `platform` module.
 - [ ] Profile physics on the 30 m+ levels on low-end phones. If needed, lower substeps adaptively, or move the simulation to a worker.
-- [ ] An end-to-end smoke test in headless Chromium: build a bridge with the keyboard, test it, and check the result screen and leaderboards.
-- [ ] Cache static scene layers (mountains, trees, banks) in offscreen canvases per level and camera zoom level.
+- [x] **End-to-end smoke test** (`npm run smoke`): a headless Chrome or Edge builds 1-1 with the keyboard, tests it, and checks the result screen and leaderboards, against its own dev server and database.
+- [x] **Batched member painting.** Measured first: with the CPU slowed 4×, a test drive on 9-5 spent 1.4 ms of a 21 ms frame on the static scenery (hills, trees, banks), so caching it wasn't worth it, and 11 ms painting members a few strokes at a time. Members and joints are now painted a few strokes per material and shade, which brought that to under 5 ms. Physics is most of what's left.
 - [ ] **Android extras.** The Play upload still waits on account verification.
   - **Haptics synced to stress:** a light buzz as members creak, a hard pulse when something snaps (Capacitor Haptics).
   - **Collapse clip export:** record the last seconds of the canvas with MediaRecorder and share the video through the share sheet. Collapses are the best marketing material.
   - **Play Games Services:** achievements, cloud save and sign-in, so Android players reach the server leaderboards without the name-based profile.
   - **Monetization:** the first two or three chapters free, then a one-time unlock for the rest and future chapters. No ads while building; they kill a puzzle game's flow.
-- [ ] Save format versioning for designs, so price or material changes can migrate old saves instead of discarding them.
+- [x] **Save format versioning.** Designs carry a version, and a saved design is fitted to a changed level instead of discarded: what no longer fits comes off and the player is told, and an over-budget bridge loads for trimming.

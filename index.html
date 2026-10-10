@@ -321,13 +321,26 @@
         <div class="keys">
           <div><kbd>Drag</kbd> build from a node</div>
           <div><kbd>Tap</kbd>/<kbd>Right-click</kbd> remove beam</div>
-          <div><kbd>1</kbd>–<kbd>6</kbd> material · <kbd>Q</kbd>/<kbd>E</kbd> cycle</div>
+          <div><kbd>1</kbd>–<kbd>8</kbd> material · <kbd>Q</kbd>/<kbd>E</kbd> cycle</div>
           <div><kbd>Arrows</kbd> move cursor · <kbd>Space</kbd> place</div>
           <div><kbd>X</kbd> delete at cursor</div>
           <div><kbd>Z</kbd>/<kbd>Y</kbd> undo / redo</div>
           <div><kbd>Wheel</kbd>/<kbd>Pinch</kbd> zoom · <kbd>F</kbd> refit</div>
           <div><kbd>T</kbd> test · <kbd>M</kbd> mute</div>
           <div><kbd>I</kbd> goals and rules</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Leaving a chapter challenge part-way -->
+    <section id="scr-confirm" class="screen dim hidden">
+      <div class="panel confirm">
+        <h2>Quit the challenge?</h2>
+        <p class="confirm-bank" id="confirm-bank"></p>
+        <p class="muted" id="confirm-note"></p>
+        <div class="row">
+          <button class="btn" data-act="quit-confirm">QUIT <kbd>Q</kbd></button>
+          <button class="btn primary" data-act="quit-cancel">KEEP GOING <kbd>Esc</kbd></button>
         </div>
       </div>
     </section>
@@ -346,8 +359,10 @@
           <ul class="brief-rules" id="brief-rules"></ul>
         </div>
         <p class="brief-best" id="brief-best"></p>
+        <p class="brief-hints" id="brief-hints"></p>
         <div class="row">
           <button class="btn hidden" data-act="brief-example" id="brief-example">WATCH AN EXAMPLE <kbd>W</kbd></button>
+          <button class="btn hidden" data-act="review-hint" id="brief-hint">HINT</button>
           <button class="btn primary" data-act="brief-close">BUILD <kbd>Enter</kbd></button>
         </div>
       </div>
@@ -356,16 +371,21 @@
     <!-- Success -->
     <section id="scr-result" class="screen dim hidden">
       <div class="panel result">
-        <div class="banner good">BRIDGE HOLDS!</div>
-        <div class="stars" id="res-stars"><i></i><i></i><i></i><i class="bonus" title="Bonus goal"></i></div>
-        <div class="star-notes" id="res-notes"></div>
-        <table class="breakdown"><tbody id="res-rows"></tbody></table>
-        <div class="total"><span>LEVEL SCORE</span><b id="res-total">0</b></div>
-        <div class="run-total" id="res-run"></div>
-        <button class="link-btn stress-link" data-act="stress">See the stress graph <kbd>G</kbd></button>
-        <div class="row">
-          <button class="btn" data-act="retry" id="res-retry">IMPROVE <kbd>R</kbd></button>
-          <button class="btn primary" data-act="next" id="res-next">NEXT <kbd>Enter</kbd></button>
+        <div class="res-main">
+          <div class="banner good">BRIDGE HOLDS!</div>
+          <div class="stars" id="res-stars"><i></i><i></i><i></i><i class="bonus" title="Bonus goal"></i></div>
+          <div class="star-notes" id="res-notes"></div>
+          <table class="breakdown"><tbody id="res-rows"></tbody></table>
+        </div>
+        <div class="res-side">
+          <div class="total"><span>LEVEL SCORE</span><b id="res-total">0</b></div>
+          <div class="run-total" id="res-run"></div>
+          <div class="res-review" id="res-review"></div>
+          <button class="link-btn stress-link" data-act="stress">See the stress graph <kbd>G</kbd></button>
+          <div class="row">
+            <button class="btn" data-act="retry" id="res-retry">IMPROVE <kbd>R</kbd></button>
+            <button class="btn primary" data-act="next" id="res-next">NEXT <kbd>Enter</kbd></button>
+          </div>
         </div>
       </div>
     </section>

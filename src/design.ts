@@ -24,6 +24,15 @@ export interface DMember {
 
 export type GridPt = [number, number];
 
+/**
+ * Version of the saved design format. 1 had no version field; 2 added it. Bump it whenever
+ * the format changes, and teach deserialize to read the older one.
+ */
+export const SAVE_VERSION = 2;
+
+/** Materials that were renamed since designs were first saved, old id to new. */
+const RENAMED: Record<string, MaterialId> = {};
+
 /** Joints closer than this are treated as the same point. */
 const EPS = 1e-6;
 /** Shortest piece a beam may be split into, in meters. */
@@ -442,14 +451,30 @@ export class Design {
   }
 
   serialize(): string {
-    return JSON.stringify({ n: this.nodes, m: this.members });
+    return JSON.stringify({ v: SAVE_VERSION, n: this.nodes, m: this.members });
   }
 
+  /**
+   * Reads a design saved by any version of the game. Throws on anything that isn't a design.
+   * Members of a material the game no longer has are left out; Editor.fit decides what else
+   * still fits the level.
+   */
   static deserialize(s: string): Design {
+    const o = JSON.parse(s) as { v?: number; n?: unknown; m?: unknown };
+    if (!o || !Array.isArray(o.n) || !Array.isArray(o.m)) throw new Error('Not a design');
+    if ((o.v ?? 1) > SAVE_VERSION) throw new Error('Saved by a newer version');
     const d = new Design();
-    const o = JSON.parse(s) as { n: DNode[]; m: DMember[] };
-    d.nodes = o.n;
-    d.members = o.m;
+    for (const n of o.n as DNode[]) {
+      if (!Number.isFinite(n?.x) || !Number.isFinite(n?.y)) throw new Error('Bad joint');
+      d.nodes.push({ ...n, anchor: !!n.anchor });
+    }
+    for (const m of o.m as DMember[]) {
+      const ok = (i: number) => Number.isInteger(i) && i >= 0 && i < d.nodes.length;
+      if (!ok(m?.a) || !ok(m?.b)) throw new Error('Bad member');
+      const mat = (RENAMED[m.mat] ?? m.mat) as MaterialId;
+      if (!(mat in MATERIALS)) continue;
+      d.members.push(m.part === undefined ? { a: m.a, b: m.b, mat } : { a: m.a, b: m.b, mat, part: m.part });
+    }
     return d;
   }
 
