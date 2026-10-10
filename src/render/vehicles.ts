@@ -464,19 +464,116 @@ function semi(p: Painter, def: VehicleDef): void {
   p.headlight(wb + 1.3, 0.34, 0.16);
 }
 
-const BODIES: Record<VehicleDef['id'], (p: Painter, def: VehicleDef) => void> = { car, van, truck: dumpTruck, bus, semi };
+/** A diesel locomotive: a long hood, the cab at the front, a livery stripe and a headlight. */
+function loco(p: Painter, def: VehicleDef): void {
+  const wb = def.wheelbase;
+  const [l, r] = [-1.0, wb + 1.0];
+  // Frame and the bogies under it.
+  p.fill(rrect(new Path2D(), l, 0.15, r - l, 0.3, 0.04), '#23252b', true);
+  for (const x of [0.6, wb - 0.6]) p.fill(rrect(new Path2D(), x - 1.0, -0.2, 2.0, 0.42, 0.08), '#2f3238');
+  const hood = rrect(new Path2D(), l + 0.1, 0.45, r - l - 1.9, 1.6, 0.12);
+  p.panel(hood, def.color, 2.05, 0.45);
+  const cab = rrect(new Path2D(), r - 1.9, 0.45, 1.9, 2.2, 0.14);
+  p.panel(cab, def.color, 2.65, 0.45);
+  p.lamp(l + 0.1, 0.9, r - l - 0.1, 0.16, '#ffd23f');
+  for (let x = l + 0.5; x < r - 2.1; x += 0.5) p.line(x, 1.15, x, 1.9, 'rgba(0,0,0,0.25)', 1.5);
+  const wind = rrect(new Path2D(), r - 1.0, 1.65, 0.8, 0.7, 0.06);
+  p.glass(wind, 2.35, 1.65, [r - 0.6, 1.85, 0.12]);
+  p.fill(rrect(new Path2D(), r - 1.75, 1.6, 0.55, 0.75, 0.05), 'rgba(0,0,0,0.35)');
+  p.fill(rrect(new Path2D(), l + 0.6, 2.05, 1.2, 0.18, 0.05), '#3a3d44');
+  p.headlight(r, 1.2, 0.18);
+  p.lamp(l - 0.04, 1.2, 0.06, 0.2, '#ff4a3d');
+  p.bumper(r - 0.05, 0.25, 0.2, 0.28);
+  p.bumper(l - 0.15, 0.25, 0.2, 0.28);
+}
+
+/** A covered freight wagon: ribbed sides, sliding doors and a roof edge. */
+function wagon(p: Painter, def: VehicleDef): void {
+  const wb = def.wheelbase;
+  const [l, r] = [-1.0, wb + 1.0];
+  p.fill(rrect(new Path2D(), l, 0.15, r - l, 0.28, 0.04), '#23252b', true);
+  for (const x of [0.6, wb - 0.6]) p.fill(rrect(new Path2D(), x - 1.0, -0.2, 2.0, 0.4, 0.08), '#2f3238');
+  const box = rrect(new Path2D(), l + 0.05, 0.43, r - l - 0.1, 2.0, 0.08);
+  p.panel(box, def.color, 2.43, 0.43);
+  for (let x = l + 0.45; x < r - 0.2; x += 0.45) p.line(x, 0.5, x, 2.36, 'rgba(0,0,0,0.18)', 1.5);
+  const door = rrect(new Path2D(), wb / 2 - 0.9, 0.55, 1.8, 1.75, 0.04);
+  p.fill(door, shade(def.color, -0.15));
+  p.line(wb / 2, 0.55, wb / 2, 2.3, 'rgba(0,0,0,0.35)', 1.5);
+  p.lamp(l + 0.05, 2.36, r - l - 0.1, 0.1, def.trim);
+  p.bumper(r - 0.1, 0.25, 0.2, 0.26);
+  p.bumper(l - 0.1, 0.25, 0.2, 0.26);
+}
+
+/**
+ * A squad marching in step: five ranks of soldiers in greatcoats, rifles shouldered, every left
+ * boot forward at once. `stride` is how far through a pace they are, in radians.
+ */
+function troop(p: Painter, def: VehicleDef, stride = 0): void {
+  const { ctx } = p;
+  const foot = -def.wheelR;
+  const swing = Math.sin(stride) * 0.2;
+  for (let k = 0; k < 5; k++) {
+    const x = -0.15 + k * 0.85;
+    // A soldier's outline for the blueprint: legs, coat and head as one shape.
+    const body = poly([
+      [x - 0.12 - swing, foot],
+      [x - 0.12, 0.55],
+      [x - 0.2, 1.05],
+      [x - 0.08, 1.2],
+      [x + 0.1, 1.2],
+      [x + 0.2, 1.05],
+      [x + 0.12, 0.55],
+      [x + 0.12 + swing, foot],
+    ]);
+    p.chalkPaths.push(body);
+    if (p.chalk) continue;
+    // Legs, the back one darker, boots planted or swinging together.
+    for (const [side, color] of [[-1, shade(def.color, -0.35)], [1, shade(def.color, -0.15)]] as const) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 0.13;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(x, 0.55);
+      ctx.lineTo(x + side * swing, foot + 0.08);
+      ctx.stroke();
+      ctx.fillStyle = '#1e1a16';
+      ctx.fill(rrect(new Path2D(), x + side * swing - 0.06, foot, 0.2, 0.08, 0.03));
+    }
+    const coat = poly([
+      [x - 0.17, 0.45],
+      [x - 0.2, 1.08],
+      [x - 0.08, 1.2],
+      [x + 0.1, 1.2],
+      [x + 0.2, 1.08],
+      [x + 0.17, 0.45],
+    ]);
+    p.panel(coat, def.color, 1.2, 0.45, false);
+    p.line(x - 0.18, 0.75, x + 0.18, 0.75, '#3b2f1f', 2);
+    // Rifle on the shoulder, head and peaked cap.
+    p.line(x + 0.08, 1.12, x - 0.25, 1.75, '#4a3420', 2.2);
+    ctx.fillStyle = def.trim;
+    ctx.beginPath();
+    ctx.arc(x, 1.32, 0.12, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = shade(def.color, -0.3);
+    ctx.fill(rrect(new Path2D(), x - 0.14, 1.4, 0.28, 0.1, 0.03));
+    ctx.fillRect(x, 1.39, 0.2, 0.03);
+  }
+}
+
+const BODIES: Record<VehicleDef['id'], (p: Painter, def: VehicleDef, stride?: number) => void> = { car, van, truck: dumpTruck, bus, semi, loco, wagon, troop };
 
 /** Draws a body in the current transform (vehicle frame, meters, y up). */
-export function drawBody(ctx: Ctx, def: VehicleDef, px: number, chalk: boolean): void {
+export function drawBody(ctx: Ctx, def: VehicleDef, px: number, chalk: boolean, stride = 0, shadow = 1): void {
   const p = new Painter(ctx, px, chalk);
-  if (!chalk) {
-    // Soft contact shadow under the chassis.
-    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  if (!chalk && shadow > 0.02) {
+    // Soft contact shadow under the chassis, as strong as the wheels are on the ground.
+    ctx.fillStyle = `rgba(0,0,0,${(0.22 * shadow).toFixed(3)})`;
     ctx.beginPath();
     ctx.ellipse(def.wheelbase / 2, -def.wheelR * 0.95, def.wheelbase / 2 + 1.1, 0.12, 0, 0, TAU);
     ctx.fill();
   }
-  BODIES[def.id](p, def);
+  BODIES[def.id](p, def, stride);
   if (chalk) {
     ctx.strokeStyle = PAL.chalkDim;
     ctx.lineWidth = 1.5 * px;
@@ -484,6 +581,33 @@ export function drawBody(ctx: Ctx, def: VehicleDef, px: number, chalk: boolean):
     for (const path of p.chalkPaths) ctx.stroke(path);
     ctx.setLineDash([]);
   }
+}
+
+/** A railway wheel, in screen pixels: a steel disc with a flange, a hub and a crank pin that turns. */
+export function drawRailWheel(ctx: Ctx, x: number, y: number, R: number, angle: number): void {
+  ctx.fillStyle = '#1b1c20';
+  ctx.beginPath();
+  ctx.arc(x, y, R, 0, TAU);
+  ctx.fill();
+  const disc = ctx.createRadialGradient(x - R * 0.2, y - R * 0.2, R * 0.1, x, y, R * 0.85);
+  disc.addColorStop(0, '#8d949e');
+  disc.addColorStop(1, '#4a4f57');
+  ctx.fillStyle = disc;
+  ctx.beginPath();
+  ctx.arc(x, y, R * 0.84, 0, TAU);
+  ctx.fill();
+  ctx.strokeStyle = '#c9d1db';
+  ctx.lineWidth = Math.max(1, R * 0.06);
+  ctx.beginPath();
+  ctx.arc(x, y, R * 0.84, 0, TAU);
+  ctx.stroke();
+  ctx.fillStyle = '#2e3138';
+  ctx.beginPath();
+  ctx.arc(x, y, R * 0.24, 0, TAU);
+  const [px, py] = [x + Math.cos(angle) * R * 0.55, y + Math.sin(angle) * R * 0.55];
+  ctx.moveTo(px + R * 0.09, py);
+  ctx.arc(px, py, R * 0.09, 0, TAU);
+  ctx.fill();
 }
 
 /** A tire with tread, sidewall and a spinning rim, in screen pixels. */

@@ -1,4 +1,4 @@
-export type MaterialId = 'road' | 'heavy' | 'wood' | 'steel' | 'cable' | 'main' | 'concrete' | 'ram';
+export type MaterialId = 'road' | 'heavy' | 'track' | 'wood' | 'steel' | 'cable' | 'main' | 'concrete' | 'masonry' | 'arch' | 'ram' | 'damper';
 
 export interface Material {
   id: MaterialId;
@@ -30,6 +30,9 @@ export interface Material {
   rating: number;
   /** Vehicles drive on it. */
   drivable: boolean;
+  /** Railway track: trains run only on it, and it may climb at most `maxGrade` (rise over run). */
+  rail?: boolean;
+  maxGrade?: number;
   /** One drag lays a whole run of pieces. */
   runs: boolean;
   /** Carries no load when pushed: it simply goes slack. */
@@ -39,8 +42,21 @@ export interface Material {
    * player sets afterward. Drawn as one smooth curve.
    */
   curved?: boolean;
+  /** A curved material that rises from its ends, an arch, rather than hanging between them. */
+  arch?: boolean;
+  /**
+   * Solid blocks rather than members: painted on the grid a square meter at a time ('brush'), or
+   * laid as an arch ring of wedge blocks ('ring'). Their price and density are per square meter,
+   * and EA, tension and compression are per link of the stiff frame each block is simulated as.
+   */
+  cell?: 'brush' | 'ring';
   /** How much longer it gets when a drawbridge opens, as a share of its built length. 0 for fixed members. */
   stroke: number;
+  /**
+   * A damper: besides its soft spring, it resists how fast its ends move apart or together with
+   * this many newtons per m/s, turning a swinging bridge's motion into heat.
+   */
+  viscous?: number;
 }
 
 export const MATERIALS: Record<MaterialId, Material> = {
@@ -80,6 +96,29 @@ export const MATERIALS: Record<MaterialId, Material> = {
     drivable: true,
     runs: true,
     tensionOnly: false,
+    stroke: 0,
+  },
+  // Railway track on a stiff, heavy deck: rated for locomotives, and laid no steeper than 3%,
+  // since a train can't climb more.
+  track: {
+    id: 'track',
+    name: 'Track',
+    price: 300,
+    short: 'Track',
+    maxLen: 2.25,
+    density: 90,
+    EA: 2.2e7,
+    tension: 110000,
+    compression: 110000,
+    buckleRef: 3.4,
+    bend: 1e6,
+    bendLimit: 2000,
+    rating: 50,
+    drivable: true,
+    runs: true,
+    tensionOnly: false,
+    rail: true,
+    maxGrade: 0.03,
     stroke: 0,
   },
   wood: {
@@ -183,6 +222,75 @@ export const MATERIALS: Record<MaterialId, Material> = {
     tensionOnly: false,
     stroke: 0,
   },
+  // Concrete blocks, painted a square meter at a time: almost uncrushable, heavy, and held
+  // together only weakly, so a wall bent too far cracks open at its joints like masonry.
+  masonry: {
+    id: 'masonry',
+    name: 'Block',
+    price: 120,
+    short: 'Block',
+    maxLen: 1.5,
+    density: 250,
+    EA: 3e7,
+    tension: 25000,
+    compression: 1.5e6,
+    buckleRef: 8,
+    // Holds each block's corners square.
+    bend: 5e7,
+    bendLimit: 400000,
+    rating: 0,
+    drivable: false,
+    runs: false,
+    tensionOnly: false,
+    cell: 'brush',
+    stroke: 0,
+  },
+  // An arch ring of wedge-shaped concrete blocks, laid in one drag as a curve rising between two
+  // springings, 1 m thick. It carries its load as thrust into its ends, which must bear on rock.
+  arch: {
+    id: 'arch',
+    name: 'Block arch',
+    price: 150,
+    short: 'Arch',
+    maxLen: 3.2,
+    density: 250,
+    EA: 3e7,
+    tension: 25000,
+    compression: 1.5e6,
+    buckleRef: 8,
+    bend: 5e7,
+    bendLimit: 400000,
+    rating: 0,
+    drivable: false,
+    runs: false,
+    tensionOnly: false,
+    curved: true,
+    arch: true,
+    cell: 'ring',
+    stroke: 0,
+  },
+  // A hydraulic damper: a soft spring that carries little standing load, but pushes back hard on
+  // anything moving it quickly. Braced into a swaying bridge, it calms it.
+  damper: {
+    id: 'damper',
+    name: 'Damper',
+    price: 320,
+    short: 'Damper',
+    maxLen: 4.5,
+    density: 15,
+    EA: 2e5,
+    tension: 60000,
+    compression: 60000,
+    buckleRef: 4.5,
+    bend: 0,
+    bendLimit: 0,
+    rating: 0,
+    drivable: false,
+    runs: false,
+    tensionOnly: false,
+    stroke: 0,
+    viscous: 30000,
+  },
   ram: {
     id: 'ram',
     name: 'Ram',
@@ -206,7 +314,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
   },
 };
 
-export const MATERIAL_ORDER: MaterialId[] = ['road', 'heavy', 'wood', 'steel', 'cable', 'ram', 'main', 'concrete'];
+export const MATERIAL_ORDER: MaterialId[] = ['road', 'heavy', 'track', 'wood', 'steel', 'cable', 'ram', 'main', 'concrete', 'masonry', 'arch', 'damper'];
 
 /** Effective compressive capacity for a member of the given rest length. */
 export function compressionLimit(m: Material, len: number): number {

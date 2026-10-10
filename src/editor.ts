@@ -1,8 +1,9 @@
 import { Design, segmentsOverlap, type DMember, type GridPt } from './design';
 import type { LevelDef } from './levels';
-import { defaultSag, mainPathIn, mainRuns, MIN_MAIN_SPAN, MIN_SAG, resag, sagHandle } from './maincable';
+import { bow, defaultSag, mainPathIn, mainRuns, MIN_MAIN_SPAN, MIN_SAG, resag, sagHandle } from './maincable';
 import { blockOf, MATERIALS, type MaterialId } from './physics/materials';
-import { blockSpot, cableBolt, crossesChannel, lowOverStrip, MIN_JOINT_GAP, pointAllowed, topY } from './rules';
+import { blockSpot, pileSpots, cableBolt, crossesChannel, lowOverStrip, MIN_JOINT_GAP, pointAllowed, topY } from './rules';
+import { addBlock, blockPoly, cellPoly, cellProblem, cellUnder, hitsCells, layRing, polyArea, ringPath, ringPolys, ringProblem, ringRise, rings, settleRing } from './masonry';
 
 export interface DragState {
   /**
@@ -37,14 +38,30 @@ export interface SagDrag {
   /** The design before the drag, for undo, and the joints' heights to put back if it is let go invalid. */
   before: string;
   ys: number[];
+  /** An arch ring's top joints, which follow its underside, and their heights before. Empty for a main cable. */
+  extra: number[];
+  eys: number[];
   valid: boolean;
   reason: string;
 }
 
-/** A main cable's sag handle. */
+/** Concrete blocks being painted, or erased, under a finger or the mouse. */
+export interface PaintStroke {
+  mode: 'add' | 'erase';
+  /** The design before the stroke, for undo. */
+  before: string;
+  changed: boolean;
+  /** The last cell visited, by its lower left corner, so each is painted once a pass. */
+  last: string;
+}
+
+/** A main cable's sag handle, or an arch's rise handle. */
 export interface SagHandle {
   part: number;
+  mat: MaterialId;
   chain: number[];
+  /** An arch ring's top joints. */
+  extra: number[];
   x: number;
   y: number;
 }
@@ -80,9 +97,10 @@ const MAX_MAIN_REACH = 80;
 export function fitDesign(level: LevelDef, saved: Design): { design: Design; removed: number } {
   const d = new Design(level);
   const before = saved.parts();
+  // Bars first, so blocks are checked against the bars that stay.
   const bolt = (x: number, y: number) => d.findNode(x, y);
   const nodeOk = saved.nodes.map((n) => {
-    if (n.block) return blockSpot(level, n.x, n.y);
+    if (n.block || n.pile) return blockSpot(level, n.x, n.y);
     if (n.anchor) return bolt(n.x, n.y) >= 0;
     return true;
   });
@@ -112,7 +130,7 @@ export function fitDesign(level: LevelDef, saved: Design): { design: Design; rem
     let j = map.get(i);
     if (j === undefined) {
       const n = saved.nodes[i];
-      j = n.block ? d.ensureBlock(n.x, n.y) : n.anchor ? bolt(n.x, n.y) : d.ensureNode(n.x, n.y);
+      j = n.block || n.pile ? d.ensureBlock(n.x, n.y) : n.anchor ? bolt(n.x, n.y) : d.ensureNode(n.x, n.y);
       map.set(i, j);
     }
     return j;
@@ -121,6 +139,20 @@ export function fitDesign(level: LevelDef, saved: Design): { design: Design; rem
     const [a, b] = [at(m.a), at(m.b)];
     if (a !== b && d.findMember(a, b) < 0) d.members.push(m.part === undefined ? { a, b, mat: m.mat } : { a, b, mat: m.mat, part: m.part });
   }
+  // Blocks that still fit the level, an arch ring whole or not at all.
+  const cellOk = (c: (typeof saved.cells)[number]) => level.materials.includes(c.mat) && c.n.every((i) => nodeOk[i]);
+  const badRings = new Set(saved.cells.flatMap((c) => (c.mat === 'arch' && !cellOk(c) && c.part !== undefined ? [c.part] : [])));
+  for (const c of saved.cells) {
+    if (!cellOk(c) || (c.part !== undefined && badRings.has(c.part))) continue;
+    const poly = cellPoly(saved, c);
+    if (cellProblem(level, d, poly)) {
+      if (c.part !== undefined && c.mat === 'arch') badRings.add(c.part);
+      continue;
+    }
+    d.cells.push(c.part === undefined ? { n: c.n.map(at), mat: c.mat } : { n: c.n.map(at), mat: c.mat, part: c.part });
+  }
+  // A ring found broken partway through is taken off whole.
+  d.cells = d.cells.filter((c) => c.part === undefined || c.mat !== 'arch' || !badRings.has(c.part));
   d.healSplits();
   d.pruneNodes();
   d.priceAnchors(level);
@@ -139,6 +171,7 @@ export class Editor {
   mat: MaterialId = 'road';
   drag: DragState | null = null;
   sag: SagDrag | null = null;
+  paint: PaintStroke | null = null;
   cursorX = 0;
   cursorY = 0;
   /** Seconds since each member was placed, parallel to design.members. */
@@ -201,9 +234,10 @@ export class Editor {
     return this.design.findNode(x, y) >= 0 || pointAllowed(this.level, x, y) || blockSpot(this.level, x, y);
   }
 
-  /** The nearest empty concrete anchor spot within radius, or null. */
+  /** The nearest empty concrete anchor or pile spot within radius, or null. */
   blockSpotAt(wx: number, wy: number, radius: number): [number, number] | null {
     const L = this.level;
+    for (const [x, y] of pileSpots(L)) if (this.design.findNode(x, y) < 0 && Math.hypot(x - wx, y - wy) <= radius) return [x, y];
     if (!L.blocks) return null;
     const x = wx < L.width / 2 ? Math.round(wx) : L.width + Math.round(wx - L.width);
     const y = x < 0 ? 0 : (L.rightY ?? 0);
@@ -322,6 +356,14 @@ export class Editor {
       this.beginBlock(spot[0], spot[1]);
       return 'block';
     }
+    // An arch may spring from any free grid point, such as the top of a rock shelf.
+    if (MATERIALS[this.mat].cell === 'ring') {
+      const [gx, gy] = [Math.round(wx), Math.round(wy)];
+      if (Math.hypot(gx - wx, gy - wy) <= nodeRadius && pointAllowed(this.level, gx, gy) && !this.design.nodes.some((n) => Math.hypot(n.x - gx, n.y - gy) < MIN_JOINT_GAP)) {
+        this.beginBlock(gx, gy);
+        return 'block';
+      }
+    }
     return null;
   }
 
@@ -377,14 +419,18 @@ export class Editor {
     drag.ty = by;
     drag.toSplit = split;
     const curved = MATERIALS[this.mat].curved;
-    const run = this.runs ? this.design.runPath(fx, fy, bx, by, maxLen, pieces) : curved ? mainPathIn(this.design, [fx, fy], [bx, by], defaultSag([fx, fy], [bx, by])) : null;
+    const run = this.runs ? this.design.runPath(fx, fy, bx, by, maxLen, pieces) : curved ? mainPathIn(this.design, [fx, fy], [bx, by], defaultSag([fx, fy], [bx, by], this.mat)) : null;
     drag.path = run ?? [
       [fx, fy],
       [bx, by],
     ];
     let len = 0;
     for (let i = 1; i < drag.path.length; i++) len += Math.hypot(drag.path[i][0] - drag.path[i - 1][0], drag.path[i][1] - drag.path[i - 1][1]);
-    drag.cost = Math.round(len * MATERIALS[this.mat].price) + this.newAnchorCost(drag);
+    // An arch ring is priced by its area, like any block.
+    const ring = MATERIALS[this.mat].cell === 'ring' ? ringPath(this.design, [fx, fy], [bx, by], ringRise(this.design, [fx, fy], [bx, by])) : null;
+    if (ring) drag.path = fx <= bx ? ring.intra : ring.intra.toReversed();
+    const area = ring ? ringPolys(ring).reduce((a, poly) => a + Math.abs(polyArea(poly)), 0) : 0;
+    drag.cost = Math.round(ring ? area * MATERIALS[this.mat].price : len * MATERIALS[this.mat].price) + this.newAnchorCost(drag);
     drag.reason = this.problem(drag);
     drag.valid = drag.reason === '';
   }
@@ -397,7 +443,7 @@ export class Editor {
       if (i >= 0 && nodes[i].price && !members.some((m) => m.a === i || m.b === i)) c += nodes[i].price!;
     }
     const price = blockOf(this.level).price;
-    if (this.newBlockAtStart(drag)) c += price;
+    if (this.newBlockAtStart(drag) && blockSpot(this.level, drag.sx, drag.sy)) c += price;
     if (this.design.findNode(drag.tx, drag.ty) < 0 && blockSpot(this.level, drag.tx, drag.ty)) c += price;
     return c;
   }
@@ -433,6 +479,13 @@ export class Editor {
     const curved = !!mat.curved;
     if (curved && Math.abs(ex - sx) < MIN_MAIN_SPAN - 1e-9) return 'Needs 2 m of span';
     if (curved && segs === 1) return 'Too long';
+    if (mat.cell === 'ring') {
+      const ring = ringPath(this.design, [sx, sy], [ex, ey], ringRise(this.design, [sx, sy], [ex, ey]));
+      if (!ring) return 'Too short';
+      const partsLeft = this.partsLeft();
+      if (partsLeft !== null && partsLeft < 1) return `Only ${this.level.limits![this.mat]} ${mat.name.toLowerCase()} parts on this level`;
+      return ringProblem(this.level, this.design, ring);
+    }
     // A run lays several parts; a single beam, or a main cable, is one.
     const newParts = this.runs ? path.length - 1 : 1;
     const partsLeft = this.partsLeft();
@@ -443,6 +496,7 @@ export class Editor {
       const [bx, by] = path[i + 1];
       const last = i === segs - 1;
       if (Math.hypot(bx - ax, by - ay) > mat.maxLen + 1e-9) return 'Too long';
+      if (mat.maxGrade !== undefined && Math.abs(by - ay) > mat.maxGrade * Math.abs(bx - ax) + 1e-6) return `Too steep for a train: ${Math.round(mat.maxGrade * 100)}% at most`;
       // A main cable's own joints may hang low over an anchor strip as it rises from a block; nothing else may join them there.
       const low = lowOverStrip(this.level, bx, by);
       if (!(last && drag.toSplit >= 0) && !this.pointAllowed(bx, by) && !(curved && !last && low)) return 'Out of bounds';
@@ -462,6 +516,7 @@ export class Editor {
       }
       if (crossesChannel(this.level, ax, ay, bx, by)) return 'Keep the channel clear';
       if (mat.tensionOnly && (cableBolt(this.level, ax, ay) || cableBolt(this.level, bx, by))) return 'Anchor cables in concrete';
+      if (hitsCells(this.design, [ax, ay], [bx, by])) return 'Runs through a block';
     }
     return '';
   }
@@ -480,6 +535,13 @@ export class Editor {
       return -1;
     }
     this.snapshot();
+    if (MATERIALS[this.mat].cell === 'ring') {
+      const ring = ringPath(this.design, [drag.sx, drag.sy], [drag.tx, drag.ty], ringRise(this.design, [drag.sx, drag.sy], [drag.tx, drag.ty]))!;
+      layRing(this.design, ring);
+      this.ev.place(drag.sx, drag.sy, drag.tx, drag.ty, this.mat, 0, 1);
+      this.drag = null;
+      return -1;
+    }
     // Splits keep existing member indices stable: the second piece is appended.
     const split = (member: number, x: number, y: number) => {
       const node = this.design.splitMember(member, x, y);
@@ -511,18 +573,24 @@ export class Editor {
     const s = this.sag;
     if (s) {
       s.chain.forEach((n, i) => (this.design.nodes[n].y = s.ys[i]));
+      s.extra.forEach((n, i) => (this.design.nodes[n].y = s.eys[i]));
       this.sag = null;
     }
+    this.endPaint();
   }
 
-  /** Every main cable's sag handle. */
+  /** Every main cable's sag handle, and every arch's rise handle. */
   sagHandles(): SagHandle[] {
-    return mainRuns(this.design)
-      .filter(({ chain }) => chain.length > 2)
-      .map(({ part, chain }) => {
-        const [x, y] = sagHandle(this.design, chain);
-        return { part, chain, x, y };
-      });
+    const handle = (part: number, mat: MaterialId, chain: number[], extra: number[]): SagHandle => {
+      const [x, y] = sagHandle(this.design, chain);
+      return { part, mat, chain, extra, x, y };
+    };
+    return [
+      ...mainRuns(this.design)
+        .filter(({ chain }) => chain.length > 2)
+        .map(({ part, mat, chain }) => handle(part, mat, chain, [])),
+      ...rings(this.design).map(({ part, intra, extra }) => handle(part, 'arch', intra, extra)),
+    ];
   }
 
   /** The nearest sag handle within radius, or null. */
@@ -543,7 +611,7 @@ export class Editor {
   beginSag(h: SagHandle): void {
     this.drag = null;
     const { nodes } = this.design;
-    this.sag = { part: h.part, chain: h.chain, x: h.x, y: h.y, before: this.design.serialize(), ys: h.chain.map((n) => nodes[n].y), valid: true, reason: '' };
+    this.sag = { part: h.part, chain: h.chain, x: h.x, y: h.y, before: this.design.serialize(), ys: h.chain.map((n) => nodes[n].y), extra: h.extra, eys: h.extra.map((n) => nodes[n].y), valid: true, reason: '' };
   }
 
   /** Hangs the main cable being dragged so its handle comes as near height wy as it may. */
@@ -556,11 +624,13 @@ export class Editor {
     const t = (s.x - a.x) / (b.x - a.x);
     const w = 4 * t * (1 - t);
     const chord = a.y + (b.y - a.y) * t;
-    // Sag in tenths of a meter, so the handle steps like the grid does.
-    const sag = Math.max(MIN_SAG, Math.round(((chord - wy) / w) * 10) / 10);
+    // Sag in tenths of a meter, so the handle steps like the grid does. An arch rises: its sag is negative.
+    const dir = s.extra.length ? -1 : bow(this.design.members.find((m) => m.part === s.part)?.mat ?? 'main');
+    const sag = dir * Math.max(MIN_SAG, Math.round(((dir * (chord - wy)) / w) * 10) / 10);
     resag(this.design, s.chain, sag);
+    if (s.extra.length) settleRing(this.design, s.chain, s.extra);
     s.y = chord - w * sag;
-    s.reason = this.sagProblem(s.chain);
+    s.reason = this.sagProblem(s.chain, s.extra, s.part);
     s.valid = s.reason === '';
   }
 
@@ -570,9 +640,17 @@ export class Editor {
   }
 
   /** What is wrong with a main cable's joints where they hang now, or ''. */
-  private sagProblem(chain: number[]): string {
+  private sagProblem(chain: number[], extra: number[] = [], part = -1): string {
     const { nodes, members } = this.design;
-    const moved = new Set(chain.slice(1, -1));
+    const moved = new Set([...chain.slice(1, -1), ...extra]);
+    if (extra.length) {
+      // An arch ring's blocks, against everything but each other.
+      const own = new Set(this.design.cells.flatMap((c, k) => (c.part === part ? [k] : [])));
+      for (const k of own) {
+        const why = cellProblem(this.level, this.design, cellPoly(this.design, this.design.cells[k]), own);
+        if (why && why !== 'Too close to a joint') return why;
+      }
+    }
     for (const i of moved) {
       const n = nodes[i];
       const onlyMain = members.every((m) => (m.a !== i && m.b !== i) || MATERIALS[m.mat].curved);
@@ -582,7 +660,7 @@ export class Editor {
     for (const m of members) {
       if (!moved.has(m.a) && !moved.has(m.b)) continue;
       const [p, r] = [nodes[m.a], nodes[m.b]];
-      if (Math.hypot(r.x - p.x, r.y - p.y) > MATERIALS[m.mat].maxLen + 1e-9) return MATERIALS[m.mat].curved ? 'Too deep' : 'A hanger would be too long';
+      if (Math.hypot(r.x - p.x, r.y - p.y) > MATERIALS[m.mat].maxLen + 1e-9) return MATERIALS[m.mat].curved ? (MATERIALS[m.mat].arch ? 'Too high' : 'Too deep') : 'A hanger would be too long';
       if (crossesChannel(this.level, p.x, p.y, r.x, r.y)) return 'Keep the channel clear';
       for (const o of members) {
         if (o === m || (o.part !== undefined && o.part === m.part)) continue;
@@ -602,6 +680,7 @@ export class Editor {
     const { nodes } = this.design;
     if (!s.valid) {
       s.chain.forEach((n, i) => (nodes[n].y = s.ys[i]));
+      s.extra.forEach((n, i) => (nodes[n].y = s.eys[i]));
       this.ev.invalid(s.reason, s.x, s.y);
       return;
     }
@@ -637,12 +716,96 @@ export class Editor {
   }
 
   clear(): void {
-    if (this.design.members.length === 0) return;
+    if (this.design.members.length === 0 && this.design.cells.length === 0) return;
     this.snapshot();
     const { nodes, members } = this.design;
     this.design = new Design(this.level);
     this.ages = [];
     for (const m of members) this.ev.remove(nodes[m.a].x, nodes[m.a].y, nodes[m.b].x, nodes[m.b].y, m.mat);
+  }
+
+  /** The block or arch ring wedge under a point, or -1. */
+  cellAt(wx: number, wy: number): number {
+    return cellUnder(this.design, wx, wy);
+  }
+
+  /** Removes a block, or a whole arch ring with any of its wedges. */
+  removeCell(k: number): void {
+    const c = this.design.cells[k];
+    if (!c) return;
+    this.snapshot();
+    this.dropCell(k);
+  }
+
+  private dropCell(k: number): void {
+    const c = this.design.cells[k];
+    const gone = c.mat === 'arch' && c.part !== undefined ? this.design.cells.filter((o) => o.part === c.part) : [c];
+    const [x0, y0] = [this.design.nodes[c.n[0]].x, this.design.nodes[c.n[0]].y];
+    const [x1, y1] = [this.design.nodes[c.n[2]].x, this.design.nodes[c.n[2]].y];
+    this.design.cells = this.design.cells.filter((o) => !gone.includes(o));
+    this.design.pruneNodes();
+    this.ev.remove(x0, y0, x1, y1, c.mat);
+  }
+
+  /** What stops a 1 m block going in with its lower left corner at (x, y), or ''. */
+  blockProblem(x: number, y: number): string {
+    const why = cellProblem(this.level, this.design, blockPoly(x, y));
+    if (why) return why;
+    const price = MATERIALS[this.mat].price;
+    if (price > this.left()) return `Over budget by ${money(price - this.left())}`;
+    const left = this.partsLeft();
+    if (left !== null && left < 1) return `Only ${this.level.limits![this.mat]} ${MATERIALS[this.mat].name.toLowerCase()} parts on this level`;
+    return '';
+  }
+
+  /**
+   * Starts painting concrete blocks at a point, a square meter at a time: on an empty square it
+   * paints, on a block it erases. False if the brush isn't the material in hand.
+   */
+  beginPaint(wx: number, wy: number): boolean {
+    if (MATERIALS[this.mat].cell !== 'brush') return false;
+    this.drag = null;
+    const on = this.cellAt(wx, wy);
+    this.paint = { mode: on >= 0 && this.design.cells[on].mat === this.mat ? 'erase' : 'add', before: this.design.serialize(), changed: false, last: '' };
+    this.paintAt(wx, wy, true);
+    return true;
+  }
+
+  /** Paints or erases the square under a point. `first` reports why the first square couldn't be painted. */
+  paintAt(wx: number, wy: number, first = false): void {
+    const p = this.paint;
+    if (!p) return;
+    const [x, y] = [Math.floor(wx), Math.floor(wy)];
+    const key = `${x} ${y}`;
+    if (key === p.last) return;
+    p.last = key;
+    if (p.mode === 'erase') {
+      const k = this.cellAt(x + 0.5, y + 0.5);
+      if (k >= 0 && this.design.cells[k].mat === this.mat) {
+        this.dropCell(k);
+        p.changed = true;
+      }
+      return;
+    }
+    const why = this.blockProblem(x, y);
+    if (why) {
+      if (first || why.startsWith('Over budget')) this.ev.invalid(why, x + 0.5, y + 0.5);
+      return;
+    }
+    addBlock(this.design, x, y);
+    p.changed = true;
+    this.ev.place(x, y, x + 1, y + 1, this.mat, 0, 1);
+  }
+
+  /** Ends a paint stroke: one undo step for all of it. */
+  endPaint(): void {
+    const p = this.paint;
+    this.paint = null;
+    if (!p?.changed) return;
+    this.undoStack.push(p.before);
+    if (this.undoStack.length > 200) this.undoStack.shift();
+    this.redoStack.length = 0;
+    this.revision++;
   }
 
   undo(): boolean {

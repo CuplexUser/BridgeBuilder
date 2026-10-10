@@ -18,6 +18,7 @@ import {
   togglePier,
   toggleMast,
   togglePylon,
+  toggleRock,
   type CustomSave,
   type MakerTool,
 } from './maker';
@@ -25,8 +26,8 @@ import { Design } from './design';
 import { Editor, fitDesign, money, type AttachPick } from './editor';
 import { DebrisField, Particles, PK, Shake } from './fx/particles';
 import { bankY, goalX, LEVELS, START_X, type LevelDef } from './levels';
-import { MATERIAL_ORDER, MATERIALS, type MaterialId } from './physics/materials';
-import { STEP, TestRun } from './physics/world';
+import { MATERIALS, type MaterialId } from './physics/materials';
+import { marchAccel, quakeAccel, STEP, TestRun, windGust } from './physics/world';
 import { copyText, exportFile } from './platform';
 import { Camera, type Rect } from './render/camera';
 import { MATERIAL_CHALK, PAL } from './render/palette';
@@ -55,7 +56,7 @@ import { SOLUTIONS } from './solutions';
 import { TunePool } from './tunepool';
 import { StressGraph, type GraphPick } from './ui/graph';
 import { MAKER_TOOLS, MakerUi } from './ui/makerui';
-import { recordDetail, Ui, type ScreenId } from './ui/ui';
+import { offeredInOrder, recordDetail, Ui, type ScreenId } from './ui/ui';
 
 type State = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'workshop' | 'maker' | 'build' | 'test' | 'result' | 'collapse' | 'over';
 export type Board = 'career' | 'chapter' | 'levels' | 'challenge';
@@ -175,6 +176,14 @@ export class Game {
   private anyBreak = false;
   /** Drawbridge phase last announced, so each is called out once. */
   private lastPhase = '';
+  /** Brake stop step last announced. */
+  private lastBrake = 'none';
+  /** Weather and ground on dynamics levels: whether the quake was called out, the last footfall's sign, and the last gust's. */
+  private quakeSaid = false;
+  private stepSaid = false;
+  private floodSaid = false;
+  private lastStep = 0;
+  private gustSaid = false;
   /** Wheel spin and last wheel x per vehicle: rear, front. */
   private wheelAngles: [number, number][] = [[0, 0]];
   private lastWheelX: [number, number][] = [[0, 0]];
@@ -191,6 +200,11 @@ export class Game {
   private dragging = false;
   private panning = false;
   private pendingDelete = -1;
+  /** A block tapped for removal, taken off if the tap lifts without moving. */
+  private pendingCell = -1;
+  /** The block or ring wedge under the mouse, and the square the brush would paint. */
+  private hoverCell = -1;
+  private brushAt: [number, number] | null = null;
   private pinchDist = 0;
   private lastMid: [number, number] = [0, 0];
   private fpsFrames = 0;
@@ -637,6 +651,8 @@ export class Game {
         return togglePylon(l, x, y);
       case 'mast':
         return toggleMast(l, x, y);
+      case 'rock':
+        return toggleRock(l, x, y);
       case 'erase':
         return eraseAt(l, x, y);
       case 'channel':
@@ -1035,6 +1051,9 @@ export class Game {
     this.endTimer = -1;
     this.anyBreak = false;
     this.lastPhase = '';
+    this.lastBrake = 'none';
+    this.quakeSaid = this.stepSaid = this.gustSaid = this.floodSaid = false;
+    this.lastStep = 0;
     this.acc = 0;
     this.particles.clear();
     this.debris.clear();
@@ -1068,6 +1087,9 @@ export class Game {
     this.endTimer = -1;
     this.anyBreak = false;
     this.lastPhase = '';
+    this.lastBrake = 'none';
+    this.quakeSaid = this.stepSaid = this.gustSaid = this.floodSaid = false;
+    this.lastStep = 0;
     this.acc = 0;
     this.attempts++;
     this.particles.clear();
@@ -1587,8 +1609,10 @@ export class Game {
         this.stepSim(sim, dt * timeScale);
       }
       this.editor?.tick(dt);
-      this.particles.update(dt * timeScale, this.level.waterY);
-      this.debris.update(dt * timeScale, this.level.waterY, (x, y, size) => {
+      // A flood raises the water things splash into.
+      const water = sim?.world.waterY ?? this.level.waterY;
+      this.particles.update(dt * timeScale, water);
+      this.debris.update(dt * timeScale, water, (x, y, size) => {
         const T = this.renderer.theme;
         this.particles.burst(PK.Water, x, y, 4 + size * 12, 3.5, 0.8, 0.08, [T.foam, T.waterTop], 3);
         // Rubble plops silently; only real pieces of bridge get a splash sound.
@@ -1657,8 +1681,8 @@ export class Game {
       const v = sim.vehicles.reduce((a, b) => (w.y[b.rearWheel] < w.y[a.rearWheel] ? b : a));
       const x = (w.x[v.rearWheel] + w.x[v.frontWheel]) / 2;
       const T = this.renderer.theme;
-      this.particles.burst(PK.Water, x, sim.level.waterY, 70, 9, 1.4, 0.12, [T.foam, '#ffffff', T.waterTop], 7);
-      this.particles.spawn(PK.Ring, x, sim.level.waterY, 0, 0, 0.8, 4, T.foam);
+      this.particles.burst(PK.Water, x, w.waterY, 70, 9, 1.4, 0.12, [T.foam, '#ffffff', T.waterTop], 7);
+      this.particles.spawn(PK.Ring, x, w.waterY, 0, 0, 0.8, 4, T.foam);
       this.shake.add(0.7);
       if (!this.demo) sfx.splash(true);
     }
@@ -1676,14 +1700,14 @@ export class Game {
     if (breaks.length === 0) return;
     for (const b of breaks) {
       const mat = b.link.mat!;
-      if (mat === 'heavy' || mat === 'concrete') this.debris.crumble(b.ax, b.ay, b.bx, b.by, b.vx, b.vy, mat);
+      if (mat === 'heavy' || mat === 'concrete' || mat === 'masonry' || mat === 'arch') this.debris.crumble(b.ax, b.ay, b.bx, b.by, b.vx, b.vy, mat);
       else if (mat === 'cable' || mat === 'main') this.debris.whip(b.link.a, b.link.b, b.ax, b.ay, b.bx, b.by);
       else this.debris.add(b.ax, b.ay, b.bx, b.by, b.vx, b.vy, mat);
       if (mat === 'wood') {
         this.particles.burst(PK.Splinter, b.x, b.y, 22, 7, 1.2, 0.18, [PAL.wood, PAL.woodDark, '#e8b27a'], 2);
-      } else if (mat === 'steel' || mat === 'cable' || mat === 'main' || mat === 'ram') {
+      } else if (mat === 'steel' || mat === 'cable' || mat === 'main' || mat === 'ram' || mat === 'damper') {
         this.particles.burst(PK.Spark, b.x, b.y, mat === 'cable' ? 18 : mat === 'main' ? 40 : 30, 12, 0.6, 0.04, ['#fff3b0', PAL.gold, '#ff9d3b'], 2);
-      } else if (mat === 'heavy' || mat === 'concrete') {
+      } else if (mat === 'heavy' || mat === 'concrete' || mat === 'masonry' || mat === 'arch') {
         this.particles.burst(PK.Splinter, b.x, b.y, 22, 6, 1.3, 0.22, [PAL.concrete, PAL.concreteDark, PAL.heavy], 2);
         this.particles.burst(PK.Dust, b.x, b.y, 16, 2.2, 1.4, 0.35, ['#b9b4aa', '#d8d2c6'], 0.6);
       } else {
@@ -1695,7 +1719,7 @@ export class Game {
         sfx.crack(mat);
         this.shake.add(0.45);
         this.flash = Math.max(this.flash, 0.25);
-        const word = b.link.crushed ? 'TOO HEAVY!' : mat === 'steel' || mat === 'ram' ? 'CLANG!' : mat === 'cable' ? 'PING!' : mat === 'main' ? 'TWANG!' : mat === 'heavy' || mat === 'concrete' ? 'CRUNCH!' : 'SNAP!';
+        const word = b.link.crushed ? 'TOO HEAVY!' : mat === 'steel' || mat === 'ram' || mat === 'damper' ? 'CLANG!' : mat === 'cable' ? 'PING!' : mat === 'main' ? 'TWANG!' : mat === 'heavy' || mat === 'concrete' || mat === 'masonry' || mat === 'arch' ? 'CRACK!' : 'SNAP!';
         this.float(b.x, b.y + 0.8, word, PAL.bad, 24, 0.9);
         if (!this.anyBreak) this.slowmo = 0.7;
       }
@@ -1740,6 +1764,22 @@ export class Game {
       const x = c ? (c[0] + c[1]) / 2 : L.width / 2;
       if (words[run.phase]) this.float(x, L.ship.mast + 1, words[run.phase], run.phase === 'driving' ? PAL.ok : PAL.gold, 26, 1.4);
     }
+
+    // A brake stop calls out the signal, the stop and the restart, with sparks off the rails while it brakes.
+    if (L.brake && run.brakeState !== this.lastBrake && run.status === 'running') {
+      this.lastBrake = run.brakeState;
+      const words: Record<string, [string, string]> = { braking: ['RED SIGNAL!', PAL.bad], held: ['STOPPED', PAL.gold], done: ['GREEN: GO!', PAL.ok] };
+      const said = words[run.brakeState];
+      if (said) this.float(w.x[v.frontWheel], w.y[v.frontWheel] + 4, said[0], said[1], 24, 1.4);
+    }
+    if (run.brakeState === 'braking' && Math.random() < dt * 30) {
+      for (const veh of run.vehicles) {
+        const p = veh.wheels[Math.floor(Math.random() * veh.wheels.length)];
+        this.particles.burst(PK.Spark, w.x[p], w.y[p] - veh.def.wheelR, 2, 4, 0.3, 0.03, ['#fff3b0', PAL.gold], 1.5);
+      }
+    }
+
+    this.trackDynamics(dt);
 
     // Creaks and dust from heavily loaded members.
     for (const l of w.links) {
@@ -1807,8 +1847,63 @@ export class Game {
     sfx.engineStop();
   }
 
+  /** Dynamics levels: callouts, sound and dust for the march, the wind and the quake. */
+  private trackDynamics(dt: number): void {
+    const run = this.run!;
+    const w = run.world;
+    const L = this.level;
+    if (run.status !== 'running' || this.demo) return;
+    const v = run.vehicle;
+    // Every boot lands at once: a tramp on each footfall, and a callout as the column steps on.
+    if (L.march) {
+      const a = marchAccel(L.march, w.time);
+      const marching = run.vehicles.filter((m) => m.def.marches && w.x[m.frontWheel] > -2 && w.x[m.rearWheel] < L.width + 2);
+      if (a > 0 && this.lastStep <= 0 && marching.length) {
+        sfx.tramp(Math.min(1, marching.length / 3));
+        if (!this.stepSaid) {
+          this.stepSaid = true;
+          this.float(w.x[marching[0].frontWheel], w.y[marching[0].frontWheel] + 3.5, 'IN STEP!', PAL.gold, 24, 1.4);
+        }
+      }
+      this.lastStep = a;
+    }
+    if (L.wind) {
+      const g = windGust(L.wind, w.time);
+      if (g > 0.9 && !this.gustSaid) {
+        this.gustSaid = true;
+        this.float(L.width / 2, 6, 'GUST!', PAL.chalk, 24, 1.1);
+      } else if (g < 0.5) this.gustSaid = false;
+    }
+    // The river rises, and bolts on the mud wash out from under the bridge.
+    if (L.flood && w.floodStart < Infinity && !this.floodSaid) {
+      this.floodSaid = true;
+      sfx.rumble(3);
+      this.float(L.width / 2, w.water0 + L.flood.rise + 2, 'FLOOD!', PAL.cyan, 28, 1.6);
+    }
+    for (const p of w.washed) {
+      this.particles.burst(PK.Water, w.x[p], w.y[p], 40, 6, 1.2, 0.1, [this.renderer.theme.foam, '#ffffff', this.renderer.theme.waterTop], 5);
+      this.float(w.x[p], w.y[p] + 2, 'WASHED OUT!', PAL.bad, 24, 1.2);
+      sfx.crack('heavy');
+    }
+    w.washed.length = 0;
+    if (L.quake && w.quakeStart < Infinity) {
+      const [ax] = quakeAccel(L.quake, w.time - w.quakeStart);
+      if (!this.quakeSaid) {
+        this.quakeSaid = true;
+        sfx.rumble(L.quake.dur);
+        this.float(w.x[v.frontWheel], w.y[v.frontWheel] + 4, 'EARTHQUAKE!', PAL.bad, 28, 1.6);
+      }
+      const k = Math.abs(ax) / 9.81;
+      this.shake.add(k * dt * 2);
+      if (Math.random() < dt * 40 * k) {
+        const x = Math.random() < 0.5 ? -Math.random() * 3 : L.width + Math.random() * 3;
+        this.particles.spawn(PK.Dust, x, x < 0 ? 0.1 : bankY(L) + 0.1, (Math.random() - 0.5) * 1.2, 0.4, 1.2, 0.12, '#cdbb9c');
+      }
+    }
+  }
+
   private engineBase(): number {
-    return { car: 70, van: 58, truck: 44, bus: 40, semi: 34 }[this.level.vehicle];
+    return { car: 70, van: 58, truck: 44, bus: 40, semi: 34, loco: 30, wagon: 30, troop: 0 }[this.level.vehicle];
   }
 
   private resetWheels(run: TestRun): void {
@@ -1904,6 +1999,8 @@ export class Game {
       highlight: this.graphOpen && this.pick ? { member: this.pick.member, node: this.pick.node, ghost: this.ghostOf(this.pick.member) } : null,
       maker: this.makerView(),
       loupe: this.loupeView(),
+      hoverCell: this.state === 'build' ? this.hoverCell : -1,
+      brush: this.state === 'build' && !this.paused && this.brushAt && this.editor && !this.editor.paint ? { x: this.brushAt[0], y: this.brushAt[1], why: this.editor.blockProblem(...this.brushAt) } : null,
       reviewHint: this.state === 'build' && this.mode === 'play' && this.hintsShown().length ? this.hintsShown().flatMap((i) => this.allGhosts()?.slice(i, i + 1) ?? []) : null,
       marks: this.state === 'build' && this.marks && this.marks.revision === this.editor?.revision ? this.marks : null,
     });
@@ -2086,7 +2183,17 @@ export class Game {
     const ed = this.editor;
     if (this.state === 'build' && ed) {
       if (e.button === 2) {
-        ed.removeMember(ed.memberAt(wx, wy, this.pickRadius(14, 0.25)));
+        const m = ed.memberAt(wx, wy, this.pickRadius(14, 0.25));
+        if (m >= 0) ed.removeMember(m);
+        else ed.removeCell(ed.cellAt(wx, wy));
+        this.refreshHud();
+        return;
+      }
+      // With the block brush in hand, a drag paints blocks, or erases them if it starts on one.
+      if (e.button === 0 && ed.beginPaint(wx, wy)) {
+        this.dragging = true;
+        this.pendingDelete = -1;
+        this.refreshHud();
         return;
       }
       const touch = e.pointerType === 'touch';
@@ -2112,6 +2219,12 @@ export class Game {
         this.pendingDelete = m;
         this.hoverMember = m;
         return;
+      }
+      // A tap on a block takes it off; a drag from one pans.
+      const c = ed.cellAt(wx, wy);
+      if (c >= 0) {
+        this.pendingCell = c;
+        this.hoverCell = c;
       }
     }
     this.panning = true;
@@ -2151,6 +2264,13 @@ export class Game {
 
     const [wx, wy] = this.worldAt(e.clientX, e.clientY);
     const ed = this.editor;
+    if (this.dragging && ed?.paint) {
+      const n = ed.design.cells.length;
+      ed.paintAt(wx, wy);
+      if (ed.design.cells.length !== n) this.refreshHud();
+      return;
+    }
+    if (this.pendingCell >= 0 && p && Math.hypot(e.clientX - p.startX, e.clientY - p.startY) > 10) this.pendingCell = -1;
     if (this.dragging && ed?.sag) {
       const before = ed.sag.y;
       ed.aimSag(wy);
@@ -2179,6 +2299,10 @@ export class Game {
       this.hoverNode = ed.nodeAt(wx, wy, this.pickRadius(18, 0.4));
       this.hoverMember = this.hoverNode < 0 ? ed.memberAt(wx, wy, this.pickRadius(10, 0.2)) : ed.memberBodyAt(wx, wy, this.pickRadius(10, 0.2));
       this.hoverAttach = this.hoverNode < 0 ? ed.attachAt(wx, wy, this.pickRadius(12, 0.3)) : null;
+      const brush = MATERIALS[ed.mat].cell === 'brush';
+      this.hoverCell = this.hoverMember < 0 ? ed.cellAt(wx, wy) : -1;
+      this.brushAt = brush ? [Math.floor(wx), Math.floor(wy)] : null;
+      if (brush) this.hoverNode = this.hoverMember = -1;
     }
   }
 
@@ -2197,7 +2321,11 @@ export class Game {
       return;
     }
     const ed = this.editor;
-    if (this.dragging && ed) {
+    if (this.dragging && ed?.paint) {
+      ed.endPaint();
+      this.dragging = false;
+      this.refreshHud();
+    } else if (this.dragging && ed) {
       const sag = !!ed.sag;
       if (cancelled || this.pendingDelete >= 0) ed.cancel();
       else ed.commit();
@@ -2208,7 +2336,13 @@ export class Game {
     if (this.pendingDelete >= 0 && ed && !cancelled) {
       ed.removeMember(this.pendingDelete);
     }
+    if (this.pendingCell >= 0 && ed && !cancelled) {
+      ed.removeCell(this.pendingCell);
+      this.refreshHud();
+    }
     this.pendingDelete = -1;
+    this.pendingCell = -1;
+    if (e.pointerType !== 'mouse') this.hoverCell = -1;
     this.panning = false;
     if (e.pointerType !== 'mouse') this.hoverMember = -1;
   }
@@ -2408,6 +2542,15 @@ export class Game {
         move(0, -1);
         return;
     }
+    if ((k === ' ' || k === 'Enter') && MATERIALS[ed.mat].cell === 'brush') {
+      e.preventDefault();
+      this.keyboardMode = true;
+      // The block up and to the right of the cursor: painted, or taken off if it's there.
+      ed.beginPaint(ed.cursorX + 0.5, ed.cursorY + 0.5);
+      ed.endPaint();
+      this.refreshHud();
+      return;
+    }
     if (k === ' ' || k === 'Enter') {
       e.preventDefault();
       this.keyboardMode = true;
@@ -2441,12 +2584,17 @@ export class Game {
       e.preventDefault();
       this.keyboardMode = true;
       const m = ed.memberAt(ed.cursorX, ed.cursorY, 0.6);
+      const c = ed.cellAt(ed.cursorX + 0.5, ed.cursorY + 0.5);
       if (m >= 0) ed.removeMember(m);
+      else if (c >= 0) ed.removeCell(c);
       else sfx.invalid();
+      this.refreshHud();
       return;
     }
-    if (k >= '1' && k <= String(MATERIAL_ORDER.length) && k.length === 1) {
-      this.selectMaterial(MATERIAL_ORDER[Number(k) - 1]);
+    // Keys 1–9 and 0 pick the level's materials, in toolbar order.
+    if (k.length === 1 && k >= '0' && k <= '9') {
+      const mat = offeredInOrder(this.level)[k === '0' ? 9 : Number(k) - 1];
+      if (mat) this.selectMaterial(mat);
       return;
     }
     if (lower === 'q') this.cycleMaterial(-1);

@@ -1,5 +1,5 @@
 import { segmentHitsRect, type Design } from '../design';
-import { bankY, goalX, seatPiers, START_X, type LevelDef } from '../levels';
+import { bankY, goalX, mudAt, seatPiers, START_X, type LevelDef } from '../levels';
 import { BLOCK, blockOf, compressionLimit, MAST, MATERIALS, type BlockDef, type MaterialId } from './materials';
 import { StressLog } from './stresslog';
 import { VEHICLES, type VehicleDef } from './vehicles';
@@ -16,6 +16,9 @@ const SUBSTEPS = 24;
 const AXIAL_DAMPING = 40; // 1/s, relative axial velocity bleed on bridge members
 const AIR_DAMPING = 0.05;
 const JOINT_MASS = 6;
+/** Friction between concrete blocks and the rock they bear on: static, and once sliding. */
+const ROCK_FRICTION = 0.7;
+const SLIDING_FRICTION = 0.55;
 const STRESS_SMOOTHING = 0.3;
 const SETTLE_TIME = 0.8;
 /**
@@ -25,6 +28,21 @@ const SETTLE_TIME = 0.8;
 export const JOINT_LIMIT = 1.8;
 /** Space between one vehicle's front and the next one's back in a convoy, m. */
 const CONVOY_GAP = 3.5;
+/** What a bolt on mud carries before it starts to sink, N, how fast it sinks per share over, m/s, and how far it can, m. */
+const MUD_HOLD = 15000;
+const SINK_RATE = 0.4;
+const MUD_DEPTH = 1.5;
+/** A flood scours out a bolt on mud once it has stood this deep under water this long, m and s. */
+const SCOUR_DEPTH = 0.5;
+const SCOUR_TIME = 1.5;
+/** Seconds a flood takes to rise. */
+const FLOOD_TIME = 4;
+/** Compliance of a coupler between rail vehicles: stiff, with a little give. */
+const COUPLER = 2e-7;
+/** Wheel to wheel between two coupled rail vehicles, m: both overhangs and the buffers. */
+const RAIL_GAP = 2.4;
+/** How hard a braking train slows, m/s². */
+const BRAKE_DECEL = 5;
 
 /** Drawbridge timeline, s: open, let the ship through, close, then traffic may go. */
 export const OPEN_TIME = 3;
@@ -51,6 +69,8 @@ export interface Link {
   drivable: boolean;
   /** Index into Design.members, or -1. */
   member: number;
+  /** Index into Design.cells for a link of a concrete block's frame, or -1. */
+  cell: number;
   broken: boolean;
   strain: number;
   /** Signed, smoothed load ratio: >0 tension, <0 compression, |s| ≥ 1 breaks. */
@@ -69,6 +89,10 @@ export interface Link {
   base: number;
   /** Share of its built length a ram extends by when the bridge is fully open. */
   stroke: number;
+  /** A damper's resistance to its ends moving, N per m/s; 0 for everything else. */
+  viscous: number;
+  /** The damper's force this step so far, summed over substeps, N: tension positive. */
+  damp: number;
 }
 
 /** A joint resting on a pier top at (x, y). */
@@ -163,10 +187,27 @@ export class World {
   blocks: Block[] = [];
   /** The size of every concrete anchor in this world. */
   block: BlockDef = BLOCK;
+  /** Each concrete block's frame: its corner particles and its links, by index into Design.cells. */
+  cells: { n: number[]; links: Link[] }[] = [];
+  /** Block corners that bear on rock: the banks, their walls and pier tops push back but don't hold. */
+  rock: number[] = [];
+  /** Per rock corner, in step with `rock`: the links pulling on it, the face it last pressed on, and whether friction holds it. */
+  private rockLinks: Link[][] = [];
+  private rockNx: number[] = [];
+  private rockNy: number[] = [];
+  private rockStuck: boolean[] = [];
+  /** How hard each rock corner pressed into its face last step, N. */
+  private rockPress: number[] = [];
+  /** Pier tops blocks may stand on: x, y. */
+  rockPiers: [number, number][] = [];
+  /** Rock masses blocks bear on: x0, x1, top. */
+  rockMasses: [number, number, number][] = [];
   /** Hinged masts: the fixed joint at the foot and the bolt on top, which tips freely. */
   masts: { base: number; top: number }[] = [];
   /** Concrete anchors that tore loose, by index into blocks, for effects to pick up. */
   loosened: number[] = [];
+  /** Soft bolts the flood just washed out, by particle, for effects to pick up. */
+  washed: number[] = [];
   /** Left bank's x edge and the right bank's x edge and height, for blocks dragged over the ground. */
   banks = { width: 0, rightY: 0 };
   floorY: number;
@@ -174,6 +215,38 @@ export class World {
   gravityScale = 1;
   /** Weight of the vehicle each particle belongs to, tonnes (0 for the bridge), checked against deck ratings. */
   tonnes: Float64Array;
+  /**
+   * Rail wheels: they run on track only, and push back on the deck under them as they drive or
+   * brake, so a braking train loads the bridge along its length. Per wheel, the deck link it
+   * last touched and where along it.
+   */
+  rail: Uint8Array;
+  private touch: (Link | null)[] = [];
+  private touchT: Float64Array;
+  /** Rail wheels braking toward a stop. */
+  braking = false;
+  /** Seconds since the world began, counted in substeps. */
+  time = 0;
+  /** The level's weather and ground: see LevelDef.wind, quake and march. */
+  wind: Wind | null = null;
+  quake: Quake | null = null;
+  /** When the quake began, s: it waits for the traffic to reach it. */
+  quakeStart = Infinity;
+  march: March | null = null;
+  /** Particles that march in step: they press down harder and softer at the pace. */
+  marchers: number[] = [];
+  /** Bolts on mud: where they were built, how far they have sunk, the members they carry, and whether a flood washed them out. */
+  soft: { p: number; y0: number; sunk: number; links: Link[]; out: boolean }[] = [];
+  /** The river's surface, m: the level's water, water0, until a flood raises it. */
+  waterY = 0;
+  water0 = 0;
+  flood: Flood | null = null;
+  /** When the flood began, s: it waits for the traffic to reach it. */
+  floodStart = Infinity;
+  /** How long each soft bolt has stood under the flood, s. */
+  private scour: number[] = [];
+  /** How quickly members bleed off their own stretching and squeezing, 1/s. */
+  memberDamping = AXIAL_DAMPING;
   /** How far open a drawbridge is, 0 closed to 1 open; rams follow it. */
   openness = 0;
   /** Summed stress ratio of the members meeting at each joint. */
@@ -198,6 +271,8 @@ export class World {
     this.cnx = new Float64Array(capacity);
     this.cny = new Float64Array(capacity);
     this.tonnes = new Float64Array(capacity);
+    this.rail = new Uint8Array(capacity);
+    this.touchT = new Float64Array(capacity);
     this.jointLoad = new Float64Array(capacity);
     this.floorY = floorY;
   }
@@ -223,6 +298,7 @@ export class World {
       tensionOnly: false,
       drivable: false,
       member: -1,
+      cell: -1,
       broken: false,
       strain: 0,
       stress: 0,
@@ -234,6 +310,8 @@ export class World {
       crushedBy: 0,
       base: rest,
       stroke: 0,
+      viscous: 0,
+      damp: 0,
       ...opts,
     };
     this.links.push(l);
@@ -250,11 +328,23 @@ export class World {
     for (const l of links) if (l.stroke) l.rest = l.base * (1 + l.stroke * this.openness);
 
     for (let s = 0; s < SUBSTEPS; s++) {
+      // In the ground's frame, shaking ground pushes everything on it the other way.
+      const [qx, qy] = this.quake ? quakeAccel(this.quake, this.time - this.quakeStart) : [0, 0];
       for (let i = 0; i < n; i++) {
         px[i] = x[i];
         py[i] = y[i];
         if (im[i] === 0) continue;
-        vy[i] += g * h;
+        vx[i] -= qx * h;
+        vy[i] += (g - qy) * h;
+      }
+      if (this.march) {
+        const a = marchAccel(this.march, this.time);
+        for (const p of this.marchers) vy[p] -= a * h;
+      }
+      if (this.wind) this.blow(h);
+      if (this.flood && this.time > this.floodStart) this.current(h);
+      for (let i = 0; i < n; i++) {
+        if (im[i] === 0) continue;
         x[i] += vx[i] * h;
         y[i] += vy[i] * h;
       }
@@ -286,6 +376,7 @@ export class World {
       this.solveBends(h);
       this.solveContacts();
       this.solveSeats();
+      this.solveRock();
       this.solveBlocks();
 
       const invH = 1 / h;
@@ -297,6 +388,7 @@ export class World {
 
       this.applyDrive(h);
       this.dampMembers(h);
+      this.time += h;
     }
 
     // Particles that fell far below the water are parked so they cost nothing.
@@ -310,6 +402,70 @@ export class World {
 
     this.updateStress(dt);
     this.updateBlocks();
+    this.updateRock(dt);
+    if (this.soft.length) this.updateSoft(dt);
+    if (this.flood) this.rise();
+  }
+
+  /**
+   * Bolts on mud sink while they carry more than the mud holds, faster the more they carry, until
+   * they reach firmer ground; under a flood long enough, the river scours them out altogether.
+   */
+  private updateSoft(dt: number): void {
+    const { x, y, py } = this;
+    this.soft.forEach((s, k) => {
+      if (s.out) return;
+      const p = s.p;
+      if (this.waterY > y[p] + SCOUR_DEPTH) {
+        this.scour[k] = (this.scour[k] ?? 0) + dt;
+        if (this.scour[k] > SCOUR_TIME) {
+          s.out = true;
+          this.im[p] = 1 / (JOINT_MASS * 20);
+          this.washed.push(p);
+          return;
+        }
+      }
+      // What the members built on it press it down with, N.
+      let press = 0;
+      for (const l of s.links) {
+        if (l.broken) continue;
+        const q = l.a === p ? l.b : l.a;
+        const len = Math.hypot(x[q] - x[p], y[q] - y[p]) || 1;
+        const pull = MATERIALS[l.mat!].EA * l.strain;
+        press -= (pull * (y[q] - y[p])) / len;
+      }
+      if (press <= MUD_HOLD || s.sunk >= MUD_DEPTH) return;
+      const dy = Math.min(MUD_DEPTH - s.sunk, SINK_RATE * dt * (press / MUD_HOLD - 1));
+      s.sunk += dy;
+      y[p] -= dy;
+      py[p] -= dy;
+    });
+  }
+
+  /** The river rises after the flood starts, easing in over FLOOD_TIME. */
+  private rise(): void {
+    const f = this.flood!;
+    const u = Math.max(0, Math.min(1, (this.time - this.floodStart) / FLOOD_TIME));
+    this.waterY = this.water0 + f.rise * u * u * (3 - 2 * u);
+  }
+
+  /** Flood water pushes downstream, left to right, on every member by how much of it is under water. */
+  private current(h: number): void {
+    const { x, y, vx, im } = this;
+    const wy = this.waterY;
+    const push = this.flood!.current * h;
+    for (const l of this.links) {
+      if (l.broken || !l.bridge) continue;
+      const [a, b] = [l.a, l.b];
+      const lo = Math.min(y[a], y[b]);
+      if (lo >= wy) continue;
+      const hi = Math.max(y[a], y[b]);
+      const len = Math.hypot(x[b] - x[a], y[b] - y[a]);
+      const wet = hi <= wy ? len : (len * (wy - lo)) / Math.max(hi - lo, 1e-6);
+      const f = (push * wet) / 2;
+      vx[a] += f * im[a];
+      vx[b] += f * im[b];
+    }
   }
 
   /** Height of the ground under x, or -Infinity over the gap: a block dragged off the edge falls in. */
@@ -323,6 +479,125 @@ export class World {
    * A loose block can't sink into the bank, and drags along it against friction. Dragged out of
    * its pit, it rides up the pit's edge onto the ground.
    */
+  /**
+   * Block corners can't sink into rock: pushed back out of a bank top, a canyon wall, a rock mass
+   * or a pier top. While friction holds (see updateRock) a corner can't slide along the face; once
+   * the push along it beats friction, it slides, slowed by kinetic friction. Nothing holds a
+   * corner down, so a block lifts away freely.
+   */
+  private solveRock(): void {
+    const { x, y, px, py, im } = this;
+    const W = this.banks.width;
+    const rY = this.banks.rightY;
+    this.rock.forEach((p, k) => {
+      if (im[p] === 0) return;
+      let nx = 0;
+      let ny = 0;
+      let depth = 0;
+      if (x[p] < 0 && y[p] < 0) {
+        if (-y[p] < -x[p]) [ny, depth] = [1, -y[p]];
+        else [nx, depth] = [1, -x[p]];
+      } else if (x[p] > W && y[p] < rY) {
+        if (rY - y[p] < x[p] - W) [ny, depth] = [1, rY - y[p]];
+        else [nx, depth] = [-1, x[p] - W];
+      } else {
+        for (const [x0, x1, top] of this.rockMasses) {
+          if (x[p] <= x0 || x[p] >= x1 || y[p] >= top) continue;
+          // Out through the nearest face: the top, or a side.
+          const up = top - y[p];
+          const left = x[p] - x0;
+          const right = x1 - x[p];
+          if (up <= left && up <= right) [ny, depth] = [1, up];
+          else if (left < right) [nx, depth] = [-1, left];
+          else [nx, depth] = [1, right];
+          break;
+        }
+        if (!depth) {
+          for (const [sx, sy] of this.rockPiers) {
+            if (Math.abs(x[p] - sx) < 0.55 && y[p] < sy && sy - y[p] < 0.5) {
+              [ny, depth] = [1, sy - y[p]];
+              break;
+            }
+          }
+        }
+      }
+      if (depth <= 0) return;
+      this.rockNx[k] = nx;
+      this.rockNy[k] = ny;
+      x[p] += nx * depth;
+      y[p] += ny * depth;
+      // Along the face: held where it is while friction holds. Sliding, it is slowed once a step
+      // by kinetic friction, as an impulse (see updateRock).
+      if (!this.rockStuck[k]) return;
+      const tx = -ny;
+      const ty = nx;
+      const slide = (x[p] - px[p]) * tx + (y[p] - py[p]) * ty;
+      x[p] -= tx * slide;
+      y[p] -= ty * slide;
+    });
+  }
+
+  /**
+   * Coulomb friction at every block corner on rock, once a step: the members' pull on it plus
+   * its own weight, split into a push into the face and a push along it. Friction holds while
+   * the push along is at most ROCK_FRICTION times the push in.
+   */
+  private updateRock(dt: number): void {
+    const { x, y, vx, vy, im } = this;
+    const g = -GRAVITY * this.gravityScale;
+    this.rock.forEach((p, k) => {
+      const nx = this.rockNx[k];
+      const ny = this.rockNy[k];
+      if (!nx && !ny) {
+        this.rockStuck[k] = true;
+        return;
+      }
+      let fx = 0;
+      let fy = im[p] > 0 ? -g / im[p] : 0;
+      for (const l of this.rockLinks[k]) {
+        if (l.broken || !l.mat) continue;
+        const o = l.a === p ? l.b : l.a;
+        const dx = x[o] - x[p];
+        const dy = y[o] - y[p];
+        const len = Math.hypot(dx, dy) || 1;
+        const f = MATERIALS[l.mat].EA * l.strain;
+        fx += (f * dx) / len;
+        fy += (f * dy) / len;
+      }
+      const press = -(fx * nx + fy * ny);
+      const along = Math.abs(-fx * ny + fy * nx);
+      this.rockPress[k] = Math.max(0, press);
+      this.rockStuck[k] = press > 0 && along <= ROCK_FRICTION * press;
+      if (!this.rockStuck[k] && press > 0) {
+        // Sliding: kinetic friction takes back up to its impulse over the step from the slide.
+        const vt = -vx[p] * ny + vy[p] * nx;
+        const dv = Math.min(Math.abs(vt), SLIDING_FRICTION * press * dt * im[p]) * Math.sign(vt);
+        vx[p] -= -ny * dv;
+        vy[p] -= nx * dv;
+      }
+      // The face it pressed on is found afresh over the next step's substeps.
+      this.rockNx[k] = this.rockNy[k] = 0;
+    });
+  }
+
+  /** Sets which particles are block corners on rock, and indexes the links pulling on each. */
+  setRock(rock: number[]): void {
+    this.rock = rock;
+    const at = new Map(rock.map((p, k) => [p, k]));
+    this.rockLinks = rock.map(() => []);
+    for (const l of this.links) {
+      if (!l.bridge) continue;
+      for (const p of [l.a, l.b]) {
+        const k = at.get(p);
+        if (k !== undefined) this.rockLinks[k].push(l);
+      }
+    }
+    this.rockNx = rock.map(() => 0);
+    this.rockNy = rock.map(() => 0);
+    this.rockStuck = rock.map(() => true);
+    this.rockPress = rock.map(() => 0);
+  }
+
   private solveBlocks(): void {
     const { x, y, px } = this;
     for (const b of this.blocks) {
@@ -450,9 +725,13 @@ export class World {
       const r = radius[p];
       if (r === 0) continue;
       contact[p] = 0;
+      const rail = this.rail[p];
+      if (rail) this.touch[p] = null;
       for (let k = 0; k < links.length; k++) {
         const l = links[k];
         if (l.broken || !l.drivable) continue;
+        // Trains run on track only.
+        if (rail && !MATERIALS[l.mat!].rail) continue;
         this.contactSegment(p, r, x[l.a], y[l.a], x[l.b], y[l.b], l.a, l.b, l);
       }
       for (let k = 0; k < t.length; k += 4) {
@@ -496,13 +775,17 @@ export class World {
       y[ib] -= ny * s * im[ib] * t;
     }
     if (link && this.tonnes[p] > link.pressTonnes) link.pressTonnes = this.tonnes[p];
+    if (link && this.rail[p]) {
+      this.touch[p] = link;
+      this.touchT[p] = t;
+    }
     this.contact[p] = 1;
     this.cnx[p] += nx;
     this.cny[p] += ny;
   }
 
   private applyDrive(h: number): void {
-    const { vx, vy, drive, accel, contact, cnx, cny } = this;
+    const { vx, vy, drive, accel, contact, cnx, cny, im } = this;
     for (let p = 0; p < this.count; p++) {
       if (!contact[p]) {
         cnx[p] = cny[p] = 0;
@@ -514,7 +797,10 @@ export class World {
       const vt = vx[p] * tx + vy[p] * ty;
       const target = drive[p];
       let dv: number;
-      if (target > 0) {
+      if (this.braking && this.rail[p]) {
+        const maxDv = BRAKE_DECEL * h;
+        dv = Math.max(-maxDv, Math.min(maxDv, -vt));
+      } else if (target > 0) {
         const maxDv = accel[p] * h;
         dv = Math.max(-maxDv, Math.min(maxDv, target - vt));
       } else {
@@ -523,13 +809,46 @@ export class World {
       }
       vx[p] += tx * dv;
       vy[p] += ty * dv;
+      // A rail wheel pushes the deck the other way, shared between the ends of the piece under it.
+      const l = this.rail[p] ? this.touch[p] : null;
+      if (l && !l.broken && im[p] > 0) {
+        const j = dv / im[p];
+        const t = this.touchT[p];
+        vx[l.a] -= tx * j * im[l.a] * (1 - t);
+        vy[l.a] -= ty * j * im[l.a] * (1 - t);
+        vx[l.b] -= tx * j * im[l.b] * t;
+        vy[l.b] -= ty * j * im[l.b] * t;
+      }
       cnx[p] = cny[p] = 0;
+    }
+  }
+
+  /**
+   * Wind from the left: gusts push on every member by how tall it stands across the wind, and
+   * lift the deck by its length, pulsing at the gusts' period.
+   */
+  private blow(h: number): void {
+    const { x, y, vx, vy, im } = this;
+    const w = this.wind!;
+    const gust = windGust(w, this.time);
+    const push = w.push * (0.5 + 0.5 * gust) * h;
+    const lift = w.lift * gust * h;
+    for (const l of this.links) {
+      if (l.broken || !l.bridge) continue;
+      const a = l.a;
+      const b = l.b;
+      const fx = (push * Math.abs(y[b] - y[a])) / 2;
+      const fy = l.drivable ? (lift * Math.abs(x[b] - x[a])) / 2 : 0;
+      vx[a] += fx * im[a];
+      vx[b] += fx * im[b];
+      vy[a] += fy * im[a];
+      vy[b] += fy * im[b];
     }
   }
 
   private dampMembers(h: number): void {
     const { x, y, vx, vy, im } = this;
-    const f = Math.min(1, AXIAL_DAMPING * h);
+    const f = Math.min(1, this.memberDamping * h);
     for (const l of this.links) {
       if (l.broken) continue;
       const a = l.a;
@@ -543,7 +862,10 @@ export class World {
       nx /= len;
       ny /= len;
       const rel = (vx[b] - vx[a]) * nx + (vy[b] - vy[a]) * ny;
-      const c = (rel * f) / w;
+      // A damper's own pull, as an impulse, but never more than stops its ends dead.
+      const visc = l.viscous ? Math.min(l.viscous * h, 1 / w) * rel : 0;
+      l.damp += visc / h;
+      const c = (rel * f) / w + visc;
       vx[a] += nx * c * im[a];
       vy[a] += ny * c * im[a];
       vx[b] -= nx * c * im[b];
@@ -560,7 +882,11 @@ export class World {
       l.strain = (len - l.rest) / l.rest;
       if (l.tensionOnly && l.strain < 0) l.strain = 0;
       const mat = MATERIALS[l.mat!];
-      const force = mat.EA * l.strain;
+      let force = mat.EA * l.strain;
+      if (l.viscous) {
+        force += l.damp / SUBSTEPS;
+        l.damp = 0;
+      }
       let ratio = force >= 0 ? force / l.tensionLimit : force / l.compressionLimit;
       // A vehicle over the deck's rating crushes each piece it stands on, within a few frames.
       if (l.pressTonnes > 0) {
@@ -607,7 +933,8 @@ export class World {
   indexJoints(anchor: (p: number) => boolean): void {
     this.jointLinks = [];
     for (const l of this.links) {
-      if (!l.bridge) continue;
+      // A block's frame is a solid, not members meeting at a joint.
+      if (!l.bridge || l.cell >= 0) continue;
       for (const p of [l.a, l.b]) if (!anchor(p)) (this.jointLinks[p] ??= []).push(l);
     }
   }
@@ -661,6 +988,11 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
     mass[ends[i][0]] += half;
     mass[ends[i][1]] += half;
   });
+  // A block's weight sits on its corners.
+  design.cells.forEach((c, k) => {
+    const share = (design.cellArea(k) * MATERIALS[c.mat].density) / c.n.length;
+    for (const i of c.n) mass[i] += share;
+  });
   design.nodes.forEach((n, i) => world.addParticle(n.x, n.y, n.mast ? mass[i] + MAST.mass : n.anchor ? 0 : mass[i]));
   world.banks = { width: level.width, rightY: bankY(level) };
   world.block = blockOf(level);
@@ -686,6 +1018,7 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
       bridge: true,
       mat: m.mat,
       stroke: mat.stroke,
+      viscous: mat.viscous ?? 0,
       tensionOnly: mat.tensionOnly,
       drivable: mat.drivable,
       member: i,
@@ -695,6 +1028,10 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
     });
   });
 
+  addCells(world, design);
+  world.setRock(world.rock);
+  for (const [px, py] of level.piers) world.rockPiers.push([px, py]);
+  world.rockMasses = (level.rocks ?? []).map(([x0, x1, top]): [number, number, number] => [x0, x1, top]);
   addSeatRests(world, level);
   addDeckBends(world);
   world.indexJoints((p) => p < design.nodes.length && design.nodes[p].anchor);
@@ -707,6 +1044,7 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
     world.terrain.push(px - 0.45, py, px + 0.45, py);
     world.terrain.push(px - 0.45, py, px - 0.45, deep, px + 0.45, py, px + 0.45, deep);
   }
+  for (const [x0, x1, top] of level.rocks ?? []) world.terrain.push(x0, deep, x0, top, x0, top, x1, top, x1, top, x1, deep);
   // Overhang undersides, in case a bouncing vehicle reaches them.
   for (const o of level.overhangs ?? []) {
     const edge = o.side === 'left' ? o.reach : W - o.reach;
@@ -717,7 +1055,97 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
   // A convoy keeps to its slowest vehicle's speed, so the gaps hold.
   const speed = Math.min(...defs.map((d) => d.speed));
   const vehicles = convoyLayout(level).map(({ def, x }) => addVehicle(world, def, x, speed));
+  // Couplers: each rail vehicle to the one ahead, at the buffers and at the axles.
+  for (let i = 1; i < vehicles.length; i++) {
+    const [ahead, behind] = [vehicles[i - 1], vehicles[i]];
+    if (!ahead.def.rail || !behind.def.rail) continue;
+    world.addLink(behind.frontTop, ahead.rearTop, COUPLER);
+    world.addLink(behind.frontWheel, ahead.rearWheel, COUPLER);
+  }
+  world.waterY = world.water0 = level.waterY;
+  world.flood = level.flood ?? null;
+  // Bolts on mud, other than piles: the members built on each, so the mud feels what it carries.
+  design.nodes.forEach((n, p) => {
+    if (!n.anchor || n.pile || n.block || n.mast || !mudAt(level, n.x, n.y)) return;
+    world.soft.push({ p, y0: n.y, sunk: 0, links: world.links.filter((l) => l.bridge && (l.a === p || l.b === p)), out: false });
+  });
+  world.wind = level.wind ?? null;
+  world.quake = level.quake ?? null;
+  if (level.march) {
+    world.march = level.march;
+    for (const v of vehicles) if (v.def.marches) world.marchers.push(...v.wheels, v.rearTop, v.frontTop);
+  }
   return { world, vehicles };
+}
+
+export interface Flood {
+  /** Where the lead vehicle is when the river starts to rise, m. */
+  at: number;
+  /** How far the river rises, m. */
+  rise: number;
+  /** Push of the current on members in the water, N per m under water. */
+  current: number;
+}
+
+export interface Wind {
+  /** Push on members across the wind at a gust's peak, N per m of their height. */
+  push: number;
+  /** Lift on the deck at a gust's peak, N per m of its length. */
+  lift: number;
+  /** Seconds from gust to gust. */
+  period: number;
+}
+
+export interface Quake {
+  /** Strongest shaking, as a share of gravity. */
+  g: number;
+  /** Shakes a second. */
+  freq: number;
+  /** Where the lead vehicle is when the shaking starts, m, and how long it lasts, s. */
+  at: number;
+  dur: number;
+}
+
+export interface March {
+  /** Steps a second, every marcher in time. */
+  pace: number;
+  /** How much harder each step lands than standing, as a share of the marchers' weight. */
+  force: number;
+}
+
+/** How hard the wind gusts at time t, 0 to 1: a smooth gust every period, never quite still. */
+export function windGust(w: Wind, t: number): number {
+  const s = Math.sin((Math.PI * t) / w.period);
+  return 0.15 + 0.85 * s * s;
+}
+
+/** How strongly the ground shakes t seconds into a quake, 0 to 1: it builds quickly and dies away. */
+function quakeEnvelope(q: Quake, t: number): number {
+  const u = t / q.dur;
+  if (u <= 0 || u >= 1) return 0;
+  return Math.min(1, u * 6) * Math.min(1, (1 - u) * 3);
+}
+
+/** The ground's acceleration t seconds into a quake, m/s²: mostly sideways, a little up and down. */
+export function quakeAccel(q: Quake, t: number): [number, number] {
+  const env = quakeEnvelope(q, t);
+  if (!env) return [0, 0];
+  const w = 2 * Math.PI * q.freq * t;
+  const a = q.g * -GRAVITY * env;
+  return [a * Math.sin(w), 0.3 * a * Math.sin(1.37 * w + 0.6)];
+}
+
+/** How far the ground has moved sideways t seconds into a quake, m, for drawing it. */
+export function quakeShift(q: Quake, t: number): number {
+  const env = quakeEnvelope(q, t);
+  if (!env) return 0;
+  const w = 2 * Math.PI * q.freq;
+  return (-q.g * -GRAVITY * env * Math.sin(w * t)) / (w * w);
+}
+
+/** Extra downward push on a marcher at time t, m/s²: each footfall lands together. */
+export function marchAccel(m: March, t: number): number {
+  return m.force * -GRAVITY * Math.sin(2 * Math.PI * m.pace * t);
 }
 
 /** Where each vehicle waits at the start: its rear wheel's x, lead vehicle first. */
@@ -726,7 +1154,8 @@ export function convoyLayout(level: LevelDef): { def: VehicleDef; x: number }[] 
   let x = START_X;
   for (const [i, id] of [level.vehicle, ...(level.convoy ?? [])].entries()) {
     const def = VEHICLES[id];
-    if (i > 0) x -= CONVOY_GAP + def.wheelbase + def.wheelR;
+    // Rail vehicles couple up close behind the one ahead.
+    if (i > 0) x -= def.rail && out[i - 1].def.rail ? RAIL_GAP + def.wheelbase : CONVOY_GAP + def.wheelbase + def.wheelR;
     out.push({ def, x });
   }
   return out;
@@ -777,6 +1206,47 @@ function seatJoints(design: Design, level: LevelDef): { ends: [number, number][]
 }
 
 /**
+ * Each concrete block as a stiff frame: links along its edges, shared with the block beside it,
+ * and across its diagonals. Its corners that aren't bolted bear on rock.
+ */
+function addCells(world: World, design: Design): void {
+  const edges = new Map<string, Link>();
+  const rock = new Set<number>();
+  design.cells.forEach((c, k) => {
+    const mat = MATERIALS[c.mat];
+    const links: Link[] = [];
+    const link = (a: number, b: number) => {
+      const key = a < b ? `${a} ${b}` : `${b} ${a}`;
+      let l = edges.get(key);
+      if (!l) {
+        const len = Math.hypot(world.x[b] - world.x[a], world.y[b] - world.y[a]);
+        l = world.addLink(a, b, len / mat.EA, { bridge: true, mat: c.mat, member: -1, cell: k, tensionLimit: mat.tension, compressionLimit: compressionLimit(mat, len), age: 10 });
+        edges.set(key, l);
+      }
+      links.push(l);
+    };
+    const n = c.n;
+    const sides = n.map((a, i) => (link(a, n[(i + 1) % n.length]), links[links.length - 1]));
+    // A four-sided block keeps its corners square with angle constraints rather than diagonal
+    // braces: a squeezed braced frame would push its own sides apart, which no solid block does.
+    if (n.length === 4) {
+      for (let i = 0; i < 4; i++) {
+        const [a, b, cc] = [n[(i + 3) % 4], n[i], n[(i + 1) % 4]];
+        const { x, y } = world;
+        const ux = x[cc] - x[a];
+        const uy = y[cc] - y[a];
+        const L = Math.hypot(ux, uy);
+        const rest = ((x[b] - x[a]) * -uy + (y[b] - y[a]) * ux) / L;
+        world.bends.push({ a, b, c: cc, rest, compliance: 1 / mat.bend, limit: mat.bendLimit, ab: sides[(i + 3) % 4], bc: sides[i] });
+      }
+    }
+    world.cells.push({ n: [...n], links });
+    for (const i of n) if (!design.nodes[i].anchor) rock.add(i);
+  });
+  world.rock = [...rock];
+}
+
+/**
  * Members built straight across a seat rest on it there, just as a joint built on it would,
  * so a deck laid over a seat in long pieces is carried without needing a joint on top.
  */
@@ -794,11 +1264,14 @@ function addSeatRests(world: World, level: LevelDef): void {
   }
 }
 
-/** Bending stiffness at every joint where two deck pieces continue one another. */
+/**
+ * Bending stiffness at every joint where two pieces that bend continue one another: deck with
+ * deck, and arch with arch.
+ */
 function addDeckBends(world: World): void {
   const deckAt: number[][] = Array.from({ length: world.bridgeCount }, () => []);
   world.links.forEach((l, i) => {
-    if (!l.drivable) return;
+    if (!l.bridge || !l.mat || MATERIALS[l.mat].bend <= 0) return;
     deckAt[l.a].push(i);
     deckAt[l.b].push(i);
   });
@@ -808,6 +1281,7 @@ function addDeckBends(world: World): void {
       for (let j = i + 1; j < ids.length; j++) {
         const ab = world.links[ids[i]];
         const bc = world.links[ids[j]];
+        if (ab.drivable !== bc.drivable) continue;
         const a = ab.a === b ? ab.b : ab.a;
         const c = bc.a === b ? bc.b : bc.a;
         const k1 = Math.atan2(y[b] - y[a], x[b] - x[a]);
@@ -849,6 +1323,7 @@ function addVehicle(world: World, def: VehicleDef, x0: number, speed: number): V
     world.accel[w] = def.accel;
   }
   for (const p of [...wheels, rearTop, frontTop]) world.tonnes[p] = def.tonnes;
+  if (def.rail) for (const w of wheels) world.rail[w] = 1;
   const rigid = 1e-8;
   const spring = 4e-6 * (1500 / def.mass);
   world.addLink(rearWheel, frontWheel, rigid);
@@ -898,6 +1373,9 @@ export class TestRun {
   readonly peakPush: Float32Array;
   /** When the run succeeded or failed, s. */
   private endedAt: number | null = null;
+  /** A level's brake stop: not yet, braking, stopped and waiting since `heldAt`, or done. */
+  brakeState: 'none' | 'braking' | 'held' | 'done' = 'none';
+  private heldAt = 0;
   private readonly speeds: number[];
   private done: boolean[];
   private lastProgressX: number;
@@ -950,6 +1428,35 @@ export class TestRun {
     return c ? [c[0], c[1]] : [0, this.level.width];
   }
 
+  /**
+   * On a level with a brake stop: the train brakes once its front reaches the mark, waits once
+   * stopped, then goes on. Waiting isn't being stuck.
+   */
+  private brakeStop(): void {
+    const b = this.level.brake;
+    if (!b || this.status !== 'running') return;
+    const w = this.world;
+    const lead = this.vehicle;
+    if (this.brakeState === 'none' && w.x[lead.frontWheel] >= b.at) {
+      this.brakeState = 'braking';
+      w.braking = true;
+    }
+    if (this.brakeState === 'braking') {
+      this.lastProgressT = this.time;
+      if (this.vehicles.every((v) => v.wheels.every((p) => Math.abs(w.vx[p]) < 0.05))) {
+        this.brakeState = 'held';
+        this.heldAt = this.time;
+      }
+    }
+    if (this.brakeState === 'held') {
+      this.lastProgressT = this.time;
+      if (this.time - this.heldAt >= (b.hold ?? 1.5)) {
+        this.brakeState = 'done';
+        w.braking = false;
+      }
+    }
+  }
+
   /** Brakes every vehicle at the start line, or lets them go. */
   private hold(on: boolean): void {
     const w = this.world;
@@ -988,6 +1495,11 @@ export class TestRun {
       this.hold(false);
       this.lastProgressT = this.time;
     }
+    this.brakeStop();
+    const q = this.level.quake;
+    if (q && w.quakeStart === Infinity && w.x[this.vehicle.frontWheel] >= q.at) w.quakeStart = w.time;
+    const f = this.level.flood;
+    if (f && w.floodStart === Infinity && w.x[this.vehicle.frontWheel] >= f.at) w.floodStart = w.time;
     for (const l of w.links) {
       if (!l.bridge || l.broken) continue;
       this.peakStress = Math.max(this.peakStress, Math.abs(l.stress));
@@ -1003,7 +1515,7 @@ export class TestRun {
 
     for (const v of this.vehicles) {
       const lowest = Math.min(w.y[v.rearWheel], w.y[v.frontWheel], w.y[v.rearTop], w.y[v.frontTop]);
-      if (lowest < this.level.waterY) {
+      if (lowest < w.waterY) {
         this.splashed = true;
         this.fail('Your cargo went for a swim.');
         return;

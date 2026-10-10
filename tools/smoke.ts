@@ -50,13 +50,15 @@ async function lay(page: Page, dx: number, dy: number): Promise<void> {
   await press(page, ...keys, 'Space', 'Escape');
 }
 
+/** Errors the page logged, reported with any failure. */
+const errors: string[] = [];
+
 async function main(): Promise<void> {
   const server = await createServer({ logLevel: 'error', server: { port: 0, strictPort: false } });
   await server.listen();
   const url = server.resolvedUrls?.local[0];
   if (!url) throw new Error('The dev server has no address');
   const browser = await launch();
-  const errors: string[] = [];
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 760 } });
     page.on('pageerror', (e) => errors.push(e.message));
@@ -79,7 +81,8 @@ async function main(): Promise<void> {
     log('builds the road and two wood braces with the keyboard');
     // The cursor starts on the left road end, (0, 0).
     await lay(page, 4, 0);
-    await press(page, '3');
+    // Number keys pick from the level's own materials: road, then wood.
+    await press(page, '2');
     await press(page, 'ArrowDown', 'ArrowDown');
     await lay(page, -2, 2);
     await press(page, 'ArrowLeft', 'ArrowLeft', 'ArrowDown', 'ArrowDown');

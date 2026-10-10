@@ -1,5 +1,5 @@
 import { q, type Design, type GridPt } from './design';
-import { MATERIALS } from './physics/materials';
+import { MATERIALS, type MaterialId } from './physics/materials';
 
 /** Least horizontal span of a main cable, m: a shorter one has no curve to speak of. */
 export const MIN_MAIN_SPAN = 2;
@@ -59,12 +59,21 @@ export function mainPath(a: GridPt, b: GridPt, sag: number, deckXs: number[] = [
   return out.length - 1 <= maxPieces ? out : null;
 }
 
-/** A natural sag: a tenth of the span for a level run, a slight droop for a steep backstay. */
-export function defaultSag(a: GridPt, b: GridPt): number {
+/**
+ * A natural sag: a tenth of the span for a level run, a slight droop for a steep backstay. An
+ * arch rises instead, a quarter of its span, and its sag is negative.
+ */
+export function defaultSag(a: GridPt, b: GridPt, mat: MaterialId = 'main'): number {
   const dx = Math.abs(b[0] - a[0]);
   const dy = Math.abs(b[1] - a[1]);
+  if (MATERIALS[mat].arch) return -Math.max(MIN_SAG, Math.round((dx / 4) * 10) / 10);
   const sag = dy <= 0.3 * dx ? dx / 10 : Math.hypot(dx, dy) / 25;
   return Math.max(MIN_SAG, Math.round(sag * 10) / 10);
+}
+
+/** Which way a curved material bows from its chord: 1 hangs below it (a cable), -1 rises above it (an arch). */
+export function bow(mat: MaterialId): 1 | -1 {
+  return MATERIALS[mat].arch ? -1 : 1;
 }
 
 /** The joints of the main cable laid as `part`, end to end, or null if it isn't one unbroken chain. */
@@ -91,12 +100,13 @@ export function runChain(d: Design, part: number): number[] | null {
   return chain.length === links.length + 1 ? chain : null;
 }
 
-/** Every main cable in the design: its part id and its joints end to end. */
-export function mainRuns(d: Design): { part: number; chain: number[] }[] {
-  const parts = new Set(d.members.flatMap((m) => (m.part !== undefined && MATERIALS[m.mat].curved ? [m.part] : [])));
-  return [...parts].flatMap((part) => {
+/** Every curved run in the design, main cables and arches: its part id, material and joints end to end. */
+export function mainRuns(d: Design): { part: number; mat: MaterialId; chain: number[] }[] {
+  const parts = new Map<number, MaterialId>();
+  for (const m of d.members) if (m.part !== undefined && MATERIALS[m.mat].curved) parts.set(m.part, m.mat);
+  return [...parts].flatMap(([part, mat]) => {
     const chain = runChain(d, part);
-    return chain ? [{ part, chain }] : [];
+    return chain ? [{ part, mat, chain }] : [];
   });
 }
 
@@ -177,15 +187,18 @@ export function mainPathIn(d: Design, a: GridPt, b: GridPt, sag: number): GridPt
   return pts;
 }
 
-/** Lays a main cable from a to b in the design as one part, at the given sag or a natural one, its joints above the deck's. */
-export function layMain(d: Design, a: GridPt, b: GridPt, sag = defaultSag(a, b)): GridPt[] {
-  const pts = mainPathIn(d, a, b, sag);
-  if (!pts) throw new Error(`No main cable from ${a} to ${b}`);
+/**
+ * Lays a main cable (or an arch) from a to b in the design as one part, at the given sag or a
+ * natural one, its joints above (or below) the deck's.
+ */
+export function layMain(d: Design, a: GridPt, b: GridPt, sag?: number, mat: MaterialId = 'main'): GridPt[] {
+  const pts = mainPathIn(d, a, b, sag ?? defaultSag(a, b, mat));
+  if (!pts) throw new Error(`No ${mat} from ${a} to ${b}`);
   const part = d.newPart();
   for (let i = 0; i < pts.length - 1; i++) {
     const ia = d.ensureNode(pts[i][0], pts[i][1]);
     const ib = d.ensureNode(pts[i + 1][0], pts[i + 1][1]);
-    d.members.push({ a: ia, b: ib, mat: 'main', part });
+    d.members.push({ a: ia, b: ib, mat, part });
   }
   return pts;
 }

@@ -1,6 +1,7 @@
 import { segmentHitsRect, segmentsOverlap, type Design } from './design';
-import { bankY, type LevelDef } from './levels';
+import { bankY, mudAt, type LevelDef } from './levels';
 import { BLOCK, MATERIALS, type MaterialId } from './physics/materials';
+import { cellPoly, cellProblem, hitsCells } from './masonry';
 
 /** A new joint this close to an existing one is refused as too fiddly. */
 export const MIN_JOINT_GAP = 0.2;
@@ -23,12 +24,33 @@ function bankTop(level: LevelDef, x: number): number {
   return x < 0 ? 0 : bankY(level);
 }
 
-/** Whether a concrete anchor may be set at (x, y): on a bank's ground, whole meters from 1 m to the level's reach back. */
+/**
+ * Whether the player may set an anchor of their own at (x, y): a concrete anchor on a bank's
+ * ground, whole meters from 1 m to the level's reach back, or a pile on whole meters along a mud bank.
+ */
 export function blockSpot(level: LevelDef, x: number, y: number): boolean {
+  return bankSpot(level, x, y) || pileSpot(level, x, y);
+}
+
+/** Whether a pile may be driven at (x, y): on whole meters along the top of a mud bank. */
+export function pileSpot(level: LevelDef, x: number, y: number): boolean {
+  if (!level.piles || Math.abs(x - Math.round(x)) > 1e-6) return false;
+  return !!mudAt(level, x, y) && !level.anchors.some(([ax, ay]) => Math.abs(ax - x) < 1e-6 && Math.abs(ay - y) < 1e-6);
+}
+
+function bankSpot(level: LevelDef, x: number, y: number): boolean {
   if (!level.blocks) return false;
   const back = behindBank(level, x);
   if (back < 1 - 1e-6 || back > level.blocks.reach + 1e-6 || Math.abs(back - Math.round(back)) > 1e-6) return false;
   return Math.abs(y - bankTop(level, x)) < 1e-6;
+}
+
+/** Every spot a pile may go on the level, left to right. */
+export function pileSpots(level: LevelDef): [number, number][] {
+  const out: [number, number][] = [];
+  if (!level.piles) return out;
+  for (const [x0, x1, top] of level.mud ?? []) for (let x = Math.ceil(x0); x <= x1; x++) if (pileSpot(level, x, top)) out.push([x, top]);
+  return out;
 }
 
 /** Every spot a concrete anchor may go on the level, left bank first. */
@@ -71,6 +93,7 @@ export function pointAllowed(level: LevelDef, x: number, y: number): boolean {
     return !(level.overhangs ?? []).some((o) => (o.side === 'left') === x < 0 && y > o.bottom - 0.3);
   }
   for (const [px, py] of level.piers) if (Math.abs(x - px) < 0.6 && y < py) return false;
+  for (const [x0, x1, top] of level.rocks ?? []) if (x > x0 - 1e-9 && x < x1 + 1e-9 && y < top - 1e-9) return false;
   // A mast's footing stands below its hinge, like a pier.
   for (const [mx, base] of level.masts ?? []) if (Math.abs(x - mx) < 0.6 && y < base) return false;
   for (const o of level.overhangs ?? []) {
@@ -115,10 +138,13 @@ export function designProblems(level: LevelDef, d: Design, opts: { budget?: bool
     const len = Math.hypot(b.x - a.x, b.y - a.y);
     if (len < 1e-6) out.push(`${tag}: zero length`);
     if (len > MATERIALS[m.mat].maxLen + 1e-9) out.push(`${tag}: too long`);
+    const grade = MATERIALS[m.mat].maxGrade;
+    if (grade !== undefined && Math.abs(b.y - a.y) > grade * Math.abs(b.x - a.x) + 1e-6) out.push(`${tag}: too steep`);
     const key = m.a < m.b ? `${m.a}-${m.b}` : `${m.b}-${m.a}`;
     if (seen.has(key)) out.push(`${tag}: duplicate`);
     seen.add(key);
     if (crossesChannel(level, a.x, a.y, b.x, b.y)) out.push(`${tag}: in the channel`);
+    if (hitsCells(d, [a.x, a.y], [b.x, b.y])) out.push(`${tag}: through a block`);
     for (let j = 0; j < i; j++) {
       const o = members[j];
       if (o.part !== undefined && o.part === m.part) continue;
@@ -126,6 +152,14 @@ export function designProblems(level: LevelDef, d: Design, opts: { budget?: bool
       const e = nodes[o.b];
       if (segmentsOverlap(a.x, a.y, b.x, b.y, c.x, c.y, e.x, e.y)) out.push(`${tag}: overlaps another member`);
     }
+  });
+  d.cells.forEach((c, k) => {
+    const tag = `${c.mat} block ${k}`;
+    if (!level.materials.includes(c.mat)) out.push(`${tag}: material not offered`);
+    // Against the level, the members, and the blocks after it, so each pair is checked once.
+    const earlier = new Set(d.cells.flatMap((_, j) => (j <= k ? [j] : [])));
+    const why = cellProblem(level, d, cellPoly(d, c), earlier);
+    if (why && why !== 'Too close to a joint') out.push(`${tag}: ${why.toLowerCase()}`);
   });
   for (const [mat, max] of Object.entries(level.limits ?? {}) as [MaterialId, number][]) {
     if (d.count(mat) > max) out.push(`${d.count(mat)} ${mat} parts, over the limit of ${max}`);

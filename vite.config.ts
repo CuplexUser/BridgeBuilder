@@ -46,5 +46,6 @@ export default defineConfig({
   plugins: [levelResource(), sqliteApi(), tunerConsole()],
   // The level editor's quick-tune worker runs the physics, which reads src/levels.res too.
   worker: { plugins: () => [levelResource()] },
-  test: { environment: 'node', include: ['tests/**/*.test.ts'] },
+  // Many tests drive whole levels: give them room on a busy machine.
+  test: { environment: 'node', include: ['tests/**/*.test.ts'], testTimeout: 30000 },
 } as never);

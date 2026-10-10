@@ -5,13 +5,14 @@ import { PK, WHIP_LIFE } from '../fx/particles';
 import { bankY, goalX, seatPiers, type LevelDef, type Overhang } from '../levels';
 import { BLOCK, blockOf, MATERIALS, type BlockDef, type MaterialId } from '../physics/materials';
 import type { VehicleDef } from '../physics/vehicles';
-import { convoyLayout, SHIP_HALF, type Link, type TestRun, type VehicleHandle } from '../physics/world';
+import { convoyLayout, SHIP_HALF, windGust, type Link, type TestRun, type VehicleHandle, type Wind } from '../physics/world';
 import type { Camera } from './camera';
-import { blockSpots } from '../rules';
+import { blockSpots, pileSpots } from '../rules';
 import { defaultSag, mainPathIn } from '../maincable';
+import { blockPoly, RING, ringPath, ringPolys, ringRise } from '../masonry';
 import { MATERIAL_CHALK, PAL, stressColor } from './palette';
 import { THEMES, type Land, type Theme } from './themes';
-import { drawBody, drawWheel } from './vehicles';
+import { drawBody, drawRailWheel, drawWheel } from './vehicles';
 
 export interface FloatText {
   x: number;
@@ -49,12 +50,18 @@ export interface SceneView {
   reviewHint?: [GridPt, GridPt, MaterialId][] | null;
   /** After a successful test: members that barely carried load, and steel that wood could replace. */
   marks?: { idle: number[]; wood: number[] } | null;
+  /** The block or arch wedge under the mouse, marked for removal on a tap. */
+  hoverCell?: number;
+  /** The square the block brush would paint, by its lower left corner, and why it can't, if it can't. */
+  brush?: { x: number; y: number; why: string } | null;
 }
 
 const TAU = Math.PI * 2;
+/** How deep a pile reaches below the mud it stands in, as drawn, m. */
+const PILE_DEPTH = 6;
 /** Shades of broken concrete deck. */
 const CHUNK_SHADES = ['#8d939c', '#6f757e', '#a4a9b1', '#5d6168'];
-const MEMBER_WIDTH: Record<MaterialId, number> = { road: 0.3, heavy: 0.36, wood: 0.17, steel: 0.15, cable: 0.06, main: 0.14, concrete: 0.34, ram: 0.2 };
+const MEMBER_WIDTH: Record<MaterialId, number> = { road: 0.3, heavy: 0.36, wood: 0.17, steel: 0.15, cable: 0.06, main: 0.14, concrete: 0.34, masonry: 0.3, arch: 0.42, track: 0.36, ram: 0.2, damper: 0.16 };
 
 /** Piers, and the footing under each mast's hinge: concrete columns up from the riverbed. */
 function footings(L: LevelDef): [number, number][] {
@@ -65,6 +72,34 @@ function footings(L: LevelDef): [number, number][] {
 function hash(n: number): number {
   const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
   return s - Math.floor(s);
+}
+
+/** World-space outline of a rock mass from the riverbed: a ragged top and sides that widen into the bed. */
+function rockPoly(x0: number, x1: number, top: number, deep: number): [number, number][] {
+  return [
+    [x0 - 0.6, deep],
+    [x0 - 0.15, top - 2.2],
+    [x0, top - 0.6],
+    [x0 + 0.1, top],
+    [x1 - 0.1, top],
+    [x1, top - 0.6],
+    [x1 + 0.15, top - 2.2],
+    [x1 + 0.6, deep],
+  ];
+}
+
+/** World-space outline of a mud bank in the river: a low, slumped mound spreading wide into the bed. */
+function mudPoly(x0: number, x1: number, top: number, deep: number): [number, number][] {
+  return [
+    [x0 - 2.5, deep],
+    [x0 - 1.2, top - 1.4],
+    [x0 - 0.4, top - 0.35],
+    [x0 + 0.3, top],
+    [x1 - 0.3, top],
+    [x1 + 0.4, top - 0.35],
+    [x1 + 1.2, top - 1.4],
+    [x1 + 2.5, deep],
+  ];
 }
 
 /** World-space outline of an overhang: a rock mass above one approach, with a ragged underside. */
@@ -233,6 +268,8 @@ export class Renderer {
   private sunY = 0;
   private dpr = 1;
   private look: Theme = THEMES[0];
+  /** Each vehicle's contact shadow strength, eased from frame to frame. */
+  private shadows = new WeakMap<VehicleHandle, number>();
   w = 0;
   h = 0;
 
@@ -424,6 +461,7 @@ export class Renderer {
 
     this.drawParticles();
     if (v.develop > 0) this.drawWeather(v);
+    if (v.level.wind) this.drawWind(v, v.level.wind);
     this.drawFloats(v.floats);
 
     if (v.develop > 0) {
@@ -552,6 +590,8 @@ export class Renderer {
       banks.push([[px - 0.45, py], [px + 0.45, py], [px + 0.45, deep], [px - 0.45, deep]]);
     }
     for (const o of L.overhangs ?? []) banks.push(overhangPoly(o, W));
+    for (const [r0, r1, top] of L.rocks ?? []) banks.push(rockPoly(r0, r1, top, deep));
+    for (const [m0, m1, top] of L.mud ?? []) banks.push(mudPoly(m0, m1, top, deep));
     for (const poly of banks) {
       ctx.beginPath();
       poly.forEach(([x, y], i) => (i ? ctx.lineTo(cam.sx(x), cam.sy(y)) : ctx.moveTo(cam.sx(x), cam.sy(y))));
@@ -594,6 +634,22 @@ export class Renderer {
       }
       ctx.stroke();
     }
+    // Where piles may go: a dashed pile down to the bed under every free spot on the mud.
+    if (L.piles) {
+      const design = v.editor?.design;
+      ctx.strokeStyle = PAL.chalkDim;
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 5]);
+      ctx.beginPath();
+      for (const [x, y] of pileSpots(L)) {
+        if (design && design.findNode(x, y) >= 0) continue;
+        ctx.moveTo(cam.sx(x), cam.sy(y));
+        ctx.lineTo(cam.sx(x), cam.sy(y - PILE_DEPTH));
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    for (const n of v.editor?.design.nodes ?? []) if (n.pile) this.pile(n.x, n.y, true);
     (L.channels ?? []).forEach(([cx0, cx1, top], i) => this.channelBlueprint(cx0, cx1, top, L.waterY, i === 0 ? L.ship?.mast : undefined));
 
     // Dimension line across the gap.
@@ -666,8 +722,8 @@ export class Renderer {
     this.hills(horizon - 30, 0.15, 60 * a1, T.hillFar, 0.004, 1.3, s1, T.snowCaps && s1 === 'peaks');
     this.hills(horizon - 5, 0.3, 40 * a2, T.hillNear, 0.007, 4.1, s2, false);
 
-    // Water body.
-    const wy = cam.sy(L.waterY);
+    // Water body, risen if a flood has come.
+    const wy = cam.sy(v.run?.world.waterY ?? L.waterY);
     const wg = ctx.createLinearGradient(0, wy, 0, this.h);
     wg.addColorStop(0, T.waterTop);
     wg.addColorStop(1, T.waterDeep);
@@ -708,6 +764,9 @@ export class Renderer {
     }
 
     for (const o of L.overhangs ?? []) this.overhang(o, W);
+    for (const [x0, x1, top] of L.rocks ?? []) this.bank(rockPoly(x0, x1, top, deep));
+    for (const [x0, x1, top] of L.mud ?? []) this.mud(x0, x1, top, deep);
+    for (const n of v.run?.design.nodes ?? v.editor?.design.nodes ?? []) if (n.pile) this.pile(n.x, n.y, false);
 
     // Piers, and the footings masts stand on.
     for (const [px, py] of footings(L)) {
@@ -1022,6 +1081,32 @@ export class Renderer {
       }
     }
     ctx.stroke();
+  }
+
+  /** Wind streaks racing left to right, more and brighter as a gust builds. Screen space. */
+  private drawWind(v: SceneView, wind: Wind): void {
+    const { ctx, cam } = this;
+    const t = v.run ? v.run.world.time : v.time;
+    const gust = windGust(wind, t);
+    const W = this.w + 300;
+    const pan = cam.cx * cam.scale;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = `rgba(255,255,255,${0.12 + 0.35 * gust})`;
+    ctx.beginPath();
+    const n = Math.round(14 + 36 * gust);
+    for (let i = 0; i < n; i++) {
+      const depth = 0.5 + hash(i + 5000);
+      const speed = (500 + 700 * gust) * depth;
+      const x = ((((hash(i + 5100) * W + t * speed - pan * 0.5 * depth) % W) + W) % W) - 150;
+      const y = hash(i + 5200) * this.h * 0.85 + Math.sin(t * 2 + i) * 6;
+      const len = (40 + 90 * gust) * depth;
+      ctx.moveTo(x, y);
+      ctx.quadraticCurveTo(x + len * 0.5, y - 3 * depth, x + len, y);
+    }
+    ctx.stroke();
+    ctx.restore();
   }
 
   /** Rain streaks with rings on the water, or drifting snow. Screen space, with no allocation. */
@@ -1504,10 +1589,53 @@ export class Renderer {
     ctx.fill();
   }
 
+  /** A mud bank: wet brown silt with a darker waterline and a few puddles on top. */
+  private mud(x0: number, x1: number, top: number, deep: number): void {
+    const { ctx, cam } = this;
+    const poly = mudPoly(x0, x1, top, deep);
+    const g = ctx.createLinearGradient(0, cam.sy(top), 0, cam.sy(top - 3));
+    g.addColorStop(0, PAL.mud);
+    g.addColorStop(1, PAL.mudDark);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    poly.forEach(([x, y], i) => (i ? ctx.lineTo(cam.sx(x), cam.sy(y)) : ctx.moveTo(cam.sx(x), cam.sy(y))));
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = 'rgba(160,190,200,0.35)';
+    for (let k = 0; k < Math.floor(x1 - x0); k += 2) {
+      const x = x0 + 0.6 + k + hash(k + x0 * 7) * 0.8;
+      ctx.beginPath();
+      ctx.ellipse(cam.sx(x), cam.sy(top) + 1.5, 0.35 * cam.scale, 0.05 * cam.scale + 1, 0, 0, TAU);
+      ctx.fill();
+    }
+  }
+
+  /** A pile driven through the mud to rock: a steel tube down from its cap, banded where it meets the mud. */
+  private pile(x: number, top: number, chalk: boolean): void {
+    const { ctx, cam } = this;
+    const hw = Math.max(3, 0.16 * cam.scale);
+    const sx = cam.sx(x);
+    const t = cam.sy(top);
+    const b = cam.sy(top - PILE_DEPTH);
+    if (chalk) {
+      ctx.strokeStyle = PAL.chalk;
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(sx - hw, t, hw * 2, b - t);
+      return;
+    }
+    const g = ctx.createLinearGradient(sx - hw, 0, sx + hw, 0);
+    g.addColorStop(0, PAL.chrome);
+    g.addColorStop(1, PAL.steelDark);
+    ctx.fillStyle = g;
+    ctx.fillRect(sx - hw, t, hw * 2, b - t);
+    ctx.fillStyle = PAL.concreteDark;
+    ctx.fillRect(sx - hw * 1.8, t - 2, hw * 3.6, Math.max(4, 0.18 * cam.scale));
+  }
+
   private drawWaterFront(v: SceneView): void {
     // A translucent front water layer so sinking things look submerged.
     const { ctx, cam } = this;
-    const wy = cam.sy(v.level.waterY);
+    const wy = cam.sy(v.run?.world.waterY ?? v.level.waterY);
     ctx.fillStyle = this.look.waterFront;
     ctx.beginPath();
     ctx.moveTo(0, this.h);
@@ -1554,7 +1682,30 @@ export class Renderer {
     };
     ctx.globalAlpha = alpha;
     ctx.lineCap = 'round';
-    if (mat === 'road' || mat === 'heavy') {
+    if (mat === 'track') {
+      // Ballast deck, sleepers along it, and the rail on top.
+      line(0);
+      ctx.strokeStyle = PAL.trackDark;
+      ctx.lineWidth = w + 2;
+      ctx.stroke();
+      ctx.strokeStyle = PAL.track;
+      ctx.lineWidth = w;
+      ctx.stroke();
+      if (w > 5) {
+        line(w * 0.2);
+        ctx.setLineDash([w * 0.35, w * 0.45]);
+        ctx.lineCap = 'butt';
+        ctx.strokeStyle = PAL.sleeper;
+        ctx.lineWidth = w * 0.35;
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.lineCap = 'round';
+      }
+      line(w * 0.48);
+      ctx.strokeStyle = PAL.rail;
+      ctx.lineWidth = Math.max(1, w * 0.16);
+      ctx.stroke();
+    } else if (mat === 'road' || mat === 'heavy') {
       const heavy = mat === 'heavy';
       line(0);
       ctx.strokeStyle = '#1b1d22';
@@ -1642,6 +1793,8 @@ export class Renderer {
       }
     } else if (mat === 'ram') {
       this.ramShape(ax, ay, bx, by, w, false);
+    } else if (mat === 'damper') {
+      this.damperShape(ax, ay, bx, by, w, false);
     } else if (mat === 'concrete') {
       line(0);
       ctx.lineCap = 'butt';
@@ -1661,6 +1814,39 @@ export class Renderer {
         ctx.setLineDash([1.5, Math.max(6, cam.scale * 0.9)]);
         ctx.strokeStyle = 'rgba(40,36,30,0.35)';
         ctx.lineWidth = w * 0.9;
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.lineCap = 'round';
+    } else if (mat === 'masonry') {
+      line(0);
+      ctx.lineCap = 'butt';
+      ctx.strokeStyle = PAL.masonryDark;
+      ctx.lineWidth = w + 2;
+      ctx.stroke();
+      ctx.strokeStyle = PAL.masonry;
+      ctx.lineWidth = w;
+      ctx.stroke();
+      ctx.lineCap = 'round';
+    } else if (mat === 'arch') {
+      // Stone voussoirs: a ring of blocks with a joint every half meter or so.
+      line(0);
+      ctx.lineCap = 'butt';
+      ctx.strokeStyle = PAL.archDark;
+      ctx.lineWidth = w + 2;
+      ctx.stroke();
+      ctx.strokeStyle = PAL.arch;
+      ctx.lineWidth = w;
+      ctx.stroke();
+      line(w * 0.3);
+      ctx.strokeStyle = PAL.archHi;
+      ctx.lineWidth = Math.max(1, w * 0.2);
+      ctx.stroke();
+      if (w > 5) {
+        line(0);
+        ctx.setLineDash([1.5, Math.max(5, cam.scale * 0.5)]);
+        ctx.strokeStyle = 'rgba(60,44,28,0.45)';
+        ctx.lineWidth = w;
         ctx.stroke();
         ctx.setLineDash([]);
       }
@@ -1696,7 +1882,7 @@ export class Renderer {
       const s = Math.abs(stress);
       line(0);
       ctx.strokeStyle = stressColor(s, 0.35 + 0.6 * Math.min(1, s * 1.3));
-      ctx.lineWidth = Math.max(1.5, w * (MATERIALS[mat].drivable ? 0.3 : mat === 'cable' ? 0.9 : mat === 'main' ? 0.7 : mat === 'concrete' ? 0.35 : 0.55));
+      ctx.lineWidth = Math.max(1.5, w * (MATERIALS[mat].drivable ? 0.3 : mat === 'cable' ? 0.9 : mat === 'main' ? 0.7 : mat === 'concrete' || mat === 'arch' ? 0.35 : 0.55));
       ctx.lineCap = 'butt';
       ctx.stroke();
       if (s > 0.75) {
@@ -1735,6 +1921,12 @@ export class Renderer {
     for (const [mat, list] of byMat) {
       const w = width(mat);
       switch (mat) {
+        case 'track':
+          stroke(list, 0, PAL.trackDark, w + 2);
+          stroke(list, 0, PAL.track, w);
+          if (w > 5) stroke(list, w * 0.2, PAL.sleeper, w * 0.35, 'butt', [w * 0.35, w * 0.45]);
+          stroke(list, w * 0.48, PAL.rail, Math.max(1, w * 0.16));
+          break;
         case 'road':
         case 'heavy': {
           const heavy = mat === 'heavy';
@@ -1784,6 +1976,13 @@ export class Renderer {
           stroke(list, w * 0.3, 'rgba(255,255,255,0.22)', Math.max(1, w * 0.18), 'butt');
           if (w > 5) stroke(list, 0, 'rgba(40,36,30,0.35)', w * 0.9, 'butt', [1.5, Math.max(6, cam.scale * 0.9)]);
           break;
+        case 'arch':
+          stroke(list, 0, PAL.archDark, w + 2, 'butt');
+          stroke(list, 0, PAL.arch, w, 'butt');
+          stroke(list, w * 0.3, PAL.archHi, Math.max(1, w * 0.2), 'butt');
+          // Stone voussoirs: a joint every half meter or so.
+          if (w > 5) stroke(list, 0, 'rgba(60,44,28,0.45)', w, 'butt', [1.5, Math.max(5, cam.scale * 0.5)]);
+          break;
         case 'main':
           stroke(list, 0, PAL.mainDark, w + 2);
           stroke(list, 0, PAL.main, w);
@@ -1792,6 +1991,9 @@ export class Renderer {
           break;
         case 'ram':
           for (const sg of list) this.ramShape(sg.ax, sg.ay, sg.bx, sg.by, w, false);
+          break;
+        case 'damper':
+          for (const sg of list) this.damperShape(sg.ax, sg.ay, sg.bx, sg.by, w, false);
           break;
         default:
           stroke(list, 0, PAL.cable, w + 1);
@@ -1809,7 +2011,7 @@ export class Renderer {
       const mat = list[0].mat;
       const s = Number(key.split(' ')[1]) / 20;
       const w = width(mat);
-      stroke(list, 0, stressColor(s, 0.35 + 0.6 * Math.min(1, s * 1.3)), Math.max(1.5, w * (MATERIALS[mat].drivable ? 0.3 : mat === 'cable' ? 0.9 : mat === 'main' ? 0.7 : mat === 'concrete' ? 0.35 : 0.55)), 'butt');
+      stroke(list, 0, stressColor(s, 0.35 + 0.6 * Math.min(1, s * 1.3)), Math.max(1.5, w * (MATERIALS[mat].drivable ? 0.3 : mat === 'cable' ? 0.9 : mat === 'main' ? 0.7 : mat === 'concrete' || mat === 'arch' ? 0.35 : 0.55)), 'butt');
     }
     // Members near failure throb, each at its own strength.
     const pulse = 0.75 + 0.25 * Math.sin(time * 18);
@@ -1846,6 +2048,10 @@ export class Renderer {
       this.ramShape(ax, ay, bx, by, w, true);
       return;
     }
+    if (mat === 'damper') {
+      this.damperShape(ax, ay, bx, by, w, true);
+      return;
+    }
     if (mat === 'cable') ctx.setLineDash([6, 3]);
     ctx.lineWidth = w;
     ctx.stroke();
@@ -1862,6 +2068,41 @@ export class Renderer {
       ctx.strokeStyle = PAL.paper;
       ctx.lineWidth = Math.max(1, w * 0.35);
       ctx.stroke();
+    }
+  }
+
+  /** Blocks and arch wedges in chalk: a tinted face, a firm outline, a red one when a tap would take it off; and the brush's square. */
+  private chalkCells(ed: Editor, v: SceneView): void {
+    const { ctx, cam } = this;
+    const { nodes, cells } = ed.design;
+    const hoverPart = v.hoverCell !== undefined && v.hoverCell >= 0 ? cells[v.hoverCell] : null;
+    const path = (poly: [number, number][]) => {
+      ctx.beginPath();
+      poly.forEach(([x, y], i) => (i ? ctx.lineTo(cam.sx(x), cam.sy(y)) : ctx.moveTo(cam.sx(x), cam.sy(y))));
+      ctx.closePath();
+    };
+    for (const c of cells) {
+      const poly = c.n.map((i): [number, number] => [nodes[i].x, nodes[i].y]);
+      const hot = !!hoverPart && (c === hoverPart || (c.mat === 'arch' && c.part !== undefined && c.part === hoverPart.part));
+      path(poly);
+      ctx.fillStyle = hot ? 'rgba(255,90,78,0.3)' : MATERIAL_CHALK[c.mat];
+      ctx.globalAlpha = hot ? 1 : 0.2;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = hot ? PAL.invalid : MATERIAL_CHALK[c.mat];
+      ctx.lineWidth = hot ? 2.5 : 1.5;
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+    }
+    const b = v.brush;
+    if (b) {
+      path(blockPoly(b.x, b.y));
+      ctx.setLineDash([5, 4]);
+      ctx.strokeStyle = b.why ? PAL.invalid : PAL.valid;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.setLineDash([]);
+      if (b.why) this.label(b.why, cam.sx(b.x + 0.5), cam.sy(b.y + 1) - 14, PAL.invalid);
     }
   }
 
@@ -1903,6 +2144,7 @@ export class Renderer {
     const { nodes, members } = ed.design;
     const curved = this.designCurves(ed.design.members, (n): Pt2 => [cam.sx(nodes[n].x), cam.sy(nodes[n].y)]);
 
+    this.chalkCells(ed, v);
     if (v.marks) this.drawMarks(ed, v.marks, curved, v.time);
     members.forEach((m, i) => {
       const a = nodes[m.a];
@@ -1943,7 +2185,16 @@ export class Renderer {
         ctx.setLineDash([8, 6]);
         ctx.lineDashOffset = -v.time * 30;
         ctx.beginPath();
-        if (curvedDrag) smoothPath(ctx, drag.path.map(([x, y]): Pt2 => [cam.sx(x), cam.sy(y)]));
+        if (MATERIALS[ed.mat].cell === 'ring' && drag.path.length >= 3) {
+          // The ring's wedges, outlined where they would go.
+          const intra = drag.path[0][0] <= drag.path[drag.path.length - 1][0] ? drag.path : drag.path.toReversed();
+          const ring = { intra, extra: intra.slice(1, -1).map(([x, y]): [number, number] => [x, y + RING]) };
+          for (const poly of ringPolys(ring)) {
+            poly.forEach(([x, y], i) => (i ? ctx.lineTo(cam.sx(x), cam.sy(y)) : ctx.moveTo(cam.sx(x), cam.sy(y))));
+            ctx.closePath();
+          }
+          ctx.lineWidth = 2;
+        } else if (curvedDrag) smoothPath(ctx, drag.path.map(([x, y]): Pt2 => [cam.sx(x), cam.sy(y)]));
         else drag.path.forEach(([x, y], i) => (i ? ctx.lineTo(cam.sx(x), cam.sy(y)) : ctx.moveTo(cam.sx(x), cam.sy(y))));
         ctx.stroke();
         ctx.setLineDash([]);
@@ -1965,7 +2216,7 @@ export class Renderer {
         const grade = MATERIALS[ed.mat].drivable && drag.tx !== f.x && drag.ty !== f.y ? ` · ${Math.round((Math.abs(drag.ty - f.y) / Math.abs(drag.tx - f.x)) * 100)}% grade` : '';
         const span = Math.abs(drag.tx - f.x);
         const what = curvedDrag
-          ? `Main cable · ${span.toFixed(1)} m across · ${defaultSag([f.x, f.y], [drag.tx, drag.ty]).toFixed(1)} m sag`
+          ? `${MATERIALS[ed.mat].name} · ${span.toFixed(1)} m across · ${(MATERIALS[ed.mat].arch ? ringRise(ed.design, [f.x, f.y], [drag.tx, drag.ty]) : defaultSag([f.x, f.y], [drag.tx, drag.ty], ed.mat)).toFixed(1)} m ${MATERIALS[ed.mat].arch ? 'rise' : 'sag'}`
           : segs > 1
             ? `${segs} × ${MATERIALS[ed.mat].name.toLowerCase()} · ${len.toFixed(1)} m`
             : `${len.toFixed(1)} m`;
@@ -1994,11 +2245,19 @@ export class Renderer {
     if (!drag && v.hoverAttach) this.splitMark(cam.sx(v.hoverAttach.x), cam.sy(v.hoverAttach.y), PAL.valid);
     if (drag && drag.fromSplit >= 0) this.splitMark(cam.sx(drag.sx), cam.sy(drag.sy), MATERIAL_CHALK[ed.mat]);
 
-    // Nodes and anchors.
+    // Nodes and anchors. A corner only blocks meet at is a small dot: bars may still start there.
+    const barred = new Set(members.flatMap((m) => [m.a, m.b]));
     nodes.forEach((n, i) => {
       const x = cam.sx(n.x);
       const y = cam.sy(n.y);
       const hover = i === v.hoverNode || (drag && drag.from === i);
+      if (!n.anchor && !barred.has(i) && !hover) {
+        ctx.fillStyle = PAL.chalkDim;
+        ctx.beginPath();
+        ctx.arc(x, y, 2, 0, TAU);
+        ctx.fill();
+        return;
+      }
       if (n.anchor) {
         if (n.block) this.block(n.x, n.y, n.y, 0, true);
         this.bolt(x, y, hover ? 1.25 : 1, v.time, !drag && v.showHint);
@@ -2122,6 +2381,62 @@ export class Renderer {
   }
 
   /**
+   * A damper: thin rods from both ends into a fat oil cylinder in the middle, with a coil spring
+   * wound around it. Chalk on the blueprint, painted in the scene.
+   */
+  private damperShape(ax: number, ay: number, bx: number, by: number, w: number, chalk: boolean): void {
+    const { ctx } = this;
+    const len = Math.hypot(bx - ax, by - ay) || 1;
+    const ux = (bx - ax) / len;
+    const uy = (by - ay) / len;
+    const at = (t: number, off = 0): [number, number] => [ax + (bx - ax) * t - uy * off, ay + (by - ay) * t + ux * off];
+    const body = Math.max(6, w * 2);
+    const rod = Math.max(2, w * 0.4);
+    const col = chalk ? MATERIAL_CHALK.damper : PAL.damper;
+    const seg = (t0: number, t1: number, width: number, color: string) => {
+      ctx.beginPath();
+      ctx.moveTo(...at(t0));
+      ctx.lineTo(...at(t1));
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.stroke();
+    };
+    ctx.save();
+    ctx.lineCap = 'butt';
+    if (!chalk) seg(0, 1, rod + 2, PAL.steelDark);
+    seg(0, 1, rod, chalk ? col : PAL.chrome);
+    if (chalk) {
+      seg(0.3, 0.7, body, col);
+      seg(0.3, 0.7, Math.max(1.5, body - 5), PAL.paper);
+    } else {
+      seg(0.3, 0.7, body + 2, PAL.damperDark);
+      seg(0.3, 0.7, body, PAL.damper);
+      ctx.beginPath();
+      ctx.moveTo(...at(0.3, body * 0.22));
+      ctx.lineTo(...at(0.7, body * 0.22));
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = Math.max(1, body * 0.2);
+      ctx.stroke();
+    }
+    // The spring, a zigzag over the cylinder and a little past it.
+    if (len > 24) {
+      const turns = Math.max(4, Math.round(len / 9));
+      ctx.beginPath();
+      for (let i = 0; i <= turns; i++) {
+        const t = 0.22 + (0.56 * i) / turns;
+        const p = at(t, (i % 2 ? 1 : -1) * body * 0.75);
+        if (i) ctx.lineTo(...p);
+        else ctx.moveTo(...p);
+      }
+      ctx.strokeStyle = chalk ? col : PAL.steelDark;
+      ctx.lineWidth = Math.max(1.2, w * 0.25);
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /**
    * A hydraulic ram: a fat barrel from its lower end, a thin chrome rod the rest of the way,
    * and arrows on the rod showing which way it pushes. Chalk on the blueprint, painted in the scene.
    */
@@ -2217,7 +2532,7 @@ export class Renderer {
       const on = active?.part === h.part;
       const x = cam.sx(h.x);
       const y = cam.sy(h.y);
-      const col = on && !active!.valid ? PAL.invalid : MATERIAL_CHALK.main;
+      const col = on && !active!.valid ? PAL.invalid : MATERIAL_CHALK[h.mat];
       if (on) {
         const a = ed.design.nodes[h.chain[0]];
         const b = ed.design.nodes[h.chain[h.chain.length - 1]];
@@ -2235,7 +2550,8 @@ export class Renderer {
         ctx.setLineDash([]);
         ctx.globalAlpha = 1;
         const reason = active!.valid ? '' : ` · ${active!.reason}`;
-        this.label(`Sag ${(chord - h.y).toFixed(1)} m${reason}`, x, y + 30, col);
+        const arch = MATERIALS[h.mat].arch;
+        this.label(`${arch ? 'Rise' : 'Sag'} ${Math.abs(chord - h.y).toFixed(1)} m${reason}`, x, y + (arch ? -30 : 30), col);
       }
       const r = (on ? 10 : 8) + (on ? 0 : Math.sin(time * 3) * 0.8);
       ctx.fillStyle = 'rgba(16,24,40,0.75)';
@@ -2305,9 +2621,20 @@ export class Renderer {
       ctx.lineWidth = Math.max(2, MEMBER_WIDTH[mat] * cam.scale * 0.8);
       ctx.setLineDash([6, 8]);
       ctx.beginPath();
-      // A main cable's ghost hangs at the sag it is laid with.
-      const pts = (MATERIALS[mat].curved && mainPathIn(d, a, b, defaultSag(a, b))) || [a, b];
-      smoothPath(ctx, pts.map(([x, y]): Pt2 => [cam.sx(x), cam.sy(y)]));
+      if (MATERIALS[mat].cell) {
+        // A block ghost is the square from its lower left corner to its upper right; an arch ghost its ring.
+        const ring = mat === 'arch' ? ringPath(d, a, b, ringRise(d, a, b)) : null;
+        const polys = ring ? ringPolys(ring) : [blockPoly(a[0], a[1])];
+        ctx.lineWidth = 2;
+        for (const poly of polys) {
+          poly.forEach(([x, y], k) => (k ? ctx.lineTo(cam.sx(x), cam.sy(y)) : ctx.moveTo(cam.sx(x), cam.sy(y))));
+          ctx.closePath();
+        }
+      } else {
+        // A main cable's ghost hangs at the sag it is laid with.
+        const pts = (MATERIALS[mat].curved && mainPathIn(d, a, b, defaultSag(a, b, mat))) || [a, b];
+        smoothPath(ctx, pts.map(([x, y]): Pt2 => [cam.sx(x), cam.sy(y)]));
+      }
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.globalAlpha = 1;
@@ -2354,11 +2681,12 @@ export class Renderer {
     }
     const ctls = runControls(segs, (p): Pt2 => [cam.sx(w.x[p]), cam.sy(w.y[p])]);
     const ctlOf = new Map(curved.map((l, k) => [l, ctls.get(k)]));
+    this.paintCells(run);
     // Cables behind the truss, deck on top of everything. Each layer is painted in batches.
     for (const pass of [0, 1, 2]) {
       const layer: Seg[] = [];
       for (const l of w.links) {
-        if (!l.bridge || l.broken || drawLayer(l) !== pass) continue;
+        if (!l.bridge || l.broken || l.cell >= 0 || drawLayer(l) !== pass) continue;
         layer.push(segOf(cam.sx(w.x[l.a]), cam.sy(w.y[l.a]), cam.sx(w.x[l.b]), cam.sy(w.y[l.b]), l.mat!, l.stress, sag(l), ctlOf.get(l)));
       }
       this.paintBatch(layer, time);
@@ -2369,7 +2697,7 @@ export class Renderer {
     const nodeCount = w.bridgeCount;
     const degree = new Uint8Array(nodeCount);
     for (const l of w.links) {
-      if (!l.bridge || l.broken) continue;
+      if (!l.bridge || l.broken || l.cell >= 0) continue;
       degree[l.a]++;
       degree[l.b]++;
     }
@@ -2420,6 +2748,58 @@ export class Renderer {
     }
   }
 
+  /**
+   * Concrete blocks as they stand: a face shaded by how hard the block works, with a lit top
+   * edge, and a dark jagged crack along every side that has given way.
+   */
+  private paintCells(run: TestRun): void {
+    const { ctx, cam } = this;
+    const w = run.world;
+    if (!w.cells.length) return;
+    const at = (p: number): Pt2 => [cam.sx(w.x[p]), cam.sy(w.y[p])];
+    for (const [k, c] of w.cells.entries()) {
+      const mat = run.design.cells[k]?.mat ?? 'masonry';
+      const pts = c.n.map(at);
+      ctx.beginPath();
+      pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      ctx.closePath();
+      ctx.fillStyle = mat === 'arch' ? PAL.arch : PAL.masonry;
+      ctx.fill();
+      const s = Math.min(1, Math.max(0, ...c.links.map((l) => (l.broken ? 1 : Math.abs(l.stress)))));
+      ctx.fillStyle = stressColor(s, 0.12 + 0.45 * s);
+      ctx.fill();
+      ctx.strokeStyle = mat === 'arch' ? PAL.archDark : PAL.masonryDark;
+      ctx.lineWidth = Math.max(1, 0.04 * cam.scale);
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+    }
+    // Lit tops and cracks over all of them.
+    ctx.lineCap = 'round';
+    for (const c of w.cells) {
+      for (const l of c.links) {
+        const [ax, ay] = at(l.a);
+        const [bx, by] = at(l.b);
+        if (!l.broken) continue;
+        ctx.strokeStyle = 'rgba(30,22,14,0.85)';
+        ctx.lineWidth = Math.max(1.5, 0.06 * cam.scale);
+        ctx.beginPath();
+        const n = 5;
+        for (let i = 0; i <= n; i++) {
+          const t = i / n;
+          const jig = i % 2 ? 0.05 * cam.scale : -0.05 * cam.scale;
+          const nx = -(by - ay);
+          const ny = bx - ax;
+          const len = Math.hypot(nx, ny) || 1;
+          const px = ax + (bx - ax) * t + (i && i < n ? (nx / len) * jig : 0);
+          const py = ay + (by - ay) * t + (i && i < n ? (ny / len) * jig : 0);
+          if (i) ctx.lineTo(px, py);
+          else ctx.moveTo(px, py);
+        }
+        ctx.stroke();
+      }
+    }
+  }
+
   /** Low guard rail with posts about every meter along each intact deck piece. */
   private guardRails(run: TestRun): void {
     const { ctx, cam } = this;
@@ -2464,8 +2844,19 @@ export class Renderer {
     ctx.globalAlpha = 0.22 * v.develop;
     ctx.lineCap = 'round';
     const ripple = (sy: number) => Math.sin(sy * 0.12 + v.time * 2.2) * 2.5;
+    // Blocks as dark shapes, then the members as lines.
+    ctx.fillStyle = '#3a3830';
+    for (const c of w.cells) {
+      ctx.beginPath();
+      c.n.forEach((p, i) => {
+        const y = cam.sy(2 * wy - w.y[p]);
+        if (i) ctx.lineTo(cam.sx(w.x[p]) + ripple(y), y);
+        else ctx.moveTo(cam.sx(w.x[p]) + ripple(y), y);
+      });
+      ctx.fill();
+    }
     for (const l of w.links) {
-      if (!l.bridge || l.broken) continue;
+      if (!l.bridge || l.broken || l.cell >= 0) continue;
       const ay = cam.sy(2 * wy - w.y[l.a]);
       const by = cam.sy(2 * wy - w.y[l.b]);
       ctx.strokeStyle = l.drivable ? '#15171c' : l.mat === 'wood' ? '#5a3a1c' : '#2a3542';
@@ -2652,13 +3043,32 @@ export class Renderer {
 
   private drawVehicleRun(run: TestRun, angles: [number, number][]): void {
     const w = run.world;
+    const { ctx, cam } = this;
+    // Couplers between rail vehicles, at buffer height.
+    ctx.strokeStyle = '#1d1f24';
+    ctx.lineWidth = Math.max(2, 0.14 * cam.scale);
+    ctx.lineCap = 'butt';
+    for (let i = 1; i < run.vehicles.length; i++) {
+      const [a, b] = [run.vehicles[i - 1], run.vehicles[i]];
+      if (!a.def.rail || !b.def.rail) continue;
+      const up = (p: number) => w.y[p] + 0.35;
+      ctx.beginPath();
+      ctx.moveTo(cam.sx(w.x[b.frontWheel]), cam.sy(up(b.frontWheel)));
+      ctx.lineTo(cam.sx(w.x[a.rearWheel]), cam.sy(up(a.rearWheel)));
+      ctx.stroke();
+    }
     run.vehicles.forEach((v, i) => {
       const mids = v.midWheels.map((p): [number, number] => [w.x[p], w.y[p]]);
-      this.vehicle(v.def, w.x[v.rearWheel], w.y[v.rearWheel], w.x[v.frontWheel], w.y[v.frontWheel], w.x[v.rearTop], w.y[v.rearTop], w.x[v.frontTop], w.y[v.frontTop], mids, angles[i] ?? [0, 0], false);
+      // The contact shadow is there only while wheels touch something, fading as they leave it.
+      const touching = v.wheels.filter((p) => w.contact[p]).length / v.wheels.length;
+      const was = this.shadows.get(v) ?? touching;
+      const shadow = was + (touching - was) * 0.25;
+      this.shadows.set(v, shadow);
+      this.vehicle(v.def, w.x[v.rearWheel], w.y[v.rearWheel], w.x[v.frontWheel], w.y[v.frontWheel], w.x[v.rearTop], w.y[v.rearTop], w.x[v.frontTop], w.y[v.frontTop], mids, angles[i] ?? [0, 0], false, shadow);
     });
   }
 
-  private vehicle(def: VehicleDef, rwx: number, rwy: number, fwx: number, fwy: number, rtx: number, rty: number, ftx: number, fty: number, mids: [number, number][], angles: [number, number], chalk: boolean): void {
+  private vehicle(def: VehicleDef, rwx: number, rwy: number, fwx: number, fwy: number, rtx: number, rty: number, ftx: number, fty: number, mids: [number, number][], angles: [number, number], chalk: boolean, shadow = 1): void {
     const { ctx, cam } = this;
     const s = cam.scale;
     // Body frame from the chassis top points, dropped to the wheel-center line.
@@ -2672,17 +3082,20 @@ export class Renderer {
     ctx.rotate(-ang);
     ctx.scale(s, -s);
     ctx.lineJoin = 'round';
-    drawBody(ctx, def, 1 / s, chalk);
+    drawBody(ctx, def, 1 / s, chalk, angles[0] * 0.6, shadow);
     ctx.restore();
+    // Marchers walk: there are no wheels to draw.
+    if (def.marches) return;
 
     const R = def.wheelR;
     const heavy = def.id === 'truck' || def.id === 'bus' || def.id === 'semi';
-    this.wheel(rwx, rwy, R, angles[0], chalk, heavy);
-    for (const [mx, my] of mids) this.wheel(mx, my, R, angles[0], chalk, heavy);
-    this.wheel(fwx, fwy, R, angles[1], chalk, heavy);
+    const rail = !!def.rail;
+    this.wheel(rwx, rwy, R, angles[0], chalk, heavy, rail);
+    for (const [mx, my] of mids) this.wheel(mx, my, R, angles[0], chalk, heavy, rail);
+    this.wheel(fwx, fwy, R, angles[1], chalk, heavy, rail);
   }
 
-  private wheel(x: number, y: number, r: number, angle: number, chalk: boolean, heavy = false): void {
+  private wheel(x: number, y: number, r: number, angle: number, chalk: boolean, heavy = false, rail = false): void {
     const { ctx, cam } = this;
     const sx = cam.sx(x);
     const sy = cam.sy(y);
@@ -2695,7 +3108,8 @@ export class Renderer {
       ctx.stroke();
       return;
     }
-    drawWheel(ctx, sx, sy, R, angle, heavy);
+    if (rail) drawRailWheel(ctx, sx, sy, R, angle);
+    else drawWheel(ctx, sx, sy, R, angle, heavy);
   }
 
   // ───────────────────────────── FX ─────────────────────────────

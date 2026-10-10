@@ -117,8 +117,13 @@ describe('deck ratings', () => {
     expect(run.reason).toBe('The semi truck weighs 40 t. Road carries only 30 t.');
   });
 
+  it('trains fit their track', () => {
+    for (const v of Object.values(VEHICLES).filter((d) => d.rail)) expect(v.tonnes, `${v.name}`).toBeLessThanOrEqual(MATERIALS.track.rating);
+  });
+
   it('only the semi needs heavy deck', () => {
-    for (const v of Object.values(VEHICLES)) {
+    // Trains run on track, rated for them.
+    for (const v of Object.values(VEHICLES).filter((d) => !d.rail)) {
       expect(v.tonnes <= MATERIALS.road.rating, `${v.name}`).toBe(v.id !== 'semi');
       expect(v.tonnes).toBeLessThanOrEqual(MATERIALS.heavy.rating);
     }

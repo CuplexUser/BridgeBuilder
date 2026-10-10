@@ -23,6 +23,8 @@ function loose(d: Design): string[] {
     degree[m.a]++;
     degree[m.b]++;
   }
+  // A block holds its corners.
+  for (const c of d.cells) for (const i of c.n) degree[i] += 2;
   return d.nodes.filter((n, i) => !n.anchor && degree[i] < 2).map((n) => `${n.x},${n.y}`);
 }
 

@@ -21,6 +21,7 @@ import {
   toggleBolt,
   togglePier,
   togglePylon,
+  toggleRock,
 } from '../src/maker';
 import { designProblems } from '../src/rules';
 import { roadRun, SOLUTIONS, trussOver } from '../src/solutions';
@@ -48,6 +49,28 @@ describe('level editor', () => {
 
   it('exports and imports every built-in level unchanged', () => {
     for (const l of LEVELS) expect(parseLevel(exportLevel(l), l.id)).toEqual(l);
+  });
+
+  it('raises rocks for blocks to stand on, offers blocks, and takes rocks away', () => {
+    const l = blankLevel(CUSTOM_ID_BASE);
+    l.width = 20;
+    l.waterY = -8;
+    expect(toggleRock(l, 1, -4).ok).toBe(true);
+    expect(l.rocks).toEqual([[0, 2, -4]]);
+    expect(l.materials).toContain('masonry');
+    expect(l.materials).toContain('arch');
+    expect(toggleRock(l, 2, -3).msg).toBe('Overlaps another rock');
+    expect(toggleRock(l, 10, -0.5).ok).toBe(false);
+    expect(toggleRock(l, 10, -9).ok).toBe(false);
+    expect(toggleRock(l, 19, -4).ok).toBe(true);
+    expect(l.rocks).toEqual([
+      [0, 2, -4],
+      [18, 20, -4],
+    ]);
+    expect(parseLevel(exportLevel(l), l.id).rocks).toEqual(l.rocks);
+    expect(eraseAt(l, 1, -6).msg).toBe('Rock removed');
+    expect(toggleRock(l, 19, -5).msg).toBe('Rock removed');
+    expect(l.rocks).toBeUndefined();
   });
 
   it('plays an imported level like the original', () => {

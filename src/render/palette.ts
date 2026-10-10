@@ -33,8 +33,21 @@ export const PAL = {
   main: '#b8482a',
   mainDark: '#5e2214',
   mainHi: '#ffab7d',
+  arch: '#b9a58a',
+  track: '#4a423a',
+  trackDark: '#1e1c1a',
+  sleeper: '#6e4d31',
+  rail: '#cfd6de',
+  masonry: '#a9a497',
+  masonryDark: '#57534b',
+  archDark: '#5f4f3c',
+  archHi: 'rgba(255,240,215,0.3)',
   ram: '#c8369f',
   ramDark: '#5c1048',
+  damper: '#e3a81e',
+  mud: '#7a5c3e',
+  mudDark: '#3f2e1f',
+  damperDark: '#6a4708',
   chrome: '#dfe6ee',
 
   // Stress
@@ -55,7 +68,11 @@ export const MATERIAL_CHALK: Record<string, string> = {
   cable: '#c7a6ff',
   main: '#ff8f5a',
   concrete: '#d8cfbe',
+  masonry: '#d9cba8',
+  track: '#f2a8a0',
+  arch: '#e9d58c',
   ram: '#ff6ad5',
+  damper: '#ffe27a',
 };
 
 function hexToRgb(h: string): [number, number, number] {

@@ -2,7 +2,7 @@
 
 A physics bridge-building game for the browser. Build a bridge within a cash budget from road, heavy deck, wood, steel and cable, then send a vehicle across it. The bridge either holds, sags, or snaps into the river.
 
-There are 45 levels in nine chapters that get harder as you go: from a 4 m brook in *Groundwork* to a 36 m, forty-tonne crossing in *Master Works*, then bridges that move in *Moving Parts*, suspension bridges you anchor yourself in *Anchorage*, and spans of 40 to 64 m on concrete towers in *Main Cable*. Along the way the game introduces piers, slopes, lattice pylons, heavy deck, rock overhangs, cables, flood water, ship channels, drawbridges on hydraulic rams, convoys, toll bolts, rationed materials, hinged masts, concrete anchors, the curved main cable and concrete. Each chapter has its own scene when you test: a river at golden hour, a desert canyon, a flood plain in the rain, the coast, snowy mountains, a city at night, a harbor, a fjord at dawn and a golden bay. `TODO.md` lists planned features and improvements by priority.
+There are 55 levels in eleven chapters that get harder as you go: from a 4 m brook in *Groundwork* to a 36 m, forty-tonne crossing in *Master Works*, then bridges that move in *Moving Parts*, suspension bridges you anchor yourself in *Anchorage*, spans of 40 to 64 m on concrete towers in *Main Cable*, concrete block arches in *Arches*, and trains in *Railway*. Along the way the game introduces piers, slopes, lattice pylons, heavy deck, rock overhangs, cables, flood water, ship channels, drawbridges on hydraulic rams, convoys, toll bolts, rationed materials, hinged masts, concrete anchors, the curved main cable, concrete, concrete blocks, block arches, track and trains. Each chapter has its own scene when you test: a river at golden hour, a desert canyon, a flood plain in the rain, the coast, snowy mountains, a city at night, a harbor, a fjord at dawn, a golden bay, a limestone gorge and the prairie. `TODO.md` lists planned features and improvements by priority.
 
 ## Run
 
@@ -63,7 +63,8 @@ Run `npm run android` after every web change before building in Android Studio. 
 | Lay road | One drag lays a whole run of road or heavy deck. The pieces follow one straight, even grade, even between banks at different heights. | Same |
 | Add a joint mid-beam | Drag from (or onto) a point along an existing beam. The beam is split there at no extra cost. | Space with the cursor on the beam point |
 | Remove a member | Tap it / right-click. A beam it had split is joined back up. | X or Delete at cursor |
-| Material | Toolbar | 1–6, Q / E to cycle |
+| Paint concrete blocks | With *Block* in hand, drag across the grid: a block on every square you pass. A drag that starts on a block erases instead. Tap or right-click a block to take it off with any other material. | Space paints (or takes off) the block up and right of the cursor |
+| Material | Toolbar | 1–9 and 0 pick the level's materials in toolbar order (each button shows its key), Q / E to cycle |
 | Undo / redo | Toolbar | Z / Y (or Ctrl+Z / Ctrl+Y) |
 | Test / back to edit | TEST button | T |
 | Zoom / pan | Wheel, pinch, drag empty space | F refits |
@@ -71,7 +72,7 @@ Run `npm run android` after every web change before building in Android Studio. 
 | Goals and rules | ⓘ button, or tap the ✦ goal under the level name | I |
 | Stress graph after a test | Link on the result or collapse screen; tap the graph or a member | G, ←/→ to step, Esc back |
 | Pause | II button | P / Esc |
-| Menus | Buttons | Title: Enter continue, C chapters, H leaderboards, L level editor. Chapters: 1–9. Chapter: 1–5 plays a level. Leaderboards: ←/→ tabs, 1–9 chapter. |
+| Menus | Buttons | Title: Enter continue, C chapters, H leaderboards, L level editor. Chapters: 1–9 open the first nine. Chapter: 1–5 plays a level. Leaderboards: ←/→ tabs, 1–9 chapter. |
 | Mute | Speaker button | M |
 
 Members can cross each other (X-bracing), but they can't lie along an existing member. For example, a wood beam can't run on top of the road.
@@ -84,7 +85,7 @@ Members can cross each other (X-bracing), but they can't lie along an existing m
 
 **L** on the title screen opens the level editor. Make a new level or edit one of yours:
 
-- **Tools** (1–6): *Bolt* adds or removes a bolt, *Pier* stands a pier under a bolt in the gap, *Pylon* raises a lattice pylon with a bolt on top, *Mast* raises a hinged mast whose top tips freely, *Channel* marks a ship channel by dragging across the gap (it stays clear up to the height you start at), and *Erase* removes whatever is under the tap. The cursor says what a tap will do before you tap. A tap acts where the finger lifts, so it can slide into place first under a magnifier, and two fingers pan and zoom without placing anything. Z and Y undo and redo.
+- **Tools** (1–7): *Bolt* adds or removes a bolt, *Pier* stands a pier under a bolt in the gap, *Pylon* raises a lattice pylon with a bolt on top, *Mast* raises a hinged mast whose top tips freely, *Rock* raises a 2 m rock shelf or island for concrete blocks and arches to stand on (and offers them), *Channel* marks a ship channel by dragging across the gap (it stays clear up to the height you start at), and *Erase* removes whatever is under the tap. The cursor says what a tap will do before you tap. A tap acts where the finger lifts, so it can slide into place first under a magnifier, and two fingers pan and zoom without placing anything. Z and Y undo and redo.
 - **Settings** (S): name and tip, the gap's width, far bank height and water level, the vehicle and up to three more behind it, a tall ship's mast height for a drawbridge, the materials on offer and any part limits, how far back concrete anchors may go on each bank, budget, star target, toll per bolt, the bonus goal and the scene for the test drive.
 - **Auto-tune**, under *Money and goals* in Settings, searches the level for 5 seconds and sets the budget, star target and bonus goal for the difficulty picked (Easy, Medium or Hard). It keeps the level's kind of bonus goal when it can be met, else picks a peak-stress cap, then a parts cap, then a cost cap. It starts from the last bridge you playtested, and the budget always covers that bridge. The bridges it finds are never shown, only what they tell: the note under the button gives the cheapest crossing found and the lowest peak stress, and the header warns if you then set the budget, star target or stress cap below them. It is a quick, rough search, so a sharper player can beat its numbers. Any edit, including the tune, can be undone. In dev builds (`npm run dev`) two more checkboxes appear. *Show the tune's bridges* adds buttons that drive the cheapest bridge it found, or the one meeting its bonus goal, across the level. *Search up to 20 s if nothing holds* lets a slow level, such as a drawbridge with a convoy, keep searching past 5 seconds until something does. Production builds show neither.
 - **Playtest** (P) plays it like any level, with the briefing, scoring and stress graph, but nothing goes on your career or the leaderboards. The header says what still stops a level from being played, such as a drawbridge with no rams on offer.
@@ -97,12 +98,15 @@ Custom levels and the last bridge built on each are kept in this browser's local
 | Material | Price | Reach | Notes |
 | --- | --- | --- | --- |
 | Road | $180/m | 2.25 m | Drivable, laid in runs. Carries vehicles up to 30 t: everything but the semi. |
+| Track | $300/m | 2.25 m | Railway deck, laid in runs like road. Trains run on it and nothing else. It never climbs more than 3%, the editor refuses a steeper piece. Stiff, heavy, and rated for 50 t a vehicle. |
 | Heavy deck | $380/m | 2.25 m | Drivable, laid in runs. About twice as strong and stiff as road, but heavier, and a little stiff in bending, so it spreads a wheel load onto neighboring joints. Carries up to 60 t. For the semi, long spans and suspension decks. |
 | Wood | $90/m | 3.2 m | Light and cheap. Buckles early in compression. |
 | Steel | $240/m | 4.25 m | Strong in tension and compression. |
 | Cable | $140/m | 10 m | Tension only: it goes slack instead of pushing. Hang decks from pylons and overhangs. |
 | Main cable | $300/m | one drag | Thick and orange, three times a cable's strength. One drag from peak to peak, or down to a concrete anchor, lays it as a curve with a joint above each deck joint, and it counts as one part. Drag the ring on it up or down to set the sag; tapping any piece removes the whole cable. Hang the deck from it with plain cable. |
 | Concrete | $160/m | 4.25 m | Five times steel's strength in compression and barely buckles, but heavy, and it cracks under a 20 kN pull. For tall towers on long spans. |
+| Block | $120 a block | 1 m squares | Painted on the grid. Almost impossible to crush, heavy, and held together only weakly: pulled apart, a block cracks along its side. It bears on rock (bank tops, canyon walls, rock shelves, pier tops) without being bolted to it, so it can slide or tip. Bars attach at its corners but can't pass through it. |
+| Block arch | $150/m² | one drag | A ring of wedge-shaped blocks 1 m thick, laid in one drag between two springings with a joint under each deck joint. Drag the handle at its crown to set the rise. It pushes outward on its ends, so they need rock or blocks behind them. |
 | Hydraulic ram | $420/m | 4.25 m | Magenta, drawn as a cylinder: a fat barrel on its lower end, a chrome rod above. Strong, heavy and expensive. On drawbridge levels it extends by 75% to lift the leaf, then pulls it back down. Elsewhere it's a stiff, pricey strut. |
 
 You pay by length, so splitting a beam to add a joint costs nothing. Each level lists the materials it offers.
@@ -139,6 +143,23 @@ Chapter 9 is about very long spans, 40 to 64 m:
 - **Concrete towers.** Steel crushes under the weight of a long span long before any traffic arrives, so towers are concrete legs on a pier pair with steel struts and chevrons between them. The level sets a build ceiling for them.
 - **Heavier anchors.** A level can set heavier concrete anchors (`blocks.tonnes`): bigger in every direction, they hold more and cost in proportion. These levels use 20 t blocks for $6,000. The bolts hold no cables, so every main cable ends in concrete.
 - **The levels.** *Saddle* teaches the main cable on hinged masts with a full ghost. *Concrete Pylons* raises two towers, *One Tower* hangs both spans from a single tall one, *Uneven Banks* has a far bank 6 m higher, and *Tall Ships* lifts a 64 m deck over a ship channel for a semi, with two anchors a side.
+
+## Railway
+
+Chapter 11 puts trains on the bridge:
+
+- **Trains.** A locomotive (36 t) pulls up to four freight wagons (28 t each), coupled close together, so the whole train is on a short bridge at once: a long, heavy load rather than a point. Rail wheels run on track only, and drive and brake against it, so the deck takes the push.
+- **Track** climbs at most 3%. Uneven banks get one straight run, and the bridge is built down to the piers from it.
+- **Brake stops.** On a level with one (`brake` in a level), the train brakes hard once its front reaches the mark, stands on the bridge, then goes on. While it stops its wheels shove the deck forward along its length.
+
+## Arches
+
+Chapter 10 builds with concrete blocks, which only push:
+
+- **Blocks** are painted a square meter at a time and simulated as stiff squares that share their corners with the blocks beside them. Each side holds a lot of compression but only a small pull (25 kN), so a wall bent too far opens along its joints and a beam of blocks cracks at its root.
+- **Rock.** Rock shelves at the foot of the canyon walls and islands in the river (`rocks` in a level) are where blocks stand. A block corner bears on rock and grips it by friction, 0.7 times how hard it presses, but nothing bolts it down: a sideways push beyond that slides it, and a block can lift off.
+- **Thrust.** An arch carries the road as a push into its two ends, and the flatter it is, the harder it pushes outward. Spring it from a rock corner or a block wall against the rock and it holds; spring it from the open top of a shelf and it slides off. Its default rise is a quarter of its span, kept half a meter under a deck that's already built.
+- **Towers and piers.** Stack blocks on shelves that sit too deep for posts to reach, or on an island to make a pier where two arches meet and push against each other. Wood or steel posts stand on the ring's joints and the tower tops to carry the deck.
 
 ## How it works
 

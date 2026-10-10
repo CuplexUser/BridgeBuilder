@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { Design, roadPath, segmentsOverlap } from '../src/design';
+import { Design, roadPath, segmentsOverlap, type GridPt } from '../src/design';
 import { Editor } from '../src/editor';
 import { LEVELS } from '../src/levels';
-import { MATERIALS } from '../src/physics/materials';
+import { MATERIALS, type MaterialId } from '../src/physics/materials';
 
 const noop = { place() {}, remove() {}, invalid() {} };
 
@@ -37,6 +37,14 @@ describe('roadPath', () => {
     for (let i = 1; i < p.length; i++) {
       expect(Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1])).toBeLessThanOrEqual(2.25);
       expect(p[i][1]).toBeCloseTo(-p[i][0] / 12, 3);
+    }
+  });
+
+  it('takes 2 m pieces on a long run sooner than leave the whole meters', () => {
+    // 9-1 hints its hangers on even meters: one drag across its 40 m has to put joints there.
+    for (const L of [36, 40, 52, 64]) {
+      const p = roadPath(0, 0, L, 0, 2.25, 40)!;
+      expect(p.map(([x]) => x)).toEqual(Array.from({ length: L / 2 + 1 }, (_, i) => 2 * i));
     }
   });
 
@@ -316,21 +324,32 @@ describe('Design.covers', () => {
   });
 });
 
+/**
+ * Builds one ghost with the real editor, as a player would: a block painted in its middle,
+ * anything else dragged from the end already built. Returns what went wrong, or ''.
+ */
+function buildGhost(ed: Editor, [a, b, mat]: [GridPt, GridPt, MaterialId]): string {
+  if (!ed.setMaterial(mat)) return `${mat} not offered`;
+  if (MATERIALS[mat].cell === 'brush') {
+    ed.beginPaint((a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+    ed.endPaint();
+  } else {
+    const from = ed.design.findNode(a[0], a[1]) >= 0 ? a : b;
+    const to = from === a ? b : a;
+    if (ed.beginAt(from[0], from[1], 0.01, 0.01) !== 'node') return `no node at ${from}`;
+    ed.aim(to[0], to[1]);
+    if (ed.drag!.tx !== to[0] || ed.drag!.ty !== to[1]) return `aimed at ${ed.drag!.tx},${ed.drag!.ty}, not ${to}`;
+    if (ed.drag!.reason) return `${mat} ${from}→${to}: ${ed.drag!.reason}`;
+    ed.commit();
+  }
+  return ed.design.covers(a, b, mat) ? '' : `${mat} ${a}–${b} not built`;
+}
+
 describe('tutorial ghosts', () => {
   for (const level of LEVELS.filter((l) => l.hint)) {
     it(`level ${level.id} "${level.name}" can be built in order with the editor`, () => {
       const ed = new Editor(level, noop);
-      for (const [a, b, mat] of level.hint!) {
-        expect(ed.setMaterial(mat)).toBe(true);
-        const from = ed.design.findNode(a[0], a[1]) >= 0 ? a : b;
-        const to = from === a ? b : a;
-        expect(ed.beginAt(from[0], from[1], 0.01, 0.01), `start ${from}`).toBe('node');
-        ed.aim(to[0], to[1]);
-        expect([ed.drag!.tx, ed.drag!.ty]).toEqual(to);
-        expect(ed.drag!.reason).toBe('');
-        ed.commit();
-        expect(ed.design.covers(a, b, mat)).toBe(true);
-      }
+      for (const ghost of level.hint!) expect(buildGhost(ed, ghost)).toBe('');
       // Ghosts stay built even when a later ghost splits an earlier one.
       for (const [a, b, mat] of level.hint!) expect(ed.design.covers(a, b, mat)).toBe(true);
     });

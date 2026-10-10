@@ -1,6 +1,7 @@
 import { Design, q, type GridPt } from './design';
 import type { LevelDef } from './levels';
 import { deckStations, layMain } from './maincable';
+import { addBlock, blockPoly, cellProblem, layRing, ringPath, ringProblem, ringRise, rings } from './masonry';
 import { MATERIALS, type MaterialId } from './physics/materials';
 
 /** Road run from a to b, split exactly the way the editor's road tool splits it. */
@@ -60,6 +61,82 @@ const STEELY: TrussMats = { chord: 'steel', web: 'steel', vert: 'steel', end: 's
  * Hand-made designs, one per level: the tuner (tools/tune) polishes them as a starting point,
  * and budgets always leave room for them, so the intended answer stays affordable.
  */
+/**
+ * A tower of concrete blocks `rows` high across the top of a rock, [x0, x1, top]: every 1 m
+ * square that fits. Returns the tower's top, or the rock's when nothing was stacked.
+ */
+export function blockTower(d: Design, l: LevelDef, rock: [number, number, number], rows: number): number {
+  const [x0, x1, top] = rock;
+  let height = top;
+  for (let k = 0; k < rows; k++) {
+    let any = false;
+    for (let x = Math.ceil(x0); x + 1 <= x1 + 1e-9; x++) {
+      if (cellProblem(l, d, blockPoly(x, top + k))) continue;
+      addBlock(d, x, top + k);
+      any = true;
+    }
+    if (!any) break;
+    height = top + k + 1;
+  }
+  return height;
+}
+
+/**
+ * A block arch springing from a to b at `rise` (a natural one by default, its crown under the
+ * deck), with a post of `mat` from each of its joints up to a deck joint straight above, or a
+ * hanger of cable down from its underside to a deck joint below. Returns false if it can't be laid.
+ */
+export function blockArch(d: Design, l: LevelDef, a: GridPt, b: GridPt, mat: MaterialId, rise = ringRise(d, a, b)): boolean {
+  const path = ringPath(d, a, b, rise);
+  if (!path || ringProblem(l, d, path)) return false;
+  layRing(d, path);
+  const r = rings(d).at(-1)!;
+  const heights = deckHeights(d);
+  for (const e of [r.intra[0], ...r.extra, r.intra[r.intra.length - 1]]) postUp(d, e, heights, mat);
+  for (const i of r.intra.slice(1, -1)) {
+    const n = d.nodes[i];
+    const y = heights.get(n.x);
+    const j = y === undefined ? -1 : d.findNode(n.x, y);
+    if (y !== undefined && n.y - y > 0.6 && n.y - y <= MATERIALS.cable.maxLen && j >= 0 && !d.nodes[j].anchor) d.add([n.x, n.y], [n.x, y], 'cable');
+  }
+  return true;
+}
+
+/** Posts of `mat` from the top of a block tower on a rock up to every deck joint straight above it. */
+export function towerPosts(d: Design, rock: [number, number, number], height: number, mat: MaterialId): void {
+  const heights = deckHeights(d);
+  for (let x = Math.ceil(rock[0]); x <= rock[1] + 1e-9; x++) {
+    const i = d.findNode(x, height);
+    if (i >= 0) postUp(d, i, heights, mat);
+  }
+}
+
+/** Deck joint heights, by x. */
+function deckHeights(d: Design): Map<number, number> {
+  const out = new Map<number, number>();
+  for (const m of d.members) if (MATERIALS[m.mat].drivable) for (const i of [m.a, m.b]) out.set(d.nodes[i].x, d.nodes[i].y);
+  return out;
+}
+
+/** A plumb post of `mat` from joint i up to the deck joint above it, where it fits and is over 0.3 m long. */
+function postUp(d: Design, i: number, heights: Map<number, number>, mat: MaterialId): void {
+  const n = d.nodes[i];
+  const y = heights.get(n.x);
+  if (y === undefined || y - n.y <= 0.3 || y - n.y > MATERIALS[mat].maxLen + 1e-9) return;
+  d.add([n.x, n.y], [n.x, y], mat);
+}
+
+/** A chapter 10 bridge: a deck, block towers on the rocks, and block arches from tower to tower. */
+function archBridge(l: LevelDef, deckMat: MaterialId, rows: number[], arches: [number, number][], mat: MaterialId): Design {
+  const d = new Design(l);
+  roadRun(d, [0, 0], [l.width, l.rightY ?? 0], deckMat);
+  const rocks = (l.rocks ?? []).toSorted((p, r) => p[0] - r[0]);
+  const tops = rocks.map((r, i) => blockTower(d, l, r, rows[i] ?? 0));
+  for (const [i, j] of arches) blockArch(d, l, [rocks[i][1], tops[i]], [rocks[j][0], tops[j]], mat);
+  rocks.forEach((r, i) => towerPosts(d, r, tops[i], mat));
+  return d;
+}
+
 export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
   1: (l) => deck(new Design(l), 0, 4).add([0, -2], [2, 0], 'wood').add([4, -2], [2, 0], 'wood'),
   2: (l) =>
@@ -326,6 +403,39 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
       legs: 'concrete',
       cables: [[[4, 18], [60, 18], 8], [[-12, 0], [4, 18]], [[-8, 0], [4, 18]], [[60, 18], [76, 0]], [[60, 18], [72, 0]]],
     }),
+  46: (l) => archBridge(l, 'road', [3, 3], [[0, 1]], 'wood'),
+  51: (l) => {
+    const d = new Design(l);
+    trussOver(d, roadRun(d, [0, 0], [12, 0], 'track'), 2, HEAVY);
+    return d.add([0, -3], [2, 0], 'steel').add([12, -3], [10, 0], 'steel');
+  },
+  52: (l) => {
+    const d = new Design(l);
+    const run = roadRun(d, [0, 0], [24, 0], 'track');
+    trussOver(d, run.filter(([x]) => x <= 12), 2, HEAVY);
+    trussOver(d, run.filter(([x]) => x >= 12), 2, HEAVY);
+    return d.add([0, -3], [2, 0], 'steel').add([24, -3], [22, 0], 'steel').add([12, -2], [12, 0], 'steel').add([12, -2], [10, 0], 'steel').add([12, -2], [14, 0], 'steel');
+  },
+  53: (l) => {
+    const d = new Design(l);
+    const run = roadRun(d, [0, 0], [30, 0.9], 'track');
+    for (const [a, b] of [[0, 10], [10, 20], [20, 30]]) trussOver(d, run.filter(([x]) => x >= a && x <= b), 2, HEAVY);
+    for (const x of [10, 20]) {
+      const top = run.find(([px]) => px === x)!;
+      d.add([x, -2], top, 'steel').add([x, -2], run.find(([px]) => px === x - 2)!, 'steel').add([x, -2], run.find(([px]) => px === x + 2)!, 'steel');
+    }
+    return d;
+  },
+  54: (l) => {
+    const d = new Design(l);
+    trussOver(d, roadRun(d, [0, 0], [16, 0], 'track'), 3, STEELY);
+    return d.add([0, -3], [2, 0], 'steel').add([16, -3], [14, 0], 'steel');
+  },
+  55: (l) => archBridge(l, 'track', [2, 2, 2, 2], [[0, 1], [1, 2], [2, 3]], 'steel'),
+  47: (l) => archBridge(l, 'road', [1, 1, 1], [[0, 1], [1, 2]], 'steel'),
+  48: (l) => archBridge(l, 'road', [1, 1], [[0, 1]], 'steel'),
+  49: (l) => archBridge(l, 'road', [6, 6], [[0, 1]], 'steel'),
+  50: (l) => archBridge(l, 'heavy', [2, 2, 2, 2], [[0, 1], [1, 2], [2, 3]], 'steel'),
   30: (l) => {
     const d = new Design(l);
     const [a, b] = l.anchors.filter(([x, y]) => x > 0 && x < l.width && y >= 0 && y < 5).toSorted((p, r) => p[0] - r[0]);

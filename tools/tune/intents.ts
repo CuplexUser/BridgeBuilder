@@ -225,6 +225,18 @@ export const INTENTS: Record<number, Intent> = {
     requires: ['main', 'concrete'],
     shortcuts: [noBlocks, thinCable, { name: 'one block per side, nearest', build: nearestBlocks }, { name: 'one block per side, farthest', build: farthestBlocks }],
   },
+  // Block arches: each needs the arch, and the blocks it springs from.
+  46: { requires: ['arch', 'masonry'] },
+  47: { requires: ['arch', 'masonry'] },
+  48: { requires: ['arch'] },
+  49: { requires: ['arch', 'masonry'] },
+  50: { requires: ['arch', 'masonry'] },
+  // Trains: track is the only deck they run on, so the checks are about what holds it up.
+  51: { requires: ['steel'] },
+  52: { requires: ['steel'] },
+  53: { requires: ['steel'] },
+  54: { requires: ['steel'] },
+  55: { requires: ['arch'] },
   30: {
     params: { clear: [2, 1.5, 1], side: [8, 10], top: [14, 16, 12] },
     shape: finale,

@@ -1,7 +1,7 @@
 import type { Design } from '../../src/design';
 import { BASE_LEVELS, type LevelBase, type LevelDef } from '../../src/levels';
 import { blockOf, MAST, MATERIALS, type MaterialId } from '../../src/physics/materials';
-import { VEHICLES } from '../../src/physics/vehicles';
+import { VEHICLES, type VehicleId } from '../../src/physics/vehicles';
 import { PHYSICS_VERSION } from '../../src/physics/world';
 import { INTENTS, paramCombos, type Intent } from './intents';
 
@@ -24,7 +24,9 @@ function hash(s: string): string {
  * don't count, so rewording a level doesn't call for a new tuning run.
  */
 /** Materials added after levels 1–40 were tuned: they count only where offered. */
-const LATER = new Set<MaterialId>(['main', 'concrete']);
+const LATER = new Set<MaterialId>(['main', 'concrete', 'masonry', 'arch', 'track', 'damper']);
+/** Vehicles added after levels 1–50 were tuned. */
+const LATER_VEHICLES = new Set(['loco', 'wagon', 'troop']);
 
 export function levelFingerprint(id: number): string {
   const base = BASE_LEVELS.find((l) => l.id === id);
@@ -35,7 +37,10 @@ export function levelFingerprint(id: number): string {
   const parts = { block: base.blocks ? blockOf(base) : undefined, mast: base.masts ? MAST : undefined };
   // Likewise the main cable and concrete, on levels that offer them.
   const materials = Object.fromEntries(Object.entries(MATERIALS).filter(([mat]) => !LATER.has(mat as MaterialId) || base.materials.includes(mat as MaterialId)));
-  return hash(JSON.stringify({ geometry, intent, MATERIALS: materials, VEHICLES, PHYSICS_VERSION, TUNER_VERSION, ...parts }));
+  // Vehicles added later count only on levels that use them.
+  const used = new Set([base.vehicle, ...(base.convoy ?? [])]);
+  const vehicles = Object.fromEntries(Object.entries(VEHICLES).filter(([v]) => !LATER_VEHICLES.has(v) || used.has(v as VehicleId)));
+  return hash(JSON.stringify({ geometry, intent, MATERIALS: materials, VEHICLES: vehicles, PHYSICS_VERSION, TUNER_VERSION, ...parts }));
 }
 
 /**

@@ -1,6 +1,8 @@
 import type { LevelDef } from './levels';
 import { mainRuns } from './maincable';
+import { rings } from './masonry';
 import { BLOCK, blockOf, MATERIALS, type MaterialId } from './physics/materials';
+import { pileSpot } from './rules';
 
 export interface DNode {
   x: number;
@@ -12,6 +14,8 @@ export interface DNode {
   block?: true;
   /** The bolt on top of a hinged mast: built from like an anchor, but it tips freely. */
   mast?: true;
+  /** A pile the player drove into a mud bank. Like a concrete anchor, it goes again once nothing is built from it. */
+  pile?: true;
 }
 
 export interface DMember {
@@ -23,6 +27,16 @@ export interface DMember {
 }
 
 export type GridPt = [number, number];
+
+/**
+ * A concrete block: the joints at its corners, counterclockwise. A 1 m block from the brush has
+ * four; an arch ring's wedges have four, or three at a springing. A ring's blocks share a part.
+ */
+export interface DCell {
+  n: number[];
+  mat: MaterialId;
+  part?: number;
+}
 
 /**
  * Version of the saved design format. 1 had no version field; 2 added it. Bump it whenever
@@ -51,8 +65,9 @@ export function q(v: number): number {
 /**
  * Splits a→b into the fewest pieces that each fit within maxLen. Every joint lies
  * exactly on the straight line, so a sloped run keeps one even grade. Joints land on
- * whole-meter x (or y, for steep runs) where that keeps pieces within limits, which gives
- * other beams convenient places to attach. Null if it needs more than maxSteps.
+ * whole-meter x (or y, for steep runs) where that keeps pieces within limits, taking a few
+ * more pieces if it must, which gives other beams convenient places to attach, and a main
+ * cable joints right above them. Null if it needs more than maxSteps.
  */
 export function roadPath(ax: number, ay: number, bx: number, by: number, maxLen: number, maxSteps: number): GridPt[] | null {
   const dx = bx - ax;
@@ -69,7 +84,9 @@ export function roadPath(ax: number, ay: number, bx: number, by: number, maxLen:
     }
     return true;
   };
-  for (let n = n0; n <= Math.min(maxSteps, n0 + 1); n++) {
+  // The fewest pieces that land on whole meters; a long run may need pieces as short as 2 m.
+  const most = Math.max(n0 + 1, Math.ceil(len / 2 - 1e-9));
+  for (let n = n0; n <= Math.min(maxSteps, most); n++) {
     const pts: GridPt[] = [[ax, ay]];
     for (let i = 1; i < n; i++) {
       if (alongX) {
@@ -142,9 +159,14 @@ function gcd(a: number, b: number): number {
 export class Design {
   nodes: DNode[] = [];
   members: DMember[] = [];
+  /** Concrete blocks, from the brush and arch rings. */
+  cells: DCell[] = [];
 
   /** What a concrete anchor costs on the level this design was made for. Not saved: set again by priceAnchors. */
   private blockPrice = BLOCK.price;
+  /** What a pile costs, and where they may go, on the level this design was made for. Not saved either. */
+  private pilePrice = 0;
+  private pileAt: (x: number, y: number) => boolean = () => false;
 
   constructor(level?: LevelDef) {
     if (!level) return;
@@ -157,10 +179,12 @@ export class Design {
   priceAnchors(level: LevelDef): void {
     const right = level.rightY ?? 0;
     this.blockPrice = blockOf(level).price;
+    this.pilePrice = level.piles?.price ?? 0;
+    this.pileAt = (x, y) => pileSpot(level, x, y);
     for (const n of this.nodes) {
       if (!n.anchor) continue;
-      if (n.block) {
-        n.price = this.blockPrice;
+      if (n.block || n.pile) {
+        n.price = n.pile ? this.pilePrice : this.blockPrice;
         continue;
       }
       if (n.mast) {
@@ -202,11 +226,12 @@ export class Design {
     return this.nodes.length - 1;
   }
 
-  /** The concrete anchor at (x, y), set into the bank if it isn't there yet. */
+  /** The concrete anchor at (x, y), set into the bank if it isn't there yet; or on mud, the pile driven there. */
   ensureBlock(x: number, y: number): number {
     const i = this.findNode(x, y);
     if (i >= 0) return i;
-    this.nodes.push({ x: q(x), y: q(y), anchor: true, price: this.blockPrice, block: true });
+    if (this.pileAt(x, y)) this.nodes.push({ x: q(x), y: q(y), anchor: true, price: this.pilePrice, pile: true });
+    else this.nodes.push({ x: q(x), y: q(y), anchor: true, price: this.blockPrice, block: true });
     return this.nodes.length - 1;
   }
 
@@ -240,8 +265,9 @@ export class Design {
     return out.length - 1 <= maxSteps ? out : null;
   }
 
-  /** Parts placed, per material: a beam split into pieces still counts once. */
+  /** Parts placed, per material: a beam split into pieces still counts once, and so does an arch ring. */
   count(mat: MaterialId): number {
+    if (MATERIALS[mat].cell) return new Set(this.cells.flatMap((c, k) => (c.mat === mat ? [c.part ?? `c${k}`] : []))).size;
     let c = 0;
     const parts = new Set<number>();
     for (const m of this.members) {
@@ -268,12 +294,25 @@ export class Design {
     let c = 0;
     for (let i = 0; i < this.members.length; i++) c += this.length(i) * MATERIALS[this.members[i].mat].price;
     for (const i of this.paidAnchors()) c += this.nodes[i].price!;
+    for (const k of this.cells.keys()) c += this.cellArea(k) * MATERIALS[this.cells[k].mat].price;
     return Math.round(c);
+  }
+
+  /** Area of cell k, m². */
+  cellArea(k: number): number {
+    const n = this.cells[k].n;
+    let a = 0;
+    for (let i = 0; i < n.length; i++) {
+      const p = this.nodes[n[i]];
+      const r = this.nodes[n[(i + 1) % n.length]];
+      a += p.x * r.y - r.x * p.y;
+    }
+    return Math.abs(a) / 2;
   }
 
   /** Total parts across all materials. */
   parts(): number {
-    let c = 0;
+    let c = new Set(this.cells.map((cell, k) => cell.part ?? `c${k}`)).size;
     const parts = new Set<number>();
     for (const m of this.members) {
       if (m.part === undefined) c++;
@@ -324,35 +363,41 @@ export class Design {
     return mid;
   }
 
-  /** Whether a plumb member of mat rises from the joint at p to a joint on a main cable above it. */
+  /**
+   * Whether a plumb member of mat runs from the joint at p to a joint on a curved run straight
+   * above or below it: a hanger up to a main cable, or a column down to an arch.
+   */
   private hangerAt(p: GridPt, mat: MaterialId): boolean {
     const i = this.findNode(p[0], p[1]);
-    if (i < 0) return false;
-    const onMain = new Set(this.members.flatMap((m) => (MATERIALS[m.mat].curved ? [m.a, m.b] : [])));
+    if (i < 0 || MATERIALS[mat].curved) return false;
+    const onMain = new Set([...this.members.flatMap((m) => (MATERIALS[m.mat].curved ? [m.a, m.b] : [])), ...this.cells.flatMap((c) => (c.mat === 'arch' ? c.n : []))]);
+    if (onMain.has(i)) return false;
     return this.members.some((m) => {
       if (m.mat !== mat || (m.a !== i && m.b !== i)) return false;
       const o = m.a === i ? m.b : m.a;
-      return onMain.has(o) && Math.abs(this.nodes[o].x - p[0]) < EPS && this.nodes[o].y > p[1];
+      return onMain.has(o) && Math.abs(this.nodes[o].x - p[0]) < EPS;
     });
   }
 
   /** A part id no member uses yet. */
   newPart(): number {
     let next = 0;
-    for (const o of this.members) if (o.part !== undefined) next = Math.max(next, o.part + 1);
+    for (const o of [...this.members, ...this.cells]) if (o.part !== undefined) next = Math.max(next, o.part + 1);
     return next;
   }
 
   /**
    * True when members run the whole way from a to b along that straight line, in one piece or
-   * several; for a curved material, when one of its runs hangs from a to b. A plumb hanger
-   * counts wherever the cable above it now hangs, so long as it rises from the same joint.
+   * several; for a curved material, when one of its runs goes from a to b. A plumb member to a
+   * curved run (a hanger or a column) counts wherever the run now is, from the same fixed joint.
    */
   covers(a: GridPt, b: GridPt, mat?: MaterialId): boolean {
-    if (mat && MATERIALS[mat].tensionOnly && !MATERIALS[mat].curved && Math.abs(a[0] - b[0]) < EPS && this.hangerAt(a[1] < b[1] ? a : b, mat)) return true;
+    if (mat && MATERIALS[mat].cell) return this.coversCell(a, b, mat);
+    if (mat && !MATERIALS[mat].curved && Math.abs(a[0] - b[0]) < EPS && (this.hangerAt(a, mat) || this.hangerAt(b, mat))) return true;
     if (mat && MATERIALS[mat].curved) {
       const at = (i: number, p: GridPt) => Math.abs(this.nodes[i].x - p[0]) < EPS && Math.abs(this.nodes[i].y - p[1]) < EPS;
-      return mainRuns(this).some(({ chain }) => {
+      return mainRuns(this).some(({ chain, mat: run }) => {
+        if (run !== mat) return false;
         const [s, e] = [chain[0], chain[chain.length - 1]];
         return (at(s, a) && at(e, b)) || (at(s, b) && at(e, a));
       });
@@ -375,6 +420,19 @@ export class Design {
     return total >= L - 1e-4;
   }
 
+  /**
+   * Whether a block ghost is built: a 1 m block from lower left corner a to upper right b, or
+   * an arch ring springing from a to b, however high it now rises.
+   */
+  private coversCell(a: GridPt, b: GridPt, mat: MaterialId): boolean {
+    const at = (i: number, p: GridPt) => Math.abs(this.nodes[i].x - p[0]) < EPS && Math.abs(this.nodes[i].y - p[1]) < EPS;
+    if (MATERIALS[mat].cell === 'brush') return this.cells.some((c) => c.mat === mat && at(c.n[0], a) && at(c.n[2], b));
+    return rings(this).some(({ intra }) => {
+      const [s, e] = [intra[0], intra[intra.length - 1]];
+      return (at(s, a) && at(e, b)) || (at(s, b) && at(e, a));
+    });
+  }
+
   /** Member i and every other piece split from the same beam. */
   pieces(i: number): number[] {
     const part = this.members[i].part;
@@ -395,6 +453,8 @@ export class Design {
    */
   healSplits(): number[] {
     const removed: number[] = [];
+    // A block's corner holds the joint as surely as a third member would.
+    const inCell = new Set(this.cells.flatMap((c) => c.n));
     for (let again = true; again; ) {
       again = false;
       const at: number[][] = this.nodes.map(() => []);
@@ -403,7 +463,7 @@ export class Design {
         at[m.b].push(k);
       });
       for (let n = 0; n < at.length && !again; n++) {
-        if (this.nodes[n].anchor || at[n].length !== 2) continue;
+        if (this.nodes[n].anchor || at[n].length !== 2 || inCell.has(n)) continue;
         const [i, j] = at[n];
         const part = this.members[i].part;
         if (part === undefined || this.members[j].part !== part) continue;
@@ -435,10 +495,11 @@ export class Design {
   pruneNodes(): void {
     const used = new Uint8Array(this.nodes.length);
     for (const m of this.members) used[m.a] = used[m.b] = 1;
+    for (const c of this.cells) for (const i of c.n) used[i] = 1;
     const remap = new Int32Array(this.nodes.length);
     const kept: DNode[] = [];
     for (let i = 0; i < this.nodes.length; i++) {
-      if ((this.nodes[i].anchor && !this.nodes[i].block) || used[i]) {
+      if ((this.nodes[i].anchor && !this.nodes[i].block && !this.nodes[i].pile) || used[i]) {
         remap[i] = kept.length;
         kept.push(this.nodes[i]);
       } else remap[i] = -1;
@@ -447,11 +508,12 @@ export class Design {
       m.a = remap[m.a];
       m.b = remap[m.b];
     }
+    for (const c of this.cells) c.n = c.n.map((i) => remap[i]);
     this.nodes = kept;
   }
 
   serialize(): string {
-    return JSON.stringify({ v: SAVE_VERSION, n: this.nodes, m: this.members });
+    return JSON.stringify(this.cells.length ? { v: SAVE_VERSION, n: this.nodes, m: this.members, c: this.cells } : { v: SAVE_VERSION, n: this.nodes, m: this.members });
   }
 
   /**
@@ -460,7 +522,7 @@ export class Design {
    * still fits the level.
    */
   static deserialize(s: string): Design {
-    const o = JSON.parse(s) as { v?: number; n?: unknown; m?: unknown };
+    const o = JSON.parse(s) as { v?: number; n?: unknown; m?: unknown; c?: unknown };
     if (!o || !Array.isArray(o.n) || !Array.isArray(o.m)) throw new Error('Not a design');
     if ((o.v ?? 1) > SAVE_VERSION) throw new Error('Saved by a newer version');
     const d = new Design();
@@ -474,6 +536,11 @@ export class Design {
       const mat = (RENAMED[m.mat] ?? m.mat) as MaterialId;
       if (!(mat in MATERIALS)) continue;
       d.members.push(m.part === undefined ? { a: m.a, b: m.b, mat } : { a: m.a, b: m.b, mat, part: m.part });
+    }
+    for (const c of (Array.isArray(o.c) ? o.c : []) as DCell[]) {
+      if (!Array.isArray(c?.n) || c.n.length < 3 || !c.n.every((i) => Number.isInteger(i) && i >= 0 && i < d.nodes.length)) throw new Error('Bad block');
+      if (!(c.mat in MATERIALS) || !MATERIALS[c.mat].cell) continue;
+      d.cells.push(c.part === undefined ? { n: [...c.n], mat: c.mat } : { n: [...c.n], mat: c.mat, part: c.part });
     }
     return d;
   }

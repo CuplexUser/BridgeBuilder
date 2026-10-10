@@ -1,5 +1,6 @@
 import type { MaterialId } from './physics/materials';
 import type { VehicleId } from './physics/vehicles';
+import type { Flood, March, Quake, Wind } from './physics/world';
 import { levels as tunedLevels } from './levels.res';
 
 export type Pt = [number, number];
@@ -55,6 +56,12 @@ export interface LevelDef {
    */
   masts?: Tower[];
   overhangs?: Overhang[];
+  /**
+   * Masses of rock rising from the riverbed: [x0, x1, top], such as a shelf at the foot of a
+   * canyon wall or an island in the river. Nothing may be built inside one; concrete blocks bear
+   * on its top and sides.
+   */
+  rocks?: [number, number, number][];
   /** Ship channels: [x0, x1, top]. Nothing may be built between x0 and x1 from the water up to `top`. */
   channels?: [number, number, number][];
   bonus: BonusGoal;
@@ -65,6 +72,26 @@ export interface LevelDef {
    * this height: the bridge has to open for it, on hydraulic rams, and close again.
    */
   ship?: { mast: number };
+  /**
+   * The train brakes hard on the bridge once its front reaches x = `at`, comes to a stop, waits
+   * `hold` seconds and goes on: its wheels push the deck forward while it stops.
+   */
+  brake?: { at: number; hold?: number };
+  /** Gusting wind that pushes on the bridge and lifts its deck. */
+  wind?: Wind;
+  /** An earthquake partway through the test. */
+  quake?: Quake;
+  /** Soldiers marching in step: the vehicles that march press on the deck with every step. */
+  march?: March;
+  /**
+   * Soft riverbed: mud banks [x0, x1, top]. A bolt on mud sinks once it carries more than the
+   * mud holds, and a flood washes it out.
+   */
+  mud?: [number, number, number][];
+  /** Piles the player may drive into the mud, on whole meters along its top, at a price each: bolts that hold. */
+  piles?: { price: number };
+  /** A flood partway through the test: the river rises, pushes on what stands in it and scours the mud. */
+  flood?: Flood;
   /** Most parts of a material a level allows, on top of the budget. A split beam counts once. */
   limits?: Partial<Record<MaterialId, number>>;
   /** Price of building from an anchor, charged once per anchor used; the two road ends are free. */
@@ -761,6 +788,184 @@ export const BASE_LEVELS: LevelBase[] = [
     vehicle: 'semi',
     waterY: -6,
   },
+  {
+    id: 46,
+    name: 'Keystone',
+    tip: 'Stack blocks on each shelf, drag a block arch from tower to tower under the road, then stand wood posts on it to carry the road.',
+    width: 16,
+    anchors: [[0, 0], [16, 0]],
+    piers: [],
+    rocks: [[0, 2, -6], [14, 16, -6]],
+    materials: ['road', 'wood', 'masonry', 'arch'],
+    vehicle: 'van',
+    // Posts for the arch, but not a truss.
+    limits: { wood: 9 },
+    waterY: -9,
+    hint: [
+      [[0, 0], [16, 0], 'road'],
+      [[0, -6], [1, -5], 'masonry'],
+      [[1, -6], [2, -5], 'masonry'],
+      [[14, -6], [15, -5], 'masonry'],
+      [[15, -6], [16, -5], 'masonry'],
+      [[0, -5], [1, -4], 'masonry'],
+      [[1, -5], [2, -4], 'masonry'],
+      [[14, -5], [15, -4], 'masonry'],
+      [[15, -5], [16, -4], 'masonry'],
+      [[0, -4], [1, -3], 'masonry'],
+      [[1, -4], [2, -3], 'masonry'],
+      [[14, -4], [15, -3], 'masonry'],
+      [[15, -4], [16, -3], 'masonry'],
+      [[2, -3], [14, -3], 'arch'],
+      [[0, -3], [0, 0], 'wood'],
+      [[2, -3], [2, 0], 'wood'],
+      [[4, -1.1667], [4, 0], 'wood'],
+      [[6, -0.6667], [6, 0], 'wood'],
+      [[8, -0.5], [8, 0], 'wood'],
+      [[10, -0.6667], [10, 0], 'wood'],
+      [[12, -1.1667], [12, 0], 'wood'],
+      [[14, -3], [14, 0], 'wood'],
+      [[16, -3], [16, 0], 'wood'],
+    ],
+    hintSolves: true,
+  },
+  {
+    id: 47,
+    name: 'Stepping Stones',
+    tip: 'Two arches meet on the island. Build it up into a pier, and let each arch push against the other.',
+    width: 28,
+    anchors: [[0, 0], [28, 0]],
+    piers: [],
+    rocks: [[0, 2, -4], [13, 15, -4], [26, 28, -4]],
+    materials: ['road', 'wood', 'steel', 'masonry', 'arch'],
+    vehicle: 'bus',
+    limits: { wood: 16, steel: 16 },
+    waterY: -6,
+  },
+  {
+    id: 48,
+    name: 'High and Low',
+    tip: 'The far shelf is higher than the near one. An arch can spring from both: it just leans.',
+    width: 20,
+    rightY: 3,
+    anchors: [[0, 0], [20, 3]],
+    piers: [],
+    rocks: [[0, 2, -4], [18, 20, -1]],
+    materials: ['road', 'wood', 'steel', 'masonry', 'arch'],
+    vehicle: 'truck',
+    limits: { wood: 14, steel: 14 },
+    waterY: -7,
+  },
+  {
+    id: 49,
+    name: 'Deep Gorge',
+    tip: 'The shelves are ten meters down: too deep for posts to reach. Build the blocks up the walls first, and spring the arch high.',
+    width: 24,
+    anchors: [[0, 0], [24, 0]],
+    piers: [],
+    rocks: [[0, 2, -10], [22, 24, -10]],
+    materials: ['road', 'wood', 'steel', 'masonry', 'arch'],
+    vehicle: 'truck',
+    limits: { wood: 14, steel: 14 },
+    waterY: -13,
+  },
+  {
+    id: 50,
+    name: 'Grand Viaduct',
+    tip: 'Forty-eight meters and forty tonnes on heavy deck: arch from island to island, with piers built up to meet them.',
+    width: 48,
+    anchors: [[0, 0], [48, 0]],
+    piers: [],
+    rocks: [[0, 2, -5], [15, 17, -5], [31, 33, -5], [46, 48, -5]],
+    materials: ['road', 'heavy', 'steel', 'masonry', 'arch'],
+    vehicle: 'semi',
+    limits: { steel: 30 },
+    waterY: -7,
+  },
+  {
+    id: 51,
+    name: 'Branch Line',
+    tip: 'Lay track across in one run, like road. Stand a truss over it, steel chords with wood between, and strut it down to the low bolts: the whole train is on the bridge at once.',
+    width: 12,
+    anchors: [[0, 0], [12, 0], [0, -3], [12, -3]],
+    piers: [],
+    materials: ['track', 'wood', 'steel'],
+    vehicle: 'loco',
+    convoy: ['wagon'],
+    waterY: -6,
+    hint: [
+      [[0, 0], [12, 0], 'track'],
+      [[0, 0], [2, 2], 'steel'],
+      [[0, -3], [2, 0], 'steel'],
+      [[2, 2], [4, 2], 'steel'],
+      [[2, 2], [4, 0], 'steel'],
+      [[4, 2], [6, 2], 'steel'],
+      [[6, 2], [8, 2], 'steel'],
+      [[8, 2], [10, 2], 'steel'],
+      [[10, 2], [8, 0], 'steel'],
+      [[10, 2], [12, 0], 'steel'],
+      [[12, -3], [10, 0], 'steel'],
+      [[2, 0], [2, 2], 'wood'],
+      [[4, 0], [4, 2], 'wood'],
+      [[4, 2], [6, 0], 'wood'],
+      [[6, 0], [6, 2], 'wood'],
+      [[8, 2], [6, 0], 'wood'],
+      [[8, 0], [8, 2], 'wood'],
+      [[10, 0], [10, 2], 'wood'],
+    ],
+    hintSolves: true,
+  },
+  {
+    id: 52,
+    name: 'Freight',
+    tip: 'Four cars, a hundred and twenty tonnes, nose to tail. The pier in the middle can take half of it.',
+    width: 24,
+    anchors: [[0, 0], [24, 0], [0, -3], [24, -3], [12, -2]],
+    piers: [[12, -2]],
+    materials: ['track', 'wood', 'steel'],
+    vehicle: 'loco',
+    convoy: ['wagon', 'wagon', 'wagon'],
+    waterY: -7,
+  },
+  {
+    id: 53,
+    name: 'Gentle Grade',
+    tip: 'The far bank is higher. Track climbs no more than 3%, so lay one straight run and build down to the piers from it.',
+    width: 30,
+    rightY: 0.9,
+    anchors: [[0, 0], [30, 0.9], [10, -2], [20, -2]],
+    piers: [[10, -2], [20, -2]],
+    materials: ['track', 'wood', 'steel'],
+    vehicle: 'loco',
+    convoy: ['wagon', 'wagon'],
+    waterY: -6,
+  },
+  {
+    id: 54,
+    name: 'Signal Stop',
+    tip: 'A red signal: the train brakes to a stop out on the span, waits, and goes on. Its wheels shove the deck forward as it stops.',
+    width: 16,
+    anchors: [[0, 0], [16, 0], [0, -3], [16, -3]],
+    piers: [],
+    materials: ['track', 'wood', 'steel', 'cable'],
+    vehicle: 'loco',
+    convoy: ['wagon', 'wagon'],
+    brake: { at: 13, hold: 2 },
+    waterY: -7,
+  },
+  {
+    id: 55,
+    name: 'Viaduct',
+    tip: 'Forty meters over the valley, on block arches from island to island, the way the old railways crossed.',
+    width: 40,
+    anchors: [[0, 0], [40, 0]],
+    piers: [],
+    rocks: [[0, 2, -6], [13, 15, -6], [25, 27, -6], [38, 40, -6]],
+    materials: ['track', 'steel', 'masonry', 'arch'],
+    vehicle: 'loco',
+    convoy: ['wagon', 'wagon', 'wagon'],
+    limits: { steel: 30 },
+    waterY: -8,
+  },
 ];
 
 /** Stand-in numbers for a level the tuner hasn't run on yet: playable, but with no real target. */
@@ -774,6 +979,11 @@ export const START_X = -8;
 export function seatPiers(level: LevelDef): Pt[] {
   const bolted = (x: number, y: number) => level.anchors.some((a) => Math.abs(a[0] - x) < 1e-6 && Math.abs(a[1] - y) < 1e-6);
   return level.piers.filter(([x, y]) => !bolted(x, y));
+}
+
+/** The mud bank whose top the point is on, if any. */
+export function mudAt(level: LevelDef, x: number, y: number): [number, number, number] | undefined {
+  return level.mud?.find(([x0, x1, top]) => x >= x0 - 1e-6 && x <= x1 + 1e-6 && Math.abs(y - top) < 1e-6);
 }
 
 export function bankY(level: LevelDef): number {

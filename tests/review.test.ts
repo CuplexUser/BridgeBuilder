@@ -3,6 +3,7 @@ import { Design } from '../src/design';
 import { money } from '../src/editor';
 import { efficiency, IDLE_LOAD } from '../src/efficiency';
 import { LEVELS } from '../src/levels';
+import { MATERIALS } from '../src/physics/materials';
 import { TestRun } from '../src/physics/world';
 import { bestKnown, costReview, ghosts, nextHint } from '../src/review';
 import { SOLUTIONS } from '../src/solutions';
@@ -30,9 +31,11 @@ describe("engineer's review", () => {
       for (const [a, b, mat] of all) expect(best.covers(a, b, mat), `level ${level.id}: ${mat} ${a} ${b}`).toBe(true);
       // Every member is in some ghost: straight ghosts add up to the straight members, and each main cable run is one ghost.
       const straight = best.members.reduce((t, m, i) => t + (m.mat === 'main' ? 0 : best.length(i)), 0);
-      const traced = all.reduce((t, [a, b, mat]) => t + (mat === 'main' ? 0 : Math.hypot(b[0] - a[0], b[1] - a[1])), 0);
+      const traced = all.reduce((t, [a, b, mat]) => t + (mat === 'main' || MATERIALS[mat].cell ? 0 : Math.hypot(b[0] - a[0], b[1] - a[1])), 0);
       expect(traced, `level ${level.id}`).toBeCloseTo(straight, 3);
       expect(all.filter(([, , mat]) => mat === 'main')).toHaveLength(new Set(best.members.flatMap((m) => (m.mat === 'main' ? [m.part] : []))).size);
+      // And each block is a ghost, an arch ring one for the whole ring.
+      expect(all.filter(([, , mat]) => MATERIALS[mat].cell)).toHaveLength(best.cells.filter((c) => c.mat !== 'arch').length + new Set(best.cells.flatMap((c) => (c.mat === 'arch' ? [c.part] : []))).size);
       expect(nextHint(all, best, [])).toBe(-1);
     }
   });

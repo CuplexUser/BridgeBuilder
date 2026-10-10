@@ -95,7 +95,7 @@ export class Sfx {
   }
 
   crack(mat: MaterialId | null): void {
-    if (mat === 'steel' || mat === 'ram') {
+    if (mat === 'steel' || mat === 'ram' || mat === 'damper') {
       this.tone(1900, 0.5, 'sine', 0.12, 700);
       this.burst(0.3, 0.6, 'highpass', 2500, 0.7);
     } else if (mat === 'main') {
@@ -153,9 +153,21 @@ export class Sfx {
     this.burst(0.4, 0.22, 'bandpass', 400, 1.2, 2400);
   }
 
+  /** A column of boots landing together. */
+  tramp(vol: number): void {
+    this.burst(0.09, 0.35 * vol, 'lowpass', 260, 1.2);
+    this.tone(70, 0.08, 'sine', 0.12 * vol, 50);
+  }
+
+  /** The ground rumbling through an earthquake, s. */
+  rumble(dur: number): void {
+    for (let t = 0; t < dur; t += 0.8) this.burst(1.2, 0.45 * (1 - t / dur), 'lowpass', 110, 0.8, undefined, t);
+  }
+
   engineStart(base: number): void {
     const ctx = this.ctx;
-    if (!ctx || !this.master || this.engine) return;
+    // Marchers have no engine.
+    if (!ctx || !this.master || this.engine || !base) return;
     const osc = ctx.createOscillator();
     const osc2 = ctx.createOscillator();
     const filter = ctx.createBiquadFilter();

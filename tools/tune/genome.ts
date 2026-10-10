@@ -3,7 +3,8 @@ import type { LevelDef } from '../../src/levels';
 import { BLOCK, MATERIALS, type MaterialId } from '../../src/physics/materials';
 import { defaultSag, layMain } from '../../src/maincable';
 import { blockSpot, pointAllowed, topY } from '../../src/rules';
-import { hangDeck, pylon } from '../../src/solutions';
+import { ringRise } from '../../src/masonry';
+import { blockArch, blockTower, hangDeck, pylon, towerPosts } from '../../src/solutions';
 
 /**
  * A structure grammar for one level: each gene picks one option, and build() turns the gene
@@ -13,7 +14,9 @@ import { hangDeck, pylon } from '../../src/solutions';
  * with concrete anchors, braced towers on pairs of pier bolts and backstays from mast and tower
  * tops down to blocks on the banks, carrying the side spans on hangers. Where a main cable is
  * on offer, concrete pylons on pier pairs 4 m apart, main cables between their peaks and the
- * mast tops at a chosen sag, and main cable backstays to one or two blocks a side.
+ * mast tops at a chosen sag, and main cable backstays to one or two blocks a side. Where
+ * concrete blocks and block arches are on offer, towers of blocks on the rocks, arches from
+ * tower to tower at a chosen rise, and posts up from both to the deck.
  */
 export interface Grammar {
   genes: Gene[];
@@ -47,7 +50,7 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
   const deckY = (x: number) => heightOn(waypoints, x);
   const offered = (m: MaterialId) => level.materials.includes(m);
   const beams = (['wood', 'steel'] as MaterialId[]).filter(offered);
-  const decks = (['road', 'heavy'] as MaterialId[]).filter(offered);
+  const decks = (['road', 'heavy', 'track'] as MaterialId[]).filter(offered);
   // A bonus search can ban every beam material; genes still need one option, and build() then skips beams.
   const beamOpts: string[] = beams.length ? beams : ['none'];
   // Supports may also be rams on drawbridge levels: a post that lifts the leaf.
@@ -126,6 +129,21 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
     hang: add(`deck hangs from the ${side < 0 ? 'left' : 'right'} main backstay`, ['no', 'yes'], slots.length === 1 ? 1 : 0),
   }));
   const mainHangGene = mainOk ? add('main span hangers', ['every joint', 'every other joint']) : -1;
+
+  // Blocks and arches: a tower on each rock, an arch from each rock's tower to the next one's.
+  const rocks = (level.rocks ?? []).toSorted((a, b) => a[0] - b[0]);
+  const brick = offered('masonry');
+  const archOk = offered('arch');
+  const stackGenes = brick
+    ? rocks.map((r) => {
+        // Rows that leave at least a meter clear under the deck.
+        const under = Math.min(deckY(Math.max(0, Math.min(W, r[0]))), deckY(Math.max(0, Math.min(W, r[1]))));
+        const most = Math.max(0, Math.min(10, Math.floor(under - r[2] - 1)));
+        return add(`blocks on rock ${r[0]}–${r[1]}`, ['none', ...Array.from({ length: most }, (_, k) => `${k + 1} rows`)], Math.min(most, 2));
+      })
+    : [];
+  const archGenes = archOk ? rocks.slice(0, -1).map((r, i) => add(`arch from rock ${r[0]} to ${rocks[i + 1][0]}`, ['none', ...ARCH_RISES.map((f) => `${f} of a natural rise`)], 1)) : [];
+  const postGene = (archOk || brick) && beams.length ? add('posts on the arches and towers', beams) : -1;
 
   // Deck joints of the straight bank-to-bank layout, used to size hanger genes.
   const probe = new Design(level);
@@ -216,6 +234,19 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
         }
       }
     }
+    // Block towers, arches between them, and posts up to the deck.
+    if (stackGenes.length || archGenes.length) {
+      const tops = rocks.map((r, i) => (stackGenes.length ? blockTower(d, level, r, g[stackGenes[i]]) : r[2]));
+      const post = beams[g[postGene]] ?? beams[0];
+      archGenes.forEach((gene, i) => {
+        const f = g[gene];
+        if (!f || !post) return;
+        const a: GridPt = [rocks[i][1], tops[i]];
+        const b: GridPt = [rocks[i + 1][0], tops[i + 1]];
+        blockArch(d, level, a, b, post, Math.max(0.5, Math.round(ringRise(d, a, b) * ARCH_RISES[f - 1] * 10) / 10));
+      });
+      if (post) rocks.forEach((r, i) => towerPosts(d, r, tops[i], post));
+    }
     d.pruneNodes();
     // Towers, then the backstays holding up free tops.
     for (const t of towerGenes) if (g[t.gene] === 1) tower(d, t.a, t.b, t.top);
@@ -244,6 +275,9 @@ function towerCandidates(level: LevelDef): { a: GridPt; b: GridPt; top: GridPt }
 }
 
 const TOWER_HEIGHT = 7;
+
+/** Block arch rises, as shares of the natural rise (a quarter span, or as high as the deck allows). */
+const ARCH_RISES = [1, 0.8, 0.6];
 
 /** Main span sags, as fractions of the span: 1/12 to 1/5. */
 const MAIN_SAGS = [12, 10, 8, 6, 5];

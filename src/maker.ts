@@ -17,7 +17,7 @@ export const LIMITS = { minWidth: 4, maxWidth: 64, maxHeight: 24, minWater: -14,
 /** Tag on exported files, so an import can tell a level from any other JSON. */
 const FORMAT = 'bridge-builder-level';
 
-export type MakerTool = 'bolt' | 'pier' | 'pylon' | 'mast' | 'channel' | 'erase';
+export type MakerTool = 'bolt' | 'pier' | 'pylon' | 'mast' | 'rock' | 'channel' | 'erase';
 /** Most a level's concrete anchors may sit back from each bank, m. */
 export const MAX_BLOCK_REACH = 12;
 
@@ -165,6 +165,38 @@ export function toggleMast(l: LevelDef, x: number, y: number): { ok: boolean; ms
   return { ok: true, msg: l.blocks ? 'Mast added: it tips freely, so backstay it' : 'Mast added: offer concrete anchors in Settings so it can be backstayed' };
 }
 
+/**
+ * Raises a rock 2 m wide from the riverbed with its top at (x, y), such as a shelf at a canyon
+ * wall or an island, for concrete blocks to stand on; or removes the rock there.
+ */
+export function toggleRock(l: LevelDef, x: number, y: number): { ok: boolean; msg: string } {
+  const rocks = (l.rocks ??= []);
+  const i = rocks.findIndex(([a, b, top]) => x >= a && x <= b && y <= top && y > l.waterY - 1);
+  if (i >= 0) {
+    rocks.splice(i, 1);
+    if (!rocks.length) delete l.rocks;
+    return { ok: true, msg: 'Rock removed' };
+  }
+  const fail = (msg: string) => {
+    if (!rocks.length) delete l.rocks;
+    return { ok: false, msg };
+  };
+  if (x < 0 || x > l.width) return fail('Rocks rise in the gap');
+  if (y <= l.waterY) return fail('Rock tops go above the water');
+  if (y > Math.min(0, l.rightY ?? 0) - 1) return fail('Keep rock tops a meter under the road');
+  const a = Math.max(0, x - 1);
+  const b = Math.min(l.width, a + 2);
+  if (b - a < 2) return fail('Too narrow here for a rock');
+  const near = (px: number) => px > a - 0.6 && px < b + 0.6;
+  if ([...l.piers.map((p) => p[0]), ...[...(l.towers ?? []), ...(l.masts ?? [])].map((t) => t[0])].some(near)) return fail('Too close to a pier, pylon or mast');
+  if (rocks.some(([c, d]) => c < b && d > a)) return fail('Overlaps another rock');
+  if (l.channels?.some(([c0, c1]) => c0 < b && c1 > a)) return fail('In the ship channel');
+  rocks.push([a, b, y]);
+  rocks.sort((p, q) => p[0] - q[0]);
+  if (!l.materials.includes('masonry')) l.materials = MATERIAL_ORDER.filter((m) => m === 'masonry' || m === 'arch' || l.materials.includes(m));
+  return { ok: true, msg: 'Rock added: concrete blocks and block arches stand on it' };
+}
+
 /** Mast height a new drawbridge's ship gets: 3 m over the channel, as on the built-in levels. */
 const DEFAULT_MAST = 3;
 
@@ -224,7 +256,7 @@ export function addChannel(l: LevelDef, x0: number, x1: number, top: number): { 
   return { ok: true, msg };
 }
 
-/** Removes the bolt, seat, pylon or channel at a point, in that order. */
+/** Removes the bolt, seat, pylon, mast, rock or channel at a point, in that order. */
 export function eraseAt(l: LevelDef, x: number, y: number): { ok: boolean; msg: string } {
   const i = anchorIndex(l, x, y);
   if (i >= 0) {
@@ -246,6 +278,7 @@ export function eraseAt(l: LevelDef, x: number, y: number): { ok: boolean; msg: 
   }
   const m = l.masts?.find((tw) => Math.abs(tw[0] - x) < 0.6 && y >= tw[1] && y <= tw[2]);
   if (m) return toggleMast(l, m[0], m[2]);
+  if (l.rocks?.some(([a, b, top]) => x >= a && x <= b && y <= top)) return toggleRock(l, x, y);
   const c = l.channels?.findIndex(([c0, c1, top]) => x > c0 && x < c1 && y <= top + 0.5) ?? -1;
   if (c >= 0) {
     l.channels!.splice(c, 1);
@@ -294,6 +327,10 @@ export function setSize(l: LevelDef, width: number, rightY: number, waterY: numb
   if (l.overhangs) {
     l.overhangs = l.overhangs.filter((o) => o.reach < W / 2);
     if (!l.overhangs.length) delete l.overhangs;
+  }
+  if (l.rocks) {
+    l.rocks = l.rocks.map(([a, b, t]): [number, number, number] => [a, Math.min(b, W), t]).filter(([a, b, t]) => b - a >= 1 && t > water);
+    if (!l.rocks.length) delete l.rocks;
   }
 }
 
@@ -364,7 +401,8 @@ export function parseLevel(json: string, id: number): LevelDef {
   if (typeof r.width !== 'number' || !Array.isArray(r.anchors)) throw new Error('A level needs at least a width and anchors.');
 
   const width = clampInt(r.width, LIMITS.minWidth, LIMITS.maxWidth);
-  const rightY = clampInt(num(r.rightY, 0), -8, 8);
+  // A tenth of a meter, as built-in levels may set it: 11-3's far bank sits at a 3% grade.
+  const rightY = Math.round(Math.max(-8, Math.min(8, num(r.rightY, 0))) * 10) / 10;
   const waterY = clampWater(num(r.waterY, -5), rightY);
   const inGap = (x: number) => x >= 0 && x <= width;
 
@@ -385,6 +423,11 @@ export function parseLevel(json: string, id: number): LevelDef {
     if (!Array.isArray(v) || v.length !== 3 || !v.every((n) => typeof n === 'number' && Number.isFinite(n))) return null;
     const [a, b, top] = v.map(round);
     return a >= 0 && b <= width && b - a >= 1 ? [a, b, Math.max(top, waterY + 1)] : null;
+  });
+  const rocks = list(r.rocks, (v): [number, number, number] | null => {
+    if (!Array.isArray(v) || v.length !== 3 || !v.every((n) => typeof n === 'number' && Number.isFinite(n))) return null;
+    const [a, b, top] = v.map(round);
+    return a >= 0 && b <= width && b - a >= 1 && top > waterY && top <= LIMITS.maxHeight ? [a, b, top] : null;
   });
   const overhangs = list(r.overhangs, (v): Overhang | null => {
     if (!isObj(v) || (v.side !== 'left' && v.side !== 'right')) return null;
@@ -427,8 +470,22 @@ export function parseLevel(json: string, id: number): LevelDef {
   if (typeof r.ceiling === 'number') level.ceiling = clampInt(r.ceiling, 0, LIMITS.maxHeight);
   if (channels.length) level.channels = channels;
   if (overhangs.length) level.overhangs = overhangs;
+  if (rocks.length) level.rocks = rocks;
   if (convoy.length) level.convoy = convoy;
   if (isObj(r.ship) && channels.length) level.ship = { mast: clampInt(num(r.ship.mast, 3), 1, 20) };
+  // A train's brake stop, the weather and the ground: each kept when it reads as one.
+  if (isObj(r.brake) && within(r.brake.at, 0, width)) level.brake = within(r.brake.hold, 0, 30) ? { at: r.brake.at, hold: r.brake.hold as number } : { at: r.brake.at };
+  if (isObj(r.wind) && within(r.wind.push, 0, 1e5) && within(r.wind.lift, 0, 1e5) && within(r.wind.period, 0.2, 60)) level.wind = { push: r.wind.push, lift: r.wind.lift, period: r.wind.period };
+  if (isObj(r.quake) && within(r.quake.g, 0, 2) && within(r.quake.freq, 0.1, 10) && within(r.quake.at, -60, width + 60) && within(r.quake.dur, 0.5, 60)) level.quake = { g: r.quake.g, freq: r.quake.freq, at: r.quake.at, dur: r.quake.dur };
+  if (isObj(r.march) && within(r.march.pace, 0.1, 5) && within(r.march.force, 0, 1)) level.march = { pace: r.march.pace, force: r.march.force };
+  const mud = list(r.mud, (v): [number, number, number] | null => {
+    if (!Array.isArray(v) || v.length !== 3 || !v.every((n) => typeof n === 'number' && Number.isFinite(n))) return null;
+    const [a, b, top] = v.map(round);
+    return a >= 0 && b <= width && b - a >= 1 && top > waterY && top <= 0 ? [a, b, top] : null;
+  });
+  if (mud.length) level.mud = mud;
+  if (isObj(r.piles) && mud.length && within(r.piles.price, 0, 100000)) level.piles = { price: Math.round(r.piles.price) };
+  if (isObj(r.flood) && within(r.flood.at, -60, width + 60) && within(r.flood.rise, 0, 20) && within(r.flood.current, 0, 1e5)) level.flood = { at: r.flood.at, rise: r.flood.rise, current: r.flood.current };
   if (isObj(r.limits)) {
     const limits: Partial<Record<MaterialId, number>> = {};
     for (const [m, n] of Object.entries(r.limits)) if (isMaterial(m) && materials.includes(m) && typeof n === 'number' && n >= 0) limits[m] = Math.floor(n);
@@ -516,6 +573,11 @@ function isMaterial(v: unknown): v is MaterialId {
 
 function isVehicle(v: unknown): v is VehicleId {
   return typeof v === 'string' && v in VEHICLES;
+}
+
+/** Whether v is a number from lo to hi. */
+function within(v: unknown, lo: number, hi: number): v is number {
+  return typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
 }
 
 function num(v: unknown, fallback: number): number {

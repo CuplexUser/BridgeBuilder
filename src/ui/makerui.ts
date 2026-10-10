@@ -16,8 +16,9 @@ export const MAKER_TOOLS: { id: MakerTool; name: string; help: string }[] = [
   { id: 'pier', name: 'Pier', help: 'Tap a bolt in the gap to stand a pier under it, or tap anywhere else in the gap for a seat: a pier with no bolt that a deck rests on and can lift off.' },
   { id: 'pylon', name: 'Pylon', help: 'Tap where a pylon top should go: it rises from the water with a bolt on top.' },
   { id: 'mast', name: 'Mast', help: 'Tap where a mast top should go: it rises from the water on a hinge, so players have to backstay it to concrete anchors.' },
+  { id: 'rock', name: 'Rock', help: 'Tap where the top of a rock should go: a shelf or island 2 m wide, rising from the riverbed, for concrete blocks and arches to stand on. Tap one to remove it.' },
   { id: 'channel', name: 'Channel', help: 'Tap open water to fill it between the piers and banks, up to the road. Or drag for your own span, clear up to the height you start at.' },
-  { id: 'erase', name: 'Erase', help: 'Tap a bolt, seat, pylon, mast or channel to remove it.' },
+  { id: 'erase', name: 'Erase', help: 'Tap a bolt, seat, pylon, mast, rock or channel to remove it.' },
 ];
 
 /** The level editor's DOM: tools, the settings form, the custom level list and the share dialog. */

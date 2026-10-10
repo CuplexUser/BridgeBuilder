@@ -54,7 +54,7 @@ export class Ui {
       const b = document.createElement('button');
       b.className = 'mat';
       b.dataset.mat = id;
-      b.innerHTML = `<kbd>${i + 1}</kbd><i></i><span class="full">${MATERIALS[id].name}</span><span class="short">${MATERIALS[id].short}</span><b>0</b><em hidden></em>`;
+      b.innerHTML = `<kbd>${(i + 1) % 10}</kbd><i></i><span class="full">${MATERIALS[id].name}</span><span class="short">${MATERIALS[id].short}</span><b>0</b><em hidden></em>`;
       if (MATERIALS[id].drivable) b.title = `${MATERIALS[id].name}: carries up to ${MATERIALS[id].rating} t`;
       else if (MATERIALS[id].stroke) b.title = `Hydraulic ram: extends by ${Math.round(MATERIALS[id].stroke * 100)}% to open a drawbridge`;
       mats.appendChild(b);
@@ -183,8 +183,11 @@ export class Ui {
       badge.hidden = parts === null;
       badge.textContent = `${parts ?? ''} left`;
       b.classList.toggle('active', id === active);
-      // Materials a level doesn't offer are hidden so the toolbar stays compact on phones.
+      // Materials a level doesn't offer are hidden so the toolbar stays compact on phones. The
+      // keys number the ones it does, in toolbar order.
       b.classList.toggle('hidden', !level.materials.includes(id));
+      const key = offeredInOrder(level).indexOf(id);
+      b.querySelector('kbd')!.textContent = key >= 0 && key < 10 ? String((key + 1) % 10) : '';
       // Can't afford even a one-meter piece, or none of this material is left.
       b.classList.toggle('empty', left < price || parts === 0);
     }
@@ -500,6 +503,11 @@ export class Ui {
   overRank(rank: number): void {
     $('over-rank').textContent = rank >= 0 ? `New high score! #${rank + 1} on the board.` : '';
   }
+}
+
+/** The materials a level offers, in toolbar order: what keys 1–9 and 0 pick. */
+export function offeredInOrder(level: LevelDef): MaterialId[] {
+  return MATERIAL_ORDER.filter((m) => level.materials.includes(m));
 }
 
 /** Marks the bonus star wherever it is shown. */

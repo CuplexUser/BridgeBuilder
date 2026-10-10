@@ -17,6 +17,9 @@
   --ram: #ff6ad5;
   --main: #ff8f5a;
   --concrete: #d8cfbe;
+  --arch: #e9d58c;
+  --masonry: #d9cba8;
+  --track: #f2a8a0;
   --bonus: #7fe3ff;
   --font: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
@@ -694,6 +697,44 @@ kbd {
 .mat[data-mat='concrete'] i {
   height: 10px;
   border-radius: 1px;
+  box-shadow: none;
+}
+
+.mat[data-mat='track'] {
+  --c: var(--track);
+}
+
+.mat[data-mat='track'] i {
+  /* A rail over sleepers. */
+  height: 8px;
+  background: linear-gradient(var(--track) 0 30%, transparent 30%), repeating-linear-gradient(to right, var(--track) 0 3px, transparent 3px 6px);
+  box-shadow: none;
+}
+
+.mat[data-mat='masonry'] {
+  --c: var(--masonry);
+}
+
+.mat[data-mat='masonry'] i {
+  /* Two blocks side by side. */
+  width: 22px;
+  height: 11px;
+  border-radius: 1px;
+  background: linear-gradient(to right, var(--masonry) 0 47%, transparent 47% 53%, var(--masonry) 53%);
+  box-shadow: none;
+}
+
+.mat[data-mat='arch'] {
+  --c: var(--arch);
+}
+
+.mat[data-mat='arch'] i {
+  /* A thick ring rising in a curve. */
+  height: 8px;
+  border: 4px solid var(--arch);
+  border-bottom: none;
+  border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  background: none;
   box-shadow: none;
 }
 
@@ -2364,6 +2405,10 @@ label.btn {
 
 .mk-tool[data-tool='mast'] {
   --c: var(--wood);
+}
+
+.mk-tool[data-tool='rock'] {
+  --c: var(--masonry);
 }
 
 .mk-tool[data-tool='channel'] {

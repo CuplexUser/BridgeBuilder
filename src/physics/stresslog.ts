@@ -14,13 +14,15 @@ export class StressLog {
   t: number[] = [];
   /** Highest load ratio at each sample, members and joints alike. */
   peak: number[] = [];
-  /** What carried that peak: a design member index, -2 - node for a joint, or -1 for nothing. */
+  /** What carried that peak: a design member index, -2 - node for a joint, or -1 for nothing or a block. */
   who: number[] = [];
   /** Per sample, each member's load ratio (absolute); NaN once it has broken. */
   members: Float32Array[] = [];
   breaks: { t: number; member: number }[] = [];
   phases: { t: number; phase: Phase }[] = [];
   private broken = new Set<number>();
+  /** Block links already logged as broken: one sample at 100% marks the crack. */
+  private brokenCells = new Set<object>();
   private next = 0;
   private stopAt = Infinity;
 
@@ -55,6 +57,16 @@ export class StressLog {
       if (s > peak) {
         peak = s;
         who = l.member;
+      }
+    }
+    // Concrete blocks count toward the peak, though the graph can't ring one: it isn't a member.
+    for (const l of world.links) {
+      if (!l.bridge || l.cell < 0) continue;
+      const s = l.broken ? (this.brokenCells.has(l) ? 0 : 1) : Math.abs(l.stress);
+      if (l.broken) this.brokenCells.add(l);
+      if (s > peak) {
+        peak = s;
+        who = -1;
       }
     }
     for (const p of world.jointLinks.keys()) {

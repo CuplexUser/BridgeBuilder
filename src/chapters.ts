@@ -99,6 +99,22 @@ export const CHAPTERS: ChapterDef[] = [
     effort: 'Grand builds · 60–120 parts',
     levels: [41, 42, 43, 44, 45],
   },
+  {
+    id: 10,
+    name: 'Arches',
+    blurb: 'Concrete blocks and block arches. They only push: send every thrust into rock.',
+    difficulty: 10,
+    effort: 'Big builds · 25–60 parts',
+    levels: [46, 47, 48, 49, 50],
+  },
+  {
+    id: 11,
+    name: 'Railway',
+    blurb: 'Trains: long, heavy and coupled, on track that climbs 3% at most. One stops on the bridge.',
+    difficulty: 11,
+    effort: 'Big builds · 20–60 parts',
+    levels: [51, 52, 53, 54, 55],
+  },
 ];
 
 export function levelById(id: number): LevelDef {

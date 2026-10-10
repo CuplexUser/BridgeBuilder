@@ -3,6 +3,7 @@ import { fitDesign } from './editor';
 import type { LevelDef } from './levels';
 import { designs as TUNED_DESIGNS } from './levels.res';
 import { mainRuns } from './maincable';
+import { rings } from './masonry';
 import { MATERIALS, type MaterialId } from './physics/materials';
 import { SOLUTIONS } from './solutions';
 
@@ -44,18 +45,19 @@ export function costReview(cost: number, best: number, money: (v: number) => str
 }
 
 /**
- * A design as the members a player would place, in the order hints reveal them: each deck run
- * in one piece, left to right, then every other beam, cable or main cable run left to right.
+ * A design as the members a player would place, in the order hints reveal them: blocks and arch
+ * rings, bottom up, then each deck run in one piece, left to right, then every other beam,
+ * cable or main cable run left to right.
  */
 export function ghosts(d: Design): Ghost[] {
   const pt = (i: number): GridPt => [d.nodes[i].x, d.nodes[i].y];
   const done = new Set<number>();
   const deck: Ghost[] = [];
   const rest: Ghost[] = [];
-  // Main cables, whole runs.
-  for (const { part, chain } of mainRuns(d)) {
+  // Main cables and arches, whole runs.
+  for (const { part, mat, chain } of mainRuns(d)) {
     d.members.forEach((m, i) => m.part === part && done.add(i));
-    rest.push([pt(chain[0]), pt(chain[chain.length - 1]), 'main']);
+    rest.push([pt(chain[0]), pt(chain[chain.length - 1]), mat]);
   }
   // Split beams, end to end: the pieces of a part lie on one line.
   const parts = new Map<number, number[]>();
@@ -100,8 +102,13 @@ export function ghosts(d: Design): Ghost[] {
   d.members.forEach((m, i) => {
     if (!done.has(i)) rest.push([pt(m.a), pt(m.b), m.mat]);
   });
+  // Blocks: each square from its lower left corner to its upper right, and each arch ring whole.
+  const blocks: Ghost[] = d.cells.flatMap((c): Ghost[] => (c.mat === 'masonry' ? [[pt(c.n[0]), pt(c.n[2]), c.mat]] : []));
+  for (const { intra } of rings(d)) blocks.push([pt(intra[0]), pt(intra[intra.length - 1]), 'arch']);
   const mid = (g: Ghost) => (g[0][0] + g[1][0]) / 2;
-  return [...deck.toSorted((g, h) => mid(g) - mid(h)), ...rest.toSorted((g, h) => mid(g) - mid(h))];
+  // Blocks go first: the bars stand on them. Lowest first, so a wall goes up row by row.
+  const low = (g: Ghost) => Math.min(g[0][1], g[1][1]);
+  return [...blocks.toSorted((g, h) => low(g) - low(h) || mid(g) - mid(h)), ...deck.toSorted((g, h) => mid(g) - mid(h)), ...rest.toSorted((g, h) => mid(g) - mid(h))];
 }
 
 /**
