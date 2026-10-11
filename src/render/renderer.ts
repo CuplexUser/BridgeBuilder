@@ -2750,7 +2750,8 @@ export class Renderer {
 
   /**
    * Concrete blocks as they stand: a face shaded by how hard the block works, with a lit top
-   * edge, and a dark jagged crack along every side that has given way.
+   * edge, a dark jagged crack along every side that has given way, and a seam down every arch
+   * ring joint whose mortar cracked.
    */
   private paintCells(run: TestRun): void {
     const { ctx, cam } = this;
@@ -2798,6 +2799,22 @@ export class Renderer {
         ctx.stroke();
       }
     }
+    // A ring joint whose mortar cracked: a dark seam down both its faces, which gapes as it hinges.
+    if (!w.faces.some((f) => f.crack1 || f.crack2)) return;
+    ctx.strokeStyle = 'rgba(30,22,14,0.85)';
+    ctx.lineWidth = Math.max(1, 0.05 * cam.scale);
+    ctx.beginPath();
+    for (const f of w.faces) {
+      if (!f.crack1 && !f.crack2) continue;
+      for (const [a, b] of [
+        [f.a1, f.a2],
+        [f.b1, f.b2],
+      ]) {
+        ctx.moveTo(...at(a));
+        ctx.lineTo(...at(b));
+      }
+    }
+    ctx.stroke();
   }
 
   /** Low guard rail with posts about every meter along each intact deck piece. */

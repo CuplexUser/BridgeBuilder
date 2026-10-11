@@ -77,7 +77,7 @@ export const CHAPTERS: ChapterDef[] = [
     name: 'Railway',
     blurb: 'Trains: long, heavy and coupled, on track that climbs 3% at most. Then soft mud that sinks under a load.',
     difficulty: 6,
-    effort: 'Big builds · 15–55 parts',
+    effort: 'Big builds · 15–60 parts',
     levels: [51, 52, 53, 54, 55, 61, 62],
   },
   {

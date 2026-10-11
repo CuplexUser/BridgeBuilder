@@ -8,6 +8,7 @@ Features and improvements, by priority. Finished items stay checked for a releas
 
 - [x] **Level optimizer** (`npm run tune`). Genetic search over a structure grammar plus local polishing finds each level's cheapest robust design, then derives target, budget and bonus goal, and checks each level's intent: shortcuts fail, required materials are really needed, and there's room for more than one answer. It can also tune marked geometry. Effort levels, a time budget, live progress with time left, and checkpoints so a crashed or interrupted run resumes.
 - [x] **Level verifier** (`npm run verify`). Checks every level in about two minutes without optimizing: it drives the tuner's stock starting designs and seeded random ones, plus the reference, ghost and shortcuts, and reports stale tuning, a lesson that probes get around, probes that undercut the reference, free bonus goals, hazards that hardly bite, broken ghosts, bad level data and chapter part ranges that don't fit.
+- [x] **Arch rings with mortared joints that crack and hinge.** Each wedge block of a ring has its own corners and meets its neighbors through a mortared face that holds each edge shut up to 25 kN of pull. Past that the mortar cracks for good (drawn as a dark seam) and the joint only presses from then on, so it gapes on one edge and hinges on the other like a real voussoir. Thrust and point loads now matter. A bare 18 m ring holds 10 t hung at quarter span and folds under 20 t. A flat 16 m arch for a truck that held at 20% now works at 94%, and two rows of block struts against the bank walls bring it back to 21%. *Great Arch* peaks at 68% under the semi on a ring sprung from three-block towers (the old four-block towers left it at 92%), and *Hanging Deck*'s through arch rose from 17% to 47%. The seven arch levels were quick-tuned again, and their free stress bonuses became cost goals: the tuner no longer keeps an old bonus goal that the reference already meets.
 - [x] **Semi suspension margins.** The semi rides on three axles, so a hung deck no longer kinks under two concentrated wheel loads.
 - [x] **Level 30 channel.** The ship channel is 2 m clear of the water, the deck climbs to bolts 2 m up the pylons, and road runs snap to any bolt they pass over, so those bolts can be used. The optimizer tried this, its preferred layout, first and kept it: trusses 2 or 3 m deep over the channel fail, and the best design ($32,370) hangs the deck from main cables.
 - [x] **Heavy deck as a lesson.** Heavy deck now arrives in chapter 5 with the semi, where road can't carry the load.
@@ -30,13 +31,7 @@ Features and improvements, by priority. Finished items stay checked for a releas
 
 ### Next
 
-In this order:
-
-- [ ] **1. Arch levels that make thrust and point loads matter.** The arch levels (5-3 to 5-7) now ask for a different arch each (see Done), but two of the planned directions don't bite in the physics yet, so they wait:
-  - A flat arch under a low ceiling or a ship channel that needs buttresses or a tie. Measured: a 16 m ring rising 1.5 m on footings one block high, out on islands, holds at 21% peak, because the 1 m ring of square-cornered blocks carries much of its load by bending, like a stiff beam, and its own weight presses the footings down. At 24 m the footings crack rather than slide, and whether a heavier abutment helps changes from one geometry to the next.
-  - Point loads on the crown that a thin ring can't take without spandrels filled in. Measured: a semi crosses a thin 20 to 24 m ring at about 60% peak.
-  - Both need ring joints that open and hinge like real voussoirs instead of bending. Friction on rock also ignores the shear a block passes on through its square corners; counting it (tried) made footings grip harder, not less, because the estimate inflates the push into the rock.
-- [ ] **2. Normal-effort tuning of levels 56–70.** The dynamics, foundations and finale levels were tuned at the quick effort only, as agreed, to get them playable. Run `npm run tune -- --levels 56,57,58,59,60,61,62,63,64,65,66,67,68,69,70` once everything else is in; the march levels (56, 59, 60, 68) are slow, a few simulations a second.
+- [ ] **Normal-effort tuning of levels 46–50, 55 and 56–70.** The arch, dynamics, foundations and finale levels were tuned at the quick effort only, as agreed, to get them playable. Run `npm run tune -- --levels 46,47,48,49,50,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70`, then `npm run verify`; the march levels (56, 59, 60, 68) are slow, a few simulations a second.
 
 ## P2: Gameplay depth
 
@@ -60,7 +55,7 @@ In this order:
 
 - [ ] **Two-track railway levels:** two decks, one over the other, or side by side in the 2D view.
 - [ ] **Prestressed concrete.** Blocks with a cable tendon pulled tight through them, so a block beam can carry bending. A family of shapes the block arch doesn't cover.
-- [ ] **Harder hazards.** Measured while making the finale: a 0.25–0.3 g quake barely loads block arches, a rail viaduct or the concrete towers of 9-2 to 9-5 (peaks rise 4–10 points), and a gale doesn't trouble trains or trusses; only light suspension decks on hinged masts fail in one. Hazard remixes of the classic levels need stronger shaking or gusts, or bridges that resonate with them.
+- [ ] **Harder hazards.** Measured while making the finale: a 0.25–0.3 g quake barely loads block arches, a rail viaduct or the concrete towers of 9-2 to 9-5 (peaks rise 4–10 points), and a gale doesn't trouble trains or trusses; only light suspension decks on hinged masts fail in one. Hazard remixes of the classic levels need stronger shaking or gusts, or bridges that resonate with them. The verifier (`npm run verify`) finds the same in the levels: on *Signal Stop* the brake stop doesn't raise the reference's peak or break a probe that holds without it, and the wind on *Storm Parade* breaks nothing that holds in calm. On the flood levels (*Floodtide*, *Delta Haul*, *Last Crossing*) the mud alone already defeats every probe without piles, so whether the flood bites can't be told.
 - [ ] Ideas: double-leaf bascules, lift bridges, a swing bridge, and a ship that has to wait for traffic instead of the other way around.
 
 ## P3: Polish and social

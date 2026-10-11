@@ -50,6 +50,12 @@ export interface Material {
    * and EA, tension and compression are per link of the stiff frame each block is simulated as.
    */
   cell?: 'brush' | 'ring';
+  /**
+   * The joints between a ring's blocks open: neighboring blocks only press on each other through
+   * their faces, so where the line of thrust leaves the ring a joint gapes and hinges on one edge,
+   * like real voussoirs, instead of the ring bending like one stiff beam.
+   */
+  hinged?: boolean;
   /** How much longer it gets when a drawbridge opens, as a share of its built length. 0 for fixed members. */
   stroke: number;
   /**
@@ -267,6 +273,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
     curved: true,
     arch: true,
     cell: 'ring',
+    hinged: true,
     stroke: 0,
   },
   // A hydraulic damper: a soft spring that carries little standing load, but pushes back hard on

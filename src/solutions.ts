@@ -462,7 +462,7 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
   66: (l) => pileBridge(l, [0, 6, 12, 18, 24, 30], [6, 12, 18, 24], 'track'),
   67: (l) => pileBridge(l, [0, 8, 14, 20, 26, 32, 40], [8, 14, 20, 26, 32], 'heavy'),
   68: (l) => marchBridge(l),
-  69: (l) => archBridge(l, 'heavy', [4, 4], [[0, 1]], 'steel'),
+  69: (l) => archBridge(l, 'heavy', [3, 3], [[0, 1]], 'steel'),
   // Piles on both flats, and a deeper all-steel truss over the ship channel between them.
   70: (l) => pileBridge(l, [0, 6, 12, 18, 30, 36, 42, 48], [6, 12, 18, 30, 36, 42], 'heavy', (x) => (x === 18 ? [3, STEELY] : [2, HEAVY])),
   55: (l) => archBridge(l, 'track', [2, 2, 2, 2], [[0, 1], [1, 2], [2, 3]], 'steel'),

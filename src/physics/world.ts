@@ -13,6 +13,10 @@ export const PHYSICS_VERSION = 3;
 export const GRAVITY = -9.81;
 export const STEP = 1 / 60;
 const SUBSTEPS = 24;
+/** Passes over the arch ring joints per substep: one is too soft for a long chain of blocks. */
+const FACE_ITERATIONS = 4;
+/** A ring joint whose corners part this far, m, has come apart for good. */
+const FACE_APART = 0.4;
 const AXIAL_DAMPING = 40; // 1/s, relative axial velocity bleed on bridge members
 const AIR_DAMPING = 0.05;
 const JOINT_MASS = 6;
@@ -128,6 +132,34 @@ export interface Bend {
   bc: Link;
 }
 
+/**
+ * A mortared joint between two blocks of an arch ring, each block with its own corners on it:
+ * the earlier block's a1 and a2, the later block's b1 and b2, built on the same two points.
+ * Pressed together, the blocks push back and grip across it. The mortar holds each edge shut
+ * until it's pulled harder than `bond`; then that edge cracks for good, and from there on the
+ * blocks only press, so where the thrust leaves the ring the joint gapes on one edge and hinges
+ * on the other, like real voussoirs.
+ */
+export interface Face {
+  a1: number;
+  a2: number;
+  b1: number;
+  b2: number;
+  /** Which way the face's normal turns, from the earlier block into the later one. */
+  sign: number;
+  compliance: number;
+  /** How far each edge of the joint stands open, m, as of the last step: 0 while pressed. */
+  gap1: number;
+  gap2: number;
+  /** The blocks came apart: they no longer meet across this joint. */
+  apart: boolean;
+  /** Pull each edge's mortar holds, N. */
+  bond: number;
+  /** Each edge's mortar has cracked. */
+  crack1: boolean;
+  crack2: boolean;
+}
+
 /** A concrete anchor: bolted down while it holds, a heavy free mass dragging over the bank once it tears loose. */
 export interface Block {
   /** Its joint: the bolt on top. */
@@ -189,6 +221,8 @@ export class World {
   block: BlockDef = BLOCK;
   /** Each concrete block's frame: its corner particles and its links, by index into Design.cells. */
   cells: { n: number[]; links: Link[] }[] = [];
+  /** The joints between an arch ring's blocks, which open and hinge. */
+  faces: Face[] = [];
   /** Block corners that bear on rock: the banks, their walls and pier tops push back but don't hold. */
   rock: number[] = [];
   /** Per rock corner, in step with `rock`: the links pulling on it, the face it last pressed on, and whether friction holds it. */
@@ -374,6 +408,7 @@ export class World {
       }
 
       this.solveBends(h);
+      for (let k = 0; this.faces.length && k < FACE_ITERATIONS; k++) this.solveFaces(h);
       this.solveContacts();
       this.solveSeats();
       this.solveRock();
@@ -401,6 +436,7 @@ export class World {
     }
 
     this.updateStress(dt);
+    if (this.faces.length) this.updateFaces();
     this.updateBlocks();
     this.updateRock(dt);
     if (this.soft.length) this.updateSoft(dt);
@@ -691,6 +727,77 @@ export class World {
    * A seated joint can't sink into its pier or slide off it, and a member crossing a seat can't
    * sink into it, though it may slide along it. Nothing holds either down.
    */
+  /** Arch ring joints: push the blocks apart where they overlap, and stop pressed faces sliding. */
+  private solveFaces(h: number): void {
+    const { x, y } = this;
+    const invH2 = 1 / (h * h);
+    for (const f of this.faces) {
+      if (f.apart) continue;
+      // Blocks that have come apart don't meet across this joint again.
+      if (Math.hypot(x[f.b1] - x[f.a1], y[f.b1] - y[f.a1]) > FACE_APART || Math.hypot(x[f.b2] - x[f.a2], y[f.b2] - y[f.a2]) > FACE_APART) {
+        f.apart = true;
+        continue;
+      }
+      // The joint's line, averaged over both blocks' faces, and its normal into the later block.
+      let tx = x[f.a2] - x[f.a1] + x[f.b2] - x[f.b1];
+      let ty = y[f.a2] - y[f.a1] + y[f.b2] - y[f.b1];
+      const L = Math.hypot(tx, ty);
+      if (L < 1e-9) continue;
+      tx /= L;
+      ty /= L;
+      const nx = ty * f.sign;
+      const ny = -tx * f.sign;
+      const alpha = f.compliance * invH2;
+      f.gap1 = this.press(f.a1, f.b1, nx, ny, tx, ty, alpha, !f.crack1);
+      f.gap2 = this.press(f.a2, f.b2, nx, ny, tx, ty, alpha, !f.crack2);
+    }
+  }
+
+  /** Cracks the mortar of every ring joint edge pulled open harder than it holds. */
+  private updateFaces(): void {
+    const { x, y } = this;
+    for (const f of this.faces) {
+      if (f.apart || (f.crack1 && f.crack2)) continue;
+      let tx = x[f.a2] - x[f.a1] + x[f.b2] - x[f.b1];
+      let ty = y[f.a2] - y[f.a1] + y[f.b2] - y[f.b1];
+      const L = Math.hypot(tx, ty);
+      if (L < 1e-9) continue;
+      tx /= L;
+      ty /= L;
+      const nx = ty * f.sign;
+      const ny = -tx * f.sign;
+      // A held edge stretched open this far is pulling with `bond` newtons.
+      const limit = f.bond * f.compliance;
+      if (!f.crack1 && (x[f.b1] - x[f.a1]) * nx + (y[f.b1] - y[f.a1]) * ny > limit) f.crack1 = true;
+      if (!f.crack2 && (x[f.b2] - x[f.a2]) * nx + (y[f.b2] - y[f.a2]) * ny > limit) f.crack2 = true;
+    }
+  }
+
+  /**
+   * One edge of a ring joint: corner a of the earlier block against corner b of the later one,
+   * held shut while its mortar is whole. Returns how far it stands open, 0 while pressed or held.
+   */
+  private press(a: number, b: number, nx: number, ny: number, tx: number, ty: number, alpha: number, bonded: boolean): number {
+    const { x, y, im } = this;
+    const w = im[a] + im[b];
+    if (w === 0) return 0;
+    const gap = (x[b] - x[a]) * nx + (y[b] - y[a]) * ny;
+    if (gap > 0 && !bonded) return gap;
+    const ln = -gap / (w + alpha);
+    x[a] -= nx * ln * im[a];
+    y[a] -= ny * ln * im[a];
+    x[b] += nx * ln * im[b];
+    y[b] += ny * ln * im[b];
+    // Held or pressed together, the edge grips: a whole joint acts as one piece until it cracks.
+    const slip = (x[b] - x[a]) * tx + (y[b] - y[a]) * ty;
+    const lt = -slip / (w + alpha);
+    x[a] -= tx * lt * im[a];
+    y[a] -= ty * lt * im[a];
+    x[b] += tx * lt * im[b];
+    y[b] += ty * lt * im[b];
+    return 0;
+  }
+
   private solveSeats(): void {
     const { x, y, im } = this;
     for (const s of this.seats) {
@@ -977,9 +1084,10 @@ export interface VehicleHandle {
 export function buildWorld(design: Design, level: LevelDef): { world: World; vehicles: VehicleHandle[] } {
   const defs = convoyLayout(level).map((c) => c.def);
   const { ends, extra, seats } = seatJoints(design, level);
+  const split = ringSplit(design);
   const joints = design.nodes.length + extra.length;
   const masts = level.masts ?? [];
-  const world = new World(joints + masts.length + 6 * defs.length + 2, level.waterY - 8);
+  const world = new World(joints + masts.length + split.copies.length + 6 * defs.length + 2, level.waterY - 8);
   const mass = new Float64Array(joints).fill(JOINT_MASS);
   design.members.forEach((m, i) => {
     const a = design.nodes[m.a];
@@ -988,10 +1096,15 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
     mass[ends[i][0]] += half;
     mass[ends[i][1]] += half;
   });
-  // A block's weight sits on its corners.
+  // A block's weight sits on its corners, its own where it has them.
+  const copyMass = new Float64Array(split.copies.length);
   design.cells.forEach((c, k) => {
     const share = (design.cellArea(k) * MATERIALS[c.mat].density) / c.n.length;
-    for (const i of c.n) mass[i] += share;
+    for (const i of c.n) {
+      const o = split.own.get(`${k} ${i}`);
+      if (o === undefined) mass[i] += share;
+      else copyMass[o] += share;
+    }
   });
   design.nodes.forEach((n, i) => world.addParticle(n.x, n.y, n.mast ? mass[i] + MAST.mass : n.anchor ? 0 : mass[i]));
   world.banks = { width: level.width, rightY: bankY(level) };
@@ -1007,7 +1120,9 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
     world.addLink(foot, head, (top - base) / MAST.EA);
     world.masts.push({ base: foot, top: head });
   }
-  world.bridgeCount = joints + masts.length;
+  const firstCopy = world.count;
+  split.copies.forEach((i, o) => world.addParticle(design.nodes[i].x, design.nodes[i].y, copyMass[o]));
+  world.bridgeCount = world.count;
   for (const p of seats) world.seats.push({ p, x: world.x[p], y: world.y[p] });
   design.members.forEach((m, i) => {
     const mat = MATERIALS[m.mat];
@@ -1028,7 +1143,12 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
     });
   });
 
-  addCells(world, design);
+  const corner = (k: number, i: number) => {
+    const o = split.own.get(`${k} ${i}`);
+    return o === undefined ? i : firstCopy + o;
+  };
+  addCells(world, design, corner);
+  addFaces(world, design, split.joints, corner);
   world.setRock(world.rock);
   for (const [px, py] of level.piers) world.rockPiers.push([px, py]);
   world.rockMasses = (level.rocks ?? []).map(([x0, x1, top]): [number, number, number] => [x0, x1, top]);
@@ -1222,7 +1342,7 @@ function seatJoints(design: Design, level: LevelDef): { ends: [number, number][]
  * Each concrete block as a stiff frame: links along its edges, shared with the block beside it,
  * and across its diagonals. Its corners that aren't bolted bear on rock.
  */
-function addCells(world: World, design: Design): void {
+function addCells(world: World, design: Design, corner: (k: number, i: number) => number): void {
   const edges = new Map<string, Link>();
   const rock = new Set<number>();
   design.cells.forEach((c, k) => {
@@ -1238,7 +1358,7 @@ function addCells(world: World, design: Design): void {
       }
       links.push(l);
     };
-    const n = c.n;
+    const n = c.n.map((i) => corner(k, i));
     const sides = n.map((a, i) => (link(a, n[(i + 1) % n.length]), links[links.length - 1]));
     // A four-sided block keeps its corners square with angle constraints rather than diagonal
     // braces: a squeezed braced frame would push its own sides apart, which no solid block does.
@@ -1254,9 +1374,58 @@ function addCells(world: World, design: Design): void {
       }
     }
     world.cells.push({ n: [...n], links });
-    for (const i of n) if (!design.nodes[i].anchor) rock.add(i);
+    c.n.forEach((i, j) => {
+      if (!design.nodes[i].anchor) rock.add(n[j]);
+    });
   });
   world.rock = [...rock];
+}
+
+/**
+ * Where two blocks of a hinged arch ring meet, the later block gets corners of its own on the
+ * joint, so it can open. `copies` lists the design node each new corner stands on; `own` maps
+ * "cell node" to the copy that block uses in its place; `joints` pairs the blocks either side.
+ */
+function ringSplit(design: Design): { copies: number[]; own: Map<string, number>; joints: { a: number; b: number; on: [number, number] }[] } {
+  const copies: number[] = [];
+  const own = new Map<string, number>();
+  const joints: { a: number; b: number; on: [number, number] }[] = [];
+  const rings = new Map<number, number[]>();
+  design.cells.forEach((c, k) => {
+    if (MATERIALS[c.mat].hinged && c.part !== undefined) rings.set(c.part, [...(rings.get(c.part) ?? []), k]);
+  });
+  const mid = (k: number) => design.cells[k].n.reduce((sum, i) => sum + design.nodes[i].x, 0) / design.cells[k].n.length;
+  for (const ks of rings.values()) {
+    ks.sort((p, q) => mid(p) - mid(q));
+    for (let j = 0; j + 1 < ks.length; j++) {
+      const [a, b] = [ks[j], ks[j + 1]];
+      // A joint bolted down stays shut.
+      const on = design.cells[a].n.filter((i) => design.cells[b].n.includes(i) && !design.nodes[i].anchor);
+      if (on.length !== 2) continue;
+      for (const i of on) {
+        own.set(`${b} ${i}`, copies.length);
+        copies.push(i);
+      }
+      joints.push({ a, b, on: [on[0], on[1]] });
+    }
+  }
+  return { copies, own, joints };
+}
+
+/** The faces between a hinged ring's blocks: see Face. */
+function addFaces(world: World, design: Design, joints: { a: number; b: number; on: [number, number] }[], corner: (k: number, i: number) => number): void {
+  const center = (k: number): [number, number] => {
+    const n = design.cells[k].n;
+    return [n.reduce((sum, i) => sum + design.nodes[i].x, 0) / n.length, n.reduce((sum, i) => sum + design.nodes[i].y, 0) / n.length];
+  };
+  for (const { a, b, on } of joints) {
+    const [p, r] = on.map((i) => design.nodes[i]);
+    const len = Math.hypot(r.x - p.x, r.y - p.y);
+    const mat = MATERIALS[design.cells[a].mat];
+    const [ca, cb] = [center(a), center(b)];
+    const sign = (r.y - p.y) * (cb[0] - ca[0]) - (r.x - p.x) * (cb[1] - ca[1]) > 0 ? 1 : -1;
+    world.faces.push({ a1: corner(a, on[0]), a2: corner(a, on[1]), b1: corner(b, on[0]), b2: corner(b, on[1]), sign, compliance: len / mat.EA, gap1: 0, gap2: 0, apart: false, bond: mat.tension, crack1: false, crack2: false });
+  }
 }
 
 /**

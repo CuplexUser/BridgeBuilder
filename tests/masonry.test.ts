@@ -3,7 +3,7 @@ import { Design, type GridPt } from '../src/design';
 import { Editor, fitDesign } from '../src/editor';
 import type { LevelDef } from '../src/levels';
 import { addBlock, blockPoly, cellProblem, layRing, RING, ringPath, ringPolys, ringRise, rings } from '../src/masonry';
-import { TestRun } from '../src/physics/world';
+import { buildWorld, TestRun } from '../src/physics/world';
 import { designProblems } from '../src/rules';
 import { blockArch, roadRun } from '../src/solutions';
 
@@ -45,6 +45,21 @@ function drive(d: Design, level = SHELVES): TestRun {
   const run = new TestRun(d, level);
   for (let i = 0; i < 60 * 40 && run.status === 'running'; i++) run.step();
   return run;
+}
+
+/** A bare ring on one block against each wall, with `tonnes` hung from its top a quarter of the way across, after five seconds. */
+function pointLoad(tonnes: number) {
+  const d = new Design(SHELVES);
+  for (const x of [0, 19]) addBlock(d, x, -5);
+  blockArch(d, SHELVES, [1, -4], [19, -4], 'steel', 2.5);
+  const at = rings(d)[0].extra[2];
+  const { world } = buildWorld(d, SHELVES);
+  world.im[at] = 1 / (1 / world.im[at] + tonnes * 1000);
+  for (let i = 1; i <= 300; i++) {
+    world.gravityScale = Math.min(1, i / 60);
+    world.step();
+  }
+  return { world, drop: d.nodes[at].y - world.y[at] };
 }
 
 describe('arch rings', () => {
@@ -202,6 +217,31 @@ describe('block physics', () => {
     const w = run.world;
     const dot = (w.x[b] - w.x[a]) * (w.x[c] - w.x[b]) + (w.y[b] - w.y[a]) * (w.y[c] - w.y[b]);
     expect(Math.abs(dot)).toBeLessThan(1e-3);
+  });
+});
+
+describe('arch ring joints', () => {
+  it('give each block its own corners, joined by one mortared face per joint', () => {
+    const d = shelfArch(1);
+    const { world } = buildWorld(d, SHELVES);
+    const cells = d.cells.filter((c) => c.mat === 'arch').length;
+    expect(world.faces).toHaveLength(cells - 1);
+    for (const f of world.faces) {
+      expect(new Set([f.a1, f.a2, f.b1, f.b2]).size).toBe(4);
+      expect(world.x[f.a1]).toBeCloseTo(world.x[f.b1], 9);
+    }
+  });
+
+  it('hold shut, so the ring carries a load as one piece, while the mortar holds', () => {
+    const { world, drop } = pointLoad(10);
+    expect(world.faces.some((f) => f.crack1 || f.crack2)).toBe(false);
+    expect(drop).toBeLessThan(0.2);
+  });
+
+  it('crack under more than the mortar holds, and the ring folds on its hinges', () => {
+    const { world, drop } = pointLoad(20);
+    expect(world.faces.filter((f) => f.crack1 || f.crack2).length).toBeGreaterThanOrEqual(3);
+    expect(drop).toBeGreaterThan(1);
   });
 });
 
