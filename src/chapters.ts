@@ -53,7 +53,7 @@ export const CHAPTERS: ChapterDef[] = [
     name: 'Tension',
     blurb: 'Cables only pull. Pylons, cliffs, mid-air joints and ship channels, and a semi on heavy deck to finish.',
     difficulty: 3,
-    effort: 'Medium builds · 20–35 parts',
+    effort: 'Medium builds · 15–35 parts',
     levels: [12, 13, 14, 15, 24, 16, 17],
   },
   {
@@ -61,7 +61,7 @@ export const CHAPTERS: ChapterDef[] = [
     name: 'Heavy Traffic',
     blurb: 'Steep climbs and suspension bridges on heavy deck, then drawbridges on hydraulic rams, convoys and toll bolts.',
     difficulty: 4,
-    effort: 'Medium builds · 15–40 parts',
+    effort: 'Medium builds · 10–45 parts',
     levels: [18, 25, 26, 19, 31, 32, 33],
   },
   {
@@ -85,7 +85,7 @@ export const CHAPTERS: ChapterDef[] = [
     name: 'Anchorage',
     blurb: 'Floods that wash out what stands on mud, then hinged masts and concrete anchors you set yourself.',
     difficulty: 7,
-    effort: 'Big builds · 20–50 parts',
+    effort: 'Big builds · 15–75 parts',
     levels: [63, 64, 65, 36, 37, 38, 39],
   },
   {
@@ -109,7 +109,7 @@ export const CHAPTERS: ChapterDef[] = [
     name: 'Grand Finale',
     blurb: 'Everything at once: the greatest arch, parades in a storm, and trains and semis over a delta in flood.',
     difficulty: 10,
-    effort: 'Grand builds · 40–90 parts',
+    effort: 'Grand builds · 20–80 parts',
     levels: [69, 59, 66, 60, 68, 67, 70],
   },
 ];

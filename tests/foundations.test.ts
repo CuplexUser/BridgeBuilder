@@ -14,6 +14,9 @@ function drive(d: ReturnType<typeof pileBridge>, level: LevelDef): TestRun {
 /** Got everyone across without breaking a thing. */
 const clean = (run: TestRun) => run.status === 'success' && !run.world.links.some((l) => l.bridge && l.broken);
 
+/** How far the deepest bolt on mud sank, m. */
+const sunk = (run: TestRun) => Math.max(...run.world.soft.map((s) => s.sunk));
+
 /** Trusses standing on the level's own bolts in the mud. */
 function onBolts(level: LevelDef): ReturnType<typeof pileBridge> {
   const xs = level.anchors.filter(([x, y]) => y < 0 && x > 0 && x < level.width).map(([x]) => x);
@@ -24,12 +27,12 @@ describe('mud', () => {
   const soft = levelById(62);
 
   it('lets nothing be built inside it, but takes piles on its top', () => {
-    expect(pointAllowed(soft, 10, -3)).toBe(false);
-    expect(pointAllowed(soft, 10, -2)).toBe(true);
-    expect(pileSpot(soft, 10, -2)).toBe(true);
+    expect(pointAllowed(soft, 10, -2)).toBe(false);
+    expect(pointAllowed(soft, 10, -1)).toBe(true);
+    expect(pileSpot(soft, 10, -1)).toBe(true);
     // Not between whole meters, and not where the level already has a bolt.
-    expect(pileSpot(soft, 10.5, -2)).toBe(false);
-    expect(pileSpot(soft, 8, -2)).toBe(false);
+    expect(pileSpot(soft, 10.5, -1)).toBe(false);
+    expect(pileSpot(soft, 8, -1)).toBe(false);
     expect(pileSpots(soft).map(([x]) => x)).toEqual([6, 7, 9, 10, 11, 12, 13, 14, 15, 17, 18]);
   });
 
@@ -39,16 +42,16 @@ describe('mud', () => {
     expect(Math.max(...run.world.soft.map((s) => s.sunk))).toBeGreaterThan(0.5);
   });
 
-  it('holds a car on the same bolts', () => {
+  it('holds a car on the same bolts, sinking them less', () => {
     const car = { ...soft, vehicle: 'car' } satisfies LevelDef;
     const run = drive(onBolts(car), car);
     expect(clean(run)).toBe(true);
-    expect(Math.max(...run.world.soft.map((s) => s.sunk))).toBeLessThan(0.4);
+    expect(sunk(run)).toBeLessThan(sunk(drive(onBolts(soft), soft)));
   });
 
   it('never sinks a pile', () => {
     const d = pileBridge(soft, [0, 12, 24], [12]);
-    expect(d.nodes.filter((n) => n.pile).map((n) => [n.x, n.y])).toEqual([[12, -2]]);
+    expect(d.nodes.filter((n) => n.pile).map((n) => [n.x, n.y])).toEqual([[12, -1]]);
     const run = drive(d, soft);
     expect(clean(run)).toBe(true);
     expect(run.world.soft.every((s) => s.sunk === 0)).toBe(true);

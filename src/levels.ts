@@ -1133,11 +1133,12 @@ export const BASE_LEVELS: LevelBase[] = [
     anchors: [
       [0, 0],
       [24, 0],
-      [8, -2],
-      [16, -2],
+      [8, -1],
+      [16, -1],
     ],
     piers: [],
-    mud: [[6, 18, -2]],
+    // Mud close under the road, so a truss can't hang deep enough below the deck to share the truck with the bolts.
+    mud: [[6, 18, -1]],
     piles: { price: 2000 },
     materials: ['road', 'wood', 'steel'],
     vehicle: 'truck',
