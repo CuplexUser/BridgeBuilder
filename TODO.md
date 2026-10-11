@@ -70,7 +70,7 @@ Features and improvements, by priority. Finished items stay checked for a releas
 
 - [ ] **Two trains passing:** the side-by-side half of the two-track idea, two trains crossing in opposite directions on one deck line. The double deck (one over the other) is done.
 - [ ] **Balanced cantilever in prestressed concrete:** girder arms built out from a pier with their tendons along the top, the other classic shape a tendon makes possible.
-- [ ] **Floods on the piled finale levels.** On *Washout Line*, *Delta Haul* and *Last Crossing* the piled bridges stand well clear of the driftwood and shrug off the current, so their floods add little; the mud is what those levels test. A higher flood that reaches the deck, or a level with posts out in the stream, would let it bite.
+- [ ] **Floods on the piled levels.** On *Floodtide*, *Delta Haul* and *Last Crossing* the piled bridges stand well clear of the driftwood and shrug off the current, so their floods add little; the mud is what those levels test. A higher flood that reaches the deck, or a level with posts out in the stream, would let it bite.
 
 ## P3: Polish and social
 

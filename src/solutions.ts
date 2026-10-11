@@ -236,11 +236,20 @@ export function liftBridge(l: LevelDef, deckMat: MaterialId, m: TrussMats): Desi
   return d;
 }
 
-/** A swing bridge: a deep steel truss from bank to bank, on posts from both pivot bolts crossed under the pivot, and fanned out wide. */
+/**
+ * A swing bridge: a truss made for hanging from its middle, its steel diagonals sloping down toward
+ * the pivot, on posts from both pivot bolts crossed under the pivot, and fanned out wide.
+ */
 export function swingBridge(l: LevelDef, fan: boolean): Design {
   const d = new Design(l);
   const p = l.swing!.pivot;
-  trussOver(d, roadRun(d, [0, 0], [l.width, 0]), 3, STEELY);
+  const W = l.width;
+  roadRun(d, [0, 0], [W, 0]);
+  d.add([0, 0], [2, 2], 'steel').add([W, 0], [W - 2, 2], 'steel');
+  for (let x = 2; x < W - 2; x += 2) d.add([x, 2], [x + 2, 2], 'steel');
+  for (let x = 2; x <= W - 2; x += 2) if (x !== p) d.add([x, 0], [x, 2], 'wood');
+  for (let x = 2; x < p; x += 2) d.add([x, 2], [x + 2, 0], 'steel');
+  for (let x = p + 2; x <= W - 2; x += 2) d.add([x, 2], [x - 2, 0], 'steel');
   d.add([p - 1, -3], [p, 0], 'steel').add([p + 1, -3], [p, 0], 'steel');
   if (fan) d.add([p - 1, -3], [p - 2, 0], 'steel').add([p + 1, -3], [p + 2, 0], 'steel');
   return d;
@@ -638,9 +647,9 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
   },
   73: (l) => doubleDeck(l, 'warren', true),
   74: (l) => doubleBascule(l, STEELY),
-  75: (l) => liftBridge(l, 'road', HEAVY),
+  75: (l) => liftBridge(l, 'road', WOOD),
   76: (l) => swingBridge(l, true),
-  77: (l) => liftBridge(l, 'track', HEAVY),
+  77: (l) => liftBridge(l, 'track', WOOD),
 };
 
 /** Level 27: a road deck on a braced trestle up from each deep pier, with a truss over each span. */

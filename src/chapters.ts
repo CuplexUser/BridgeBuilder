@@ -110,7 +110,7 @@ export const CHAPTERS: ChapterDef[] = [
     name: 'Modern Works',
     blurb: 'Prestressed girders, a double-deck railway, and drawbridges that split, lift and swing for the ships.',
     difficulty: 10,
-    effort: 'Big builds · 20–60 parts',
+    effort: 'Big builds · 10–85 parts',
     levels: [71, 72, 74, 75, 73, 76, 77],
   },
   {
