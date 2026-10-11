@@ -42,7 +42,7 @@ function levelResource(): Plugin {
 export default defineConfig({
   // Relative base so the static build also works from a GitHub Pages sub-path.
   base: './',
-  build: { target: 'es2022' },
+  build: { target: 'es2022', chunkSizeWarningLimit: 750},
   plugins: [levelResource(), sqliteApi(), tunerConsole()],
   // The level editor's quick-tune worker runs the physics, which reads src/levels.res too.
   worker: { plugins: () => [levelResource()] },
