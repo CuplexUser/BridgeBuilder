@@ -1,7 +1,8 @@
 import { Design, type GridPt } from '../../src/design';
 import { bankY, type BonusGoal, type GeometryKey, type LevelDef } from '../../src/levels';
+import { rings } from '../../src/masonry';
 import { MATERIALS, type MaterialId } from '../../src/physics/materials';
-import { deck, hang, liftOff, roadRun, SOLUTIONS, trussOver, type TrussMats } from '../../src/solutions';
+import { blockArch, blockTower, deck, hang, liftOff, roadRun, SOLUTIONS, trussOver, type TrussMats } from '../../src/solutions';
 
 /** A level's geometry for one choice of its tunable parameters. */
 export type Shape = Partial<Pick<LevelDef, GeometryKey>>;
@@ -36,6 +37,21 @@ function finale(p: Params): Shape {
     towers: [[a, -8, p.top], [b, -8, p.top]],
     channels: p.clear > 0 ? [[a + 1, b - 1, p.clear]] : [],
   };
+}
+
+/** An arch from shelf to shelf on a row of blocks across each, or none, and steel out to the road from its first joints where it reaches. */
+function shelfArch(l: LevelDef, rows: number): Design {
+  const d = new Design(l);
+  roadRun(d, [0, 0], [l.width, 0]);
+  const [a, b] = (l.rocks ?? []).toSorted((p, r) => p[0] - r[0]);
+  for (const r of [a, b]) blockTower(d, l, r, rows);
+  blockArch(d, l, [a[1], a[2] + rows], [b[0], b[2] + rows], 'steel');
+  const { extra } = rings(d).at(-1)!;
+  for (const [e, x] of [[extra[0], a[1]], [extra.at(-1)!, b[0]]] as const) {
+    const n = d.nodes[e];
+    if (Math.hypot(n.x - x, n.y) <= MATERIALS.steel.maxLen) d.add([n.x, n.y], [x, 0], 'steel');
+  }
+  return d;
 }
 
 /**
@@ -225,12 +241,35 @@ export const INTENTS: Record<number, Intent> = {
     requires: ['main', 'concrete'],
     shortcuts: [noBlocks, thinCable, { name: 'one block per side, nearest', build: nearestBlocks }, { name: 'one block per side, farthest', build: farthestBlocks }],
   },
-  // Block arches: each needs the arch, and the blocks it springs from.
+  // Block arches, each a different way to carry the road.
   46: { requires: ['arch', 'masonry'] },
-  47: { requires: ['arch', 'masonry'] },
+  // Nothing to stand on: an arch over the road from the bolts.
+  47: { requires: ['arch'] },
+  // Springings at different heights: the arch leans.
   48: { requires: ['arch'] },
-  49: { requires: ['arch', 'masonry'] },
-  50: { requires: ['arch', 'masonry'] },
+  // Four blocks: against the walls, not out on the shelves, where the arch slides or cracks them.
+  49: {
+    requires: ['arch', 'masonry'],
+    shortcuts: [
+      { name: 'an arch on the bare shelves', build: (l) => shelfArch(l, 0) },
+      { name: 'a row of blocks across each shelf', build: (l) => shelfArch(l, 1) },
+    ],
+  },
+  // The channel rules out an arch under the middle span, and the ceiling one over the whole gorge.
+  50: {
+    requires: ['arch', 'masonry'],
+    shortcuts: [
+      {
+        name: 'one arch over the road from bank to bank',
+        build: (l) => {
+          const d = new Design(l);
+          roadRun(d, [0, 0], [l.width, 0], 'heavy');
+          blockArch(d, l, [0, 0], [l.width, 0], 'cable');
+          return d;
+        },
+      },
+    ],
+  },
   // Trains: track is the only deck they run on, so the checks are about what holds it up.
   51: { requires: ['steel'] },
   52: { requires: ['steel'] },

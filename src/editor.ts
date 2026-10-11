@@ -427,7 +427,7 @@ export class Editor {
     let len = 0;
     for (let i = 1; i < drag.path.length; i++) len += Math.hypot(drag.path[i][0] - drag.path[i - 1][0], drag.path[i][1] - drag.path[i - 1][1]);
     // An arch ring is priced by its area, like any block.
-    const ring = MATERIALS[this.mat].cell === 'ring' ? ringPath(this.design, [fx, fy], [bx, by], ringRise(this.design, [fx, fy], [bx, by])) : null;
+    const ring = MATERIALS[this.mat].cell === 'ring' ? ringPath(this.design, [fx, fy], [bx, by], ringRise(this.design, [fx, fy], [bx, by], this.level)) : null;
     if (ring) drag.path = fx <= bx ? ring.intra : ring.intra.toReversed();
     const area = ring ? ringPolys(ring).reduce((a, poly) => a + Math.abs(polyArea(poly)), 0) : 0;
     drag.cost = Math.round(ring ? area * MATERIALS[this.mat].price : len * MATERIALS[this.mat].price) + this.newAnchorCost(drag);
@@ -480,7 +480,7 @@ export class Editor {
     if (curved && Math.abs(ex - sx) < MIN_MAIN_SPAN - 1e-9) return 'Needs 2 m of span';
     if (curved && segs === 1) return 'Too long';
     if (mat.cell === 'ring') {
-      const ring = ringPath(this.design, [sx, sy], [ex, ey], ringRise(this.design, [sx, sy], [ex, ey]));
+      const ring = ringPath(this.design, [sx, sy], [ex, ey], ringRise(this.design, [sx, sy], [ex, ey], this.level));
       if (!ring) return 'Too short';
       const partsLeft = this.partsLeft();
       if (partsLeft !== null && partsLeft < 1) return `Only ${this.level.limits![this.mat]} ${mat.name.toLowerCase()} parts on this level`;
@@ -536,7 +536,7 @@ export class Editor {
     }
     this.snapshot();
     if (MATERIALS[this.mat].cell === 'ring') {
-      const ring = ringPath(this.design, [drag.sx, drag.sy], [drag.tx, drag.ty], ringRise(this.design, [drag.sx, drag.sy], [drag.tx, drag.ty]))!;
+      const ring = ringPath(this.design, [drag.sx, drag.sy], [drag.tx, drag.ty], ringRise(this.design, [drag.sx, drag.sy], [drag.tx, drag.ty], this.level))!;
       layRing(this.design, ring);
       this.ev.place(drag.sx, drag.sy, drag.tx, drag.ty, this.mat, 0, 1);
       this.drag = null;

@@ -23,21 +23,17 @@ Features and improvements, by priority. Finished items stay checked for a releas
 - [x] **Level 16 without splits.** An unsplit Pratt truss costs exactly the same as the split reference: splitting is free and gives the same structure, so no cost target can separate them. Its bonus goal (26 parts or fewer, where a split beam counts once) is what makes splitting pay.
 - [x] **Retune level 2-1.** New reference: a wood truss on steel struts ($5,725, 67% peak). Target $6,000, budget $8,500.
 - [x] **Break effects.** Heavy deck crumbles into slabs and rubble with a dust cloud; a snapped cable whips back toward its joints with a traveling ripple.
+- [x] **Arch levels reworked.** Chapter 10's five levels no longer all fall to block towers with an arch between them and posts on top. *Keystone* stays as the ghost of that classic form; *Hanging Deck* has no rock below, so the arch springs from the bank bolts, rises over the road and carries the deck on hangers; *High and Low* springs from shelves at different heights; *Short Supply* allows four blocks, which crack out on the shelves but hold stacked against the walls; and *Grand Viaduct* takes a semi over deck arches to island piers built up to the road, with a through arch over the ship channel between them. An arch's default rise now stays under the level's height limit, and the optimizer can lay an arch over the road and build piers up to the deck.
 - [x] Chapters, money budgets, career scoring, leaderboards, levels 21–30, cable levels built around one idea each, road runs, beam splitting, heavy deck, and the scene and vehicle detail passes (earlier releases).
 
 ### Next
 
 In this order:
 
-- [ ] **1. Rework the arch levels (chapter 10) from the ground up.** All five are solved the same way today: block towers on the rocks, an arch sprung between them, posts up to the deck. That is no challenge. A new set should pull in different directions:
-  - A flat arch under a low ceiling or a ship channel. Its thrust is huge, so it needs buttresses of blocks or a tie.
-  - Springings at different heights, so the arch is lopsided and one side pushes harder.
-  - A deck hung under the arch on cables (a through arch), as well as one on posts above it.
-  - No rock where the arch wants to land: build out from the walls, or bridge between two half-arches.
-  - Blocks rationed or dear, so steel and blocks compete for the same job.
-  - Point loads, such as a heavy vehicle or a train braking on the crown, that a thin ring can't take without spandrels filled in.
-
-  Each level should have a lesson the optimizer can check, as shortcuts that must fail, and room for more than one answer.
+- [ ] **1. Arch levels that make thrust and point loads matter.** Chapter 10 now asks for a different arch on each level (see Done), but two of the planned directions don't bite in the physics yet, so they wait:
+  - A flat arch under a low ceiling or a ship channel that needs buttresses or a tie. Measured: a 16 m ring rising 1.5 m on footings one block high, out on islands, holds at 21% peak, because the 1 m ring of square-cornered blocks carries much of its load by bending, like a stiff beam, and its own weight presses the footings down. At 24 m the footings crack rather than slide, and whether a heavier abutment helps changes from one geometry to the next.
+  - Point loads on the crown that a thin ring can't take without spandrels filled in. Measured: a semi crosses a thin 20 to 24 m ring at about 60% peak.
+  - Both need ring joints that open and hinge like real voussoirs instead of bending. Friction on rock also ignores the shear a block passes on through its square corners; counting it (tried) made footings grip harder, not less, because the estimate inflates the push into the rock.
 - [ ] **2. Chapters of seven, and two ways to see them.** Regroup every level by difficulty into chapters of 7, about nine chapters for the 65 levels once chapters 12–13 are in, with a few new levels to fill the last. Level codes such as 3-2 change and challenge records reset; stars, records and saved designs stay, since they are keyed by level id. Challenges become all seven levels in a row. Then two modes:
   - **Progression:** a winding path of level nodes across a map, chapter by chapter, with the next level highlighted and the locked ones ahead.
   - **Chapter book:** the chapter cards, paged six to a page, with arrows, swipe and page dots.

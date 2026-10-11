@@ -102,7 +102,7 @@ export const CHAPTERS: ChapterDef[] = [
   {
     id: 10,
     name: 'Arches',
-    blurb: 'Concrete blocks and block arches. They only push: send every thrust into rock.',
+    blurb: 'Concrete blocks and block arches, under the road or over it. They only push: send every thrust into rock.',
     difficulty: 10,
     effort: 'Big builds · 25–60 parts',
     levels: [46, 47, 48, 49, 50],

@@ -2216,7 +2216,7 @@ export class Renderer {
         const grade = MATERIALS[ed.mat].drivable && drag.tx !== f.x && drag.ty !== f.y ? ` · ${Math.round((Math.abs(drag.ty - f.y) / Math.abs(drag.tx - f.x)) * 100)}% grade` : '';
         const span = Math.abs(drag.tx - f.x);
         const what = curvedDrag
-          ? `${MATERIALS[ed.mat].name} · ${span.toFixed(1)} m across · ${(MATERIALS[ed.mat].arch ? ringRise(ed.design, [f.x, f.y], [drag.tx, drag.ty]) : defaultSag([f.x, f.y], [drag.tx, drag.ty], ed.mat)).toFixed(1)} m ${MATERIALS[ed.mat].arch ? 'rise' : 'sag'}`
+          ? `${MATERIALS[ed.mat].name} · ${span.toFixed(1)} m across · ${(MATERIALS[ed.mat].arch ? ringRise(ed.design, [f.x, f.y], [drag.tx, drag.ty], ed.level) : defaultSag([f.x, f.y], [drag.tx, drag.ty], ed.mat)).toFixed(1)} m ${MATERIALS[ed.mat].arch ? 'rise' : 'sag'}`
           : segs > 1
             ? `${segs} × ${MATERIALS[ed.mat].name.toLowerCase()} · ${len.toFixed(1)} m`
             : `${len.toFixed(1)} m`;
@@ -2623,7 +2623,7 @@ export class Renderer {
       ctx.beginPath();
       if (MATERIALS[mat].cell) {
         // A block ghost is the square from its lower left corner to its upper right; an arch ghost its ring.
-        const ring = mat === 'arch' ? ringPath(d, a, b, ringRise(d, a, b)) : null;
+        const ring = mat === 'arch' ? ringPath(d, a, b, ringRise(d, a, b, ed.level)) : null;
         const polys = ring ? ringPolys(ring) : [blockPoly(a[0], a[1])];
         ctx.lineWidth = 2;
         for (const poly of polys) {

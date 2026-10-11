@@ -16,7 +16,8 @@ import { blockArch, blockTower, hangDeck, pylon, towerPosts } from '../../src/so
  * on offer, concrete pylons on pier pairs 4 m apart, main cables between their peaks and the
  * mast tops at a chosen sag, and main cable backstays to one or two blocks a side. Where
  * concrete blocks and block arches are on offer, towers of blocks on the rocks, arches from
- * tower to tower at a chosen rise, and posts up from both to the deck.
+ * tower to tower at a chosen rise, under the deck on posts or over it on hangers where the towers
+ * reach the deck, posts up from both to the deck, and an arch over the road from bank to bank.
  */
 export interface Grammar {
   genes: Gene[];
@@ -136,14 +137,16 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
   const archOk = offered('arch');
   const stackGenes = brick
     ? rocks.map((r) => {
-        // Rows that leave at least a meter clear under the deck.
+        // Rows up to the deck: below it they carry posts, level with it the deck and an arch over it.
         const under = Math.min(deckY(Math.max(0, Math.min(W, r[0]))), deckY(Math.max(0, Math.min(W, r[1]))));
-        const most = Math.max(0, Math.min(10, Math.floor(under - r[2] - 1)));
+        const most = Math.max(0, Math.min(10, Math.floor(under - r[2] + 1e-9)));
         return add(`blocks on rock ${r[0]}–${r[1]}`, ['none', ...Array.from({ length: most }, (_, k) => `${k + 1} rows`)], Math.min(most, 2));
       })
     : [];
   const archGenes = archOk ? rocks.slice(0, -1).map((r, i) => add(`arch from rock ${r[0]} to ${rocks[i + 1][0]}`, ['none', ...ARCH_RISES.map((f) => `${f} of a natural rise`)], 1)) : [];
   const postGene = (archOk || brick) && beams.length ? add('posts on the arches and towers', beams) : -1;
+  // An arch over the road from one bank's bolt to the other's, the deck hung under it.
+  const overGene = archOk && cablesOk ? add('arch over the road from bank to bank', ['none', ...ARCH_RISES.map((f) => `${f} of a natural rise`)]) : -1;
 
   // Deck joints of the straight bank-to-bank layout, used to size hanger genes.
   const probe = new Design(level);
@@ -243,9 +246,14 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
         if (!f || !post) return;
         const a: GridPt = [rocks[i][1], tops[i]];
         const b: GridPt = [rocks[i + 1][0], tops[i + 1]];
-        blockArch(d, level, a, b, post, Math.max(0.5, Math.round(ringRise(d, a, b) * ARCH_RISES[f - 1] * 10) / 10));
+        blockArch(d, level, a, b, post, Math.max(0.5, Math.round(ringRise(d, a, b, level) * ARCH_RISES[f - 1] * 10) / 10));
       });
       if (post) rocks.forEach((r, i) => towerPosts(d, r, tops[i], post));
+    }
+    if (overGene >= 0 && g[overGene]) {
+      const a: GridPt = [0, 0];
+      const b: GridPt = [W, right];
+      blockArch(d, level, a, b, 'cable', Math.max(0.5, Math.round(ringRise(d, a, b, level) * ARCH_RISES[g[overGene] - 1] * 10) / 10));
     }
     d.pruneNodes();
     // Towers, then the backstays holding up free tops.

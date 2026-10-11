@@ -160,6 +160,8 @@ Chapter 10 builds with concrete blocks, which only push:
 - **Rock.** Rock shelves at the foot of the canyon walls and islands in the river (`rocks` in a level) are where blocks stand. A block corner bears on rock and grips it by friction, 0.7 times how hard it presses, but nothing bolts it down: a sideways push beyond that slides it, and a block can lift off.
 - **Thrust.** An arch carries the road as a push into its two ends, and the flatter it is, the harder it pushes outward. Spring it from a rock corner or a block wall against the rock and it holds; spring it from the open top of a shelf and it slides off. Its default rise is a quarter of its span, kept half a meter under a deck that's already built.
 - **Towers and piers.** Stack blocks on shelves that sit too deep for posts to reach, or on an island to make a pier where two arches meet and push against each other. Wood or steel posts stand on the ring's joints and the tower tops to carry the deck.
+- **Over the road.** An arch may also spring from the bank bolts, or from piers built up level with the road, and rise above the deck, which then hangs from its underside on cables: a through arch, for where there's no rock below or a ship channel to keep clear. Its default rise stays under the level's height limit.
+- **The levels** each ask for a different arch: *Keystone* (a ghost of the classic one on block towers), *Hanging Deck* (a through arch from bolt to bolt), *High and Low* (shelves at different heights), *Short Supply* (four blocks, stacked against the walls rather than out on the shelves, where the thrust cracks them) and *Grand Viaduct* (a semi over deck arches to island piers, and a through arch over the ship channel between them).
 
 ## How it works
 

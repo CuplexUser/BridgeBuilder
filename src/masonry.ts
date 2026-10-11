@@ -192,9 +192,10 @@ export function ringPath(d: Design, a: GridPt, b: GridPt, rise: number): RingPat
 
 /**
  * A natural rise for a ring from a to b: a quarter of its span, but low enough that its crown
- * stays half a meter under a deck already built over its middle.
+ * stays half a meter under a deck already built over its middle, and, given the level, under the
+ * highest point anyone may build to.
  */
-export function ringRise(d: Design, a: GridPt, b: GridPt): number {
+export function ringRise(d: Design, a: GridPt, b: GridPt, level?: LevelDef): number {
   const span = Math.abs(b[0] - a[0]);
   const mid = (a[0] + b[0]) / 2;
   const chord = (a[1] + b[1]) / 2;
@@ -206,6 +207,7 @@ export function ringRise(d: Design, a: GridPt, b: GridPt): number {
     if (Math.abs(n.x - mid) <= span / 4 && n.y > chord) over = Math.min(over, n.y);
   }
   if (over < Infinity) rise = Math.min(rise, over - chord - RING - 0.5);
+  if (level) rise = Math.min(rise, topY(level) - chord - RING);
   return Math.max(0.5, Math.round(rise * 10) / 10);
 }
 
