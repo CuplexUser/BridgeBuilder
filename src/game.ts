@@ -36,6 +36,7 @@ import { Renderer, type FloatText, type SceneView } from './render/renderer';
 import { THEMES, type Theme } from './render/themes';
 import {
   challengeBoard,
+  chapterById,
   chapterComplete,
   chapterOf,
   chapterUnlocked,
@@ -170,6 +171,7 @@ export class Game {
   private splashed = new WeakSet<TestRun>();
   private attempts = 0;
   private board: Board = 'career';
+  /** The leaderboard's chapter, by id. */
   private boardChapter = 1;
 
   private time = 0;
@@ -1306,11 +1308,12 @@ export class Game {
   }
 
   /** Every board is computed from the same per-level bests, except challenges, which have their own table. */
+  /** Shows a leaderboard tab, for the chapter with the given id. */
   private showBoard(tab: Board, chapter = this.boardChapter): void {
     this.board = tab;
     this.boardChapter = chapter;
     const me = this.profile?.name ?? '';
-    const ch = CHAPTERS[chapter - 1];
+    const ch = chapterById(chapter) ?? CHAPTERS[0];
     this.ui.boardTabs(tab, chapter);
     const still = () => this.state === 'scores' && this.board === tab && this.boardChapter === chapter;
     if (tab === 'challenge') {
@@ -1393,7 +1396,8 @@ export class Game {
 
   private act(a: string, el?: HTMLElement): void {
     sfx.unlock();
-    const chapterArg = () => CHAPTERS[Number(el?.dataset.chapter) - 1] ?? this.chapter;
+    // Buttons name a chapter by its id.
+    const chapterArg = () => chapterById(Number(el?.dataset.chapter)) ?? this.chapter;
     switch (a) {
       case 'continue':
         sfx.select();
@@ -1430,7 +1434,7 @@ export class Game {
         break;
       case 'board-chapter':
         sfx.ui();
-        this.showBoard(this.board === 'career' ? 'chapter' : this.board, Number(el?.dataset.chapter) || 1);
+        this.showBoard(this.board === 'career' ? 'chapter' : this.board, chapterById(Number(el?.dataset.chapter))?.id ?? CHAPTERS[0].id);
         break;
       case 'back':
         sfx.ui();
@@ -2487,7 +2491,7 @@ export class Game {
           e.preventDefault();
           const d = k === 'ArrowLeft' || (k === 'Tab' && e.shiftKey) ? -1 : 1;
           this.showBoard(tabs[(tabs.indexOf(this.board) + d + tabs.length) % tabs.length]);
-        } else if (chapterKey(k) >= 0) this.showBoard(this.board === 'career' ? 'chapter' : this.board, chapterKey(k) + 1);
+        } else if (chapterKey(k) >= 0) this.showBoard(this.board === 'career' ? 'chapter' : this.board, CHAPTERS[chapterKey(k)].id);
         return;
       }
       case 'result':

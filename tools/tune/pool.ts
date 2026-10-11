@@ -4,6 +4,7 @@ import { Worker } from 'node:worker_threads';
 import type { Design } from '../../src/design';
 import type { LevelDef } from '../../src/levels';
 import { testSeconds } from '../../src/physics/world';
+import { DiskCache } from './diskcache';
 import { canonical, failed, levelKey, type Runner } from './runner';
 import type { Outcome } from './simulate';
 import type { Task } from './worker';
@@ -12,9 +13,12 @@ const WORKER = fileURLToPath(new URL('./worker.ts', import.meta.url));
 /** Workers load TypeScript and src/levels.res the same way the tuner does. */
 const EXEC_ARGV = ['--import', 'tsx', '--import', new URL('./res-register.mjs', import.meta.url).href];
 
+/** Settles a design's run. `keep` is false for a run that was skipped, which mustn't be cached; `done` is true only for one a worker finished, which may be kept on disk. */
+type Settle = (o: Outcome, keep?: boolean, done?: boolean) => void;
+
 interface Slot {
   worker: Worker;
-  busy: { task: Task; resolve: (o: Outcome) => void; timer: NodeJS.Timeout } | null;
+  busy: { task: Task; resolve: Settle; timer: NodeJS.Timeout } | null;
 }
 
 /**
@@ -23,12 +27,13 @@ interface Slot {
  */
 export class Pool implements Runner {
   private slots: Slot[] = [];
-  /** `keep` is false for a run that was skipped, which mustn't be cached. */
-  private queue: { task: Task; resolve: (o: Outcome, keep?: boolean) => void }[] = [];
+  private queue: { task: Task; resolve: Settle }[] = [];
   private nextId = 1;
   private cache = new Map<string, Outcome>();
   runs = 0;
   hits = 0;
+  /** Of the hits, those found in the cache kept on disk from earlier runs. */
+  saved = 0;
   crashes = 0;
   private closing = false;
   /** Called after every design, simulated or cached; drives the progress display. */
@@ -39,6 +44,8 @@ export class Pool implements Runner {
   constructor(
     size = Math.max(1, availableParallelism() - 1),
     private timeoutMs = 120_000,
+    /** Outcomes kept between runs; null to drive every design afresh. */
+    private disk: DiskCache | null = process.env.TUNE_FRESH_CACHE ? null : new DiskCache(),
   ) {
     for (let i = 0; i < size; i++) this.slots.push(this.spawn());
   }
@@ -54,7 +61,7 @@ export class Pool implements Runner {
       if (!job || job.task.id !== m.id) return;
       clearTimeout(job.timer);
       slot.busy = null;
-      job.resolve(m.outcome ?? failed(`error: ${m.error?.split('\n')[0]}`));
+      job.resolve(m.outcome ?? failed(`error: ${m.error?.split('\n')[0]}`), true, !!m.outcome);
       this.pump();
     });
     const replace = (why: string) => {
@@ -107,8 +114,16 @@ export class Pool implements Runner {
   /** Test drives one design; equal designs on equal levels are only ever simulated once. */
   run(level: LevelDef, d: Design, seconds = testSeconds(level)): Promise<Outcome> {
     const key = `${levelKey(level)}|${seconds}|${canonical(d)}`;
-    const hit = this.cache.get(key);
+    const digest = this.disk ? DiskCache.digest(key) : '';
     const local = { cost: d.cost(), parts: d.parts() };
+    let hit = this.cache.get(key);
+    if (!hit && this.disk) {
+      hit = this.disk.get(digest);
+      if (hit) {
+        this.saved++;
+        this.cache.set(key, hit);
+      }
+    }
     if (hit) {
       this.hits++;
       this.onResult?.();
@@ -119,8 +134,9 @@ export class Pool implements Runner {
       const task: Task = { id: this.nextId++, level, design: d.serialize(), seconds };
       this.queue.push({
         task,
-        resolve: (o, keep = true) => {
+        resolve: (o, keep = true, done = false) => {
           if (keep) this.cache.set(key, o);
+          if (done) this.disk?.set(digest, o);
           this.onResult?.();
           resolve({ ...o, ...local });
         },

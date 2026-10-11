@@ -12,7 +12,7 @@ import { defaultSag, mainPathIn } from '../maincable';
 import { blockPoly, RING, ringPath, ringPolys, ringRise } from '../masonry';
 import { MATERIAL_CHALK, PAL, stressColor } from './palette';
 import { THEMES, type Land, type Theme } from './themes';
-import { drawBody, drawRailWheel, drawWheel } from './vehicles';
+import { drawBody, drawRailWheel, drawSoldier, drawWheel, SQUAD_RANKS, squadRank } from './vehicles';
 
 export interface FloatText {
   x: number;
@@ -62,6 +62,70 @@ const PILE_DEPTH = 6;
 /** Shades of broken concrete deck. */
 const CHUNK_SHADES = ['#8d939c', '#6f757e', '#a4a9b1', '#5d6168'];
 const MEMBER_WIDTH: Record<MaterialId, number> = { road: 0.3, heavy: 0.36, wood: 0.17, steel: 0.15, cable: 0.06, main: 0.14, concrete: 0.34, masonry: 0.3, arch: 0.42, track: 0.36, ram: 0.2, damper: 0.16, tendon: 0.08 };
+
+/**
+ * A soldier who has broken ranks: where his boots are and how they move, how far into a fall he
+ * is (0..1), which way he tumbles, and when and where he went into the river.
+ */
+interface Soldier {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  air: number;
+  spin: number;
+  swim: { t: number; x: number } | null;
+}
+
+/** How wide a swing bridge's road shows between its two side trusses as it turns end-on, m. */
+const SWING_ROAD = 2.8;
+/** How far below the road a turning swing bridge is seen from, m: enough to see under its road. */
+const SWING_EYE = 2;
+/** Depth slices a turning swing bridge is painted in, far to near. */
+const SWING_SLICES = 8;
+
+/**
+ * A swing bridge turning on its pier, as the eye sees it: from a little below its road, and
+ * from three and a half times its reach away, so the end swinging toward the eye grows and the
+ * other shrinks.
+ */
+interface Turn {
+  pivot: number;
+  /** How far it has turned, rad: 0 shut, π/2 end-on. */
+  angle: number;
+  eye: number;
+  dist: number;
+  /** Half the road's width as it shows: none while shut, all of it end-on. */
+  half: number;
+  /** The joints where the physics has them, before turning. */
+  xs: Float64Array;
+  ys: Float64Array;
+}
+
+function turnOf(L: LevelDef, run: TestRun | null): Turn | null {
+  const w = run?.world;
+  if (!L.swing || !w || w.openness <= 0) return null;
+  const pivot = L.swing.pivot;
+  const xs = w.x.slice(0, w.bridgeCount);
+  let reach = 4;
+  for (const x of xs) reach = Math.max(reach, Math.abs(x - pivot));
+  const angle = (w.openness * Math.PI) / 2;
+  return { pivot, angle, eye: -SWING_EYE, dist: 3.5 * reach, half: (SWING_ROAD / 2) * Math.sin(angle), xs, ys: w.y.slice(0, w.bridgeCount) };
+}
+
+/**
+ * Where a point of a turning swing bridge shows, on the plane of the shut bridge, and how far
+ * it has come toward the eye: on the near truss for side 1, the far one for side -1.
+ */
+function turnPoint(t: Turn, x: number, y: number, side: number): [number, number, number] {
+  const d = x - t.pivot;
+  const l = side * t.half;
+  const c = Math.cos(t.angle);
+  const s = Math.sin(t.angle);
+  const z = d * s + l * c;
+  const k = t.dist / (t.dist - z);
+  return [t.pivot + (d * c - l * s) * k, t.eye + (y - t.eye) * k, z];
+}
 
 /** Piers, and the footing under each mast's hinge: concrete columns up from the riverbed. */
 function footings(L: LevelDef): [number, number][] {
@@ -263,6 +327,8 @@ export class Renderer {
   /** At night the bridge and vehicle are drawn here first, then shaded down as one layer. */
   private shadeLayer: HTMLCanvasElement = document.createElement('canvas');
   private shadeCtx: CanvasRenderingContext2D | null = null;
+  /** A turning swing bridge's farther parts are drawn here first, then darkened as one. Sized on first use. */
+  private hazeLayer: HTMLCanvasElement = document.createElement('canvas');
   private hatch: CanvasPattern | null = null;
   private sunX = 0;
   private sunY = 0;
@@ -270,6 +336,8 @@ export class Renderer {
   private look: Theme = THEMES[0];
   /** Each vehicle's contact shadow strength, eased from frame to frame. */
   private shadows = new WeakMap<VehicleHandle, number>();
+  /** Each squad's soldiers once it has broken ranks, and when it was last drawn (sim time). */
+  private squads = new WeakMap<VehicleHandle, { last: number; broken: Soldier[] | null }>();
   w = 0;
   h = 0;
 
@@ -387,20 +455,23 @@ export class Renderer {
   /** The concrete anchor size on the level being drawn. */
   private blockDef: BlockDef = BLOCK;
 
+  /** A swing bridge turning on its pier while this frame is drawn. */
+  private turn: Turn | null = null;
+
   draw(v: SceneView): void {
-    // A swing bridge turning out of the picture: drawn narrowing toward its pivot as it swings,
-    // then put back as the physics has it.
-    const w = v.run?.world;
-    const swing = v.level.swing && w && w.openness > 0 ? v.level.swing.pivot : null;
-    if (swing === null) return this.drawView(v);
-    const xs = w!.x.slice(0, w!.bridgeCount);
-    // Turned edge-on it would vanish; a sliver of it stays in sight. The pier's bolts don't turn.
-    const c = Math.max(0.08, Math.cos((w!.openness * Math.PI) / 2));
-    for (let p = 0; p < w!.bridgeCount; p++) if (w!.im[p] > 0) w!.x[p] = swing + (xs[p] - swing) * c;
+    // A swing bridge turning out of the picture is drawn in perspective, then put back as the
+    // physics has it. Everything but the bridge itself (its reflection, a highlight) sees its near truss.
+    const t = turnOf(v.level, v.run);
+    if (!t) return this.drawView(v);
+    const w = v.run!.world;
+    for (let p = 0; p < t.xs.length; p++) [w.x[p], w.y[p]] = turnPoint(t, t.xs[p], t.ys[p], 1);
+    this.turn = t;
     try {
       this.drawView(v);
     } finally {
-      w!.x.set(xs);
+      this.turn = null;
+      w.x.set(t.xs);
+      w.y.set(t.ys);
     }
   }
 
@@ -452,7 +523,8 @@ export class Renderer {
         shade.restore();
         this.ctx = shade;
       }
-      this.drawRunMembers(v.run, v.time);
+      if (this.turn) this.drawTurning(v.run, v.time, this.turn);
+      else this.drawRunMembers(v.run, v.time);
       this.drawDebris(this.debris.items);
       this.drawVehicleRun(v.run, v.wheelAngles);
       if (shade) {
@@ -831,6 +903,7 @@ export class Renderer {
       ctx.fillRect(l, cam.sy(L.waterY) - 2, r - l, 6);
     }
     for (const [px, py] of seatPiers(L)) this.seat(px, py, false);
+    if (L.swing) this.turntable(L);
 
     for (const t of L.towers ?? []) this.tower(t[0], t[1], t[2], false);
     this.sceneMastsAndBlocks(v);
@@ -2760,11 +2833,15 @@ export class Renderer {
     }
   }
 
-  private drawRunMembers(run: TestRun, time: number): void {
+  /**
+   * The bridge as it stands: members, then joints. `only` limits it to some members and joints,
+   * drawn without slack, and leaves the blocks out.
+   */
+  private drawRunMembers(run: TestRun, time: number, only?: { link: (l: Link) => boolean; node: (i: number) => boolean }): void {
     const { ctx, cam } = this;
     const w = run.world;
     const sag = (l: Link) => {
-      if (!l.tensionOnly) return 0;
+      if (!l.tensionOnly || only) return 0;
       const len = Math.hypot(w.x[l.b] - w.x[l.a], w.y[l.b] - w.y[l.a]);
       return len < l.rest ? (Math.sqrt(l.rest * l.rest - len * len) / 2) * cam.scale * 0.5 : 0;
     };
@@ -2779,17 +2856,17 @@ export class Renderer {
     }
     const ctls = runControls(segs, (p): Pt2 => [cam.sx(w.x[p]), cam.sy(w.y[p])]);
     const ctlOf = new Map(curved.map((l, k) => [l, ctls.get(k)]));
-    this.paintCells(run);
+    if (!only) this.paintCells(run);
     // Cables behind the truss, deck on top of everything. Each layer is painted in batches.
     for (const pass of [0, 1, 2]) {
       const layer: Seg[] = [];
       for (const l of w.links) {
-        if (!l.bridge || l.broken || l.cell >= 0 || drawLayer(l) !== pass) continue;
+        if (!l.bridge || l.broken || l.cell >= 0 || drawLayer(l) !== pass || (only && !only.link(l))) continue;
         layer.push(segOf(cam.sx(w.x[l.a]), cam.sy(w.y[l.a]), cam.sx(w.x[l.b]), cam.sy(w.y[l.b]), l.mat!, l.stress, sag(l), ctlOf.get(l)));
       }
       this.paintBatch(layer, time);
     }
-    this.guardRails(run);
+    this.guardRails(run, only?.link);
 
     // Joints: gusset plates sized by how many members meet there.
     const nodeCount = w.bridgeCount;
@@ -2807,7 +2884,7 @@ export class Renderer {
     const shines = new Path2D();
     const glows: [number, number, number, number][] = [];
     for (let i = 0; i < nodeCount; i++) {
-      if (feet.has(i)) continue;
+      if (feet.has(i) || (only && !only.node(i))) continue;
       const x = cam.sx(w.x[i]);
       const y = cam.sy(w.y[i]);
       if (w.im[i] === 0 && w.y[i] > run.level.waterY - 1) {
@@ -2844,6 +2921,153 @@ export class Renderer {
       ctx.arc(x, y, r * 1.35, 0, TAU);
       ctx.stroke();
     }
+  }
+
+  /**
+   * A swing bridge turning on its pier: its design drawn twice, as the near and far side
+   * trusses, with the underside of the road between them. It is painted far to near in depth
+   * slices, each sized for its distance. The far truss stands in the road's shadow, and the
+   * half swinging away is dimmed a little too.
+   */
+  private drawTurning(run: TestRun, time: number, t: Turn): void {
+    const { cam } = this;
+    const w = run.world;
+    const n = t.xs.length;
+    // The blocks see the near truss, as everything else does.
+    this.paintCells(run);
+    const sides = [-1, 1].map((side) => Array.from({ length: n }, (_, i) => turnPoint(t, t.xs[i], t.ys[i], side)));
+    const [far, near] = sides;
+    let zMax = 0.5;
+    for (const pts of sides) for (const [, , z] of pts) zMax = Math.max(zMax, Math.abs(z));
+    const slice = (z: number) => Math.min(SWING_SLICES - 1, Math.max(0, Math.floor(((z + zMax) / (2 * zMax)) * SWING_SLICES)));
+    const links = w.links.filter((l) => l.bridge && !l.broken && l.cell < 0);
+    const sliceOf = sides.map((pts) => new Map(links.map((l) => [l, slice((pts[l.a][2] + pts[l.b][2]) / 2)])));
+    const deck = links.filter((l) => l.drivable);
+    const deckSlice = new Map(deck.map((l) => [l, slice((far[l.a][2] + far[l.b][2] + near[l.a][2] + near[l.b][2]) / 4)]));
+    const scale = cam.scale;
+    const truss = (s: number, k: number) => {
+      // Each slice is drawn at its own scale, so nearer members are thicker: its points are
+      // placed so the scaled camera puts them where the perspective has them.
+      const grow = t.dist / (t.dist + zMax - ((k + 0.5) / SWING_SLICES) * 2 * zMax);
+      const pts = sides[s];
+      for (let i = 0; i < n; i++) {
+        w.x[i] = cam.cx + (pts[i][0] - cam.cx) / grow;
+        w.y[i] = cam.cy + (pts[i][1] - cam.cy) / grow;
+      }
+      cam.scale = scale * grow;
+      try {
+        this.drawRunMembers(run, time, { link: (l) => sliceOf[s].get(l) === k, node: (i) => slice(pts[i][2]) === k });
+      } finally {
+        cam.scale = scale;
+      }
+    };
+    const both = (k: number) => {
+      this.roadUnderside(deck.filter((l) => deckSlice.get(l) === k), far, near);
+      truss(1, k);
+    };
+    const half = SWING_SLICES / 2;
+    const turned = Math.sin(t.angle);
+    this.hazed(0.4 * turned, () => {
+      for (let k = 0; k < SWING_SLICES; k++) truss(0, k);
+    });
+    this.hazed(0.2 * turned, () => {
+      for (let k = 0; k < half; k++) both(k);
+    });
+    for (let k = half; k < SWING_SLICES; k++) both(k);
+    for (let i = 0; i < n; i++) [w.x[i], w.y[i]] = near[i];
+  }
+
+  /** Draws on a layer of its own, then lays that over the picture darkened by `dim`, 0..1. */
+  private hazed(dim: number, draw: () => void): void {
+    if (dim < 0.02) return draw();
+    const main = this.ctx;
+    const c = this.hazeLayer;
+    const W = Math.round(this.w * this.dpr);
+    const H = Math.round(this.h * this.dpr);
+    if (c.width !== W || c.height !== H) {
+      c.width = W;
+      c.height = H;
+    }
+    const x = c.getContext('2d')!;
+    x.setTransform(1, 0, 0, 1, 0, 0);
+    x.clearRect(0, 0, W, H);
+    x.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    this.ctx = x;
+    try {
+      draw();
+    } finally {
+      this.ctx = main;
+    }
+    x.globalCompositeOperation = 'source-atop';
+    x.fillStyle = `rgba(22,30,46,${dim.toFixed(3)})`;
+    x.fillRect(0, 0, this.w, this.h);
+    x.globalCompositeOperation = 'source-over';
+    main.drawImage(c, 0, 0, this.w, this.h);
+  }
+
+  /** The underside of a turning swing bridge's road between its trusses, with a cross beam at each joint. */
+  private roadUnderside(deck: Link[], far: [number, number, number][], near: [number, number, number][]): void {
+    if (!deck.length) return;
+    const { ctx, cam } = this;
+    const at = (p: [number, number, number]): Pt2 => [cam.sx(p[0]), cam.sy(p[1])];
+    const slab = new Path2D();
+    const beams = new Path2D();
+    for (const l of deck) {
+      const quad = [at(near[l.a]), at(near[l.b]), at(far[l.b]), at(far[l.a])];
+      quad.forEach(([x, y], i) => (i ? slab.lineTo(x, y) : slab.moveTo(x, y)));
+      slab.closePath();
+      for (const p of [l.a, l.b]) {
+        beams.moveTo(...at(near[p]));
+        beams.lineTo(...at(far[p]));
+      }
+    }
+    ctx.fillStyle = '#2a2c32';
+    ctx.fill(slab);
+    ctx.strokeStyle = PAL.steelDark;
+    ctx.lineWidth = Math.max(1.5, 0.12 * cam.scale);
+    ctx.lineCap = 'round';
+    ctx.stroke(beams);
+  }
+
+  /**
+   * A swing bridge's turntable: a steel drum across the tops of the piers under its pivot,
+   * its seams sliding round as the bridge turns.
+   */
+  private turntable(L: LevelDef): void {
+    const p = L.swing!.pivot;
+    const under = L.piers.filter(([x]) => Math.abs(x - p) < 3);
+    if (!under.length) return;
+    const { ctx, cam } = this;
+    const top = Math.max(...under.map(([, y]) => y));
+    const r = Math.hypot(Math.max(...under.map(([x]) => Math.abs(x - p))), SWING_ROAD / 2) + 0.25;
+    const x0 = cam.sx(p - r);
+    const x1 = cam.sx(p + r);
+    const y0 = cam.sy(top);
+    const y1 = cam.sy(top - 0.6);
+    const g = ctx.createLinearGradient(x0, 0, x1, 0);
+    g.addColorStop(0, PAL.steelDark);
+    g.addColorStop(0.35, PAL.steel);
+    g.addColorStop(1, PAL.steelDark);
+    ctx.fillStyle = g;
+    ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+    // Seams round the drum, each in sight while it faces the eye, thinning as it turns away.
+    const angle = this.turn?.angle ?? 0;
+    ctx.strokeStyle = PAL.steelDark;
+    for (let k = 0; k < 10; k++) {
+      const a = (k / 10) * TAU + angle;
+      if (Math.sin(a) <= 0.05) continue;
+      const x = cam.sx(p + r * Math.cos(a));
+      ctx.lineWidth = Math.max(1, 0.08 * cam.scale * Math.sin(a));
+      ctx.beginPath();
+      ctx.moveTo(x, y0);
+      ctx.lineTo(x, y1);
+      ctx.stroke();
+    }
+    // A lit rim on top, and the shadow under it.
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fillRect(x0, y0, x1 - x0, Math.max(1.5, 0.06 * cam.scale));
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fillRect(x0, y1, x1 - x0, Math.max(2, 0.12 * cam.scale));
   }
 
   /**
@@ -2916,7 +3140,7 @@ export class Renderer {
   }
 
   /** Low guard rail with posts about every meter along each intact deck piece. */
-  private guardRails(run: TestRun): void {
+  private guardRails(run: TestRun, only?: (l: Link) => boolean): void {
     const { ctx, cam } = this;
     const w = run.world;
     if (cam.scale < 10) return;
@@ -2926,7 +3150,7 @@ export class Renderer {
     ctx.lineCap = 'butt';
     ctx.beginPath();
     for (const l of w.links) {
-      if (!l.bridge || l.broken || !l.drivable) continue;
+      if (!l.bridge || l.broken || !l.drivable || (only && !only(l))) continue;
       const ax = w.x[l.a];
       const ay = w.y[l.a];
       const bx = w.x[l.b];
@@ -3225,6 +3449,7 @@ export class Renderer {
       const was = this.shadows.get(v) ?? touching;
       const shadow = was + (touching - was) * 0.25;
       this.shadows.set(v, shadow);
+      if (v.def.marches) return this.squad(run, v, (angles[i]?.[0] ?? 0) * 0.6, shadow);
       this.vehicle(v.def, w.x[v.rearWheel], w.y[v.rearWheel], w.x[v.frontWheel], w.y[v.frontWheel], w.x[v.rearTop], w.y[v.rearTop], w.x[v.frontTop], w.y[v.frontTop], mids, angles[i] ?? [0, 0], false, shadow);
     });
   }
@@ -3254,6 +3479,114 @@ export class Renderer {
     this.wheel(rwx, rwy, R, angles[0], chalk, heavy, rail);
     for (const [mx, my] of mids) this.wheel(mx, my, R, angles[0], chalk, heavy, rail);
     this.wheel(fwx, fwy, R, angles[1], chalk, heavy, rail);
+  }
+
+  /**
+   * A marching squad, soldier by soldier: each stands upright on the squad's line. Once the
+   * squad drops or tips off an edge, its soldiers break ranks and go their own ways: those still
+   * on a bank march on to its edge and step off, the rest fall flailing, and in the river each
+   * comes up where he went in and treads water, drifting apart.
+   */
+  private squad(run: TestRun, v: VehicleHandle, stride: number, shadow: number): void {
+    const { ctx, cam } = this;
+    const w = run.world;
+    const def = v.def;
+    const t = w.time;
+    // The same frame the squad's body would be drawn in, from its chassis top points.
+    const ang = Math.atan2(w.y[v.frontTop] - w.y[v.rearTop], w.x[v.frontTop] - w.x[v.rearTop]);
+    const drop = def.height * 0.6;
+    const ox = w.x[v.rearTop] + Math.sin(ang) * drop;
+    const oy = w.y[v.rearTop] - Math.cos(ang) * drop;
+    const c = Math.cos(ang);
+    const s = Math.sin(ang);
+    let state = this.squads.get(v);
+    if (!state) this.squads.set(v, (state = { last: t, broken: null }));
+    const dt = Math.min(0.1, Math.max(0, t - state.last));
+    state.last = t;
+    // Marching boots leave the ground at every step, so a fall goes by how fast the squad
+    // drops and how far it tips.
+    const vx = (w.vx[v.rearWheel] + w.vx[v.frontWheel]) / 2;
+    const vy = Math.min(w.vy[v.rearWheel], w.vy[v.frontWheel]);
+    if (!state.broken && (vy < -2.5 || Math.abs(ang) > 0.5)) {
+      state.broken = Array.from({ length: SQUAD_RANKS }, (_, k): Soldier => {
+        const lx = squadRank(k);
+        const ly = -def.wheelR;
+        return { x: ox + lx * c - ly * s, y: oy + lx * s + ly * c, vx: vx * (0.8 + 0.4 * hash(k + 1)), vy: Math.min(0, vy) + 1.2 * hash(k + 7), air: 0, spin: (hash(k + 3) - 0.5) * 3, swim: null };
+      });
+    }
+    const L = run.level;
+    // Where a soldier who has broken ranks can stand: only on the banks.
+    const ground = (x: number) => (x <= 0 ? 0 : x >= L.width ? bankY(L) : null);
+    for (let k = 0; k < SQUAD_RANKS; k++) {
+      let fx: number;
+      let fy: number;
+      let lean: number;
+      let flail: number;
+      let pace = stride;
+      let shade = shadow;
+      const sol = state.broken?.[k];
+      if (!sol) {
+        const lx = squadRank(k);
+        const ly = -def.wheelR;
+        fx = ox + lx * c - ly * s;
+        fy = oy + lx * s + ly * c;
+        lean = ang * 0.25;
+        flail = 0;
+      } else {
+        if (!sol.swim) {
+          const g = ground(sol.x);
+          if (g !== null && sol.y <= g + 1e-3 && sol.vy <= 0) {
+            // Still on the bank: march on toward the edge, upright.
+            sol.y = g;
+            sol.vy = 0;
+            sol.vx = def.speed;
+            sol.air = Math.max(0, sol.air - dt * 4);
+          } else {
+            sol.vy -= 9.8 * dt;
+            sol.air = Math.min(1, sol.air + dt * 5);
+          }
+          sol.x += sol.vx * dt;
+          sol.y += sol.vy * dt;
+          if (sol.y < w.waterY) {
+            sol.swim = { t, x: sol.x };
+            const T = this.look;
+            this.particles.burst(PK.Water, sol.x, w.waterY, 14, 4, 0.9, 0.09, [T.foam, '#ffffff', T.waterTop], 4);
+          }
+        }
+        if (sol.swim) {
+          // Treading water: head and shoulders up, bobbing, drifting from where he went in.
+          const since = t - sol.swim.t;
+          // Each squad's soldiers spread out into the river, each by his own amount.
+          const reach = 1 + 3 * hash(k * 13 + v.rearWheel * 7);
+          fx = sol.swim.x + reach * (1 - Math.exp(-since / 3)) + 0.15 * Math.sin(t * 0.7 + k);
+          fy = w.waterY - 1.15 + 0.07 * Math.sin(t * 3 + k * 1.7);
+          lean = 0.12 * Math.sin(t * 2 + k);
+          flail = 1;
+          pace = t * 6 + k * 1.3;
+          shade = 0;
+        } else {
+          fx = sol.x;
+          fy = sol.y;
+          lean = sol.air * (sol.spin * 0.25 + 0.3 * Math.sin(t * 4 + k * 2.1));
+          flail = sol.air;
+          pace = sol.air > 0 ? t * 9 + k : stride;
+          shade = sol.air > 0.5 ? 0 : 1;
+        }
+      }
+      if (shade > 0.02) {
+        ctx.fillStyle = `rgba(0,0,0,${(0.2 * shade).toFixed(3)})`;
+        ctx.beginPath();
+        ctx.ellipse(cam.sx(fx), cam.sy(fy), 0.32 * cam.scale, 0.08 * cam.scale, 0, 0, TAU);
+        ctx.fill();
+      }
+      ctx.save();
+      ctx.translate(cam.sx(fx), cam.sy(fy));
+      ctx.rotate(-lean);
+      ctx.scale(cam.scale, -cam.scale);
+      ctx.lineJoin = 'round';
+      drawSoldier(ctx, def, 1 / cam.scale, pace, flail);
+      ctx.restore();
+    }
   }
 
   private wheel(x: number, y: number, r: number, angle: number, chalk: boolean, heavy = false, rail = false): void {

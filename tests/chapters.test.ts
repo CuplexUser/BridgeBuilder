@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { challengeBoard, chapterUnlocked, CHAPTERS, continueLevel, levelCode, levelUnlocked, nextInChapter, sceneOf, totals, type BestMap } from '../src/chapters';
+import { challengeBoard, chapterById, chapterNumber, chapterUnlocked, CHAPTERS, continueLevel, levelCode, levelUnlocked, nextInChapter, sceneOf, totals, type BestMap } from '../src/chapters';
 import { LEVELS } from '../src/levels';
 import { THEMES } from '../src/render/themes';
 import { mapLayout, perRow } from '../src/ui/chaptermap';
@@ -11,6 +11,12 @@ describe('chapters', () => {
     const all = CHAPTERS.flatMap((c) => c.levels);
     expect(new Set(all)).toEqual(new Set(LEVELS.map((l) => l.id)));
     expect(all).toHaveLength(LEVELS.length);
+  });
+
+  it('are found by id, which is not always their number', () => {
+    for (const c of CHAPTERS) expect(chapterById(c.id)).toBe(c);
+    // Modern Works was added before the finale: buttons must carry ids, not numbers.
+    expect(CHAPTERS.some((c) => chapterNumber(c) !== c.id)).toBe(true);
   });
 
   it('hold seven levels each', () => {

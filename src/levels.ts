@@ -591,13 +591,13 @@ export const BASE_LEVELS: LevelBase[] = [
   {
     id: 33,
     name: 'Toll Bridge',
-    tip: 'Every bolt off the road costs $1,000 to build from. Choose your piers.',
+    tip: 'Every bolt off the road costs $3,000 to build from. Choose your piers.',
     width: 20,
     anchors: [[0, 0], [20, 0], [6, -2], [10, -2], [14, -2], [0, -2], [20, -2]],
     piers: [[6, -2], [10, -2], [14, -2]],
     materials: ['road', 'wood', 'steel'],
     vehicle: 'truck',
-    anchorCost: 1000,
+    anchorCost: 3000,
     waterY: -5,
   },
   {
@@ -1012,7 +1012,7 @@ export const BASE_LEVELS: LevelBase[] = [
     materials: ['road', 'steel', 'cable', 'main', 'damper'],
     vehicle: 'truck',
     convoy: ['troop', 'troop', 'troop'],
-    march: { pace: 1, force: 0.4 },
+    march: { pace: 1, force: 0.5 },
     waterY: -6,
     hint: [
       [[0, 0], [16, 0], 'road'],
@@ -1079,18 +1079,22 @@ export const BASE_LEVELS: LevelBase[] = [
   {
     id: 59,
     name: 'Parade',
-    tip: 'The school bus leads the parade, and four squads march behind it in step. Stiff props from the rocks snap under the bus; dampers let it pass and still calm the swing.',
+    tip: 'Four squads march in step behind the bus, over a river in flood. Steel falls short of the drowned rocks and the towers must stay low: only dampers on the rocks calm the swing.',
     width: 48,
-    anchors: [[0, 0], [48, 0], [2, 0], [6, 0], [42, 0], [46, 0], [18, -4], [30, -4]],
+    // The rock bolts lie just beyond steel's reach of the lowest joint the flood allows, and
+    // within a damper's: nothing stiff can stand on them.
+    anchors: [[0, 0], [48, 0], [2, 0], [6, 0], [42, 0], [46, 0], [18, -4.4], [30, -4.4]],
     piers: [[2, 0], [6, 0], [42, 0], [46, 0]],
-    rocks: [[17, 19, -4], [29, 31, -4]],
+    rocks: [[17, 19, -4.4], [29, 31, -4.4]],
     blocks: { reach: 10, tonnes: 20 },
-    ceiling: 16,
+    // Low towers keep the main cable shallow, so the deck stays lively: a deep cable would
+    // stiffen it enough to need no dampers.
+    ceiling: 10,
     materials: ['road', 'heavy', 'steel', 'cable', 'main', 'concrete', 'damper'],
     vehicle: 'bus',
     convoy: ['troop', 'troop', 'troop', 'troop'],
     march: { pace: 1.25, force: 0.4 },
-    waterY: -6,
+    waterY: -0.6,
   },
   {
     id: 60,
@@ -1294,7 +1298,7 @@ export const BASE_LEVELS: LevelBase[] = [
     materials: ['road', 'steel', 'cable', 'main', 'damper'],
     vehicle: 'truck',
     convoy: ['troop', 'troop', 'troop'],
-    march: { pace: 1, force: 0.4 },
+    march: { pace: 1, force: 0.5 },
     waterY: -6,
   },
   {

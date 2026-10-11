@@ -450,10 +450,17 @@ export function parseLevel(json: string, id: number): LevelDef {
   const width = clampInt(r.width, LIMITS.minWidth, LIMITS.maxWidth);
   // A tenth of a meter, as built-in levels may set it: 11-3's far bank sits at a 3% grade.
   const rightY = Math.round(Math.max(-8, Math.min(8, num(r.rightY, 0))) * 10) / 10;
-  const waterY = clampWater(num(r.waterY, -5), rightY);
+  const waterY = importedWater(num(r.waterY, -5), rightY);
   const inGap = (x: number) => x >= 0 && x <= width;
+  // Rocks may lie drowned, as in a flood; the editor itself only raises them out of the water.
+  const rocks = list(r.rocks, (v): [number, number, number] | null => {
+    if (!Array.isArray(v) || v.length !== 3 || !v.every((n) => typeof n === 'number' && Number.isFinite(n))) return null;
+    const [a, b, top] = v.map(round);
+    return a >= 0 && b <= width && b - a >= 1 && top > waterY - DROWNED_ROCK && top <= LIMITS.maxHeight ? [a, b, top] : null;
+  });
+  const onDrownedRock = (x: number, y: number) => y < waterY && rocks.some(([a, b, top]) => x >= a && x <= b && y === top);
 
-  const given = list(r.anchors, pt).filter(([x, y]) => inGap(x) && y >= waterY && y <= LIMITS.maxHeight);
+  const given = list(r.anchors, pt).filter(([x, y]) => inGap(x) && (y >= waterY || onDrownedRock(x, y)) && y <= LIMITS.maxHeight);
   const anchors = dedupe(given.some(([x, y]) => isFixedBolt(x, y)) ? given : [[0, 0], ...given]);
   const piers = list(r.piers, pt).filter(([x, y]) => x > 0 && x < width && y > waterY && y <= LIMITS.maxHeight);
   const towers = list(r.towers, (v): Tower | null => {
@@ -470,11 +477,6 @@ export function parseLevel(json: string, id: number): LevelDef {
     if (!Array.isArray(v) || v.length !== 3 || !v.every((n) => typeof n === 'number' && Number.isFinite(n))) return null;
     const [a, b, top] = v.map(round);
     return a >= 0 && b <= width && b - a >= 1 ? [a, b, Math.max(top, waterY + 1)] : null;
-  });
-  const rocks = list(r.rocks, (v): [number, number, number] | null => {
-    if (!Array.isArray(v) || v.length !== 3 || !v.every((n) => typeof n === 'number' && Number.isFinite(n))) return null;
-    const [a, b, top] = v.map(round);
-    return a >= 0 && b <= width && b - a >= 1 && top > waterY && top <= LIMITS.maxHeight ? [a, b, top] : null;
   });
   const overhangs = list(r.overhangs, (v): Overhang | null => {
     if (!isObj(v) || (v.side !== 'left' && v.side !== 'right')) return null;
@@ -657,6 +659,18 @@ function str(v: unknown, fallback: string, max: number): string {
 }
 
 /** Water level to the half meter, at least a meter below both banks. */
+/** How far under the water an imported rock's top may lie, m. */
+const DROWNED_ROCK = 6;
+
+/**
+ * The water level of an imported level: to a tenth of a meter, and as high as half a meter under
+ * the lower bank, as built-in levels may set it. The editor's own control keeps it lower.
+ */
+function importedWater(v: number, rightY: number): number {
+  const tenth = Math.round(Math.min(v, Math.min(0, rightY) - 0.5) * 10) / 10;
+  return Math.max(LIMITS.minWater, Math.min(-0.5, tenth));
+}
+
 function clampWater(v: number, rightY: number): number {
   const half = Math.round(Math.min(v, Math.min(0, rightY) - 1) * 2) / 2;
   return Math.max(LIMITS.minWater, Math.min(LIMITS.maxWater, half));

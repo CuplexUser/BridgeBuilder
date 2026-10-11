@@ -57,6 +57,8 @@ export interface Material {
    * of a wall or beam of blocks bending like one stiff piece.
    */
   hinged?: boolean;
+  /** Pull a hinged block's mortared joints hold per edge, N, where it differs from its `tension`. */
+  mortar?: number;
   /**
    * A tendon: pulled tight to this force, N, as the test starts, and threaded straight through
    * concrete blocks, so the blocks between its ends are squeezed together and a beam of them

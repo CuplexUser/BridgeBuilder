@@ -45,6 +45,17 @@ const FLOOD_TIME = 4;
 export const TUNNEL_HEIGHT = 3;
 /** How fast a swing bridge's jacks lift its ends back onto the banks, m/s. */
 const JACK_SPEED = 0.4;
+/**
+ * Slack in the contact broad phase, m: a segment is skipped only when its bounding box is this
+ * much beyond a wheel's reach, far enough that rounding can't make the exact test touch it.
+ */
+const CONTACT_MARGIN = 1e-6;
+
+/** Whether a segment's bounding box lies clearly more than r from (px, py), so it can't touch a wheel there. */
+function beyond(px: number, py: number, r: number, ax: number, ay: number, bx: number, by: number): boolean {
+  const reach = r + CONTACT_MARGIN;
+  return (ax < bx ? ax : bx) - px > reach || px - (ax > bx ? ax : bx) > reach || (ay < by ? ay : by) - py > reach || py - (ay > by ? ay : by) > reach;
+}
 /** Driftwood a flood carries down: how many logs, their weight, kg, size, m, speed, m/s, and the gap between them, s. */
 const LOGS = 3;
 const LOG_MASS = 600;
@@ -174,6 +185,9 @@ export interface Face {
   /** Each edge's mortar has cracked. */
   crack1: boolean;
   crack2: boolean;
+  /** How hard each edge was pressed shut over the last substep, N: negative while its mortar holds it against a pull. */
+  load1: number;
+  load2: number;
 }
 
 /** A concrete anchor: bolted down while it holds, a heavy free mass dragging over the bank once it tears loose. */
@@ -443,7 +457,16 @@ export class World {
       }
 
       this.solveBends(h);
-      for (let k = 0; this.faces.length && k < FACE_ITERATIONS; k++) this.solveFaces(h);
+      if (this.faces.length) {
+        for (const f of this.faces) f.load1 = f.load2 = 0;
+        for (let k = 0; k < FACE_ITERATIONS; k++) this.solveFaces(h);
+        // Each edge's push, summed over the iterations, as a force.
+        const invH2 = 1 / (h * h);
+        for (const f of this.faces) {
+          f.load1 *= invH2;
+          f.load2 *= invH2;
+        }
+      }
       this.solveContacts();
       if (this.logs.length) this.ram();
       this.solveSeats();
@@ -826,7 +849,9 @@ export class World {
       const ny = -tx * f.sign;
       const alpha = f.compliance * invH2;
       f.gap1 = this.press(f.a1, f.b1, nx, ny, tx, ty, alpha, !f.crack1);
+      f.load1 += this.pushed;
       f.gap2 = this.press(f.a2, f.b2, nx, ny, tx, ty, alpha, !f.crack2);
+      f.load2 += this.pushed;
     }
   }
 
@@ -880,13 +905,18 @@ export class World {
    * One edge of a ring joint: corner a of the earlier block against corner b of the later one,
    * held shut while its mortar is whole. Returns how far it stands open, 0 while pressed or held.
    */
+  /** How far the last press pushed its edge shut, as an impulse times the step (kg·m): see Face.load1. */
+  private pushed = 0;
+
   private press(a: number, b: number, nx: number, ny: number, tx: number, ty: number, alpha: number, bonded: boolean): number {
     const { x, y, im } = this;
+    this.pushed = 0;
     const w = im[a] + im[b];
     if (w === 0) return 0;
     const gap = (x[b] - x[a]) * nx + (y[b] - y[a]) * ny;
     if (gap > 0 && !bonded) return gap;
     const ln = -gap / (w + alpha);
+    this.pushed = ln;
     x[a] -= nx * ln * im[a];
     y[a] -= ny * ln * im[a];
     x[b] += nx * ln * im[b];
@@ -927,24 +957,33 @@ export class World {
     }
   }
 
+  /** The unbroken road, gathered afresh for each contact pass. */
+  private road: Link[] = [];
+
   private solveContacts(): void {
     const { x, y, radius, contact, cnx, cny } = this;
-    const links = this.links;
     const t = this.terrain;
+    // The road, in its usual order. Most of it is nowhere near a given wheel: a segment whose
+    // bounding box is clearly more than the wheel's radius away can't touch it, and is skipped
+    // without changing anything.
+    const road = this.road;
+    road.length = 0;
+    for (const l of this.links) if (!l.broken && l.drivable) road.push(l);
     for (let p = 0; p < this.count; p++) {
       const r = radius[p];
       if (r === 0) continue;
       contact[p] = 0;
       const rail = this.rail[p];
       if (rail) this.touch[p] = null;
-      for (let k = 0; k < links.length; k++) {
-        const l = links[k];
-        if (l.broken || !l.drivable) continue;
+      for (let k = 0; k < road.length; k++) {
+        const l = road[k];
         // Trains run on track only.
         if (rail && !MATERIALS[l.mat!].rail) continue;
+        if (beyond(x[p], y[p], r, x[l.a], y[l.a], x[l.b], y[l.b])) continue;
         this.contactSegment(p, r, x[l.a], y[l.a], x[l.b], y[l.b], l.a, l.b, l);
       }
       for (let k = 0; k < t.length; k += 4) {
+        if (beyond(x[p], y[p], r, t[k], t[k + 1], t[k + 2], t[k + 3])) continue;
         this.contactSegment(p, r, t[k], t[k + 1], t[k + 2], t[k + 3], -1, -1, null);
       }
       if (contact[p]) {
@@ -1068,7 +1107,7 @@ export class World {
       if (w === 0) continue;
       let nx = x[b] - x[a];
       let ny = y[b] - y[a];
-      const len = Math.hypot(nx, ny) || 1;
+      const len = Math.sqrt(nx * nx + ny * ny) || 1;
       if (l.tensionOnly && len < l.rest) continue;
       nx /= len;
       ny /= len;
@@ -1612,7 +1651,7 @@ function addFaces(world: World, design: Design, joints: { a: number; b: number; 
     const mat = MATERIALS[design.cells[a].mat];
     const [ca, cb] = [center(a), center(b)];
     const sign = (r.y - p.y) * (cb[0] - ca[0]) - (r.x - p.x) * (cb[1] - ca[1]) > 0 ? 1 : -1;
-    world.faces.push({ a1: corner(a, on[0]), a2: corner(a, on[1]), b1: corner(b, on[0]), b2: corner(b, on[1]), sign, compliance: len / mat.EA, gap1: 0, gap2: 0, apart: false, bond: mat.tension, crack1: false, crack2: false });
+    world.faces.push({ a1: corner(a, on[0]), a2: corner(a, on[1]), b1: corner(b, on[0]), b2: corner(b, on[1]), sign, compliance: len / mat.EA, gap1: 0, gap2: 0, apart: false, bond: mat.mortar ?? mat.tension, crack1: false, crack2: false, load1: 0, load2: 0 });
   }
 }
 

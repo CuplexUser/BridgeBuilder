@@ -163,6 +163,11 @@ export function levelById(id: number): LevelDef {
   return l;
 }
 
+/** A chapter by its id, which since chapters were reordered is not always its number. */
+export function chapterById(id: number): ChapterDef | undefined {
+  return CHAPTERS.find((c) => c.id === id);
+}
+
 export function chapterOf(levelId: number): ChapterDef {
   const c = CHAPTERS.find((ch) => ch.levels.includes(levelId));
   if (!c) throw new Error(`Level ${levelId} is in no chapter`);

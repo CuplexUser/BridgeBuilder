@@ -107,7 +107,7 @@ for (const [i, base] of todo.entries()) {
   pool.clearCache();
 }
 progress.close();
-console.log(`Done in ${clock((Date.now() - t0) / 1000)}: ${pool.runs} simulations, ${pool.hits} cache hits, ${pool.crashes} crashed or hung runs.`);
+console.log(`Done in ${clock((Date.now() - t0) / 1000)}: ${pool.runs} simulations, ${pool.hits} cache hits (${pool.saved} from earlier runs), ${pool.crashes} crashed or hung runs.`);
 await pool.close();
 
 // ───────────────────────────── Tuning ─────────────────────────────

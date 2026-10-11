@@ -1,4 +1,4 @@
-import { chapterComplete, chapterNumber, chapterUnlocked, CHAPTERS, continueLevel, crossed, levelById, levelCode, levelUnlocked, totals, type Best, type BestMap, type ChapterDef } from '../chapters';
+import { chapterById, chapterComplete, chapterNumber, chapterUnlocked, CHAPTERS, continueLevel, crossed, levelById, levelCode, levelUnlocked, totals, type Best, type BestMap, type ChapterDef } from '../chapters';
 import { mapLayout } from './chaptermap';
 import { money } from '../editor';
 import type { LevelDef } from '../levels';
@@ -313,7 +313,7 @@ export class Ui {
       <path class="paved" d="${legs(0, reached)}"/>
     </svg>`;
     for (const h of layout.heads) {
-      const c = CHAPTERS[h.chapter - 1];
+      const c = chapterById(h.chapter)!;
       const t = totals(best, c.levels);
       const open = chapterUnlocked(c, best);
       html += `<div class="map-head${open ? '' : ' locked'}" style="top:${h.y}px">
@@ -407,6 +407,7 @@ export class Ui {
 
   // ───────────────────────────── Leaderboards ─────────────────────────────
 
+  /** Marks the tab and the chapter (by id) a leaderboard shows. */
   boardTabs(tab: BoardTab, chapter: number): void {
     for (const t of ['career', 'chapter', 'levels', 'challenge'] as const) {
       const el = $(`tab-${t}`);
@@ -416,10 +417,11 @@ export class Ui {
     const pills = $('board-chapters');
     pills.classList.toggle('hidden', tab === 'career');
     for (const p of pills.querySelectorAll<HTMLElement>('.pill')) p.classList.toggle('on', Number(p.dataset.chapter) === chapter);
-    const name = CHAPTERS[chapter - 1].name;
+    const ch = chapterById(chapter) ?? CHAPTERS[0];
+    const name = ch.name;
     $('board-note').textContent = {
       career: 'Every engineer, ranked by the sum of their best score on every level.',
-      chapter: `Ranked by best scores on the ${CHAPTERS[chapter - 1].levels.length} levels of ${name}.`,
+      chapter: `Ranked by best scores on the ${ch.levels.length} levels of ${name}.`,
       levels: `The best single-level score on each level of ${name}.`,
       challenge: `${name} played in a row, from scratch, with three lives.`,
     }[tab];

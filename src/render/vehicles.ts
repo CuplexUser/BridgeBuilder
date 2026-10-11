@@ -509,56 +509,89 @@ function wagon(p: Painter, def: VehicleDef): void {
  * boot forward at once. `stride` is how far through a pace they are, in radians.
  */
 function troop(p: Painter, def: VehicleDef, stride = 0): void {
+  for (let k = 0; k < SQUAD_RANKS; k++) soldier(p, def, squadRank(k), -def.wheelR, stride, 0);
+}
+
+/** Ranks in a marching squad. */
+export const SQUAD_RANKS = 5;
+
+/** Where rank k of a squad marches, along the squad from its rear wheel, m. */
+export function squadRank(k: number): number {
+  return -0.15 + k * 0.85;
+}
+
+/**
+ * One soldier, standing at x with his boots at `foot`. `flail` throws his arms up and his legs
+ * apart, 0 marching to 1 falling or treading water; a flailing soldier has let go of his rifle.
+ */
+function soldier(p: Painter, def: VehicleDef, x: number, foot: number, stride: number, flail: number): void {
   const { ctx } = p;
-  const foot = -def.wheelR;
-  const swing = Math.sin(stride) * 0.2;
-  for (let k = 0; k < 5; k++) {
-    const x = -0.15 + k * 0.85;
-    // A soldier's outline for the blueprint: legs, coat and head as one shape.
-    const body = poly([
-      [x - 0.12 - swing, foot],
-      [x - 0.12, 0.55],
-      [x - 0.2, 1.05],
-      [x - 0.08, 1.2],
-      [x + 0.1, 1.2],
-      [x + 0.2, 1.05],
-      [x + 0.12, 0.55],
-      [x + 0.12 + swing, foot],
-    ]);
-    p.chalkPaths.push(body);
-    if (p.chalk) continue;
-    // Legs, the back one darker, boots planted or swinging together.
-    for (const [side, color] of [[-1, shade(def.color, -0.35)], [1, shade(def.color, -0.15)]] as const) {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 0.13;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(x, 0.55);
-      ctx.lineTo(x + side * swing, foot + 0.08);
-      ctx.stroke();
-      ctx.fillStyle = '#1e1a16';
-      ctx.fill(rrect(new Path2D(), x + side * swing - 0.06, foot, 0.2, 0.08, 0.03));
-    }
-    const coat = poly([
-      [x - 0.17, 0.45],
-      [x - 0.2, 1.08],
-      [x - 0.08, 1.2],
-      [x + 0.1, 1.2],
-      [x + 0.2, 1.08],
-      [x + 0.17, 0.45],
-    ]);
-    p.panel(coat, def.color, 1.2, 0.45, false);
-    p.line(x - 0.18, 0.75, x + 0.18, 0.75, '#3b2f1f', 2);
-    // Rifle on the shoulder, head and peaked cap.
-    p.line(x + 0.08, 1.12, x - 0.25, 1.75, '#4a3420', 2.2);
-    ctx.fillStyle = def.trim;
+  const o = foot + def.wheelR;
+  const swing = Math.sin(stride) * 0.2 * (1 - flail);
+  const spread = 0.2 * flail;
+  // A soldier's outline for the blueprint: legs, coat and head as one shape.
+  const body = poly([
+    [x - 0.12 - swing - spread, foot],
+    [x - 0.12, o + 0.55],
+    [x - 0.2, o + 1.05],
+    [x - 0.08, o + 1.2],
+    [x + 0.1, o + 1.2],
+    [x + 0.2, o + 1.05],
+    [x + 0.12, o + 0.55],
+    [x + 0.12 + swing + spread, foot],
+  ]);
+  p.chalkPaths.push(body);
+  if (p.chalk) return;
+  // Legs, the back one darker, boots planted or swinging together, or kicking apart.
+  for (const [side, color] of [[-1, shade(def.color, -0.35)], [1, shade(def.color, -0.15)]] as const) {
+    const kick = side * (swing + spread + Math.sin(stride * 2 + side) * 0.08 * flail);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 0.13;
+    ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.arc(x, 1.32, 0.12, 0, TAU);
-    ctx.fill();
-    ctx.fillStyle = shade(def.color, -0.3);
-    ctx.fill(rrect(new Path2D(), x - 0.14, 1.4, 0.28, 0.1, 0.03));
-    ctx.fillRect(x, 1.39, 0.2, 0.03);
+    ctx.moveTo(x, o + 0.55);
+    ctx.lineTo(x + kick, foot + 0.08);
+    ctx.stroke();
+    ctx.fillStyle = '#1e1a16';
+    ctx.fill(rrect(new Path2D(), x + kick - 0.06, foot, 0.2, 0.08, 0.03));
   }
+  const coat = poly([
+    [x - 0.17, o + 0.45],
+    [x - 0.2, o + 1.08],
+    [x - 0.08, o + 1.2],
+    [x + 0.1, o + 1.2],
+    [x + 0.2, o + 1.08],
+    [x + 0.17, o + 0.45],
+  ]);
+  p.panel(coat, def.color, o + 1.2, o + 0.45, false);
+  p.line(x - 0.18, o + 0.75, x + 0.18, o + 0.75, '#3b2f1f', 2);
+  if (flail > 0.05) {
+    // Arms thrown up, waving out of time with each other.
+    ctx.strokeStyle = shade(def.color, -0.1);
+    ctx.lineWidth = 0.1;
+    ctx.lineCap = 'round';
+    for (const side of [-1, 1]) {
+      const wave = Math.sin(stride * 1.7 + side * 1.3) * 0.12;
+      ctx.beginPath();
+      ctx.moveTo(x + side * 0.15, o + 1.1);
+      ctx.lineTo(x + side * (0.18 + 0.22 * flail) + wave, o + 1.1 + 0.55 * flail);
+      ctx.stroke();
+    }
+  }
+  // Rifle on the shoulder, until he lets go of it; head and peaked cap.
+  if (flail < 0.5) p.line(x + 0.08, o + 1.12, x - 0.25, o + 1.75, '#4a3420', 2.2);
+  ctx.fillStyle = def.trim;
+  ctx.beginPath();
+  ctx.arc(x, o + 1.32, 0.12, 0, TAU);
+  ctx.fill();
+  ctx.fillStyle = shade(def.color, -0.3);
+  ctx.fill(rrect(new Path2D(), x - 0.14, o + 1.4, 0.28, 0.1, 0.03));
+  ctx.fillRect(x, o + 1.39, 0.2, 0.03);
+}
+
+/** Draws one soldier of a squad in the current transform (meters, y up), his boots at the origin. */
+export function drawSoldier(ctx: Ctx, def: VehicleDef, px: number, stride: number, flail: number): void {
+  soldier(new Painter(ctx, px, false), def, 0, 0, stride, flail);
 }
 
 const BODIES: Record<VehicleDef['id'], (p: Painter, def: VehicleDef, stride?: number) => void> = { car, van, truck: dumpTruck, bus, semi, loco, wagon, troop };

@@ -567,9 +567,18 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
   },
   // 9-2's bridge, its towers braced to the deck and the banks against the quake.
   58: (l) => SOLUTIONS[42](l).add([0, 0], [2, 3], 'steel').add([8, 0], [6, 3], 'steel').add([40, 0], [42, 3], 'steel').add([48, 0], [46, 3], 'steel'),
+  // A suspension bridge on concrete pylons as low as the level allows, and a damper straight up
+  // from each drowned rock to the deck.
   59: (l) => {
-    const d = SOLUTIONS[42](l);
-    for (const x of [18, 30]) d.add([x, -4], [x - 2, 0], 'damper').add([x, -4], [x + 2, 0], 'damper');
+    const top = l.ceiling ?? 10;
+    const d = steelSuspension(l, {
+      deck: [[0, 0], [2, 0], [6, 0], [42, 0], [46, 0], [48, 0]],
+      deckMat: 'heavy',
+      towers: [[2, 0, top, 4], [42, 0, top, 4]],
+      legs: 'concrete',
+      cables: [[[4, top], [44, top], 6], [[-10, 0], [4, top]], [[44, top], [58, 0]]],
+    });
+    for (const [x, rock] of l.anchors.filter((a) => a[1] < 0)) d.add([x, rock], [x, 0], 'damper');
     return d;
   },
   // 9-5's footbridge, with two more dampers, straight down from the low bolts, against the flutter.
@@ -583,7 +592,12 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
   // The finale.
   66: (l) => pileBridge(l, [0, 6, 12, 18, 24, 30], [6, 12, 18, 24], 'track'),
   67: (l) => pileBridge(l, [0, 8, 14, 20, 26, 32, 40], [8, 14, 20, 26, 32], 'heavy'),
-  68: (l) => marchBridge(l),
+  // 9-5's footbridge, with a third damper straight down from each bolt in the mud.
+  68: (l) => {
+    const d = marchBridge(l);
+    for (const [x, y] of l.anchors.filter(([ax, ay]) => ax > 0 && ax < l.width && ay < 0)) d.add([x, y], [x, 0], 'damper');
+    return d;
+  },
   69: (l) => archBridge(l, 'heavy', [3, 3], [[0, 1]], 'steel'),
   // Piles on both flats, and a deeper all-steel truss over the ship channel between them.
   70: (l) => pileBridge(l, [0, 6, 12, 18, 30, 36, 42, 48], [6, 12, 18, 30, 36, 42], 'heavy', (x) => (x === 18 ? [3, STEELY] : [2, HEAVY])),
