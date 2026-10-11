@@ -19,6 +19,7 @@ npm start        # production: serves dist/ + the SQLite API on :3000
 npm run tuner    # tuner page: pick levels and effort, run the optimizer, edit the difficulty
 npm run tune     # level optimizer from the command line: tunes budgets, targets, bonus goals and marked geometry
 npm run tune:unpack  # readable JSON copies of src/levels.res in tools/tune/results
+npm run verify   # level verifier: checks every level's quality in a couple of minutes, without optimizing
 ```
 
 `npm start` reads `PORT` (default 3000) and `DB_FILE` (default `data/bridgebuilder.db`). Add `?debug` to the URL for an FPS counter.
@@ -216,6 +217,10 @@ From the command line, `npm run tune` takes the same options. `--levels 7,30` tu
 The level editor's **Auto-tune** (`src/autotune.ts`) runs the same search and polishing in the browser, on Web Workers (`src/tunepool.ts`), for a few seconds instead of minutes, with no intents, no hand-made design and no geometry changes. Its difficulties are fixed slacks over what the short search found.
 
 Each test drive runs 30 seconds, or longer when a slow convoy needs it to get its tail across, such as marching squads (`testSeconds` in `src/physics/world.ts`). It runs designs in parallel on worker threads and restarts any worker that crashes or hangs. Every finished level is saved right away. An interrupted run continues where it stopped, and a level is only re-tuned when its inputs change (`--fresh` forces it). Bump `PHYSICS_VERSION` in `src/physics/world.ts` when a change alters how bridges behave; the tests then report every level as stale until it's tuned again.
+
+### Verifying levels
+
+`npm run verify` (`tools/verify/verify.ts`) checks the quality of every level in a couple of minutes, where a tuning run takes hours. It never optimizes. It test drives a fixed set of probe designs on each level, the tuner's structured starting designs (the stock answers a player tries first) plus a seeded handful of random ones from the same grammar, along with the tuned reference, the ghost and the level's shortcuts. It fails a level whose tuning is stale, whose reference no longer crosses on target, whose ghost doesn't cross when it should, or which a probe crosses within budget without what the level teaches: its required materials, or piles on its mud. It warns when a probe with a safe margin undercuts the reference, so the targets are too lenient; when the bonus goal comes free with the reference; and when a hazard (wind, quake, march, flood or brake stop) hardly matters, because it barely raises the reference's peak and breaks none of the probes and shortcuts that hold without it. It also checks tips, mud, piles and test drive lengths, and that each chapter's levels take as many parts as its card says. `--levels 7,30` checks only those, `--probes <n>` sets the random probes per check (default 24), and probe designs that fail a check are saved in `tools/verify/out` to load in the game. It exits with 1 when a level fails, so it can gate a commit.
 
 ### Difficulty
 

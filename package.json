@@ -12,6 +12,7 @@
     "lint": "oxlint",
     "smoke": "node --import tsx tools/smoke.ts",
     "tune": "node --import tsx --import ./tools/tune/res-register.mjs tools/tune/tune.ts",
+    "verify": "node --import tsx --import ./tools/tune/res-register.mjs tools/verify/verify.ts",
     "tune:unpack": "node --import tsx --import ./tools/tune/res-register.mjs tools/tune/unpack.ts",
     "tuner": "vite --open /tuner",
     "android": "npm run build && cap sync android",

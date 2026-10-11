@@ -350,11 +350,11 @@ async function chooseBonus(base: LevelBase, intent: Intent, current: Tuned, leve
       if (f.outcome.parts <= ref.outcome.parts - 3) return { goal: { kind: 'parts', max: f.outcome.parts }, proof: f };
     }
   }
-  // Nothing new: keep the current goal if the reference or the hand-made design meets it.
-  for (const d of [ref.design, seed]) {
-    if (!d) continue;
-    const o = await pool.run(level, d);
-    if (o.valid && o.crossed && !o.broken && o.cost <= budget && bonusMet(current.bonus, d, o.peak)) return { goal: current.bonus, proof: { design: d, outcome: o, score: 0 } };
+  // Nothing new: keep the current goal if the hand-made design meets it, but only while the
+  // reference doesn't, or the bonus would come free with the cheapest bridge.
+  if (seed && !bonusMet(current.bonus, ref.design, ref.outcome.peak)) {
+    const o = await pool.run(level, seed);
+    if (o.valid && o.crossed && !o.broken && o.cost <= budget && bonusMet(current.bonus, seed, o.peak)) return { goal: current.bonus, proof: { design: seed, outcome: o, score: 0 } };
   }
   // Last resort: match the best design's cost, a notch under the star target.
   const max = ceilTo(ref.outcome.cost * 1.02, 50);

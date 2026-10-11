@@ -5,6 +5,8 @@ data
 *.db-*
 # Readable exports of src/levels.res (npm run tune:unpack)
 tools/tune/results/
+# Probe designs the level verifier saves (npm run verify)
+tools/verify/out/
 src/levels.tuned.json
 *.res.tmp
 android/app/capacitor.build.gradle

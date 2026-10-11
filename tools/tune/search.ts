@@ -99,31 +99,7 @@ export async function evolve(pool: Runner, level: LevelDef, g: Grammar, obj: Obj
   const pick = (k: number) => Math.floor(rand() * k);
   const randomGenome = () => g.genes.map((gene) => pick(gene.options.length));
 
-  // Structured starting points: spans broken at every anchor or none, trussed one way,
-  // with every support, hanger and main cable used or none.
-  const starts: number[][] = [...(opts.seeds ?? [])];
-  for (const broken of [1, 0]) {
-    for (const kind of [1, 2, 0, 3]) {
-      for (const mat of [1, 0]) {
-        for (const cables of [1, 0]) {
-          starts.push(
-            g.genes.map((gene) => {
-              const k = gene.options.length;
-              if (gene.prefer !== undefined) return gene.prefer;
-              if (gene.name.startsWith('break')) return broken;
-              if (gene.name.endsWith(' truss')) return Math.min(kind, k - 1);
-              if (/ (chord|web|vert|end|endWeb)$/.test(gene.name) || gene.name.endsWith(' material')) return Math.min(mat, k - 1);
-              if (gene.name.startsWith('support')) return Math.min(2, k - 1);
-              if (gene.name.startsWith('hang ')) return cables;
-              if (gene.name.endsWith(' sag')) return cables ? Math.min(8, k - 1) : 0;
-              if (gene.name.endsWith(' deck')) return k - 1;
-              return 0;
-            }),
-          );
-        }
-      }
-    }
-  }
+  const starts: number[][] = [...(opts.seeds ?? []), ...structuredStarts(g)];
   let pop = [...starts.slice(0, size), ...Array.from({ length: Math.max(0, size - starts.length) }, randomGenome)];
 
   const evalAll = async (genomes: number[][]): Promise<Found[]> =>
@@ -178,6 +154,38 @@ export async function evolve(pool: Runner, level: LevelDef, g: Grammar, obj: Obj
     opts.log?.(`  gen ${gen + 1}: best ${describe(best)}`);
   }
   return best;
+}
+
+/**
+ * Structured starting points: spans broken at every anchor or none, trussed one way, with
+ * every support, hanger and main cable used or none. The level verifier drives them too, as
+ * the stock answers a player is likely to try first.
+ */
+export function structuredStarts(g: Grammar): number[][] {
+  const starts: number[][] = [];
+  for (const broken of [1, 0]) {
+    for (const kind of [1, 2, 0, 3]) {
+      for (const mat of [1, 0]) {
+        for (const cables of [1, 0]) {
+          starts.push(
+            g.genes.map((gene) => {
+              const k = gene.options.length;
+              if (gene.prefer !== undefined) return gene.prefer;
+              if (gene.name.startsWith('break')) return broken;
+              if (gene.name.endsWith(' truss')) return Math.min(kind, k - 1);
+              if (/ (chord|web|vert|end|endWeb)$/.test(gene.name) || gene.name.endsWith(' material')) return Math.min(mat, k - 1);
+              if (gene.name.startsWith('support')) return Math.min(2, k - 1);
+              if (gene.name.startsWith('hang ')) return cables;
+              if (gene.name.endsWith(' sag')) return cables ? Math.min(8, k - 1) : 0;
+              if (gene.name.endsWith(' deck')) return k - 1;
+              return 0;
+            }),
+          );
+        }
+      }
+    }
+  }
+  return starts;
 }
 
 function late(stopAt: number | undefined): boolean {

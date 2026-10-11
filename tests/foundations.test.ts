@@ -39,7 +39,7 @@ describe('mud', () => {
   it('sinks the bolts on it under a truck', () => {
     const run = drive(onBolts(soft), soft);
     expect(clean(run)).toBe(false);
-    expect(Math.max(...run.world.soft.map((s) => s.sunk))).toBeGreaterThan(0.5);
+    expect(sunk(run)).toBeGreaterThan(0.5);
   });
 
   it('holds a car on the same bolts, sinking them less', () => {
