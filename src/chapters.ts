@@ -77,7 +77,7 @@ export const CHAPTERS: ChapterDef[] = [
     name: 'Railway',
     blurb: 'Trains: long, heavy and coupled, on track that climbs 3% at most. Then soft mud that sinks under a load.',
     difficulty: 6,
-    effort: 'Big builds · 15–60 parts',
+    effort: 'Big builds · 15–80 parts',
     levels: [51, 52, 53, 54, 55, 61, 62],
   },
   {
@@ -85,7 +85,7 @@ export const CHAPTERS: ChapterDef[] = [
     name: 'Anchorage',
     blurb: 'Floods that wash out what stands on mud, then hinged masts and concrete anchors you set yourself.',
     difficulty: 7,
-    effort: 'Big builds · 15–75 parts',
+    effort: 'Big builds · 15–80 parts',
     levels: [63, 64, 65, 36, 37, 38, 39],
   },
   {
@@ -109,7 +109,7 @@ export const CHAPTERS: ChapterDef[] = [
     name: 'Grand Finale',
     blurb: 'Everything at once: the greatest arch, parades in a storm, and trains and semis over a delta in flood.',
     difficulty: 10,
-    effort: 'Grand builds · 20–80 parts',
+    effort: 'Grand builds · 20–90 parts',
     levels: [69, 59, 66, 60, 68, 67, 70],
   },
 ];

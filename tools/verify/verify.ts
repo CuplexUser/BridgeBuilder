@@ -16,8 +16,8 @@
  *   - whether a probe undercuts the reference, so the targets are too lenient;
  *   - whether each hazard (wind, quake, march, flood, brake stop) bites: how far it raises
  *     the reference's peak, and how many probes that hold in calm it breaks;
- *   - that the bonus goal asks for something the reference doesn't already do, and a ghost
- *     that solves its level does;
+ *   - that the bonus goal asks for something the reference doesn't already do, that the
+ *     star target isn't far over the reference, and that a ghost that solves its level does;
  *   - basic level data: tip length, mud, piles, test drive length;
  *
  * and for each chapter, whether its levels' tuned part counts fit the range its card shows.
@@ -59,6 +59,8 @@ const HAZARD_NAMES: Record<Hazard, string> = { wind: 'wind', quake: 'quake', mar
 const BITE = 0.05;
 /** A probe this much cheaper than the reference means the tuner missed a better design. */
 const UNDERCUT = 0.97;
+/** A star target this far over the reference is lenient. */
+const LENIENT = 0.6;
 /** The editor's longest tip. */
 const MAX_TIP = 200;
 /** Longest test drive that still feels like a test, s. */
@@ -133,6 +135,8 @@ async function verifyLevel(level: LevelDef): Promise<Report> {
     if (ref.cost() > level.target) rep.fails.push(`the reference (${usd(ref.cost())}) costs more than the star target (${usd(level.target)})`);
     rep.info.push(`reference ${usd(ref.cost())} at ${pct(refRun.peak)}, ${ref.parts()} parts; target ${usd(level.target)} (${pct(level.target / ref.cost() - 1)} over), budget ${usd(level.money)}`);
     if (level.bonus.kind !== 'cost' && bonusMet(level.bonus, ref, refRun.peak)) rep.warns.push('the bonus goal is free: the reference already meets it');
+    // The target never goes under the hand-made design, so a costly one makes three stars easy.
+    if (level.target > ref.cost() * (1 + LENIENT)) rep.warns.push(`the star target is ${pct(level.target / ref.cost() - 1)} over the reference, set by the hand-made design (${usd(tuned.seed?.cost ?? 0)}): a cheaper one would make it fairer`);
   }
 
   // A ghost that is a whole bridge has to cross.
