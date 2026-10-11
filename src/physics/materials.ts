@@ -271,7 +271,9 @@ export const MATERIALS: Record<MaterialId, Material> = {
     maxLen: 3.2,
     density: 250,
     EA: 3e7,
-    tension: 25000,
+    // Each block is stout, but the mortar between blocks pulls apart far sooner.
+    tension: 100000,
+    mortar: 25000,
     compression: 1.5e6,
     buckleRef: 8,
     bend: 5e7,

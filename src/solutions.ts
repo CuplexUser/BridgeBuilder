@@ -174,13 +174,17 @@ export function blockGirder(d: Design, l: LevelDef, rows: number, tendon: Tendon
   return d;
 }
 
-/** A chapter 10 bridge: a deck, block towers on the rocks, and block arches from tower to tower. */
-export function archBridge(l: LevelDef, deckMat: MaterialId, rows: number[], arches: [number, number][], mat: MaterialId): Design {
+/**
+ * An arch bridge: a deck, block towers on the rocks, and block arches from tower to tower,
+ * springing `spring` rows up each tower's face (by default from its top) at their natural rise.
+ */
+export function archBridge(l: LevelDef, deckMat: MaterialId, rows: number[], arches: [number, number][], mat: MaterialId, spring?: number[]): Design {
   const d = new Design(l);
   roadRun(d, [0, 0], [l.width, l.rightY ?? 0], deckMat);
   const rocks = (l.rocks ?? []).toSorted((p, r) => p[0] - r[0]);
   const tops = rocks.map((r, i) => blockTower(d, l, r, rows[i] ?? 0));
-  for (const [i, j] of arches) blockArch(d, l, [rocks[i][1], tops[i]], [rocks[j][0], tops[j]], mat);
+  const at = (i: number) => (spring ? Math.min(tops[i], rocks[i][2] + spring[i]) : tops[i]);
+  for (const [i, j] of arches) blockArch(d, l, [rocks[i][1], at(i)], [rocks[j][0], at(j)], mat);
   rocks.forEach((r, i) => towerPosts(d, r, tops[i], mat));
   return d;
 }
@@ -521,7 +525,8 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
       legs: 'concrete',
       cables: [[[4, 18], [60, 18], 8], [[-12, 0], [4, 18]], [[-8, 0], [4, 18]], [[60, 18], [76, 0]], [[60, 18], [72, 0]]],
     }),
-  46: (l) => archBridge(l, 'road', [3, 3], [[0, 1]], 'wood'),
+  // Towers up to where wood posts reach the road, and the arch sprung low on their faces so it rises a fifth of its span.
+  46: (l) => archBridge(l, 'road', [3, 3], [[0, 1]], 'wood', [2, 2]),
   51: (l) => {
     const d = new Design(l);
     trussOver(d, roadRun(d, [0, 0], [12, 0], 'track'), 2, HEAVY);
@@ -598,7 +603,7 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
     for (const [x, y] of l.anchors.filter(([ax, ay]) => ax > 0 && ax < l.width && ay < 0)) d.add([x, y], [x, 0], 'damper');
     return d;
   },
-  69: (l) => archBridge(l, 'heavy', [3, 3], [[0, 1]], 'steel'),
+  69: (l) => archBridge(l, 'heavy', [6, 6], [[0, 1]], 'steel', [2, 2]),
   // Piles on both flats, and a deeper all-steel truss over the ship channel between them.
   70: (l) => pileBridge(l, [0, 6, 12, 18, 30, 36, 42, 48], [6, 12, 18, 30, 36, 42], 'heavy', (x) => (x === 18 ? [3, STEELY] : [2, HEAVY])),
   55: (l) => archBridge(l, 'track', [2, 2, 2, 2], [[0, 1], [1, 2], [2, 3]], 'steel'),
@@ -609,14 +614,14 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
     blockArch(d, l, [0, 0], [l.width, 0], 'cable', 4);
     return d;
   },
-  48: (l) => archBridge(l, 'road', [1, 1], [[0, 1]], 'steel'),
-  // Two blocks stacked against each wall, the wall taking the thrust, and a high arch from their tops.
+  48: (l) => archBridge(l, 'road', [3, 2], [[0, 1]], 'steel', [1, 1]),
+  // A block against each wall, the wall taking the thrust, and a high arch from their tops.
   49: (l) => {
     const d = new Design(l);
     roadRun(d, [0, 0], [l.width, 0]);
     const y = (l.rocks ?? [])[0][2];
-    for (const k of [0, 1]) for (const x of [0, l.width - 1]) addBlock(d, x, y + k);
-    blockArch(d, l, [1, y + 2], [l.width - 1, y + 2], 'steel');
+    for (const x of [0, l.width - 1]) addBlock(d, x, y);
+    blockArch(d, l, [1, y + 1], [l.width - 1, y + 1], 'steel');
     return d;
   },
   // Deck arches from the walls to island piers built up to the road, and a through arch over the channel between them.
@@ -624,10 +629,11 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
     const d = new Design(l);
     roadRun(d, [0, 0], [l.width, 0], 'heavy');
     const rocks = (l.rocks ?? []).toSorted((p, r) => p[0] - r[0]);
-    const tops = rocks.map((r, i) => blockTower(d, l, r, i === 0 || i === rocks.length - 1 ? 1 : 5));
-    // The side arches land on the island piers' faces, level with the shelf towers they spring from.
-    blockArch(d, l, [rocks[0][1], tops[0]], [rocks[1][0], tops[0]], 'steel');
-    blockArch(d, l, [rocks[2][1], tops[3]], [rocks[3][0], tops[3]], 'steel');
+    const tops = rocks.map((r, i) => blockTower(d, l, r, i === 0 || i === rocks.length - 1 ? 2 : 6));
+    // The side arches spring a row up the shelf towers and land on the island piers' faces level with that.
+    const low = rocks[0][2] + 1;
+    blockArch(d, l, [rocks[0][1], low], [rocks[1][0], low], 'steel');
+    blockArch(d, l, [rocks[2][1], low], [rocks[3][0], low], 'steel');
     blockArch(d, l, [rocks[1][1], tops[1]], [rocks[2][0], tops[2]], 'steel', 4);
     for (const i of [0, 3]) towerPosts(d, rocks[i], tops[i], 'steel');
     return d;

@@ -6,6 +6,11 @@ import { crossesChannel, MIN_JOINT_GAP, pointAllowed, topY } from './rules';
 
 /** How thick an arch ring is, m: its top (the extrados) runs this far above its underside (the intrados). */
 export const RING = 1;
+/**
+ * The least an arch ring may rise, as a share of its span. An arch carries its load by thrust,
+ * which grows as it flattens: much flatter than this, it would push its springings apart.
+ */
+export const MIN_RISE = 0.2;
 
 /** The corners of a cell, counterclockwise. */
 export function cellPoly(d: Design, c: DCell): GridPt[] {
@@ -193,23 +198,23 @@ export function ringPath(d: Design, a: GridPt, b: GridPt, rise: number): RingPat
 }
 
 /**
- * A natural rise for a ring from a to b: a quarter of its span, but low enough that its crown
- * stays half a meter under a deck already built over its middle, and, given the level, under the
- * highest point anyone may build to.
+ * A natural rise for a ring from a to b: a quarter of its span, but low enough that its top
+ * stays half a meter under every joint of a deck already built over its middle, and, given the
+ * level, its crown under the highest point anyone may build to.
  */
 export function ringRise(d: Design, a: GridPt, b: GridPt, level?: LevelDef): number {
-  const span = Math.abs(b[0] - a[0]);
-  const mid = (a[0] + b[0]) / 2;
-  const chord = (a[1] + b[1]) / 2;
+  const [p, r] = a[0] <= b[0] ? [a, b] : [b, a];
+  const span = r[0] - p[0];
   let rise = span / 4;
   const deck = new Set(d.members.flatMap((m) => (MATERIALS[m.mat].drivable ? [m.a, m.b] : [])));
-  let over = Infinity;
   for (const i of deck) {
     const n = d.nodes[i];
-    if (Math.abs(n.x - mid) <= span / 4 && n.y > chord) over = Math.min(over, n.y);
+    const t = (n.x - p[0]) / span;
+    const chord = p[1] + (r[1] - p[1]) * t;
+    // The ring's underside rises 4t(1 - t) of its rise above the chord at t.
+    if (t >= 0.25 && t <= 0.75 && n.y > chord) rise = Math.min(rise, (n.y - chord - RING - 0.5) / (4 * t * (1 - t)));
   }
-  if (over < Infinity) rise = Math.min(rise, over - chord - RING - 0.5);
-  if (level) rise = Math.min(rise, topY(level) - chord - RING);
+  if (level) rise = Math.min(rise, topY(level) - (p[1] + r[1]) / 2 - RING);
   return Math.max(0.5, Math.round(rise * 10) / 10);
 }
 
@@ -227,8 +232,24 @@ export function ringPolys(path: RingPath): GridPt[][] {
   return out;
 }
 
+/** How far a ring's underside rises above the chord between its springings, m, at its highest. */
+export function riseOf(intra: GridPt[]): number {
+  const [a, b] = [intra[0], intra[intra.length - 1]];
+  if (b[0] === a[0]) return 0;
+  return Math.max(...intra.map(([x, y]) => y - (a[1] + ((b[1] - a[1]) * (x - a[0])) / (b[0] - a[0]))));
+}
+
+/** 'Too flat' for a ring whose underside runs along these points, if it rises less than MIN_RISE of its span; else ''. */
+export function flatProblem(intra: GridPt[]): string {
+  const least = Math.ceil(MIN_RISE * Math.abs(intra[intra.length - 1][0] - intra[0][0]) * 10 - 1e-6) / 10;
+  // The ring's joints sit on the grid, so its rise may come out a hair under the one asked for.
+  return riseOf(intra) < least - 0.05 ? `Too flat: rise ${least} m at least` : '';
+}
+
 /** What stops a ring going into the design along this path, or ''. */
 export function ringProblem(level: LevelDef, d: Design, path: RingPath): string {
+  const flat = flatProblem(path.intra);
+  if (flat) return flat;
   for (const [x, y] of [...path.intra.slice(1, -1), ...path.extra]) {
     if (d.findNode(x, y) >= 0) continue;
     if (!pointAllowed(level, x, y)) return 'Out of bounds';

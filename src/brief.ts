@@ -115,7 +115,7 @@ function rules(l: LevelDef): string[] {
     out.push('Concrete blocks: drag across the grid to paint them a square meter at a time, and drag from a block to erase. They are almost impossible to crush but crack apart when pulled, so stack them where they are pushed: on rock, against the canyon walls, under an arch.');
   }
   if (l.materials.includes('arch')) {
-    out.push('Block arch: drag it from one springing to the other and it rises in a ring of wedge blocks, a joint under each deck joint. Drag the ring at its crown to set the rise: lower pushes harder on the ends. Its ends push outward, so they need rock or blocks behind them, or they slide.');
+    out.push('Block arch: drag it from one springing to the other and it rises in a ring of wedge blocks, a joint under each deck joint. Drag the ring at its crown to set the rise: lower pushes harder on the ends, and it must rise at least a fifth of its span. Its ends push outward, so they need rock or blocks behind them, or they slide.');
   }
   if (l.rocks?.length) out.push('Rock shelves and islands rise from the riverbed: blocks stand on them and push against them, but nothing is bolted there.');
   if (l.materials.includes('tendon')) {

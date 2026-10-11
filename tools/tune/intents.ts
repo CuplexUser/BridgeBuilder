@@ -348,14 +348,13 @@ export const INTENTS: Record<number, Intent> = {
   },
   55: { requires: ['arch'] },
   // Dynamics: the reference without what calms it, or with steel in its place, must fail.
-  56: { requires: ['damper'], shortcuts: [noBlocks, dampers(null), dampers('steel')] },
+  56: { shortcuts: [noBlocks, dampers(null), dampers('steel')] },
   // A light deck in a gale flutters apart unless it's stiffened.
   57: { shortcuts: [{ name: 'no stiffening truss', build: (l) => unstiffen(SOLUTIONS[57](l)) }] },
   58: { shortcuts: [{ name: 'unbraced towers', build: (l) => SOLUTIONS[42](l) }] },
   // Steel can't reach the drowned rocks, so a stiff bridge has to stand on the piers alone, and
-  // the low ceiling keeps a suspension bridge's cable too shallow to calm it without dampers.
+  // the low ceiling keeps a suspension bridge's cable shallow: dampers on the rocks calm it best.
   59: {
-    requires: ['damper'],
     shortcuts: [
       dampers(null),
       { name: 'a stiffening truss instead of dampers', build: (l) => warrenAbove(dampers(null).build(l), 6, 42, 2, 'steel') },
@@ -370,7 +369,7 @@ export const INTENTS: Record<number, Intent> = {
       })),
     ],
   },
-  60: { requires: ['damper'], shortcuts: [dampers(null), dampers('steel')] },
+  60: { shortcuts: [dampers(null), dampers('steel')] },
   // Foundations: the deck stands on piles. Bolts on the mud sink under a truck, or a flood scours them out.
   61: { requires: ['piles'] },
   62: { requires: ['piles'], shortcuts: [onBolts] },
@@ -380,7 +379,7 @@ export const INTENTS: Record<number, Intent> = {
   // The finale: each combines two lessons, and each of them is checked.
   66: { requires: ['piles'], shortcuts: [onBolts] },
   67: { requires: ['piles', 'heavy'], shortcuts: [onBolts] },
-  68: { requires: ['damper'], shortcuts: [dampers(null), dampers('steel')] },
+  68: { shortcuts: [dampers(null), dampers('steel')] },
   69: {
     requires: ['arch', 'masonry'],
     shortcuts: [

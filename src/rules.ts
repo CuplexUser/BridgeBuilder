@@ -1,7 +1,7 @@
 import { segmentHitsRect, segmentsOverlap, type Design } from './design';
 import { bankY, mudAt, type LevelDef } from './levels';
 import { BLOCK, MATERIALS, type MaterialId } from './physics/materials';
-import { cellPoly, cellProblem, hitsCells } from './masonry';
+import { cellPoly, cellProblem, flatProblem, hitsCells, rings } from './masonry';
 
 /** A new joint this close to an existing one is refused as too fiddly. */
 export const MIN_JOINT_GAP = 0.2;
@@ -162,6 +162,11 @@ export function designProblems(level: LevelDef, d: Design, opts: { budget?: bool
     const why = cellProblem(level, d, cellPoly(d, c), earlier);
     if (why && why !== 'Too close to a joint') out.push(`${tag}: ${why.toLowerCase()}`);
   });
+  for (const r of rings(d)) {
+    const intra = r.intra.map((i): [number, number] => [nodes[i].x, nodes[i].y]);
+    const why = flatProblem(intra);
+    if (why) out.push(`arch ring ${intra[0].join(',')}-${intra[intra.length - 1].join(',')}: ${why.toLowerCase()}`);
+  }
   for (const [mat, max] of Object.entries(level.limits ?? {}) as [MaterialId, number][]) {
     if (d.count(mat) > max) out.push(`${d.count(mat)} ${mat} parts, over the limit of ${max}`);
   }

@@ -6,6 +6,7 @@
  *   --time <minutes>     pick the most thorough preset expected to finish in time
  *   --estimate           print the time each preset is expected to take, then stop
  *   --fresh              re-tune levels even when their inputs haven't changed
+ *   --workers <n>        test drives at once (default: one per core but one)
  *
  * Levels whose last result failed a check are always tuned again. The tuner page
  * (`npm run tuner`) picks these options visually and runs this script for you.
@@ -54,7 +55,7 @@ process.channel?.unref();
 // A level is done when its last result worked and its inputs haven't changed since.
 const todo = levels.filter((l) => flag('fresh') || !state[l.id]?.ok || state[l.id].fingerprint !== levelFingerprint(l.id));
 
-const pool = new Pool();
+const pool = new Pool(arg('workers') ? Number(arg('workers')) : undefined);
 const progress = new Progress();
 
 let effortName = arg('effort') ?? DEFAULT_EFFORT;

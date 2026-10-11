@@ -3,7 +3,7 @@ import type { LevelDef } from './levels';
 import { bow, defaultSag, mainPathIn, mainRuns, MIN_MAIN_SPAN, MIN_SAG, resag, sagHandle } from './maincable';
 import { blockOf, MATERIALS, type MaterialId } from './physics/materials';
 import { blockSpot, pileSpots, cableBolt, crossesChannel, lowOverStrip, MIN_JOINT_GAP, pointAllowed, topY } from './rules';
-import { addBlock, blockPoly, cellPoly, cellProblem, cellUnder, hitsCells, layRing, polyArea, ringPath, ringPolys, ringProblem, ringRise, rings, settleRing } from './masonry';
+import { addBlock, blockPoly, cellPoly, cellProblem, cellUnder, flatProblem, hitsCells, layRing, polyArea, ringPath, ringPolys, ringProblem, ringRise, rings, settleRing } from './masonry';
 
 export interface DragState {
   /**
@@ -645,6 +645,8 @@ export class Editor {
     const { nodes, members } = this.design;
     const moved = new Set([...chain.slice(1, -1), ...extra]);
     if (extra.length) {
+      const flat = flatProblem(chain.map((i): GridPt => [nodes[i].x, nodes[i].y]));
+      if (flat) return flat;
       // An arch ring's blocks, against everything but each other.
       const own = new Set(this.design.cells.flatMap((c, k) => (c.part === part ? [k] : [])));
       for (const k of own) {

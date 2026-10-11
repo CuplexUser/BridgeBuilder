@@ -18,8 +18,9 @@ import { blockArch, blockGirder, blockTower, hangDeck, pylon, TENDON_LAYOUTS, to
  * on pier pairs 4 m apart, main cables between their peaks and the mast tops at a chosen sag,
  * and main cable backstays to one or two blocks a side. Where concrete blocks and block
  * arches are on offer, towers of blocks on the rocks, arches from tower to tower at a chosen
- * rise, under the deck on posts or over it on hangers where the towers reach the deck, posts
- * up from both to the deck, and an arch over the road from bank to bank.
+ * rise, springing from the tops or a few rows down their sides, under the deck on posts or
+ * over it on hangers where the towers reach the deck, posts up from both to the deck, and an
+ * arch over the road from bank to bank.
  */
 export interface Grammar {
   genes: Gene[];
@@ -155,6 +156,8 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
       })
     : [];
   const archGenes = archOk ? rocks.slice(0, -1).map((r, i) => add(`arch from rock ${r[0]} to ${rocks[i + 1][0]}`, ['none', ...ARCH_RISES.map((f) => `${f} of a natural rise`)], 1)) : [];
+  // Sprung lower down the towers, an arch has room to rise under the deck.
+  const springGenes = archGenes.map((_, i) => add(`arch from rock ${rocks[i][0]} springs`, ['from the tower tops', ...SPRING_DROPS.map((k) => `${k} row${k > 1 ? 's' : ''} down`)], 1));
   const postGene = (archOk || brick) && beams.length ? add('posts on the arches and towers', beams) : -1;
   // A lower deck under the road, for its own traffic, tied to the road above: by posts under the
   // road's joints, by a Warren web to joints between them, or both.
@@ -291,8 +294,9 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
       archGenes.forEach((gene, i) => {
         const f = g[gene];
         if (!f || !post) return;
-        const a: GridPt = [rocks[i][1], tops[i]];
-        const b: GridPt = [rocks[i + 1][0], tops[i + 1]];
+        const drop = g[springGenes[i]] ? SPRING_DROPS[g[springGenes[i]] - 1] : 0;
+        const a: GridPt = [rocks[i][1], Math.max(rocks[i][2], tops[i] - drop)];
+        const b: GridPt = [rocks[i + 1][0], Math.max(rocks[i + 1][2], tops[i + 1] - drop)];
         blockArch(d, level, a, b, post, Math.max(0.5, Math.round(ringRise(d, a, b, level) * ARCH_RISES[f - 1] * 10) / 10));
       });
       if (post) rocks.forEach((r, i) => towerPosts(d, r, tops[i], post));
@@ -331,8 +335,11 @@ function towerCandidates(level: LevelDef): { a: GridPt; b: GridPt; top: GridPt }
 
 const TOWER_HEIGHT = 7;
 
-/** Block arch rises, as shares of the natural rise (a quarter span, or as high as the deck allows). */
-const ARCH_RISES = [1, 0.8, 0.6];
+/** Block arch rises, as shares of the natural rise (a quarter span, or as high as the deck allows): no ring may rise under a fifth of its span. */
+const ARCH_RISES = [1, 0.9, 0.8];
+
+/** How many rows below its tower's top an arch may spring. */
+const SPRING_DROPS = [1, 2, 3];
 
 /** Main span sags, as fractions of the span: 1/12 to 1/5. */
 const MAIN_SAGS = [12, 10, 8, 6, 5];

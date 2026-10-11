@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Design, type GridPt } from '../src/design';
 import { Editor, fitDesign } from '../src/editor';
 import type { LevelDef } from '../src/levels';
-import { addBlock, blockPoly, cellProblem, layRing, RING, ringPath, ringPolys, ringRise, rings } from '../src/masonry';
+import { addBlock, blockPoly, cellProblem, flatProblem, layRing, RING, ringPath, ringPolys, ringRise, rings, riseOf } from '../src/masonry';
 import { buildWorld, TestRun } from '../src/physics/world';
 import { designProblems } from '../src/rules';
 import { blockArch, roadRun } from '../src/solutions';
@@ -32,12 +32,18 @@ const SHELVES: LevelDef = {
   bonus: { kind: 'cost', max: 0 },
 };
 
-/** The deck, abutment blocks `abut` high against each wall, an arch from shelf to shelf, and steel posts. */
-function shelfArch(abut: number): Design {
-  const d = new Design(SHELVES);
+/** The same gorge with its shelves a meter deeper: room under the deck for an arch to rise a fifth of its span. */
+const DEEP: LevelDef = { ...SHELVES, id: 971, name: 'Deep shelves', rocks: [
+    [0, 2, -6],
+    [18, 20, -6],
+  ] };
+
+/** The deck, abutment blocks `abut` high against each wall, an arch from shelf to shelf rising `rise`, and steel posts. */
+function shelfArch(abut: number, rise = 3.6): Design {
+  const d = new Design(DEEP);
   roadRun(d, [0, 0], [20, 0]);
-  for (let k = 0; k < abut; k++) for (const x of [0, 19]) addBlock(d, x, -5 + k);
-  blockArch(d, SHELVES, [1, -5], [19, -5], 'steel', 3.5);
+  for (let k = 0; k < abut; k++) for (const x of [0, 19]) addBlock(d, x, -6 + k);
+  blockArch(d, DEEP, [1, -6], [19, -6], 'steel', rise);
   return d;
 }
 
@@ -49,11 +55,11 @@ function drive(d: Design, level = SHELVES): TestRun {
 
 /** A bare ring on one block against each wall, with `tonnes` hung from its top a quarter of the way across, after five seconds. */
 function pointLoad(tonnes: number) {
-  const d = new Design(SHELVES);
-  for (const x of [0, 19]) addBlock(d, x, -5);
-  blockArch(d, SHELVES, [1, -4], [19, -4], 'steel', 2.5);
+  const d = new Design(DEEP);
+  for (const x of [0, 19]) addBlock(d, x, -6);
+  blockArch(d, DEEP, [1, -5], [19, -5], 'steel', 3.6);
   const at = rings(d)[0].extra[2];
-  const { world } = buildWorld(d, SHELVES);
+  const { world } = buildWorld(d, DEEP);
   world.im[at] = 1 / (1 / world.im[at] + tonnes * 1000);
   for (let i = 1; i <= 300; i++) {
     world.gravityScale = Math.min(1, i / 60);
@@ -104,16 +110,54 @@ describe('arch rings', () => {
   });
 
   it('takes a new rise from its crown handle, its top following its underside', () => {
-    const ed = new Editor(SHELVES, noop);
-    ed.design = shelfArch(0);
+    const ed = new Editor(DEEP, noop);
+    ed.design = shelfArch(0, 4.5);
     const h = ed.sagHandles().find((x) => x.mat === 'arch')!;
     ed.beginSag(h);
-    ed.aimSag(h.y - 1);
+    ed.aimSag(h.y - 0.5);
     ed.commit();
     const r = rings(ed.design)[0];
     r.extra.forEach((e, i) => expect(ed.design.nodes[e].y).toBeCloseTo(ed.design.nodes[r.intra[i + 1]].y + RING, 6));
     const crown = ed.design.nodes[r.intra.find((i) => ed.design.nodes[i].x === 10)!];
-    expect(crown.y).toBeLessThan(-1.5);
+    expect(crown.y).toBeLessThan(-1.8);
+  });
+
+  it('must rise at least a fifth of its span', () => {
+    const d = new Design(SHELVES);
+    expect(flatProblem(ringPath(d, [1, -5], [19, -5], 3.6)!.intra)).toBe('');
+    expect(flatProblem(ringPath(d, [1, -5], [19, -5], 3.5)!.intra)).toBe('Too flat: rise 3.6 m at least');
+    // A leaning ring rises from the chord between its springings.
+    expect(riseOf(ringPath(d, [1, -5], [19, -2], 4)!.intra)).toBeCloseTo(4, 1);
+    // Laid straight from the path helpers, a flat ring is still caught.
+    layRing(d, ringPath(d, [1, -5], [19, -5], 3)!);
+    expect(designProblems(SHELVES, d)).toEqual(['arch ring 1,-5-19,-5: too flat: rise 3.6 m at least']);
+  });
+
+  it('is refused where the deck leaves no room to rise a fifth of the span, or dragged flatter', () => {
+    const ed = new Editor(SHELVES, noop);
+    roadRun(ed.design, [0, 0], [20, 0]);
+    ed.setMaterial('arch');
+    ed.beginAt(1, -5, 0.1, 0.1);
+    ed.aim(19, -5);
+    expect(ed.drag!.reason).toBe('Too flat: rise 3.6 m at least');
+    ed.design = shelfArch(0, 4.5);
+    const h = ed.sagHandles().find((x) => x.mat === 'arch')!;
+    ed.beginSag(h);
+    ed.aimSag(h.y - 1.5);
+    ed.commit();
+    const r = rings(ed.design)[0];
+    expect(ed.design.nodes[r.intra.find((i) => ed.design.nodes[i].x === 10)!].y).toBeCloseTo(-1.5, 6);
+  });
+
+  it('keeps under each joint of a sloping deck at its own height', () => {
+    const d = new Design({ ...DEEP, rightY: 3, anchors: [
+        [0, 0],
+        [20, 3],
+      ] });
+    roadRun(d, [0, 0], [20, 3]);
+    // The ring's top stays half a meter under the deck where they come closest, just short of
+    // mid-span. The lowest deck joint over the ring's middle, 0.9 m up, sits over its lower haunch.
+    expect(ringRise(d, [1, -4], [19, -4])).toBe(3.9);
   });
 });
 
@@ -163,23 +207,31 @@ describe('concrete blocks', () => {
     const back = Design.deserialize(d.serialize());
     expect(back.cells).toEqual(d.cells);
     expect(back.cost()).toBe(d.cost());
-    expect(designProblems(SHELVES, back)).toEqual([]);
-    const fit = fitDesign({ ...SHELVES, materials: ['road', 'steel', 'arch'] }, back);
+    expect(designProblems(DEEP, back)).toEqual([]);
+    const fit = fitDesign({ ...DEEP, materials: ['road', 'steel', 'arch'] }, back);
     expect(fit.design.cells.every((c) => c.mat === 'arch')).toBe(true);
     expect(fit.removed).toBe(2);
   });
 });
 
 describe('block physics', () => {
-  it('an arch springing on a bare shelf slides off it; one block against the wall holds it', () => {
+  it('a flat arch springing on a bare shelf slides off it; one block against the wall holds it', () => {
     const bare = shelfArch(0);
-    const spring = bare.findNode(1, -5);
-    const run = drive(bare);
+    const spring = bare.findNode(1, -6);
+    const run = drive(bare, DEEP);
     expect(run.status).toBe('fail');
-    expect(Math.abs(run.world.x[spring] - 1)).toBeGreaterThan(0.5);
-    const held = drive(shelfArch(1));
+    expect(Math.abs(run.world.x[spring] - 1)).toBeGreaterThan(0.3);
+    const held = drive(shelfArch(1), DEEP);
     expect(held.status).toBe('success');
     expect(held.peakStress).toBeLessThan(0.5);
+  });
+
+  it('a higher arch pushes out less, and stands even on the bare shelf', () => {
+    const d = shelfArch(0, 4.5);
+    const spring = d.findNode(1, -6);
+    const run = drive(d, DEEP);
+    expect(run.status).toBe('success');
+    expect(Math.abs(run.world.x[spring] - 1)).toBeLessThan(0.2);
   });
 
   it('blocks pull apart where they are pulled hard enough', () => {
@@ -223,7 +275,7 @@ describe('block physics', () => {
 describe('arch ring joints', () => {
   it('give each block its own corners, joined by one mortared face per joint', () => {
     const d = shelfArch(1);
-    const { world } = buildWorld(d, SHELVES);
+    const { world } = buildWorld(d, DEEP);
     const cells = d.cells.filter((c) => c.mat === 'arch').length;
     expect(world.faces).toHaveLength(cells - 1);
     for (const f of world.faces) {

@@ -69,7 +69,7 @@ export const CHAPTERS: ChapterDef[] = [
     name: 'Arches',
     blurb: 'Drawbridges in traffic, then concrete blocks and block arches. They only push: send every thrust into rock.',
     difficulty: 5,
-    effort: 'Big builds · 15–75 parts',
+    effort: 'Big builds · 15–85 parts',
     levels: [34, 35, 46, 47, 48, 49, 50],
   },
   {
