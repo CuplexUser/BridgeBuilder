@@ -47,6 +47,15 @@ export function trussOver(d: Design, pts: GridPt[], h: number, m: TrussMats): De
   return d;
 }
 
+/** A Warren truss h meters over a flat deck from x0 to x1 (deck joints every 2 m): diagonals only, its top joints between the deck's. */
+export function warrenAbove(d: Design, x0: number, x1: number, h: number, mat: MaterialId): Design {
+  for (let x = x0; x < x1; x += 2) {
+    d.add([x, 0], [x + 1, h], mat).add([x + 1, h], [x + 2, 0], mat);
+    if (x + 2 < x1) d.add([x + 1, h], [x + 3, h], mat);
+  }
+  return d;
+}
+
 export function prattAbove(d: Design, x0: number, x1: number, h: number, m: TrussMats): Design {
   const pts: GridPt[] = [];
   for (let x = x0; x <= x1; x += 2) pts.push([x, 0]);
@@ -126,6 +135,45 @@ function postUp(d: Design, i: number, heights: Map<number, number>, mat: Materia
   d.add([n.x, n.y], [n.x, y], mat);
 }
 
+/** Where tendons run through a block girder: none, straight along its underside or its middle, or draped low in each span and high over each inner pier. */
+export type TendonLayout = 'none' | 'low' | 'middle' | 'draped';
+export const TENDON_LAYOUTS: TendonLayout[] = ['none', 'low', 'middle', 'draped'];
+
+/**
+ * A prestressed girder under a flat deck at y = 0: a beam of blocks `rows` deep from the first rock
+ * to the last, block piers from each rock up to it, and tendons threaded through it, each piece
+ * from block corner to block corner.
+ */
+export function blockGirder(d: Design, l: LevelDef, rows: number, tendon: TendonLayout): Design {
+  const rocks = (l.rocks ?? []).toSorted((p, r) => p[0] - r[0]);
+  if (rocks.length < 2 || rows < 1) return d;
+  const x0 = Math.ceil(rocks[0][0]);
+  const x1 = Math.floor(rocks[rocks.length - 1][1]);
+  const put = (x: number, y: number) => {
+    if (!cellProblem(l, d, blockPoly(x, y))) addBlock(d, x, y);
+  };
+  for (let y = -rows; y < 0; y++) for (let x = x0; x < x1; x++) put(x, y);
+  for (const [a, b, top] of rocks) for (let y = Math.ceil(top); y < -rows; y++) for (let x = Math.ceil(a); x + 1 <= b + 1e-9; x++) put(x, y);
+  const mid = -rows + Math.floor(rows / 2);
+  let pts: GridPt[] = [];
+  if (tendon === 'low' || tendon === 'middle') {
+    // Straight, in as few pieces as a tendon's length allows.
+    const y = tendon === 'low' ? -rows : mid;
+    const n = Math.ceil((x1 - x0) / MATERIALS.tendon.maxLen);
+    pts = Array.from({ length: n + 1 }, (_, i): GridPt => [i === n ? x1 : x0 + Math.round(((x1 - x0) * i) / n), y]);
+  } else if (tendon === 'draped') {
+    const centers = rocks.map(([a, b]) => Math.round((a + b) / 2));
+    pts = [[x0, mid]];
+    centers.forEach((c, i) => {
+      if (i > 0) pts.push([Math.round((centers[i - 1] + c) / 2), -rows]);
+      if (i > 0 && i < centers.length - 1) pts.push([c, 0]);
+    });
+    pts.push([x1, mid]);
+  }
+  for (let i = 0; i < pts.length - 1; i++) d.add(pts[i], pts[i + 1], 'tendon');
+  return d;
+}
+
 /** A chapter 10 bridge: a deck, block towers on the rocks, and block arches from tower to tower. */
 export function archBridge(l: LevelDef, deckMat: MaterialId, rows: number[], arches: [number, number][], mat: MaterialId): Design {
   const d = new Design(l);
@@ -134,6 +182,67 @@ export function archBridge(l: LevelDef, deckMat: MaterialId, rows: number[], arc
   const tops = rocks.map((r, i) => blockTower(d, l, r, rows[i] ?? 0));
   for (const [i, j] of arches) blockArch(d, l, [rocks[i][1], tops[i]], [rocks[j][0], tops[j]], mat);
   rocks.forEach((r, i) => towerPosts(d, r, tops[i], mat));
+  return d;
+}
+
+/**
+ * A double-deck bridge: the road on top, the lower deck's track or road under it, braced to each
+ * other by posts under the road's joints, a Warren web to joints between them, or both, and
+ * optionally a truss over the road as well.
+ */
+export function doubleDeck(l: LevelDef, web: 'posts' | 'warren' | 'both', over: boolean): Design {
+  const d = new Design(l);
+  const y = l.lower!.y;
+  const up = roadRun(d, [0, 0], [l.width, 0]);
+  const lowMat: MaterialId = l.materials.includes('track') ? 'track' : 'road';
+  const xs = web === 'posts' ? up.map(([x]) => x) : web === 'warren' ? [0, ...Array.from({ length: Math.floor(l.width / 2) }, (_, i) => 2 * i + 1), l.width] : Array.from({ length: l.width + 1 }, (_, i) => i);
+  for (let i = 0; i < xs.length - 1; i++) d.add([xs[i], y], [xs[i + 1], y], lowMat);
+  for (const [x] of up) {
+    if (x <= 0 || x >= l.width) continue;
+    if (web !== 'warren') d.add([x, 0], [x, y], 'steel');
+    if (web !== 'posts') d.add([x, 0], [x - 1, y], 'steel').add([x, 0], [x + 1, y], 'steel');
+  }
+  d.add([0, 0], [1, y], 'steel').add([l.width, 0], [l.width - 1, y], 'steel');
+  if (over) trussOver(d, up, 2, HEAVY);
+  return d;
+}
+
+/**
+ * A double-leaf bascule: a truss over each leaf from its bank to the joint the two share on the
+ * lock line, which the lock splits into one joint per leaf, and a ram on each pier to lift it.
+ */
+export function doubleBascule(l: LevelDef, m: TrussMats): Design {
+  const d = new Design(l);
+  const mid = l.lock!;
+  trussOver(d, roadRun(d, [0, 0], [mid, 0]), 2, m);
+  // The far leaf's joints on the even meters, so its pier's ram meets one.
+  const pts: GridPt[] = [[mid, 0]];
+  for (let x = Math.floor(mid / 2) * 2 + 2; x <= l.width; x += 2) pts.push([x, 0]);
+  for (let i = 0; i < pts.length - 1; i++) d.add(pts[i], pts[i + 1], 'road');
+  trussOver(d, pts, 2, m);
+  for (const [x, y] of l.piers) d.add([x, y], [x, 0], 'ram');
+  return d;
+}
+
+/** A lift bridge: approaches from the banks to the towers' seats, each braced from its low bank bolt, and a span from seat to seat on rams. */
+export function liftBridge(l: LevelDef, deckMat: MaterialId, m: TrussMats): Design {
+  const d = new Design(l);
+  const [a, b] = l.lift!;
+  trussOver(d, roadRun(d, [0, 0], [a, 0], deckMat), 2, m);
+  trussOver(d, roadRun(d, [b, 0], [l.width, 0], deckMat), 2, m);
+  d.add([0, -3], [2, 0], 'steel').add([l.width, -3], [l.width - 2, 0], 'steel');
+  trussOver(d, roadRun(d, [a, 0], [b, 0], deckMat), 2, m);
+  for (const [x, y] of l.anchors) if (x > a && x < b) d.add([x, y], [x, 0], 'ram');
+  return d;
+}
+
+/** A swing bridge: a deep steel truss from bank to bank, on posts from both pivot bolts crossed under the pivot, and fanned out wide. */
+export function swingBridge(l: LevelDef, fan: boolean): Design {
+  const d = new Design(l);
+  const p = l.swing!.pivot;
+  trussOver(d, roadRun(d, [0, 0], [l.width, 0]), 3, STEELY);
+  d.add([p - 1, -3], [p, 0], 'steel').add([p + 1, -3], [p, 0], 'steel');
+  if (fan) d.add([p - 1, -3], [p - 2, 0], 'steel').add([p + 1, -3], [p + 2, 0], 'steel');
   return d;
 }
 
@@ -429,7 +538,10 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
   54: (l) => {
     const d = new Design(l);
     trussOver(d, roadRun(d, [0, 0], [16, 0], 'track'), 3, STEELY);
-    return d.add([0, -3], [2, 0], 'steel').add([16, -3], [14, 0], 'steel');
+    // On sliding bearings: K-braced down to the low bolts both ways, so the braking train can't shove it along.
+    d.add([0, -3], [2, 0], 'steel').add([16, -3], [14, 0], 'steel');
+    d.add([0, -3], [2, -3], 'steel').add([2, -3], [2, 0], 'steel').add([2, -3], [4, 0], 'steel');
+    return d.add([16, -3], [14, -3], 'steel').add([14, -3], [14, 0], 'steel').add([14, -3], [12, 0], 'steel');
   },
   56: (l) => marchBridge(l),
   57: (l) => {
@@ -439,8 +551,8 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
     hang(d, [10, 7], [[8, 0], [10, 0]]);
     hang(d, [14, 5], [[12, 0], [14, 0], [16, 0]]);
     hang(d, [18, 7], [[18, 0], [20, 0]]);
-    // Tie-downs to the rock, so the gusts can't lift the middle.
-    hang(d, [14, -5], [[12, 0], [16, 0]]);
+    // A stiffening truss between the towers, so the deck can't flutter.
+    warrenAbove(d, 6, 22, 2, 'wood');
     d.add([0, -3], [2, 0], 'steel').add([28, -3], [26, 0], 'steel');
     return kingPost(kingPost(d, 2, 6, -2, 'wood', 'steel'), 22, 26, -2, 'wood', 'steel');
   },
@@ -451,7 +563,8 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
     for (const x of [18, 30]) d.add([x, -4], [x - 2, 0], 'damper').add([x, -4], [x + 2, 0], 'damper');
     return d;
   },
-  60: (l) => marchBridge(l),
+  // 9-5's footbridge, with two more dampers, straight down from the low bolts, against the flutter.
+  60: (l) => marchBridge(l).add([16, -4], [16, 0], 'damper').add([24, -4], [24, 0], 'damper'),
   // Foundations: trusses from support to support, standing on piles driven into the mud.
   61: (l) => pileBridge(l, [0, 10, 20], [10]),
   62: (l) => pileBridge(l, [0, 12, 24], [12]),
@@ -516,6 +629,18 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
     trussOver(d, down, 2, STEELY);
     return d.add([0, -3], up[1], 'steel').add([l.width, -3], down.at(-2)!, 'steel');
   },
+  // Modern works. Prestressed girders: a tendon low through one span, along the middle over two.
+  71: (l) => blockGirder(deck(new Design(l), 0, l.width), l, 2, 'low'),
+  72: (l) => {
+    const d = new Design(l);
+    roadRun(d, [0, 0], [l.width, 0], 'heavy');
+    return blockGirder(d, l, 2, 'middle');
+  },
+  73: (l) => doubleDeck(l, 'warren', true),
+  74: (l) => doubleBascule(l, STEELY),
+  75: (l) => liftBridge(l, 'road', HEAVY),
+  76: (l) => swingBridge(l, true),
+  77: (l) => liftBridge(l, 'track', HEAVY),
 };
 
 /** Level 27: a road deck on a braced trestle up from each deep pier, with a truss over each span. */

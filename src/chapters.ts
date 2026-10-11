@@ -104,11 +104,20 @@ export const CHAPTERS: ChapterDef[] = [
     effort: 'Huge builds · 25–75 parts',
     levels: [28, 20, 29, 30, 56, 57, 58],
   },
+  // Added after the finale, and played before it: its id is 11, its number 10. See chapterNumber.
+  {
+    id: 11,
+    name: 'Modern Works',
+    blurb: 'Prestressed girders, a double-deck railway, and drawbridges that split, lift and swing for the ships.',
+    difficulty: 10,
+    effort: 'Big builds · 20–60 parts',
+    levels: [71, 72, 74, 75, 73, 76, 77],
+  },
   {
     id: 10,
     name: 'Grand Finale',
     blurb: 'Everything at once: the greatest arch, parades in a storm, and trains and semis over a delta in flood.',
-    difficulty: 10,
+    difficulty: 11,
     effort: 'Grand builds · 20–90 parts',
     levels: [69, 59, 66, 60, 68, 67, 70],
   },
@@ -125,11 +134,11 @@ const SCENES: number[][] = [
   [13, 14, 15, 24, 16],
   [17, 18, 25, 26, 19],
   [27, 28, 20, 29, 30],
-  [31, 32, 33, 34, 35],
+  [31, 32, 33, 34, 35, 74, 75, 76],
   [36, 37, 38, 39, 40],
   [41, 42, 43, 44, 45],
-  [46, 47, 48, 49, 50, 69],
-  [51, 52, 53, 54, 55, 66],
+  [46, 47, 48, 49, 50, 69, 71, 72],
+  [51, 52, 53, 54, 55, 66, 73, 77],
   [56, 57, 58, 59, 60, 68],
   [61, 62, 63, 64, 65, 70],
 ];
@@ -160,10 +169,18 @@ export function chapterOf(levelId: number): ChapterDef {
   return c;
 }
 
+/**
+ * A chapter's number as players see it: its place in the order. Ids stay fixed, since saved
+ * challenge boards hang on them, so a chapter added before the last has a higher id than number.
+ */
+export function chapterNumber(c: ChapterDef): number {
+  return CHAPTERS.indexOf(c) + 1;
+}
+
 /** Chapter-position label shown to players, e.g. "3-2". */
 export function levelCode(levelId: number): string {
   const c = chapterOf(levelId);
-  return `${c.id}-${c.levels.indexOf(levelId) + 1}`;
+  return `${chapterNumber(c)}-${c.levels.indexOf(levelId) + 1}`;
 }
 
 export function crossed(best: BestMap, levelId: number): boolean {

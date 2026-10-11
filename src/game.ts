@@ -1759,7 +1759,7 @@ export class Game {
       else this.debris.add(b.ax, b.ay, b.bx, b.by, b.vx, b.vy, mat);
       if (mat === 'wood') {
         this.particles.burst(PK.Splinter, b.x, b.y, 22, 7, 1.2, 0.18, [PAL.wood, PAL.woodDark, '#e8b27a'], 2);
-      } else if (mat === 'steel' || mat === 'cable' || mat === 'main' || mat === 'ram' || mat === 'damper') {
+      } else if (mat === 'steel' || mat === 'cable' || mat === 'main' || mat === 'ram' || mat === 'damper' || mat === 'tendon') {
         this.particles.burst(PK.Spark, b.x, b.y, mat === 'cable' ? 18 : mat === 'main' ? 40 : 30, 12, 0.6, 0.04, ['#fff3b0', PAL.gold, '#ff9d3b'], 2);
       } else if (mat === 'heavy' || mat === 'concrete' || mat === 'masonry' || mat === 'arch') {
         this.particles.burst(PK.Splinter, b.x, b.y, 22, 6, 1.3, 0.22, [PAL.concrete, PAL.concreteDark, PAL.heavy], 2);
@@ -1773,7 +1773,7 @@ export class Game {
         sfx.crack(mat);
         this.shake.add(0.45);
         this.flash = Math.max(this.flash, 0.25);
-        const word = b.link.crushed ? 'TOO HEAVY!' : mat === 'steel' || mat === 'ram' || mat === 'damper' ? 'CLANG!' : mat === 'cable' ? 'PING!' : mat === 'main' ? 'TWANG!' : mat === 'heavy' || mat === 'concrete' || mat === 'masonry' || mat === 'arch' ? 'CRACK!' : 'SNAP!';
+        const word = b.link.crushed ? 'TOO HEAVY!' : mat === 'steel' || mat === 'ram' || mat === 'damper' ? 'CLANG!' : mat === 'cable' || mat === 'tendon' ? 'PING!' : mat === 'main' ? 'TWANG!' : mat === 'heavy' || mat === 'concrete' || mat === 'masonry' || mat === 'arch' ? 'CRACK!' : 'SNAP!';
         this.float(b.x, b.y + 0.8, word, PAL.bad, 24, 0.9);
         if (!this.anyBreak) this.slowmo = 0.7;
       }

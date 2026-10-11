@@ -517,7 +517,7 @@ export class Editor {
       }
       if (crossesChannel(this.level, ax, ay, bx, by)) return 'Keep the channel clear';
       if (mat.tensionOnly && (cableBolt(this.level, ax, ay) || cableBolt(this.level, bx, by))) return 'Anchor cables in concrete';
-      if (hitsCells(this.design, [ax, ay], [bx, by])) return 'Runs through a block';
+      if (!mat.prestress && hitsCells(this.design, [ax, ay], [bx, by])) return 'Runs through a block';
     }
     return '';
   }

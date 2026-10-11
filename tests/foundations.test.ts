@@ -80,6 +80,16 @@ describe('floods', () => {
     expect(clean(drive(onBolts(calm), calm))).toBe(true);
   });
 
+  it('carry logs down the river that jam against what stands in it', () => {
+    const run = drive(pileBridge(flood, [0, 10, 14, 24], [10, 14]), flood);
+    const w = run.world;
+    const afloat = w.logs.filter((g) => g.afloat);
+    expect(afloat.length).toBeGreaterThan(0);
+    for (const g of afloat) expect(w.y[g.p]).toBeCloseTo(w.waterY, 3);
+    // Caught on the posts at 10 and 14, short of the far bank.
+    expect(afloat.some((g) => w.x[g.p] < 14)).toBe(true);
+  });
+
   it('leave piles standing', () => {
     const run = drive(pileBridge(flood, [0, 10, 14, 24], [10, 14]), flood);
     expect(clean(run)).toBe(true);

@@ -38,6 +38,20 @@ Features and improvements, by priority. Finished items stay checked for a releas
 
 ### Done
 
+- [x] **Modern Works, a new chapter 10** (played before the finale, which becomes 11; ids stay put, and players see a chapter's place in the order). Seven levels: *Tendon* (a ghost), *Two Spans*, *Double Bascule*, *Lift Bridge*, *Double Deck*, *Swing Bridge* and *Ship Waits*. Each has a hand-made design and shortcuts that must fail, and the optimizer builds block girders with tendons and double decks.
+- [x] **Prestressed concrete.** Every concrete block now has mortared joints like an arch ring's, so a beam of blocks cracks where it is pulled apart. A tendon is a steel strand threaded through blocks from corner to corner and pulled to 250 kN as the test starts. Measured on a two-block girder over a 14 m channel for a truck: the plain girder breaks, and one with a tendon low holds at 66%. Over two 12 m spans for a semi, a tendon low breaks over the middle pier, but one along the middle of the beam holds at 71%. A tendon at the very bottom of a one-block beam cracks its top, just as a real one outside the middle third would.
+- [x] **Two-track railway, as a double deck.** A lower deck (`lower`) with its own traffic coming out of a tunnel in each bank. On a 16 m crossing with a truck above a locomotive and wagon, posts alone fail and so does a web alone; a Warren web between the decks plus a truss over the road holds at 78%.
+- [x] **Harder hazards.** Each one now bites where it should:
+  - The quake can sweep its frequency (`sweep`; Aftershock shakes from 0.5 to 3 Hz), which breaks the old reference while braced towers hold.
+  - The gale can flutter (`flutter`), feeding a deck's own bounce: Gale now needs a stiffening truss, and Storm Parade more dampers.
+  - Brake levels can put the road ends on sliding bearings (`sliding`), so Signal Stop must be braced to its low bolts both ways.
+  - Floods push at about real drag (2000 N per meter under water) and carry driftwood logs that ram whatever stands in the stream.
+  - The verifier counts the hand-made design among what a hazard must bite, and its remaining hazard warnings are listed under Next.
+- [x] **Double-leaf bascules, lift bridges, swing bridges and a ship that waits.**
+  - A center lock (`lock`) holds two leaves level while shut.
+  - Guide towers (`lift`) let rams raise a span straight up, where two upright rams alone sway like a parallelogram.
+  - A swing bridge (`swing`) turns aside on two pivot bolts, its ends lifting off the banks, so it must hang as a balanced cantilever.
+  - `ship.after` sends the traffic first and wins only once the ship is through.
 - [x] **Dynamics: march, wind and earthquakes.** The damper, a hydraulic member with a soft spring that fights fast motion; squads of soldiers marching in step; gusts that push on members and lift the deck; and an earthquake that starts when the lead vehicle reaches a mark. Five levels in a storm scene: *Slow March* (a ghost of dampers under a footbridge), *Gale* (tie the deck down; heavy deck is no longer offered, since a bare heavy deck carried the van), *Aftershock*, *Parade* and *Storm Parade*. Test drives last long enough for slow convoys (`testSeconds`), so the optimizer gets the squads across, and it can brace a deck with dampers.
 - [x] **Foundations: mud, piles and floods.** Bolts on mud sink once they carry more than 15 kN; nothing can be built inside the mud; piles, driven onto it on whole meters at the level's price, never sink; and a flood raises the river, pushes on what stands in it and scours out bolts on the mud. Five levels in a new river delta scene: *Mudflats* (a ghost: one pile), *Soft Ground*, *Flash Flood*, *Long Flats* and *Floodtide*. The optimizer drives piles on the even meters of the mud and checks that a level can't be crossed without them (`requires: ['piles']`). The level editor paints mud by dragging and sets the pile price and a flood.
 - [x] **Grand Finale**, five new levels that each combine two lessons: *Great Arch* (a 36 m block arch for the semi), *Washout Line* (a train over flooding mud), *Marsh March* (dampers on the free mud bolts hold where stiff props sink), *Delta Haul* (a semi over a flooding delta) and *Last Crossing* (48 m for the semi over a delta in flood, with a ship channel).
@@ -54,10 +68,9 @@ Features and improvements, by priority. Finished items stay checked for a releas
 
 ### Next
 
-- [ ] **Two-track railway levels:** two decks, one over the other, or side by side in the 2D view.
-- [ ] **Prestressed concrete.** Blocks with a cable tendon pulled tight through them, so a block beam can carry bending. A family of shapes the block arch doesn't cover.
-- [ ] **Harder hazards.** Measured while making the finale: a 0.25–0.3 g quake barely loads block arches, a rail viaduct or the concrete towers of 9-2 to 9-5 (peaks rise 4–10 points), and a gale doesn't trouble trains or trusses; only light suspension decks on hinged masts fail in one. Hazard remixes of the classic levels need stronger shaking or gusts, or bridges that resonate with them. The verifier (`npm run verify`) finds the same in the levels: on *Signal Stop* the brake stop doesn't raise the reference's peak or break a probe that holds without it, and the wind on *Storm Parade* breaks nothing that holds in calm. On the flood levels (*Floodtide*, *Delta Haul*, *Last Crossing*) the mud alone already defeats every probe without piles, so whether the flood bites can't be told.
-- [ ] Ideas: double-leaf bascules, lift bridges, a swing bridge, and a ship that has to wait for traffic instead of the other way around.
+- [ ] **Two trains passing:** the side-by-side half of the two-track idea, two trains crossing in opposite directions on one deck line. The double deck (one over the other) is done.
+- [ ] **Balanced cantilever in prestressed concrete:** girder arms built out from a pier with their tendons along the top, the other classic shape a tendon makes possible.
+- [ ] **Floods on the piled finale levels.** On *Washout Line*, *Delta Haul* and *Last Crossing* the piled bridges stand well clear of the driftwood and shrug off the current, so their floods add little; the mud is what those levels test. A higher flood that reaches the deck, or a level with posts out in the stream, would let it bite.
 
 ## P3: Polish and social
 

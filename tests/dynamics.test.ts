@@ -3,7 +3,8 @@ import { levelById } from '../src/chapters';
 import { LEVELS } from '../src/levels';
 import { MATERIALS } from '../src/physics/materials';
 import { marchAccel, quakeAccel, testSeconds, TestRun, windGust, World } from '../src/physics/world';
-import { SOLUTIONS } from '../src/solutions';
+import { hang, SOLUTIONS } from '../src/solutions';
+import { INTENTS } from '../tools/tune/intents';
 
 /** A damper's pull, N, one step after its free end starts moving away at `speed` m/s, gravity off. */
 function pull(speed: number, viscous = MATERIALS.damper.viscous!): number {
@@ -55,8 +56,25 @@ describe('wind', () => {
     expect(windGust(w, 1.5)).toBeCloseTo(1, 5);
   });
 
-  it('lifts a deck the gale level ties down', () => {
+  it('lifts the deck on the gale level', () => {
     expect(galeRise(true)).toBeGreaterThan(galeRise(false));
+  });
+
+  it('flutters a light deck apart, but not one stiffened by a truss', () => {
+    const level = levelById(57);
+    // Tied down to the rock, so the gusts alone don't lift it off.
+    const bare = hang(INTENTS[57].shortcuts!.find((s) => s.name === 'no stiffening truss')!.build(level), [14, -5], [
+      [12, 0],
+      [16, 0],
+    ]);
+    const run = (d: typeof bare, flutter: number) => {
+      const r = new TestRun(d, { ...level, wind: { ...level.wind!, flutter } });
+      while (r.status === 'running' && r.time < testSeconds(level)) r.step();
+      return r.status;
+    };
+    expect(run(bare, 0)).toBe('success');
+    expect(run(bare, level.wind!.flutter!)).toBe('fail');
+    expect(run(SOLUTIONS[57](level), level.wind!.flutter!)).toBe('success');
   });
 });
 
@@ -76,6 +94,16 @@ describe('earthquakes', () => {
     expect(side).toBeLessThanOrEqual(0.25 * 9.81 + 1e-6);
     expect(side).toBeGreaterThan(0.2 * 9.81);
     expect(up).toBeLessThan(side / 2);
+  });
+
+  it('can sweep from slow shaking to fast, to meet the sway of any bridge', () => {
+    const sweep = { ...q, freq: 0.5, sweep: 3 };
+    const turns = (t0: number, t1: number) => {
+      let n = 0;
+      for (let t = t0; t < t1; t += 0.005) if (Math.sign(quakeAccel(sweep, t)[0]) !== Math.sign(quakeAccel(sweep, t + 0.005)[0])) n++;
+      return n;
+    };
+    expect(turns(6, 7.5)).toBeGreaterThan(2 * turns(0.5, 2));
   });
 
   it('start when the lead vehicle reaches their mark', () => {
@@ -118,5 +146,21 @@ describe('test drives', () => {
     while (run.status === 'running' && run.time < testSeconds(level)) run.step();
     expect(run.status).toBe('success');
     expect(run.time).toBeGreaterThan(30);
+  });
+});
+
+describe('sliding bearings', () => {
+  it('let the road ends ride along with a braking train, but hold them at their height', () => {
+    const level = levelById(54);
+    const loose = INTENTS[54].shortcuts!.find((s) => s.name === 'not braced to the low bolts')!.build(level);
+    const run = new TestRun(loose, level);
+    const end = loose.findNode(16, 0);
+    let low = 0;
+    while (run.status === 'running' && run.time < 8) {
+      run.step();
+      low = Math.max(low, Math.abs(run.world.y[end]));
+    }
+    expect(Math.abs(run.world.x[end] - 16)).toBeGreaterThan(0.5);
+    expect(low).toBeLessThan(1e-6);
   });
 });

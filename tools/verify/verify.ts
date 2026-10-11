@@ -38,7 +38,7 @@ import { MATERIALS } from '../../src/physics/materials';
 import { PEAK_CAP } from '../tune/difficulty';
 import { levelFingerprint } from '../tune/fingerprint';
 import { grammarFor } from '../tune/genome';
-import { INTENTS, type Requirement } from '../tune/intents';
+import { handSeed, INTENTS, type Requirement } from '../tune/intents';
 import { readResource } from '../tune/levelres.mjs';
 import { Pool } from '../tune/pool';
 import { clock } from '../tune/progress';
@@ -175,8 +175,11 @@ async function verifyLevel(level: LevelDef): Promise<Report> {
   }
 
   // Each hazard should bite: raise the reference's peak, or break designs that hold without it,
-  // among them the level's own shortcuts, which a hazard is often there to shut out.
+  // among them the level's own shortcuts, which a hazard is often there to shut out, and the
+  // hand-made design.
   const shortcuts: Probe[] = [];
+  const seed = handSeed(level);
+  if (seed) shortcuts.push({ design: seed, label: 'the hand-made design' });
   for (const s of intent.shortcuts ?? []) {
     try {
       shortcuts.push({ design: s.build(level), label: `shortcut "${s.name}"` });

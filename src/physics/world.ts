@@ -2,7 +2,7 @@ import { segmentHitsRect, type Design } from '../design';
 import { bankY, goalX, mudAt, seatPiers, START_X, type LevelDef } from '../levels';
 import { BLOCK, blockOf, compressionLimit, MAST, MATERIALS, type BlockDef, type MaterialId } from './materials';
 import { StressLog } from './stresslog';
-import { VEHICLES, type VehicleDef } from './vehicles';
+import { VEHICLES, type VehicleDef, type VehicleId } from './vehicles';
 
 /**
  * Bump whenever a change here, or in materials or vehicles, alters how a bridge behaves:
@@ -41,6 +41,18 @@ const SCOUR_DEPTH = 0.5;
 const SCOUR_TIME = 1.5;
 /** Seconds a flood takes to rise. */
 const FLOOD_TIME = 4;
+/** How much of a bank wall opens above a lower deck's tunnel floor, m: room for a train to pass through. */
+export const TUNNEL_HEIGHT = 3;
+/** How fast a swing bridge's jacks lift its ends back onto the banks, m/s. */
+const JACK_SPEED = 0.4;
+/** Driftwood a flood carries down: how many logs, their weight, kg, size, m, speed, m/s, and the gap between them, s. */
+const LOGS = 3;
+const LOG_MASS = 600;
+export const LOG_RADIUS = 0.35;
+const LOG_SPEED = 4;
+const LOG_GAP = 1.2;
+/** How quickly the current brings a log back up to its speed, 1/s. */
+const LOG_DRAG = 2;
 /** Compliance of a coupler between rail vehicles: stiff, with a little give. */
 const COUPLER = 2e-7;
 /** Wheel to wheel between two coupled rail vehicles, m: both overhangs and the buffers. */
@@ -54,6 +66,8 @@ export const SHIP_TIME = 5;
 export const CLOSE_TIME = 3;
 /** Half the tall ship's beam, m: it sails through the bridge's plane, bow on, at the channel's middle. */
 export const SHIP_HALF = 1.2;
+/** How long a waiting ship gives the traffic to clear before the bridge opens, s. */
+const SHIP_WAIT = 0.5;
 /** A seated joint this far above its pier, m, has lifted off and is no longer held. */
 const SEAT_SLACK = 1e-3;
 /** A member sunk this far below a seat, m, has gone under the pier top rather than onto it. */
@@ -93,6 +107,8 @@ export interface Link {
   base: number;
   /** Share of its built length a ram extends by when the bridge is fully open. */
   stroke: number;
+  /** A tendon's pull as a strain of its built length, reached as the bridge takes its weight; 0 for everything else. */
+  pre: number;
   /** A damper's resistance to its ends moving, N per m/s; 0 for everything else. */
   viscous: number;
   /** The damper's force this step so far, summed over substeps, N: tension positive. */
@@ -212,6 +228,17 @@ export class World {
   terrain: number[] = [];
   /** Joints resting on a pier with no bolt: held there while they bear down, free once they lift. */
   seats: Seat[] = [];
+  /** Road ends on sliding bearings: each held at its height, free to move along. */
+  bearings: { p: number; y: number }[] = [];
+  /**
+   * A swing bridge's road ends: resting on the banks while it's shut, free while it swings, and
+   * jacked back up to their height, gently, once it's shut again.
+   */
+  swingEnds: { p: number; y: number; seated: boolean }[] = [];
+  /** A lift bridge's guide rails: joints held at their x, free to rise and fall. */
+  guides: { p: number; x: number }[] = [];
+  /** A double-leaf drawbridge's center lock: the two leaf tips it holds level while the bridge is shut. */
+  lock: [number, number] | null = null;
   /** Members passing over a pier with no bolt: borne up there while they bear down, free once they lift. */
   rests: Rest[] = [];
   breaks: BreakEvent[] = [];
@@ -221,7 +248,7 @@ export class World {
   block: BlockDef = BLOCK;
   /** Each concrete block's frame: its corner particles and its links, by index into Design.cells. */
   cells: { n: number[]; links: Link[] }[] = [];
-  /** The joints between an arch ring's blocks, which open and hinge. */
+  /** The mortared joints between blocks, which crack, open and hinge. */
   faces: Face[] = [];
   /** Block corners that bear on rock: the banks, their walls and pier tops push back but don't hold. */
   rock: number[] = [];
@@ -271,6 +298,8 @@ export class World {
   marchers: number[] = [];
   /** Bolts on mud: where they were built, how far they have sunk, the members they carry, and whether a flood washed them out. */
   soft: { p: number; y0: number; sunk: number; links: Link[]; out: boolean }[] = [];
+  /** Driftwood a flood carries: each log's particle, and whether it's afloat in the river yet. */
+  logs: { p: number; afloat: boolean }[] = [];
   /** The river's surface, m: the level's water, water0, until a flood raises it. */
   waterY = 0;
   water0 = 0;
@@ -344,6 +373,7 @@ export class World {
       crushedBy: 0,
       base: rest,
       stroke: 0,
+      pre: 0,
       viscous: 0,
       damp: 0,
       ...opts,
@@ -359,7 +389,11 @@ export class World {
     const links = this.links;
     const air = Math.max(0, 1 - AIR_DAMPING * h);
     const g = GRAVITY * this.gravityScale;
-    for (const l of links) if (l.stroke) l.rest = l.base * (1 + l.stroke * this.openness);
+    for (const l of links) {
+      if (l.stroke) l.rest = l.base * (1 + l.stroke * this.openness);
+      // Tendons are pulled tight as gently as the bridge takes its own weight.
+      else if (l.pre) l.rest = l.base * (1 - l.pre * this.gravityScale);
+    }
 
     for (let s = 0; s < SUBSTEPS; s++) {
       // In the ground's frame, shaking ground pushes everything on it the other way.
@@ -377,6 +411,7 @@ export class World {
       }
       if (this.wind) this.blow(h);
       if (this.flood && this.time > this.floodStart) this.current(h);
+      if (this.logs.length) this.drift(h);
       for (let i = 0; i < n; i++) {
         if (im[i] === 0) continue;
         x[i] += vx[i] * h;
@@ -410,7 +445,12 @@ export class World {
       this.solveBends(h);
       for (let k = 0; this.faces.length && k < FACE_ITERATIONS; k++) this.solveFaces(h);
       this.solveContacts();
+      if (this.logs.length) this.ram();
       this.solveSeats();
+      for (const b of this.bearings) this.y[b.p] = b.y;
+      for (const rail of this.guides) this.x[rail.p] = rail.x;
+      if (this.swingEnds.length) this.restEnds(h);
+      if (this.lock && this.openness === 0) this.holdLock();
       this.solveRock();
       this.solveBlocks();
 
@@ -479,6 +519,43 @@ export class World {
   }
 
   /** The river rises after the flood starts, easing in over FLOOD_TIME. */
+  /**
+   * Driftwood: as the river rises, logs float down it one after another, carried at the
+   * current's speed along the surface, and leave the far side.
+   */
+  private drift(h: number): void {
+    const { x, y, vx, vy, im } = this;
+    this.logs.forEach((log, k) => {
+      const p = log.p;
+      if (!log.afloat) {
+        if (this.time < this.floodStart + k * LOG_GAP) return;
+        log.afloat = true;
+        x[p] = this.px[p] = LOG_RADIUS;
+        y[p] = this.py[p] = this.waterY;
+        vx[p] = LOG_SPEED;
+        vy[p] = 0;
+        im[p] = 1 / LOG_MASS;
+      }
+      if (im[p] === 0) return;
+      vx[p] += (LOG_SPEED - vx[p]) * Math.min(1, LOG_DRAG * h);
+      if (x[p] > this.banks.width + 2) im[p] = 0;
+    });
+  }
+
+  /** Logs ram whatever stands in the river: every bridge member they meet, and they float on its surface. */
+  private ram(): void {
+    const { x, y, im } = this;
+    for (const log of this.logs) {
+      const p = log.p;
+      if (!log.afloat || im[p] === 0) continue;
+      for (const l of this.links) {
+        if (!l.bridge || l.broken) continue;
+        this.contactSegment(p, LOG_RADIUS, x[l.a], y[l.a], x[l.b], y[l.b], l.a, l.b, null);
+      }
+      y[p] = this.waterY;
+    }
+  }
+
   private rise(): void {
     const f = this.flood!;
     const u = Math.max(0, Math.min(1, (this.time - this.floodStart) / FLOOD_TIME));
@@ -753,6 +830,32 @@ export class World {
     }
   }
 
+  /** The center lock: the two leaf tips meet at the same height, sharing whatever either carries. */
+  private holdLock(): void {
+    const [p, q] = this.lock!;
+    const { y, im } = this;
+    const w = im[p] + im[q];
+    if (w === 0) return;
+    const dy = y[q] - y[p];
+    y[p] += (dy * im[p]) / w;
+    y[q] -= (dy * im[q]) / w;
+  }
+
+  /** A swing bridge's road ends bear on the banks only while it's shut, lifted back up there by jacks. */
+  private restEnds(h: number): void {
+    const y = this.y;
+    for (const e of this.swingEnds) {
+      if (this.openness > 0) {
+        e.seated = false;
+        continue;
+      }
+      if (e.seated) {
+        if (y[e.p] < e.y) y[e.p] = e.y;
+      } else if (y[e.p] < e.y) y[e.p] += Math.min(e.y - y[e.p], JACK_SPEED * h);
+      else e.seated = true;
+    }
+  }
+
   /** Cracks the mortar of every ring joint edge pulled open harder than it holds. */
   private updateFaces(): void {
     const { x, y } = this;
@@ -940,12 +1043,13 @@ export class World {
     const gust = windGust(w, this.time);
     const push = w.push * (0.5 + 0.5 * gust) * h;
     const lift = w.lift * gust * h;
+    const flutter = (w.flutter ?? 0) * gust * h;
     for (const l of this.links) {
       if (l.broken || !l.bridge) continue;
       const a = l.a;
       const b = l.b;
       const fx = (push * Math.abs(y[b] - y[a])) / 2;
-      const fy = l.drivable ? (lift * Math.abs(x[b] - x[a])) / 2 : 0;
+      const fy = l.drivable ? ((lift + flutter * (vy[a] + vy[b]) * 0.5) * Math.abs(x[b] - x[a])) / 2 : 0;
       vx[a] += fx * im[a];
       vx[b] += fx * im[b];
       vy[a] += fy * im[a];
@@ -1083,11 +1187,11 @@ export interface VehicleHandle {
 /** Builds the physical bridge from a design; world particle i === design node i. */
 export function buildWorld(design: Design, level: LevelDef): { world: World; vehicles: VehicleHandle[] } {
   const defs = convoyLayout(level).map((c) => c.def);
-  const { ends, extra, seats } = seatJoints(design, level);
-  const split = ringSplit(design);
+  const { ends, extra, seats, locked } = seatJoints(design, level);
+  const split = cellSplit(design);
   const joints = design.nodes.length + extra.length;
   const masts = level.masts ?? [];
-  const world = new World(joints + masts.length + split.copies.length + 6 * defs.length + 2, level.waterY - 8);
+  const world = new World(joints + masts.length + split.copies.length + 6 * defs.length + 2 + (level.flood ? LOGS : 0), level.waterY - 8);
   const mass = new Float64Array(joints).fill(JOINT_MASS);
   design.members.forEach((m, i) => {
     const a = design.nodes[m.a];
@@ -1106,7 +1210,24 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
       else copyMass[o] += share;
     }
   });
-  design.nodes.forEach((n, i) => world.addParticle(n.x, n.y, n.mast ? mass[i] + MAST.mass : n.anchor ? 0 : mass[i]));
+  // Road ends on sliding bearings, or on a swing bridge, move with the bridge, so they have mass.
+  const slides = (n: { x: number; y: number; anchor: boolean }) => (!!level.sliding || !!level.swing) && n.anchor && ((n.x === 0 && n.y === 0) || (n.x === level.width && n.y === bankY(level)));
+  design.nodes.forEach((n, i) => world.addParticle(n.x, n.y, n.mast ? mass[i] + MAST.mass : n.anchor && !slides(n) ? 0 : mass[i]));
+  // The center lock: the leaves' own joints on the lock line, or failing that the deck joints
+  // nearest it either side, within a meter of it.
+  if (locked.length >= 2) world.lock = [locked[0], locked[1]];
+  else if (level.lock !== undefined) {
+    const lock = level.lock;
+    const deck = new Set(design.members.flatMap((m) => (MATERIALS[m.mat].drivable ? [m.a, m.b] : [])));
+    const nearest = (side: number) => [...deck].filter((i) => side * (design.nodes[i].x - lock) >= 0 && Math.abs(design.nodes[i].x - lock) <= 1).toSorted((a, b) => Math.abs(design.nodes[a].x - lock) - Math.abs(design.nodes[b].x - lock))[0];
+    const [p, q] = [nearest(-1), nearest(1)];
+    if (p !== undefined && q !== undefined && p !== q && !design.members.some((m) => (m.a === p && m.b === q) || (m.a === q && m.b === p))) world.lock = [p, q];
+  }
+  design.nodes.forEach((n, p) => {
+    if (!slides(n)) return;
+    if (level.swing) world.swingEnds.push({ p, y: n.y, seated: true });
+    else world.bearings.push({ p, y: n.y });
+  });
   world.banks = { width: level.width, rightY: bankY(level) };
   world.block = blockOf(level);
   design.nodes.forEach((n, p) => {
@@ -1123,7 +1244,10 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
   const firstCopy = world.count;
   split.copies.forEach((i, o) => world.addParticle(design.nodes[i].x, design.nodes[i].y, copyMass[o]));
   world.bridgeCount = world.count;
-  for (const p of seats) world.seats.push({ p, x: world.x[p], y: world.y[p] });
+  for (const p of seats) {
+    world.seats.push({ p, x: world.x[p], y: world.y[p] });
+    if (level.lift?.some((x) => Math.abs(x - world.x[p]) < 1e-6)) world.guides.push({ p, x: world.x[p] });
+  }
   design.members.forEach((m, i) => {
     const mat = MATERIALS[m.mat];
     const a = design.nodes[m.a];
@@ -1133,6 +1257,7 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
       bridge: true,
       mat: m.mat,
       stroke: mat.stroke,
+      pre: mat.prestress ? mat.prestress / mat.EA : 0,
       viscous: mat.viscous ?? 0,
       tensionOnly: mat.tensionOnly,
       drivable: mat.drivable,
@@ -1159,7 +1284,14 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
   const W = level.width;
   const deep = level.waterY - 8;
   const rY = bankY(level);
-  world.terrain.push(-60, 0, 0, 0, 0, 0, 0, deep, W, deep, W, rY, W, rY, W + 60, rY);
+  const low = level.lower?.y;
+  if (low === undefined) world.terrain.push(-60, 0, 0, 0, 0, 0, 0, deep, W, deep, W, rY, W, rY, W + 60, rY);
+  else {
+    // A tunnel through each bank for the lower deck: a floor, and the walls open above it.
+    const roof = low + TUNNEL_HEIGHT;
+    world.terrain.push(-60, 0, 0, 0, 0, 0, 0, roof, 0, low, 0, deep, -60, low, 0, low);
+    world.terrain.push(W, deep, W, low, W, roof, W, rY, W, rY, W + 60, rY, W, low, W + 60, low);
+  }
   for (const [px, py] of level.piers) {
     world.terrain.push(px - 0.45, py, px + 0.45, py);
     world.terrain.push(px - 0.45, py, px - 0.45, deep, px + 0.45, py, px + 0.45, deep);
@@ -1174,16 +1306,19 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
 
   // A convoy keeps to its slowest vehicle's speed, so the gaps hold.
   const speed = Math.min(...defs.map((d) => d.speed));
-  const vehicles = convoyLayout(level).map(({ def, x }) => addVehicle(world, def, x, speed));
-  // Couplers: each rail vehicle to the one ahead, at the buffers and at the axles.
+  const layout = convoyLayout(level);
+  const vehicles = layout.map(({ def, x, y }) => addVehicle(world, def, x, speed, y));
+  // Couplers: each rail vehicle to the one ahead in its lane, at the buffers and at the axles.
   for (let i = 1; i < vehicles.length; i++) {
     const [ahead, behind] = [vehicles[i - 1], vehicles[i]];
-    if (!ahead.def.rail || !behind.def.rail) continue;
+    if (!ahead.def.rail || !behind.def.rail || layout[i - 1].y !== layout[i].y) continue;
     world.addLink(behind.frontTop, ahead.rearTop, COUPLER);
     world.addLink(behind.frontWheel, ahead.rearWheel, COUPLER);
   }
   world.waterY = world.water0 = level.waterY;
   world.flood = level.flood ?? null;
+  // Driftwood waits upstream, out of the way, until the flood sends it down.
+  if (level.flood) for (let k = 0; k < LOGS; k++) world.logs.push({ p: world.addParticle(-100, level.waterY, 0), afloat: false });
   // Bolts on mud, other than piles: the members built on each, so the mud feels what it carries.
   design.nodes.forEach((n, p) => {
     if (!n.anchor || n.pile || n.block || n.mast || !mudAt(level, n.x, n.y)) return;
@@ -1214,6 +1349,12 @@ export interface Wind {
   lift: number;
   /** Seconds from gust to gust. */
   period: number;
+  /**
+   * Flutter: at a gust's peak, the wind pushes a moving deck further the way it's already going,
+   * N per m of deck per m/s it moves up or down. It feeds a deck's own bounce, so a light,
+   * lively deck swings ever harder, while a stiff or damped one barely moves to begin with.
+   */
+  flutter?: number;
 }
 
 export interface Quake {
@@ -1221,6 +1362,11 @@ export interface Quake {
   g: number;
   /** Shakes a second. */
   freq: number;
+  /**
+   * Shakes a second at the end, when the shaking sweeps: it rises steadily from `freq`, so at
+   * some moment it matches the bridge's own sway, whatever that is, and sets it swinging.
+   */
+  sweep?: number;
   /** Where the lead vehicle is when the shaking starts, m, and how long it lasts, s. */
   at: number;
   dur: number;
@@ -1246,11 +1392,22 @@ function quakeEnvelope(q: Quake, t: number): number {
   return Math.min(1, u * 6) * Math.min(1, (1 - u) * 3);
 }
 
+/** The quake's phase t seconds in, radians: its frequency rises from freq to sweep across the quake. */
+function quakePhase(q: Quake, t: number): number {
+  const rise = ((q.sweep ?? q.freq) - q.freq) / q.dur;
+  return 2 * Math.PI * (q.freq * t + (rise * t * t) / 2);
+}
+
+/** Shakes a second t seconds into a quake. */
+function quakeFreq(q: Quake, t: number): number {
+  return q.freq + (((q.sweep ?? q.freq) - q.freq) * Math.min(Math.max(t, 0), q.dur)) / q.dur;
+}
+
 /** The ground's acceleration t seconds into a quake, m/s²: mostly sideways, a little up and down. */
 export function quakeAccel(q: Quake, t: number): [number, number] {
   const env = quakeEnvelope(q, t);
   if (!env) return [0, 0];
-  const w = 2 * Math.PI * q.freq * t;
+  const w = quakePhase(q, t);
   const a = q.g * -GRAVITY * env;
   return [a * Math.sin(w), 0.3 * a * Math.sin(1.37 * w + 0.6)];
 }
@@ -1259,8 +1416,8 @@ export function quakeAccel(q: Quake, t: number): [number, number] {
 export function quakeShift(q: Quake, t: number): number {
   const env = quakeEnvelope(q, t);
   if (!env) return 0;
-  const w = 2 * Math.PI * q.freq;
-  return (-q.g * -GRAVITY * env * Math.sin(w * t)) / (w * w);
+  const w = 2 * Math.PI * quakeFreq(q, t);
+  return (-q.g * -GRAVITY * env * Math.sin(quakePhase(q, t))) / (w * w);
 }
 
 /** Extra downward push on a marcher at time t, m/s²: each footfall lands together. */
@@ -1269,14 +1426,21 @@ export function marchAccel(m: March, t: number): number {
 }
 
 /** Where each vehicle waits at the start: its rear wheel's x, lead vehicle first. */
-export function convoyLayout(level: LevelDef): { def: VehicleDef; x: number }[] {
-  const out: { def: VehicleDef; x: number }[] = [];
-  let x = START_X;
-  for (const [i, id] of [level.vehicle, ...(level.convoy ?? [])].entries()) {
-    const def = VEHICLES[id];
-    // Rail vehicles couple up close behind the one ahead.
-    if (i > 0) x -= def.rail && out[i - 1].def.rail ? RAIL_GAP + def.wheelbase : CONVOY_GAP + def.wheelbase + def.wheelR;
-    out.push({ def, x });
+export function convoyLayout(level: LevelDef): { def: VehicleDef; x: number; y: number }[] {
+  const out: { def: VehicleDef; x: number; y: number }[] = [];
+  const lanes: [VehicleId[], number][] = [[[level.vehicle, ...(level.convoy ?? [])], 0]];
+  if (level.lower) lanes.push([[level.lower.vehicle, ...(level.lower.convoy ?? [])], level.lower.y]);
+  for (const [ids, y] of lanes) {
+    let x = START_X;
+    ids.forEach((id, i) => {
+      const def = VEHICLES[id];
+      // Rail vehicles couple up close behind the one ahead.
+      if (i > 0) {
+        const ahead = out[out.length - 1].def;
+        x -= def.rail && ahead.rail ? RAIL_GAP + def.wheelbase : CONVOY_GAP + def.wheelbase + def.wheelR;
+      }
+      out.push({ def, x, y });
+    });
   }
   return out;
 }
@@ -1304,21 +1468,26 @@ const MAX_BEND_KINK = 0.6;
  * passing through a bolt or a seat. Returns each member's end joints, the design node each
  * extra joint copies (they follow the design's own), and every seated joint.
  */
-function seatJoints(design: Design, level: LevelDef): { ends: [number, number][]; extra: number[]; seats: number[] } {
+function seatJoints(design: Design, level: LevelDef): { ends: [number, number][]; extra: number[]; seats: number[]; locked: number[] } {
   const { nodes, members } = design;
   const ends = members.map((m): [number, number] => [m.a, m.b]);
   const pads = seatPiers(level);
-  const onSeat = nodes.map((n) => !n.anchor && pads.some(([x, y]) => Math.abs(x - n.x) < 1e-6 && Math.abs(y - n.y) < 1e-6));
-  if (!onSeat.some(Boolean)) return { ends, extra: [], seats: [] };
+  // A deck joint on a double bascule's lock line is split like one on a seat: a joint per leaf.
+  const deck = new Set(members.flatMap((m) => (MATERIALS[m.mat].drivable ? [m.a, m.b] : [])));
+  const onLock = nodes.map((n, i) => level.lock !== undefined && !n.anchor && deck.has(i) && Math.abs(n.x - level.lock) < 1e-6);
+  const onSeat = nodes.map((n, i) => onLock[i] || (!n.anchor && pads.some(([x, y]) => Math.abs(x - n.x) < 1e-6 && Math.abs(y - n.y) < 1e-6)));
+  if (!onSeat.some(Boolean)) return { ends, extra: [], seats: [], locked: [] };
   const root = nodes.map((_, i) => i);
   const find = (i: number): number => (root[i] === i ? i : (root[i] = find(root[i])));
   const fixed = (i: number) => nodes[i].anchor || onSeat[i];
   for (const m of members) if (!fixed(m.a) && !fixed(m.b)) root[find(m.a)] = find(m.b);
   const extra: number[] = [];
   const seats: number[] = [];
+  const locked: number[] = [];
   onSeat.forEach((seated, s) => {
     if (!seated) return;
-    seats.push(s);
+    const list = onLock[s] ? locked : seats;
+    list.push(s);
     const joint = new Map<string, number>();
     members.forEach((m, i) => {
       for (const end of [0, 1] as const) {
@@ -1328,14 +1497,14 @@ function seatJoints(design: Design, level: LevelDef): { ends: [number, number][]
         let p = joint.get(part);
         if (p === undefined) {
           p = joint.size ? nodes.length + extra.push(s) - 1 : s;
-          if (joint.size) seats.push(p);
+          if (joint.size) list.push(p);
           joint.set(part, p);
         }
         ends[i][end] = p;
       }
     });
   });
-  return { ends, extra, seats };
+  return { ends, extra, seats, locked };
 }
 
 /**
@@ -1382,37 +1551,56 @@ function addCells(world: World, design: Design, corner: (k: number, i: number) =
 }
 
 /**
- * Where two blocks of a hinged arch ring meet, the later block gets corners of its own on the
- * joint, so it can open. `copies` lists the design node each new corner stands on; `own` maps
- * "cell node" to the copy that block uses in its place; `joints` pairs the blocks either side.
+ * Mortared blocks each get corners of their own, so the joints between them can crack and open.
+ * `copies` lists the design node each new corner stands on, and `own` maps "cell node" to the
+ * copy that block uses in place of the node. `joints` pairs the blocks that share a side. Blocks
+ * that only touch at a corner, like an arch ring springing from a tower, share it: a pin.
  */
-function ringSplit(design: Design): { copies: number[]; own: Map<string, number>; joints: { a: number; b: number; on: [number, number] }[] } {
+function cellSplit(design: Design): { copies: number[]; own: Map<string, number>; joints: { a: number; b: number; on: [number, number] }[] } {
   const copies: number[] = [];
   const own = new Map<string, number>();
   const joints: { a: number; b: number; on: [number, number] }[] = [];
-  const rings = new Map<number, number[]>();
+  const mortared = (k: number) => !!MATERIALS[design.cells[k].mat].hinged;
+  // The blocks on each corner, in order, and the blocks along each side.
+  const users = new Map<number, number[]>();
+  const sides = new Map<string, number[]>();
   design.cells.forEach((c, k) => {
-    if (MATERIALS[c.mat].hinged && c.part !== undefined) rings.set(c.part, [...(rings.get(c.part) ?? []), k]);
+    if (!mortared(k)) return;
+    c.n.forEach((i, j) => {
+      users.set(i, [...(users.get(i) ?? []), k]);
+      const e = c.n[(j + 1) % c.n.length];
+      const key = i < e ? `${i} ${e}` : `${e} ${i}`;
+      sides.set(key, [...(sides.get(key) ?? []), k]);
+    });
   });
-  const mid = (k: number) => design.cells[k].n.reduce((sum, i) => sum + design.nodes[i].x, 0) / design.cells[k].n.length;
-  for (const ks of rings.values()) {
-    ks.sort((p, q) => mid(p) - mid(q));
-    for (let j = 0; j + 1 < ks.length; j++) {
-      const [a, b] = [ks[j], ks[j + 1]];
-      // A joint bolted down stays shut.
-      const on = design.cells[a].n.filter((i) => design.cells[b].n.includes(i) && !design.nodes[i].anchor);
-      if (on.length !== 2) continue;
-      for (const i of on) {
-        own.set(`${b} ${i}`, copies.length);
-        copies.push(i);
+  for (const [key, ks] of sides) {
+    if (ks.length !== 2) continue;
+    const [i, e] = key.split(' ').map(Number);
+    joints.push({ a: ks[0], b: ks[1], on: [i, e] });
+  }
+  for (const [i, ks] of users) {
+    // A bolted corner holds every block on it already.
+    if (ks.length < 2 || design.nodes[i].anchor) continue;
+    // Blocks that meet across a side at this corner each get a corner of their own there, but the
+    // first of each such group keeps the node itself: groups that only touch here share it, a pin.
+    const group = new Map(ks.map((k) => [k, k]));
+    const root = (k: number): number => (group.get(k) === k ? k : root(group.get(k)!));
+    for (const j of joints) if (j.on.includes(i) && group.has(j.a) && group.has(j.b)) group.set(root(j.a), root(j.b));
+    const firsts = new Set<number>();
+    for (const k of ks) {
+      const r = root(k);
+      if (!firsts.has(r)) {
+        firsts.add(r);
+        continue;
       }
-      joints.push({ a, b, on: [on[0], on[1]] });
+      own.set(`${k} ${i}`, copies.length);
+      copies.push(i);
     }
   }
   return { copies, own, joints };
 }
 
-/** The faces between a hinged ring's blocks: see Face. */
+/** The mortared faces between blocks that share a side: see Face. */
 function addFaces(world: World, design: Design, joints: { a: number; b: number; on: [number, number] }[], corner: (k: number, i: number) => number): void {
   const center = (k: number): [number, number] => {
     const n = design.cells[k].n;
@@ -1487,18 +1675,18 @@ function addDeckBends(world: World): void {
   });
 }
 
-function addVehicle(world: World, def: VehicleDef, x0: number, speed: number): VehicleHandle {
+function addVehicle(world: World, def: VehicleDef, x0: number, speed: number, y0 = 0): VehicleHandle {
   const r = def.wheelR;
   const axles = def.midAxles ?? [];
   // Wheels share 60% of the weight and the body the rest.
   const wheelMass = (def.mass * 0.6) / (2 + axles.length);
   const bodyMass = def.mass * 0.2;
-  const topY = r + def.height * 0.6;
-  const rearWheel = world.addParticle(x0, r, wheelMass, r);
-  const frontWheel = world.addParticle(x0 + def.wheelbase, r, wheelMass, r);
+  const topY = y0 + r + def.height * 0.6;
+  const rearWheel = world.addParticle(x0, y0 + r, wheelMass, r);
+  const frontWheel = world.addParticle(x0 + def.wheelbase, y0 + r, wheelMass, r);
   const rearTop = world.addParticle(x0, topY, bodyMass, 0.22);
   const frontTop = world.addParticle(x0 + def.wheelbase, topY, bodyMass, 0.22);
-  const midWheels = axles.map((ax) => world.addParticle(x0 + ax, r, wheelMass, r));
+  const midWheels = axles.map((ax) => world.addParticle(x0 + ax, y0 + r, wheelMass, r));
   const wheels = [rearWheel, ...midWheels, frontWheel];
   for (const w of wheels) {
     world.drive[w] = speed;
@@ -1548,6 +1736,8 @@ export class TestRun {
   shipProgress = -1;
   /** When traffic may start: straight away, or once a drawbridge has closed again. */
   readonly releaseAt: number;
+  /** When the last vehicle got across, on a level where the ship waits for the traffic. */
+  trafficAcross = Infinity;
   /** Stress over time, for the graph after the run. */
   readonly log: StressLog;
   /** Each design member's highest pull and push during the run, as load ratios (0–1). */
@@ -1575,10 +1765,10 @@ export class TestRun {
     this.log = new StressLog(design.members.length);
     this.peakPull = new Float32Array(design.members.length);
     this.peakPush = new Float32Array(design.members.length);
-    this.releaseAt = level.ship ? SETTLE_TIME + OPEN_TIME + SHIP_TIME + CLOSE_TIME : 0;
+    this.releaseAt = level.ship && !level.ship.after ? SETTLE_TIME + OPEN_TIME + SHIP_TIME + CLOSE_TIME : 0;
     this.speeds = this.vehicles.flatMap((v) => v.wheels.map((p) => this.world.drive[p]));
     if (level.ship) {
-      this.hold(true);
+      if (!level.ship.after) this.hold(true);
       const [x0, x1] = this.channel();
       this.shipX = (x0 + x1) / 2;
     }
@@ -1646,17 +1836,23 @@ export class TestRun {
     for (const v of this.vehicles) for (const p of v.wheels) w.drive[p] = on ? 0 : this.speeds[k++];
   }
 
-  /** Opens and closes a drawbridge on its timeline and moves the ship through. */
+  /** Opens and closes a drawbridge on its timeline and moves the ship through: first, or once the traffic is across. */
   private drawbridge(): void {
     const t = this.time;
     const w = this.world;
-    const openAt = SETTLE_TIME;
+    const after = !!this.level.ship!.after;
+    if (after && this.trafficAcross === Infinity) {
+      this.phase = t < SETTLE_TIME ? 'settle' : 'driving';
+      return;
+    }
+    const openAt = after ? this.trafficAcross + SHIP_WAIT : SETTLE_TIME;
     const shipAt = openAt + OPEN_TIME;
     const closeAt = shipAt + SHIP_TIME;
     w.openness = t < closeAt ? smooth((t - openAt) / OPEN_TIME) : 1 - smooth((t - closeAt) / CLOSE_TIME);
-    this.phase = t < openAt ? 'settle' : t < shipAt ? 'opening' : t < closeAt ? 'ship' : t < this.releaseAt ? 'closing' : 'driving';
+    this.phase = t < openAt ? (after ? 'driving' : 'settle') : t < shipAt ? 'opening' : t < closeAt ? 'ship' : after || t < this.releaseAt ? 'closing' : 'driving';
     this.shipProgress = (t - shipAt) / SHIP_TIME;
-    if (this.phase === 'ship' && this.status === 'running') {
+    // A swing bridge has turned aside, out of the ship's way.
+    if (this.phase === 'ship' && this.status === 'running' && !this.level.swing) {
       const top = this.level.ship!.mast;
       const x = this.shipX;
       const hit = w.links.some((l) => l.bridge && !l.broken && segmentHitsRect(w.x[l.a], w.y[l.a], w.x[l.b], w.y[l.b], x - SHIP_HALF, this.level.waterY - 1, x + SHIP_HALF, top));
@@ -1714,7 +1910,9 @@ export class TestRun {
       if (Math.min(w.x[v.rearWheel], w.x[v.frontWheel]) > goalX(this.level)) this.done[i] = true;
     });
     if (this.done.every(Boolean)) {
-      this.status = 'success';
+      // Where the ship waits for the traffic, the run ends once it has sailed through too.
+      if (!this.level.ship?.after || this.shipProgress > 1) this.status = 'success';
+      else if (this.trafficAcross === Infinity) this.trafficAcross = this.time;
       return;
     }
     if (this.time < this.releaseAt) return;

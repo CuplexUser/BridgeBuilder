@@ -30,6 +30,7 @@ describe('chapters', () => {
       [51, [52, 53, 54, 55, 66]],
       [56, [57, 58, 59, 60, 68]],
       [61, [62, 63, 64, 65, 66, 67, 70]],
+      [71, [72]],
     ];
     for (const [ghost, uses] of after) for (const id of uses) expect(at(id), `${id} after ${ghost}`).toBeGreaterThan(at(ghost));
   });
@@ -93,9 +94,10 @@ describe('chapter map', () => {
       }
       for (const [i, a] of m.nodes.entries()) for (const b of m.nodes.slice(i + 1)) expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThan(55);
       // Each chapter's heading sits above its first level, and below the last level of the one before.
+      const place = new Map(CHAPTERS.map((c, i) => [c.id, i]));
       for (const h of m.heads) {
         const ys = m.nodes.filter((n) => n.chapter === h.chapter).map((n) => n.y);
-        const above = m.nodes.filter((n) => n.chapter < h.chapter).map((n) => n.y);
+        const above = m.nodes.filter((n) => place.get(n.chapter)! < place.get(h.chapter)!).map((n) => n.y);
         expect(Math.min(...ys)).toBeGreaterThan(h.y);
         expect(Math.max(-Infinity, ...above)).toBeLessThan(h.y);
       }

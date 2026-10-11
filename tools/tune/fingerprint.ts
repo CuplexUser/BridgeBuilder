@@ -24,7 +24,7 @@ function hash(s: string): string {
  * don't count, so rewording a level doesn't call for a new tuning run.
  */
 /** Materials added after levels 1–40 were tuned: they count only where offered. */
-const LATER = new Set<MaterialId>(['main', 'concrete', 'masonry', 'arch', 'track', 'damper']);
+const LATER = new Set<MaterialId>(['main', 'concrete', 'masonry', 'arch', 'track', 'damper', 'tendon']);
 /** Vehicles added after levels 1–50 were tuned. */
 const LATER_VEHICLES = new Set(['loco', 'wagon', 'troop']);
 

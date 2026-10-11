@@ -2,7 +2,7 @@ import { Design, type GridPt } from '../../src/design';
 import { bankY, mudAt, type BonusGoal, type GeometryKey, type LevelDef } from '../../src/levels';
 import { rings } from '../../src/masonry';
 import { MATERIALS, type MaterialId } from '../../src/physics/materials';
-import { archBridge, blockArch, blockTower, deck, hang, liftOff, pileBridge, roadRun, SOLUTIONS, trussOver, type TrussMats } from '../../src/solutions';
+import { archBridge, blockArch, blockGirder, blockTower, deck, doubleBascule, doubleDeck, hang, liftOff, pileBridge, roadRun, SOLUTIONS, swingBridge, trussOver, type TrussMats } from '../../src/solutions';
 
 /** A level's geometry for one choice of its tunable parameters. */
 export type Shape = Partial<Pick<LevelDef, GeometryKey>>;
@@ -29,6 +29,7 @@ export interface Intent {
 }
 
 const STEELY: TrussMats = { chord: 'steel', web: 'steel', vert: 'steel', end: 'steel', endWeb: 'steel' };
+const HEAVY: TrussMats = { chord: 'steel', web: 'wood', vert: 'wood', end: 'steel', endWeb: 'steel' };
 const joints = (x0: number, x1: number, y = 0): GridPt[] => Array.from({ length: (x1 - x0) / 2 + 1 }, (_, i): GridPt => [x0 + 2 * i, y]);
 
 /** Level 30's shape: pylons `side` meters in from each bank, the deck raised `clear` meters over the channel between them. */
@@ -95,10 +96,9 @@ function dampers(as: MaterialId | null) {
   };
 }
 
-/** A design without the members built from the bolt at (x, y). */
-function untie(d: Design, x: number, y: number): Design {
-  const i = d.findNode(x, y);
-  d.members = d.members.filter((m) => m.a !== i && m.b !== i);
+/** A design without its stiffening truss: every member up to a joint 2 m over the deck. */
+function unstiffen(d: Design): Design {
+  d.members = d.members.filter((m) => d.nodes[m.a].y !== 2 && d.nodes[m.b].y !== 2);
   d.pruneNodes();
   return d;
 }
@@ -168,6 +168,22 @@ function overPylons(l: LevelDef): GridPt[] {
   const bolts = l.anchors.filter(([x, y]) => x > 0 && x < l.width && y >= 0 && (l.towers ?? []).some((t) => t[0] === x && t[2] > y + 5));
   bolts.sort((p, q) => p[0] - q[0]);
   return [[0, 0], ...bolts, [l.width, l.rightY ?? 0]];
+}
+
+/** A heavy deck from bank to bank. */
+function heavyDeck(l: LevelDef): Design {
+  const d = new Design(l);
+  roadRun(d, [0, 0], [l.width, 0], 'heavy');
+  return d;
+}
+
+/** The lift bridge with one deck from bank to bank, so its span is tied to the approaches. */
+function joinedLift(l: LevelDef, deckMat: MaterialId): Design {
+  const d = new Design(l);
+  trussOver(d, roadRun(d, [0, 0], [l.width, 0], deckMat), 2, HEAVY);
+  d.add([0, -3], [2, 0], 'steel').add([l.width, -3], [l.width - 2, 0], 'steel');
+  for (const [x, y] of l.anchors) if (x > l.lift![0] && x < l.lift![1]) d.add([x, y], [x, 0], 'ram');
+  return d;
 }
 
 export const INTENTS: Record<number, Intent> = {
@@ -309,11 +325,32 @@ export const INTENTS: Record<number, Intent> = {
   51: { requires: ['steel'] },
   52: { requires: ['steel'] },
   53: { requires: ['steel'] },
-  54: { requires: ['steel'] },
+  // On sliding bearings: a truss braced to the low bolts only one way, or not at all, rides off with the braking train.
+  54: {
+    requires: ['steel'],
+    shortcuts: [
+      {
+        name: 'not braced to the low bolts',
+        build: (l) => {
+          const d = new Design(l);
+          return trussOver(d, roadRun(d, [0, 0], [16, 0], 'track'), 3, STEELY);
+        },
+      },
+      {
+        name: 'braced one way only',
+        build: (l) => {
+          const d = new Design(l);
+          trussOver(d, roadRun(d, [0, 0], [16, 0], 'track'), 3, STEELY);
+          return d.add([0, -3], [2, 0], 'steel').add([16, -3], [14, 0], 'steel');
+        },
+      },
+    ],
+  },
   55: { requires: ['arch'] },
   // Dynamics: the reference without what calms it, or with steel in its place, must fail.
   56: { shortcuts: [noBlocks, dampers(null), dampers('steel')] },
-  57: { shortcuts: [{ name: 'no tie-downs', build: (l) => untie(SOLUTIONS[57](l), 14, -5) }] },
+  // A light deck in a gale flutters apart unless it's stiffened.
+  57: { shortcuts: [{ name: 'no stiffening truss', build: (l) => unstiffen(SOLUTIONS[57](l)) }] },
   58: { shortcuts: [{ name: 'unbraced towers', build: (l) => SOLUTIONS[42](l) }] },
   59: { shortcuts: [dampers(null), dampers('steel')] },
   60: { shortcuts: [dampers(null), dampers('steel')] },
@@ -355,6 +392,29 @@ export const INTENTS: Record<number, Intent> = {
       },
     })),
   },
+  // Modern works: without a tendon, or with one where the girder doesn't need it, the girder cracks.
+  71: { requires: ['tendon'], shortcuts: [{ name: 'no tendon', build: (l) => blockGirder(deck(new Design(l), 0, l.width), l, 2, 'none') }] },
+  72: {
+    requires: ['tendon'],
+    shortcuts: [
+      { name: 'no tendon', build: (l) => blockGirder(heavyDeck(l), l, 2, 'none') },
+      { name: 'a tendon low through both spans', build: (l) => blockGirder(heavyDeck(l), l, 2, 'low') },
+    ],
+  },
+  // Two decks on posts alone, or on a web alone, don't make a truss deep enough.
+  73: {
+    shortcuts: [
+      { name: 'decks on posts', build: (l) => doubleDeck(l, 'posts', false) },
+      { name: 'a web between the decks, nothing over the road', build: (l) => doubleDeck(l, 'warren', false) },
+    ],
+  },
+  // Leaves of wood bend too far to meet; nothing lifts without rams.
+  74: { requires: ['ram'], shortcuts: [{ name: 'wooden leaves', build: (l) => doubleBascule(l, { chord: 'wood', web: 'wood', vert: 'wood' }) }] },
+  // A span joined to its approaches can't rise.
+  75: { requires: ['ram'], shortcuts: [{ name: 'one deck from bank to bank', build: (l) => joinedLift(l, 'road') }] },
+  // Balanced on two bolts with nothing out wide, the open bridge tips and folds.
+  76: { shortcuts: [{ name: 'posts only under the pivot', build: (l) => swingBridge(l, false) }] },
+  77: { requires: ['ram'], shortcuts: [{ name: 'one deck from bank to bank', build: (l) => joinedLift(l, 'track') }] },
 };
 
 /** The hand-made reference for a level, if it still fits the level's (possibly tuned) geometry. */

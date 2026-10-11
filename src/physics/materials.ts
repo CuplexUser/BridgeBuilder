@@ -1,4 +1,4 @@
-export type MaterialId = 'road' | 'heavy' | 'track' | 'wood' | 'steel' | 'cable' | 'main' | 'concrete' | 'masonry' | 'arch' | 'ram' | 'damper';
+export type MaterialId = 'road' | 'heavy' | 'track' | 'wood' | 'steel' | 'cable' | 'main' | 'concrete' | 'masonry' | 'arch' | 'ram' | 'damper' | 'tendon';
 
 export interface Material {
   id: MaterialId;
@@ -51,11 +51,18 @@ export interface Material {
    */
   cell?: 'brush' | 'ring';
   /**
-   * The joints between a ring's blocks open: neighboring blocks only press on each other through
-   * their faces, so where the line of thrust leaves the ring a joint gapes and hinges on one edge,
-   * like real voussoirs, instead of the ring bending like one stiff beam.
+   * Mortared blocks: each has corners of its own, and meets the blocks beside it through a face
+   * held shut by mortar up to its `tension`. Pulled harder, a joint cracks for good and from then
+   * on only presses, so it gapes on one edge and hinges on the other, like real masonry, instead
+   * of a wall or beam of blocks bending like one stiff piece.
    */
   hinged?: boolean;
+  /**
+   * A tendon: pulled tight to this force, N, as the test starts, and threaded straight through
+   * concrete blocks, so the blocks between its ends are squeezed together and a beam of them
+   * carries bending without cracking where it's pulled apart.
+   */
+  prestress?: number;
   /** How much longer it gets when a drawbridge opens, as a share of its built length. 0 for fixed members. */
   stroke: number;
   /**
@@ -249,6 +256,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
     runs: false,
     tensionOnly: false,
     cell: 'brush',
+    hinged: true,
     stroke: 0,
   },
   // An arch ring of wedge-shaped concrete blocks, laid in one drag as a curve rising between two
@@ -274,6 +282,29 @@ export const MATERIALS: Record<MaterialId, Material> = {
     arch: true,
     cell: 'ring',
     hinged: true,
+    stroke: 0,
+  },
+  // A steel tendon: a cable threaded through concrete blocks and pulled tight before traffic comes,
+  // so the blocks between its ends press together. Low in a beam of blocks, it keeps the beam's
+  // underside from cracking open as it sags; over a pier, high, it keeps the top shut.
+  tendon: {
+    id: 'tendon',
+    name: 'Tendon',
+    price: 160,
+    short: 'Tendon',
+    maxLen: 16,
+    density: 8,
+    EA: 2e7,
+    tension: 600000,
+    compression: Infinity,
+    buckleRef: 1,
+    bend: 0,
+    bendLimit: 0,
+    rating: 0,
+    drivable: false,
+    runs: false,
+    tensionOnly: true,
+    prestress: 250000,
     stroke: 0,
   },
   // A hydraulic damper: a soft spring that carries little standing load, but pushes back hard on
@@ -321,7 +352,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
   },
 };
 
-export const MATERIAL_ORDER: MaterialId[] = ['road', 'heavy', 'track', 'wood', 'steel', 'cable', 'ram', 'main', 'concrete', 'masonry', 'arch', 'damper'];
+export const MATERIAL_ORDER: MaterialId[] = ['road', 'heavy', 'track', 'wood', 'steel', 'cable', 'ram', 'main', 'concrete', 'masonry', 'arch', 'tendon', 'damper'];
 
 /** Effective compressive capacity for a member of the given rest length. */
 export function compressionLimit(m: Material, len: number): number {

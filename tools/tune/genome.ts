@@ -1,10 +1,11 @@
 import { Design, q, type GridPt } from '../../src/design';
 import type { LevelDef } from '../../src/levels';
 import { BLOCK, MATERIALS, type MaterialId } from '../../src/physics/materials';
+import { VEHICLES } from '../../src/physics/vehicles';
 import { defaultSag, layMain } from '../../src/maincable';
 import { blockSpot, pileSpots, pointAllowed, topY } from '../../src/rules';
 import { ringRise } from '../../src/masonry';
-import { blockArch, blockTower, hangDeck, pylon, towerPosts } from '../../src/solutions';
+import { blockArch, blockGirder, blockTower, hangDeck, pylon, TENDON_LAYOUTS, towerPosts } from '../../src/solutions';
 
 /**
  * A structure grammar for one level: each gene picks one option, and build() turns the gene
@@ -155,6 +156,16 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
     : [];
   const archGenes = archOk ? rocks.slice(0, -1).map((r, i) => add(`arch from rock ${r[0]} to ${rocks[i + 1][0]}`, ['none', ...ARCH_RISES.map((f) => `${f} of a natural rise`)], 1)) : [];
   const postGene = (archOk || brick) && beams.length ? add('posts on the arches and towers', beams) : -1;
+  // A lower deck under the road, for its own traffic, tied to the road above: by posts under the
+  // road's joints, by a Warren web to joints between them, or both.
+  const lowerY = level.lower?.y;
+  const lowerMat: MaterialId = level.lower && VEHICLES[level.lower.vehicle].rail ? 'track' : 'road';
+  const betweenGene = lowerY !== undefined ? add('between the decks', ['none', 'posts', 'warren', 'posts and warren'], 2) : -1;
+  const betweenMat = lowerY !== undefined ? add('between the decks material', beamOpts) : -1;
+  // Prestressed girders: a beam of blocks under the deck from the first rock to the last, on block piers, with tendons through it.
+  const girderOk = brick && offered('tendon') && rocks.length >= 2;
+  const girderGene = girderOk ? add('block girder under the deck', ['none', '1 row', '2 rows', '3 rows'], 2) : -1;
+  const tendonGene = girderOk ? add('tendons through the girder', TENDON_LAYOUTS, 1) : -1;
   // An arch over the road from one bank's bolt to the other's, the deck hung under it.
   const overGene = archOk && cablesOk ? add('arch over the road from bank to bank', ['none', ...ARCH_RISES.map((f) => `${f} of a natural rise`)]) : -1;
 
@@ -253,8 +264,28 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
         }
       }
     }
+    if (lowerY !== undefined) {
+      const kind = g[betweenGene];
+      // Joints under the road's for posts, between them for a Warren web, every meter for both.
+      const xs = kind === 1 ? joints.map(([x]) => x) : kind === 2 ? [0, ...Array.from({ length: Math.floor(W / 2) }, (_, i) => 2 * i + 1).filter((x) => x < W), W] : Array.from({ length: Math.floor(W) + 1 }, (_, i) => i);
+      for (let i = 0; i < xs.length - 1; i++) {
+        const path = d.runPath(xs[i], lowerY, xs[i + 1], lowerY, MATERIALS[lowerMat].maxLen, 50);
+        if (path) for (let k = 0; k < path.length - 1; k++) d.add(path[k], path[k + 1], lowerMat);
+      }
+      const mat = beams[g[betweenMat]];
+      if (kind && mat) {
+        for (const [x, y] of joints) {
+          if (x <= 0 || x >= W) continue;
+          if (kind !== 2 && d.findNode(x, lowerY) >= 0) d.add([x, y], [x, lowerY], mat);
+          if (kind !== 1) for (const dx of [-1, 1]) if (d.findNode(x + dx, lowerY) >= 0) d.add([x, y], [x + dx, lowerY], mat);
+        }
+      }
+    }
+    // A prestressed girder stands on piers of its own, in place of block towers.
+    const girder = girderOk ? g[girderGene] : 0;
+    if (girder) blockGirder(d, level, girder, TENDON_LAYOUTS[g[tendonGene]]);
     // Block towers, arches between them, and posts up to the deck.
-    if (stackGenes.length || archGenes.length) {
+    if (!girder && (stackGenes.length || archGenes.length)) {
       const tops = rocks.map((r, i) => (stackGenes.length ? blockTower(d, level, r, g[stackGenes[i]]) : r[2]));
       const post = beams[g[postGene]] ?? beams[0];
       archGenes.forEach((gene, i) => {

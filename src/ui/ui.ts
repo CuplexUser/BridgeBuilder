@@ -1,4 +1,4 @@
-import { chapterComplete, chapterUnlocked, CHAPTERS, continueLevel, crossed, levelById, levelCode, levelUnlocked, totals, type Best, type BestMap, type ChapterDef } from '../chapters';
+import { chapterComplete, chapterNumber, chapterUnlocked, CHAPTERS, continueLevel, crossed, levelById, levelCode, levelUnlocked, totals, type Best, type BestMap, type ChapterDef } from '../chapters';
 import { mapLayout } from './chaptermap';
 import { money } from '../editor';
 import type { LevelDef } from '../levels';
@@ -72,7 +72,7 @@ export class Ui {
       b.className = 'pill';
       b.dataset.act = 'board-chapter';
       b.dataset.chapter = String(c.id);
-      b.textContent = String(c.id);
+      b.textContent = String(chapterNumber(c));
       b.title = c.name;
       pills.appendChild(b);
     }
@@ -317,7 +317,7 @@ export class Ui {
       const t = totals(best, c.levels);
       const open = chapterUnlocked(c, best);
       html += `<div class="map-head${open ? '' : ' locked'}" style="top:${h.y}px">
-        <button class="map-title" data-act="chapter" data-chapter="${c.id}" ${open ? '' : 'aria-disabled="true"'}><span class="ch-no">CH ${c.id}</span> ${c.name}</button>
+        <button class="map-title" data-act="chapter" data-chapter="${c.id}" ${open ? '' : 'aria-disabled="true"'}><span class="ch-no">CH ${chapterNumber(c)}</span> ${c.name}</button>
         <span class="map-stars">★ ${t.stars}/${c.levels.length * 3}</span>
         ${chapterComplete(c, best) ? `<button class="btn small ch-challenge" data-act="challenge" data-chapter="${c.id}" aria-label="Challenge" title="Challenge: all ${c.levels.length} levels in a row, three lives">⚑</button>` : ''}
       </div>`;
@@ -357,7 +357,7 @@ export class Ui {
       const prev = CHAPTERS[CHAPTERS.indexOf(c) - 1];
       card.innerHTML = `
         <button class="ch-open" data-act="chapter" data-chapter="${c.id}" ${open ? '' : 'aria-disabled="true"'}>
-          <span class="ch-no"><span class="long">CHAPTER</span><span class="short">CH</span> ${c.id}</span>
+          <span class="ch-no"><span class="long">CHAPTER</span><span class="short">CH</span> ${chapterNumber(c)}</span>
           <span class="ch-name">${c.name}</span>
           ${pips(c.difficulty)}
           <span class="ch-blurb">${c.blurb}</span>
@@ -378,7 +378,7 @@ export class Ui {
 
   /** One chapter's levels, in play order. */
   chapter(c: ChapterDef, best: BestMap): void {
-    $('ch-kicker').innerHTML = `CHAPTER ${c.id} ${pips(c.difficulty)}`;
+    $('ch-kicker').innerHTML = `CHAPTER ${chapterNumber(c)} ${pips(c.difficulty)}`;
     $('ch-title').textContent = c.name;
     $('ch-blurb').textContent = `${c.blurb} ${c.effort}.`;
     const grid = $('level-grid');

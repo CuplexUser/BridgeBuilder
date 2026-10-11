@@ -142,6 +142,8 @@ export function cellProblem(level: LevelDef, d: Design, poly: GridPt[], ignore: 
     if (!ignore.has(k) && polysOverlap(poly, cellPoly(d, c))) return 'Overlaps a block';
   }
   for (const m of d.members) {
+    // A tendon threads through blocks.
+    if (MATERIALS[m.mat].prestress) continue;
     const a = d.nodes[m.a];
     const b = d.nodes[m.b];
     if (segmentHitsPoly([a.x, a.y], [b.x, b.y], poly)) return MATERIALS[m.mat].drivable ? 'On the road' : 'A beam runs through it';

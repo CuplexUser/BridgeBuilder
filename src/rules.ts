@@ -145,7 +145,7 @@ export function designProblems(level: LevelDef, d: Design, opts: { budget?: bool
     if (seen.has(key)) out.push(`${tag}: duplicate`);
     seen.add(key);
     if (crossesChannel(level, a.x, a.y, b.x, b.y)) out.push(`${tag}: in the channel`);
-    if (hitsCells(d, [a.x, a.y], [b.x, b.y])) out.push(`${tag}: through a block`);
+    if (!MATERIALS[m.mat].prestress && hitsCells(d, [a.x, a.y], [b.x, b.y])) out.push(`${tag}: through a block`);
     for (let j = 0; j < i; j++) {
       const o = members[j];
       if (o.part !== undefined && o.part === m.part) continue;

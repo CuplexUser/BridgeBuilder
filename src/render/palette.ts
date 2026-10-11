@@ -45,9 +45,11 @@ export const PAL = {
   ram: '#c8369f',
   ramDark: '#5c1048',
   damper: '#e3a81e',
+  tendon: '#c9d2dc',
   mud: '#7a5c3e',
   mudDark: '#3f2e1f',
   damperDark: '#6a4708',
+  tendonDark: '#2c3540',
   chrome: '#dfe6ee',
 
   // Stress
@@ -73,6 +75,7 @@ export const MATERIAL_CHALK: Record<string, string> = {
   arch: '#e9d58c',
   ram: '#ff6ad5',
   damper: '#ffe27a',
+  tendon: '#b8f0e0',
 };
 
 function hexToRgb(h: string): [number, number, number] {

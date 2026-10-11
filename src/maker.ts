@@ -199,7 +199,7 @@ export function toggleRock(l: LevelDef, x: number, y: number): { ok: boolean; ms
 
 /** Most a level's flood may raise the river, m, and the current it brings, N per m under water. */
 export const MAX_FLOOD = 10;
-export const FLOOD_CURRENT = 300;
+export const FLOOD_CURRENT = 2000;
 
 /** What a pile costs on a level that gets its first mud bank, $. */
 export const DEFAULT_PILE_PRICE = 1500;
@@ -519,11 +519,32 @@ export function parseLevel(json: string, id: number): LevelDef {
   if (overhangs.length) level.overhangs = overhangs;
   if (rocks.length) level.rocks = rocks;
   if (convoy.length) level.convoy = convoy;
-  if (isObj(r.ship) && channels.length) level.ship = { mast: clampInt(num(r.ship.mast, 3), 1, 20) };
+  if (isObj(r.ship) && channels.length) {
+    level.ship = { mast: clampInt(num(r.ship.mast, 3), 1, 20) };
+    if (r.ship.after === true) level.ship.after = true;
+  }
+  if (isObj(r.swing) && level.ship && within(r.swing.pivot, 0, width)) level.swing = { pivot: r.swing.pivot };
+  if (within(r.lock, 0, width)) level.lock = r.lock as number;
+  if (Array.isArray(r.lift)) {
+    const lift = r.lift.filter((x): x is number => within(x, 0, width)).slice(0, 2);
+    if (lift.length) level.lift = lift;
+  }
+  // A lower deck: its height, above the water and under the road, and its own traffic.
+  if (isObj(r.lower) && within(r.lower.y, waterY + 1, -2) && isVehicle(r.lower.vehicle)) {
+    const train = (Array.isArray(r.lower.convoy) ? r.lower.convoy.filter(isVehicle) : []).slice(0, LIMITS.maxConvoy - 1);
+    level.lower = train.length ? { y: r.lower.y as number, vehicle: r.lower.vehicle, convoy: train } : { y: r.lower.y as number, vehicle: r.lower.vehicle };
+  }
   // A train's brake stop, the weather and the ground: each kept when it reads as one.
   if (isObj(r.brake) && within(r.brake.at, 0, width)) level.brake = within(r.brake.hold, 0, 30) ? { at: r.brake.at, hold: r.brake.hold as number } : { at: r.brake.at };
-  if (isObj(r.wind) && within(r.wind.push, 0, 1e5) && within(r.wind.lift, 0, 1e5) && within(r.wind.period, 0.2, 60)) level.wind = { push: r.wind.push, lift: r.wind.lift, period: r.wind.period };
-  if (isObj(r.quake) && within(r.quake.g, 0, 2) && within(r.quake.freq, 0.1, 10) && within(r.quake.at, -60, width + 60) && within(r.quake.dur, 0.5, 60)) level.quake = { g: r.quake.g, freq: r.quake.freq, at: r.quake.at, dur: r.quake.dur };
+  if (r.sliding === true) level.sliding = true;
+  if (isObj(r.wind) && within(r.wind.push, 0, 1e5) && within(r.wind.lift, 0, 1e5) && within(r.wind.period, 0.2, 60)) {
+    level.wind = { push: r.wind.push, lift: r.wind.lift, period: r.wind.period };
+    if (within(r.wind.flutter, 0, 1e5)) level.wind.flutter = r.wind.flutter;
+  }
+  if (isObj(r.quake) && within(r.quake.g, 0, 2) && within(r.quake.freq, 0.1, 10) && within(r.quake.at, -60, width + 60) && within(r.quake.dur, 0.5, 60)) {
+    level.quake = { g: r.quake.g, freq: r.quake.freq, at: r.quake.at, dur: r.quake.dur };
+    if (within(r.quake.sweep, 0.1, 10)) level.quake.sweep = r.quake.sweep;
+  }
   if (isObj(r.march) && within(r.march.pace, 0.1, 5) && within(r.march.force, 0, 1)) level.march = { pace: r.march.pace, force: r.march.force };
   const mud = list(r.mud, (v): [number, number, number] | null => {
     if (!Array.isArray(v) || v.length !== 3 || !v.every((n) => typeof n === 'number' && Number.isFinite(n))) return null;

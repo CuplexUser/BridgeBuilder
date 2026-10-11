@@ -68,15 +68,43 @@ export interface LevelDef {
   /** Vehicles following the first one across, in order: a convoy. */
   convoy?: VehicleId[];
   /**
-   * A tall ship sails through the first channel before traffic may go, with its mast up to
-   * this height: the bridge has to open for it, on hydraulic rams, and close again.
+   * A second deck below the road, at height `y`, with traffic of its own crossing at the same time:
+   * it comes out of a tunnel in each bank, with its own road ends there.
    */
-  ship?: { mast: number };
+  lower?: { y: number; vehicle: VehicleId; convoy?: VehicleId[] };
+  /**
+   * A tall ship sails through the first channel before traffic may go, with its mast up to
+   * this height: the bridge has to open for it, on hydraulic rams, and close again. With `after`,
+   * the ship waits for the traffic instead: it crosses first, then the bridge opens and the ship
+   * passes.
+   */
+  ship?: { mast: number; after?: boolean };
+  /**
+   * A swing bridge: it opens by turning on the bolt at x = `pivot`, its road ends lifting off the
+   * banks, so while it's open the whole bridge hangs from the pivot as a balanced cantilever.
+   */
+  swing?: { pivot: number };
+  /**
+   * A double-leaf drawbridge's center lock at x = `lock`: while the bridge is shut, the deck joints
+   * either side of it, within a meter, are held level with each other, so the two leaves share the
+   * load; it lets go as they open.
+   */
+  lock?: number;
+  /**
+   * A lift bridge's guide towers, at these x: whatever rests on a seat there runs in the tower's
+   * rails, free to rise and fall but held from swaying along, so rams can lift a span straight up.
+   */
+  lift?: number[];
   /**
    * The train brakes hard on the bridge once its front reaches x = `at`, comes to a stop, waits
    * `hold` seconds and goes on: its wheels push the deck forward while it stops.
    */
   brake?: { at: number; hold?: number };
+  /**
+   * The two road ends rest on sliding bearings: they hold the bridge up and down but let it move
+   * along its length, so a braking train's shove has to be braced down to the low bolts.
+   */
+  sliding?: boolean;
   /** Gusting wind that pushes on the bridge and lifts its deck. */
   wind?: Wind;
   /** An earthquake partway through the test. */
@@ -945,7 +973,7 @@ export const BASE_LEVELS: LevelBase[] = [
   {
     id: 54,
     name: 'Signal Stop',
-    tip: 'A red signal: the train brakes to a stop out on the span, waits, and goes on. Its wheels shove the deck forward as it stops.',
+    tip: 'A red signal: the train brakes to a stop out on the span. The bridge rests on sliding bearings, so brace it down to the low bolts both ways, or it rides along.',
     width: 16,
     anchors: [[0, 0], [16, 0], [0, -3], [16, -3]],
     piers: [],
@@ -953,6 +981,8 @@ export const BASE_LEVELS: LevelBase[] = [
     vehicle: 'loco',
     convoy: ['wagon', 'wagon'],
     brake: { at: 13, hold: 2 },
+    // On sliding bearings, the braking shove has to go down to the low bolts.
+    sliding: true,
     waterY: -7,
   },
   {
@@ -1020,7 +1050,7 @@ export const BASE_LEVELS: LevelBase[] = [
   {
     id: 57,
     name: 'Gale',
-    tip: 'Gusts lift a light deck like a wing, and hangers only pull. Tie the middle of the deck down to the rock, or it flies.',
+    tip: 'Gusts lift a light deck like a wing, and a deck that bounces catches each gust harder, until it flutters itself apart. Stiffen it with a truss along the deck.',
     width: 28,
     anchors: [[0, 0], [28, 0], [6, 0], [22, 0], [6, 12], [22, 12], [0, -3], [28, -3], [14, -5]],
     piers: [],
@@ -1029,13 +1059,13 @@ export const BASE_LEVELS: LevelBase[] = [
     // Heavy deck alone, resting on the pylons' bolts, carried the van across.
     materials: ['road', 'wood', 'steel', 'cable', 'damper'],
     vehicle: 'van',
-    wind: { push: 300, lift: 900, period: 3 },
+    wind: { push: 300, lift: 900, period: 3, flutter: 300 },
     waterY: -8,
   },
   {
     id: 58,
     name: 'Aftershock',
-    tip: 'An earthquake strikes as the bus reaches the middle. Tall towers whip back and forth on the shaking ground: brace them to the deck and the banks.',
+    tip: 'An earthquake strikes as the bus reaches the middle, shaking faster and faster until it matches how the towers sway. Brace them to the deck and the banks.',
     width: 48,
     anchors: [[0, 0], [48, 0], [2, 0], [6, 0], [42, 0], [46, 0]],
     piers: [[2, 0], [6, 0], [42, 0], [46, 0]],
@@ -1043,7 +1073,7 @@ export const BASE_LEVELS: LevelBase[] = [
     ceiling: 16,
     materials: ['road', 'heavy', 'steel', 'cable', 'main', 'concrete', 'damper'],
     vehicle: 'bus',
-    quake: { g: 0.25, freq: 1.2, at: 24, dur: 8 },
+    quake: { g: 0.25, freq: 0.5, sweep: 3, at: 24, dur: 8 },
     waterY: -6,
   },
   {
@@ -1076,7 +1106,7 @@ export const BASE_LEVELS: LevelBase[] = [
     vehicle: 'truck',
     convoy: ['troop', 'troop', 'troop'],
     march: { pace: 1, force: 0.4 },
-    wind: { push: 130, lift: 400, period: 3 },
+    wind: { push: 130, lift: 400, period: 3, flutter: 100 },
     waterY: -6,
   },
   {
@@ -1160,7 +1190,7 @@ export const BASE_LEVELS: LevelBase[] = [
     piles: { price: 2000 },
     materials: ['road', 'wood', 'steel'],
     vehicle: 'van',
-    flood: { at: 4, rise: 5, current: 300 },
+    flood: { at: 4, rise: 5, current: 2000 },
     waterY: -7,
   },
   {
@@ -1201,7 +1231,7 @@ export const BASE_LEVELS: LevelBase[] = [
     piles: { price: 2500 },
     materials: ['road', 'heavy', 'wood', 'steel'],
     vehicle: 'bus',
-    flood: { at: 8, rise: 5, current: 300 },
+    flood: { at: 8, rise: 5, current: 2000 },
     waterY: -7,
   },
   {
@@ -1221,7 +1251,7 @@ export const BASE_LEVELS: LevelBase[] = [
     materials: ['track', 'wood', 'steel'],
     vehicle: 'loco',
     convoy: ['wagon', 'wagon'],
-    flood: { at: 2, rise: 6, current: 300 },
+    flood: { at: 2, rise: 6, current: 2000 },
     waterY: -7,
   },
   {
@@ -1240,7 +1270,7 @@ export const BASE_LEVELS: LevelBase[] = [
     piles: { price: 2500 },
     materials: ['road', 'heavy', 'wood', 'steel'],
     vehicle: 'semi',
-    flood: { at: 4, rise: 6, current: 400 },
+    flood: { at: 4, rise: 6, current: 2000 },
     waterY: -8,
   },
   {
@@ -1303,8 +1333,178 @@ export const BASE_LEVELS: LevelBase[] = [
     piles: { price: 2500 },
     materials: ['road', 'heavy', 'wood', 'steel'],
     vehicle: 'semi',
-    flood: { at: 6, rise: 5, current: 400 },
+    flood: { at: 6, rise: 5, current: 2000 },
     waterY: -8,
+  },
+  // Modern works: prestressed girders, a double deck, and drawbridges that split, lift and swing.
+  {
+    id: 71,
+    name: 'Tendon',
+    tip: 'The ship channel leaves room for a girder only two blocks deep, and a beam of blocks cracks open underneath. Thread a tendon low through it: pulled tight, it keeps the joints shut.',
+    width: 20,
+    anchors: [
+      [0, 0],
+      [20, 0],
+    ],
+    piers: [],
+    rocks: [
+      [1, 3, -4],
+      [17, 19, -4],
+    ],
+    channels: [[3, 17, -2]],
+    // On sliding bearings, so only the girder itself can hold its ends together.
+    sliding: true,
+    materials: ['road', 'masonry', 'tendon'],
+    vehicle: 'truck',
+    waterY: -8,
+    // Piers on the islands, the girder across, then the tendon along its underside.
+    hint: [
+      [[0, 0], [20, 0], 'road'],
+      [[1, -4], [3, -2], 'masonry'],
+      [[17, -4], [19, -2], 'masonry'],
+      [[1, -2], [19, 0], 'masonry'],
+      [[1, -2], [10, -2], 'tendon'],
+      [[10, -2], [19, -2], 'tendon'],
+    ],
+    hintSolves: true,
+  },
+  {
+    id: 72,
+    name: 'Two Spans',
+    tip: 'Over the middle pier the girder bends the other way, and its top cracks open instead. A tendon low in the spans only makes that worse: run it along the middle of the beam.',
+    width: 30,
+    anchors: [
+      [0, 0],
+      [30, 0],
+    ],
+    piers: [],
+    rocks: [
+      [1, 3, -4],
+      [14, 16, -4],
+      [27, 29, -4],
+    ],
+    channels: [
+      [3, 14, -2],
+      [16, 27, -2],
+    ],
+    sliding: true,
+    materials: ['road', 'heavy', 'masonry', 'tendon'],
+    vehicle: 'semi',
+    waterY: -8,
+  },
+  {
+    id: 73,
+    name: 'Double Deck',
+    tip: 'A train crosses on a lower deck while a truck crosses on top. Brace the two decks to each other and they become the chords of one deep truss.',
+    width: 16,
+    anchors: [
+      [0, 0],
+      [16, 0],
+      [0, -4],
+      [16, -4],
+    ],
+    piers: [],
+    lower: { y: -4, vehicle: 'loco', convoy: ['wagon'] },
+    materials: ['road', 'track', 'wood', 'steel'],
+    vehicle: 'truck',
+    waterY: -8,
+  },
+  {
+    id: 74,
+    name: 'Double Bascule',
+    tip: 'Build a leaf from each bank to the lock in the middle, meeting at one joint there: the lock splits it in two and holds the tips level until the bridge opens. Lift each on a ram.',
+    width: 18,
+    anchors: [
+      [0, 0],
+      [18, 0],
+      [4, -3],
+      [14, -3],
+    ],
+    piers: [
+      [4, -3],
+      [14, -3],
+    ],
+    channels: [[5, 13, 0]],
+    ship: { mast: 4 },
+    lock: 9,
+    materials: ['road', 'wood', 'steel', 'ram'],
+    vehicle: 'truck',
+    waterY: -6,
+  },
+  {
+    id: 75,
+    name: 'Lift Bridge',
+    tip: 'Towers at the channel edges guide a span straight up and down. Lay it on its own from seat to seat and lift it on rams; the approaches stay where they are.',
+    width: 20,
+    anchors: [
+      [0, 0],
+      [20, 0],
+      [0, -3],
+      [20, -3],
+      [8, -3],
+      [12, -3],
+    ],
+    piers: [
+      [6, 0],
+      [14, 0],
+      [8, -3],
+      [12, -3],
+    ],
+    channels: [[8.5, 11.5, 0]],
+    ship: { mast: 2 },
+    lift: [6, 14],
+    materials: ['road', 'wood', 'steel', 'ram'],
+    vehicle: 'truck',
+    waterY: -6,
+  },
+  {
+    id: 76,
+    name: 'Swing Bridge',
+    tip: 'The whole bridge swings open on its pier. Its ends lift off the banks, so while it turns each half must hold itself up: a deep truss, braced out wide from both pivot bolts.',
+    width: 20,
+    anchors: [
+      [0, 0],
+      [20, 0],
+      [9, -3],
+      [11, -3],
+    ],
+    piers: [
+      [9, -3],
+      [11, -3],
+    ],
+    channels: [[12, 18, -1]],
+    ship: { mast: 6 },
+    swing: { pivot: 10 },
+    materials: ['road', 'wood', 'steel'],
+    vehicle: 'truck',
+    waterY: -6,
+  },
+  {
+    id: 77,
+    name: 'Ship Waits',
+    tip: 'This time the ship waits for a freight train. Once it is across, the span lifts in its towers for the ship: carry the train first, then rise clear.',
+    width: 20,
+    anchors: [
+      [0, 0],
+      [20, 0],
+      [0, -3],
+      [20, -3],
+      [8, -3],
+      [12, -3],
+    ],
+    piers: [
+      [6, 0],
+      [14, 0],
+      [8, -3],
+      [12, -3],
+    ],
+    channels: [[8.5, 11.5, 0]],
+    ship: { mast: 2, after: true },
+    lift: [6, 14],
+    materials: ['track', 'wood', 'steel', 'ram'],
+    vehicle: 'loco',
+    convoy: ['wagon', 'wagon'],
+    waterY: -6,
   },
 ];
 

@@ -331,7 +331,10 @@ describe('Design.covers', () => {
 function buildGhost(ed: Editor, [a, b, mat]: [GridPt, GridPt, MaterialId]): string {
   if (!ed.setMaterial(mat)) return `${mat} not offered`;
   if (MATERIALS[mat].cell === 'brush') {
-    ed.beginPaint((a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+    // One drag across the rectangle, through the middle of each block.
+    const [x0, x1, y0, y1] = [Math.min(a[0], b[0]), Math.max(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[1], b[1])];
+    ed.beginPaint(x0 + 0.5, y0 + 0.5);
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) ed.paintAt(x + 0.5, y + 0.5);
     ed.endPaint();
   } else {
     const from = ed.design.findNode(a[0], a[1]) >= 0 ? a : b;

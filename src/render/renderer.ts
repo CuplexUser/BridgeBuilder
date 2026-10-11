@@ -5,7 +5,7 @@ import { PK, WHIP_LIFE } from '../fx/particles';
 import { bankY, goalX, seatPiers, type LevelDef, type Overhang } from '../levels';
 import { BLOCK, blockOf, MATERIALS, type BlockDef, type MaterialId } from '../physics/materials';
 import type { VehicleDef } from '../physics/vehicles';
-import { convoyLayout, SHIP_HALF, windGust, type Link, type TestRun, type VehicleHandle, type Wind } from '../physics/world';
+import { convoyLayout, LOG_RADIUS, SHIP_HALF, TUNNEL_HEIGHT, windGust, type Link, type TestRun, type VehicleHandle, type Wind } from '../physics/world';
 import type { Camera } from './camera';
 import { blockSpots, pileSpots } from '../rules';
 import { defaultSag, mainPathIn } from '../maincable';
@@ -61,7 +61,7 @@ const TAU = Math.PI * 2;
 const PILE_DEPTH = 6;
 /** Shades of broken concrete deck. */
 const CHUNK_SHADES = ['#8d939c', '#6f757e', '#a4a9b1', '#5d6168'];
-const MEMBER_WIDTH: Record<MaterialId, number> = { road: 0.3, heavy: 0.36, wood: 0.17, steel: 0.15, cable: 0.06, main: 0.14, concrete: 0.34, masonry: 0.3, arch: 0.42, track: 0.36, ram: 0.2, damper: 0.16 };
+const MEMBER_WIDTH: Record<MaterialId, number> = { road: 0.3, heavy: 0.36, wood: 0.17, steel: 0.15, cable: 0.06, main: 0.14, concrete: 0.34, masonry: 0.3, arch: 0.42, track: 0.36, ram: 0.2, damper: 0.16, tendon: 0.08 };
 
 /** Piers, and the footing under each mast's hinge: concrete columns up from the riverbed. */
 function footings(L: LevelDef): [number, number][] {
@@ -388,6 +388,23 @@ export class Renderer {
   private blockDef: BlockDef = BLOCK;
 
   draw(v: SceneView): void {
+    // A swing bridge turning out of the picture: drawn narrowing toward its pivot as it swings,
+    // then put back as the physics has it.
+    const w = v.run?.world;
+    const swing = v.level.swing && w && w.openness > 0 ? v.level.swing.pivot : null;
+    if (swing === null) return this.drawView(v);
+    const xs = w!.x.slice(0, w!.bridgeCount);
+    // Turned edge-on it would vanish; a sliver of it stays in sight. The pier's bolts don't turn.
+    const c = Math.max(0.08, Math.cos((w!.openness * Math.PI) / 2));
+    for (let p = 0; p < w!.bridgeCount; p++) if (w!.im[p] > 0) w!.x[p] = swing + (xs[p] - swing) * c;
+    try {
+      this.drawView(v);
+    } finally {
+      w!.x.set(xs);
+    }
+  }
+
+  private drawView(v: SceneView): void {
     this.blockDef = blockOf(v.level);
     const { ctx } = this;
     ctx.save();
@@ -449,6 +466,7 @@ export class Renderer {
       }
       // Snapping cables stay bright even at night: the eye should catch them.
       this.drawWhips(v.run, this.debris.whips);
+      this.drawLogs(v.run, v.time);
       this.drawWaterFront(v);
       if (v.highlight) this.drawHighlight(v.run, v.highlight, v.time);
     } else if (v.editor) {
@@ -592,7 +610,9 @@ export class Renderer {
     for (const o of L.overhangs ?? []) banks.push(overhangPoly(o, W));
     for (const [r0, r1, top] of L.rocks ?? []) banks.push(rockPoly(r0, r1, top, deep));
     for (const [m0, m1, top] of L.mud ?? []) banks.push(mudPoly(m0, m1, top, deep));
-    for (const poly of banks) {
+    for (const [k, poly] of banks.entries()) {
+      // The lower deck's tunnels, cut into the banks before the piers go on.
+      if (k === 2 && L.lower) this.tunnels(L.lower.y, W, true);
       ctx.beginPath();
       poly.forEach(([x, y], i) => (i ? ctx.lineTo(cam.sx(x), cam.sy(y)) : ctx.moveTo(cam.sx(x), cam.sy(y))));
       ctx.closePath();
@@ -610,6 +630,33 @@ export class Renderer {
     }
 
     for (const [px, py] of seatPiers(L)) this.seat(px, py, true);
+    if (L.lift?.length) this.liftTowers(L, true);
+    // The center lock between two leaves: a short bar across the gap.
+    if (L.lock !== undefined) {
+      ctx.strokeStyle = PAL.chalk;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cam.sx(L.lock - 0.3), cam.sy(-0.15), 0.6 * cam.scale, 0.3 * cam.scale);
+    }
+    // Road ends on sliding bearings: a pair of rollers under each.
+    if (L.sliding) {
+      const r = Math.max(2.5, 0.16 * cam.scale);
+      ctx.strokeStyle = PAL.chalk;
+      ctx.lineWidth = 1.5;
+      for (const [x, y] of [
+        [0, 0],
+        [W, bankY(L)],
+      ]) {
+        const [sx, sy] = [cam.sx(x), cam.sy(y)];
+        ctx.beginPath();
+        for (const dx of [-1.4 * r, 1.4 * r]) {
+          ctx.moveTo(sx + dx + r, sy + r);
+          ctx.arc(sx + dx, sy + r, r, 0, Math.PI * 2);
+        }
+        ctx.moveTo(sx - 3 * r, sy + 2 * r);
+        ctx.lineTo(sx + 3 * r, sy + 2 * r);
+        ctx.stroke();
+      }
+    }
     for (const t of L.towers ?? []) this.tower(t[0], t[1], t[2], true);
     for (const [x, base, top] of L.masts ?? []) this.mast(x, base, x, top, true);
     // Where concrete anchors may go: a dashed strip in each bank, with a tick at every free spot.
@@ -763,6 +810,8 @@ export class Renderer {
       this.tufts(W + 0.3, W + 40, rY);
     }
 
+    if (L.lower) this.tunnels(L.lower.y, W, false);
+    if (L.lift?.length) this.liftTowers(L, false);
     for (const o of L.overhangs ?? []) this.overhang(o, W);
     for (const [x0, x1, top] of L.rocks ?? []) this.bank(rockPoly(x0, x1, top, deep));
     for (const [x0, x1, top] of L.mud ?? []) this.mud(x0, x1, top, deep);
@@ -1632,6 +1681,43 @@ export class Renderer {
     ctx.fillRect(sx - hw * 1.8, t - 2, hw * 3.6, Math.max(4, 0.18 * cam.scale));
   }
 
+  /** Driftwood a flood carries down the river: logs riding low in the water, bobbing. */
+  private drawLogs(run: TestRun, time: number): void {
+    const { ctx, cam } = this;
+    const w = run.world;
+    const r = LOG_RADIUS * cam.scale;
+    const half = 1.2 * cam.scale;
+    for (const [k, log] of w.logs.entries()) {
+      if (!log.afloat || w.x[log.p] > w.banks.width + 2) continue;
+      const x = cam.sx(w.x[log.p]);
+      const y = cam.sy(w.y[log.p]) + Math.sin(time * 2.3 + k) * 0.06 * cam.scale;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(Math.sin(time * 1.7 + k * 2) * 0.05);
+      ctx.fillStyle = '#5e4128';
+      ctx.beginPath();
+      ctx.roundRect(-half, -r, 2 * half, 2 * r, r);
+      ctx.fill();
+      ctx.strokeStyle = '#3c2a1a';
+      ctx.lineWidth = Math.max(1, 0.04 * cam.scale);
+      ctx.stroke();
+      // Its cut ends, and the bark's grain along it.
+      ctx.fillStyle = '#a8805a';
+      for (const sx of [-half + r * 0.6, half - r * 0.6]) {
+        ctx.beginPath();
+        ctx.ellipse(sx, 0, r * 0.45, r * 0.85, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.beginPath();
+      ctx.moveTo(-half * 0.6, -r * 0.35);
+      ctx.lineTo(half * 0.5, -r * 0.35);
+      ctx.moveTo(-half * 0.3, r * 0.25);
+      ctx.lineTo(half * 0.6, r * 0.25);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
   private drawWaterFront(v: SceneView): void {
     // A translucent front water layer so sinking things look submerged.
     const { ctx, cam } = this;
@@ -1994,6 +2080,17 @@ export class Renderer {
           break;
         case 'damper':
           for (const sg of list) this.damperShape(sg.ax, sg.ay, sg.bx, sg.by, w, false);
+          break;
+        case 'tendon':
+          // A taut strand of steel wires, and an anchor plate at each end.
+          stroke(list, 0, PAL.tendonDark, w + 1.5);
+          stroke(list, 0, PAL.tendon, w);
+          for (const sg of list) {
+            const p = Math.max(2.5, w * 1.6);
+            ctx.fillStyle = PAL.tendonDark;
+            ctx.fillRect(sg.ax - p / 2, sg.ay - p / 2, p, p);
+            ctx.fillRect(sg.bx - p / 2, sg.by - p / 2, p, p);
+          }
           break;
         default:
           stroke(list, 0, PAL.cable, w + 1);
@@ -2622,9 +2719,10 @@ export class Renderer {
       ctx.setLineDash([6, 8]);
       ctx.beginPath();
       if (MATERIALS[mat].cell) {
-        // A block ghost is the square from its lower left corner to its upper right; an arch ghost its ring.
+        // A block ghost is the rectangle of blocks from one corner to the other; an arch ghost its ring.
         const ring = mat === 'arch' ? ringPath(d, a, b, ringRise(d, a, b, ed.level)) : null;
-        const polys = ring ? ringPolys(ring) : [blockPoly(a[0], a[1])];
+        const block: [number, number][] = [a, [b[0], a[1]], b, [a[0], b[1]]];
+        const polys = ring ? ringPolys(ring) : [block];
         ctx.lineWidth = 2;
         for (const poly of polys) {
           poly.forEach(([x, y], k) => (k ? ctx.lineTo(cam.sx(x), cam.sy(y)) : ctx.moveTo(cam.sx(x), cam.sy(y))));
@@ -3050,11 +3148,57 @@ export class Renderer {
   // ───────────────────────────── Vehicles ─────────────────────────────
 
   private drawVehicleParked(level: LevelDef): void {
-    for (const { def, x } of convoyLayout(level)) {
-      const r = def.wheelR;
+    for (const { def, x, y } of convoyLayout(level)) {
+      const r = y + def.wheelR;
       const top = r + def.height * 0.6;
       const mids = (def.midAxles ?? []).map((ax): [number, number] => [x + ax, r]);
       this.vehicle(def, x, r, x + def.wheelbase, r, x, top, x + def.wheelbase, top, mids, [0, 0], true);
+    }
+  }
+
+  /** A lift bridge's guide towers: a pair of rails from each seat up past the ship's mast, braced across. */
+  private liftTowers(L: LevelDef, chalk: boolean): void {
+    const { ctx, cam } = this;
+    const top = (L.ship?.mast ?? 4) + 2;
+    ctx.strokeStyle = chalk ? PAL.chalkDim : '#4a5562';
+    ctx.lineWidth = Math.max(1.5, 0.1 * cam.scale);
+    for (const x of L.lift ?? []) {
+      const [l, r] = [cam.sx(x - 0.5), cam.sx(x + 0.5)];
+      ctx.beginPath();
+      ctx.moveTo(l, cam.sy(0));
+      ctx.lineTo(l, cam.sy(top));
+      ctx.moveTo(r, cam.sy(0));
+      ctx.lineTo(r, cam.sy(top));
+      ctx.lineTo(l, cam.sy(top));
+      for (let y = 0; y < top - 0.5; y += 1) {
+        ctx.moveTo(l, cam.sy(y));
+        ctx.lineTo(r, cam.sy(y + 1));
+      }
+      ctx.stroke();
+    }
+  }
+
+  /** A lower deck's tunnels through both banks: a dark bore with a lit floor, and a portal arch at each mouth. */
+  private tunnels(y: number, W: number, chalk: boolean): void {
+    const { ctx, cam } = this;
+    const h = TUNNEL_HEIGHT;
+    for (const [x0, x1, mouth] of [
+      [-80, 0, 0],
+      [W, W + 80, W],
+    ]) {
+      const [l, r, b, t] = [cam.sx(x0), cam.sx(x1), cam.sy(y), cam.sy(y + h)];
+      ctx.fillStyle = chalk ? 'rgba(4,12,26,0.85)' : 'rgba(14,12,10,0.88)';
+      ctx.fillRect(l, t, r - l, b - t);
+      ctx.fillStyle = chalk ? PAL.chalkDim : 'rgba(120,110,95,0.6)';
+      ctx.fillRect(l, b - 2, r - l, 2);
+      // The portal: a stone arch around the mouth.
+      ctx.strokeStyle = chalk ? PAL.chalk : '#8d8577';
+      ctx.lineWidth = Math.max(2, 0.18 * cam.scale);
+      const mx = cam.sx(mouth);
+      ctx.beginPath();
+      ctx.moveTo(mx, b);
+      ctx.lineTo(mx, t);
+      ctx.stroke();
     }
   }
 

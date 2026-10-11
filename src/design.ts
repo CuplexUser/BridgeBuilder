@@ -426,7 +426,12 @@ export class Design {
    */
   private coversCell(a: GridPt, b: GridPt, mat: MaterialId): boolean {
     const at = (i: number, p: GridPt) => Math.abs(this.nodes[i].x - p[0]) < EPS && Math.abs(this.nodes[i].y - p[1]) < EPS;
-    if (MATERIALS[mat].cell === 'brush') return this.cells.some((c) => c.mat === mat && at(c.n[0], a) && at(c.n[2], b));
+    if (MATERIALS[mat].cell === 'brush') {
+      // Every 1 m block of the rectangle from one corner to the other.
+      const [x0, x1, y0, y1] = [Math.min(a[0], b[0]), Math.max(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[1], b[1])];
+      for (let x = x0; x < x1 - EPS; x++) for (let y = y0; y < y1 - EPS; y++) if (!this.cells.some((c) => c.mat === mat && at(c.n[0], [x, y]) && at(c.n[2], [x + 1, y + 1]))) return false;
+      return true;
+    }
     return rings(this).some(({ intra }) => {
       const [s, e] = [intra[0], intra[intra.length - 1]];
       return (at(s, a) && at(e, b)) || (at(s, b) && at(e, a));
