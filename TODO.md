@@ -24,26 +24,26 @@ Features and improvements, by priority. Finished items stay checked for a releas
 - [x] **Retune level 2-1.** New reference: a wood truss on steel struts ($5,725, 67% peak). Target $6,000, budget $8,500.
 - [x] **Break effects.** Heavy deck crumbles into slabs and rubble with a dust cloud; a snapped cable whips back toward its joints with a traveling ripple.
 - [x] **Arch levels reworked.** Chapter 10's five levels no longer all fall to block towers with an arch between them and posts on top. *Keystone* stays as the ghost of that classic form; *Hanging Deck* has no rock below, so the arch springs from the bank bolts, rises over the road and carries the deck on hangers; *High and Low* springs from shelves at different heights; *Short Supply* allows four blocks, which crack out on the shelves but hold stacked against the walls; and *Grand Viaduct* takes a semi over deck arches to island piers built up to the road, with a through arch over the ship channel between them. An arch's default rise now stays under the level's height limit, and the optimizer can lay an arch over the road and build piers up to the deck.
+- [x] **Chapters of seven, and two ways to see them.** The 70 levels sit in ten chapters of seven, ordered by difficulty with each topic's levels together where they can be and its ghost first, so no level uses a mechanic before it is taught; five new levels fill the last chapter. Levels keep their topic's scene. The chapters screen is a **map**, one winding road of level nodes chapter by chapter with the next level lit and the locked ones ahead, or a **book** of chapter cards six to a page, turned by arrows, swipe, dots or ←/→; V switches, and the choice is remembered. Challenges are all seven levels in a row, on fresh boards (the five-level ones stay in storage, unseen). Stars, records and saved designs carry over, since they are keyed by level id. Keys 1–9 and 0 open chapters, Enter plays the next level.
 - [x] Chapters, money budgets, career scoring, leaderboards, levels 21–30, cable levels built around one idea each, road runs, beam splitting, heavy deck, and the scene and vehicle detail passes (earlier releases).
 
 ### Next
 
 In this order:
 
-- [ ] **1. Arch levels that make thrust and point loads matter.** Chapter 10 now asks for a different arch on each level (see Done), but two of the planned directions don't bite in the physics yet, so they wait:
+- [ ] **1. Arch levels that make thrust and point loads matter.** The arch levels (5-3 to 5-7) now ask for a different arch each (see Done), but two of the planned directions don't bite in the physics yet, so they wait:
   - A flat arch under a low ceiling or a ship channel that needs buttresses or a tie. Measured: a 16 m ring rising 1.5 m on footings one block high, out on islands, holds at 21% peak, because the 1 m ring of square-cornered blocks carries much of its load by bending, like a stiff beam, and its own weight presses the footings down. At 24 m the footings crack rather than slide, and whether a heavier abutment helps changes from one geometry to the next.
   - Point loads on the crown that a thin ring can't take without spandrels filled in. Measured: a semi crosses a thin 20 to 24 m ring at about 60% peak.
   - Both need ring joints that open and hinge like real voussoirs instead of bending. Friction on rock also ignores the shear a block passes on through its square corners; counting it (tried) made footings grip harder, not less, because the estimate inflates the push into the rock.
-- [ ] **2. Chapters of seven, and two ways to see them.** Regroup every level by difficulty into chapters of 7, about nine chapters for the 65 levels once chapters 12–13 are in, with a few new levels to fill the last. Level codes such as 3-2 change and challenge records reset; stars, records and saved designs stay, since they are keyed by level id. Challenges become all seven levels in a row. Then two modes:
-  - **Progression:** a winding path of level nodes across a map, chapter by chapter, with the next level highlighted and the locked ones ahead.
-  - **Chapter book:** the chapter cards, paged six to a page, with arrows, swipe and page dots.
-
-  Check both on phone and desktop. Update the chapter keys, leaderboard tabs, README and tests.
+- [ ] **2. Normal-effort tuning of levels 56–70.** The dynamics, foundations and finale levels were tuned at the quick effort only, as agreed, to get them playable. Run `npm run tune -- --levels 56,57,58,59,60,61,62,63,64,65,66,67,68,69,70` once everything else is in; the march levels (56, 59, 60, 68) are slow, a few simulations a second.
 
 ## P2: Gameplay depth
 
 ### Done
 
+- [x] **Dynamics: march, wind and earthquakes.** The damper, a hydraulic member with a soft spring that fights fast motion; squads of soldiers marching in step; gusts that push on members and lift the deck; and an earthquake that starts when the lead vehicle reaches a mark. Five levels in a storm scene: *Slow March* (a ghost of dampers under a footbridge), *Gale* (tie the deck down; heavy deck is no longer offered, since a bare heavy deck carried the van), *Aftershock*, *Parade* and *Storm Parade*. Test drives last long enough for slow convoys (`testSeconds`), so the optimizer gets the squads across, and it can brace a deck with dampers.
+- [x] **Foundations: mud, piles and floods.** Bolts on mud sink once they carry more than 15 kN; nothing can be built inside the mud; piles, driven onto it on whole meters at the level's price, never sink; and a flood raises the river, pushes on what stands in it and scours out bolts on the mud. Five levels in a new river delta scene: *Mudflats* (a ghost: one pile), *Soft Ground*, *Flash Flood*, *Long Flats* and *Floodtide*. The optimizer drives piles on the even meters of the mud and checks that a level can't be crossed without them (`requires: ['piles']`). The level editor paints mud by dragging and sets the pile price and a flood.
+- [x] **Grand Finale**, five new levels that each combine two lessons: *Great Arch* (a 36 m block arch for the semi), *Washout Line* (a train over flooding mud), *Marsh March* (dampers on the free mud bolts hold where stiff props sink), *Delta Haul* (a semi over a flooding delta) and *Last Crossing* (48 m for the semi over a delta in flood, with a ship channel).
 - [x] **Hydraulic rams and drawbridges.** A ram extends by 75% while the bridge opens. On a drawbridge level a tall ship sails through the channel's middle before traffic may go: the bridge opens, the ship passes (and fails the run if it touches anything), the bridge closes and the vehicles drive.
 - [x] **Convoys.** Several vehicles cross nose to tail at the slowest one's speed, and all of them have to reach the goal.
 - [x] **Joint strength.** Past a joint's two busiest members, the rest of their stress ratios may add up to at most 180%, or the busiest member breaks. Every hand-made design stays under it (the highest is 145%, on 2-5).
@@ -57,19 +57,9 @@ In this order:
 
 ### Next
 
-- [ ] **3. Dynamics chapter: march, wind and earthquakes.** The physics is in: the damper material, marching squads that step together at the level's pace, gusts that push on members and lift the deck, and an earthquake that starts when the lead vehicle reaches a mark. Its levels are drafted, each with a hand-made design that passes and shortcuts that fail. They are parked in a local `.proto/` copy, not in `src/`:
-  - *Slow March*: 9-1's span, a truck and three squads at a pace a second. Only dampers from two rock bolts save it; steel props fail.
-  - *Gale*: tie the deck down against gusts, or build it heavy.
-  - *Aftershock*: brace 9-2's concrete towers against a 0.25 g quake.
-  - *Parade*: a bus and four squads on the concrete towers.
-  - *Storm Parade*: the march in a gale.
-
-  Before they go in, the optimizer has to get through them. A tuning run estimated about 7 hours, because squads walk at 1.6 m/s and its designs time out. Speed up the squads or the run, and give the optimizer damper genes. Also needed: a scene for the chapter (a storm theme is ready), the damper in the README, and tests for the damper, the march, the wind and the quake.
-- [ ] **4. Foundations chapter: mud, piles and floods.** The physics is in: bolts on mud banks sink once they carry more than the mud holds (15 kN). Piles can be driven into the mud on whole meters, at a level's price. A flood raises the river, pushes on what stands in it, and washes out bolts on the mud. Mud, piles and the rising water are drawn, with callouts. Still to do:
-  - Five levels. A first draft, *Mudflats* (a pile under a 20 m truss), works. The flood and long-span drafts all failed and need stronger designs, such as heavy deck or deeper trusses.
-  - A pile tool hint, a flood plain scene, the level editor's mud and pile tools, README text, tests and tuning.
 - [ ] **Two-track railway levels:** two decks, one over the other, or side by side in the 2D view.
 - [ ] **Prestressed concrete.** Blocks with a cable tendon pulled tight through them, so a block beam can carry bending. A family of shapes the block arch doesn't cover.
+- [ ] **Harder hazards.** Measured while making the finale: a 0.25–0.3 g quake barely loads block arches, a rail viaduct or the concrete towers of 9-2 to 9-5 (peaks rise 4–10 points), and a gale doesn't trouble trains or trusses; only light suspension decks on hinged masts fail in one. Hazard remixes of the classic levels need stronger shaking or gusts, or bridges that resonate with them.
 - [ ] Ideas: double-leaf bascules, lift bridges, a swing bridge, and a ship that has to wait for traffic instead of the other way around.
 
 ## P3: Polish and social

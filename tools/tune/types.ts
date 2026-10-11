@@ -1,7 +1,6 @@
 import type { BonusGoal, Tuned } from '../../src/levels';
-import type { MaterialId } from '../../src/physics/materials';
 import type { Difficulty } from './difficulty';
-import type { Params, Shape } from './intents';
+import type { Params, Requirement, Shape } from './intents';
 
 /** One test drive, boiled down. */
 export interface Summary {
@@ -38,7 +37,7 @@ export interface LevelResult {
   bonusDesign: (Summary & { design: string }) | null;
   seed: Summary | null;
   room: { pass: number; total: number } | null;
-  requires: { mat: MaterialId; best: Summary | null; ok: boolean }[];
+  requires: { mat: Requirement; best: Summary | null; ok: boolean }[];
   shortcuts: { name: string; result: Summary; ok: boolean }[];
   combosTried: number;
   seconds: number;

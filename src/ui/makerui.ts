@@ -2,13 +2,16 @@ import { TUNE_DIFFICULTIES, TUNE_MAX_SECONDS, TUNE_SECONDS, type TuneDifficulty,
 import { traffic } from '../brief';
 import { money } from '../editor';
 import type { BonusGoal, LevelDef } from '../levels';
-import { makerIssues, makerWarnings, MAX_BLOCK_REACH, setSize, type MakerTool } from '../maker';
+import { FLOOD_CURRENT, LIMITS, makerIssues, makerWarnings, MAX_BLOCK_REACH, MAX_FLOOD, setSize, type MakerTool } from '../maker';
 import { MATERIAL_ORDER, MATERIALS, type MaterialId } from '../physics/materials';
 import { VEHICLES, type VehicleId } from '../physics/vehicles';
 import { THEMES } from '../render/themes';
 import { bonusLabel } from '../scoring';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
+
+/** The convoy's places behind the lead vehicle, numbered as in the form. */
+const FOLLOWERS = Array.from({ length: LIMITS.maxConvoy - 1 }, (_, i) => i + 1);
 
 /** The editing tools, in toolbar order, with what each does. */
 export const MAKER_TOOLS: { id: MakerTool; name: string; help: string }[] = [
@@ -17,8 +20,9 @@ export const MAKER_TOOLS: { id: MakerTool; name: string; help: string }[] = [
   { id: 'pylon', name: 'Pylon', help: 'Tap where a pylon top should go: it rises from the water with a bolt on top.' },
   { id: 'mast', name: 'Mast', help: 'Tap where a mast top should go: it rises from the water on a hinge, so players have to backstay it to concrete anchors.' },
   { id: 'rock', name: 'Rock', help: 'Tap where the top of a rock should go: a shelf or island 2 m wide, rising from the riverbed, for concrete blocks and arches to stand on. Tap one to remove it.' },
+  { id: 'mud', name: 'Mud', help: 'Drag across the gap for a mud bank, its top where you start: soft riverbed where bolts sink under a load and players drive piles. Tap for one 4 m wide, or tap one to remove it.' },
   { id: 'channel', name: 'Channel', help: 'Tap open water to fill it between the piers and banks, up to the road. Or drag for your own span, clear up to the height you start at.' },
-  { id: 'erase', name: 'Erase', help: 'Tap a bolt, seat, pylon, mast, rock or channel to remove it.' },
+  { id: 'erase', name: 'Erase', help: 'Tap a bolt, seat, pylon, mast, rock, mud or channel to remove it.' },
 ];
 
 /** The level editor's DOM: tools, the settings form, the custom level list and the share dialog. */
@@ -43,7 +47,7 @@ export class MakerUi {
     });
     const vehicles = (Object.keys(VEHICLES) as VehicleId[]).map((v) => `<option value="${v}">${VEHICLES[v].name} · ${VEHICLES[v].tonnes} t</option>`).join('');
     $('mk-vehicle').innerHTML = vehicles;
-    for (const i of [1, 2, 3]) $(`mk-convoy-${i}`).innerHTML = `<option value="">—</option>${vehicles}`;
+    for (const i of FOLLOWERS) $(`mk-convoy-${i}`).innerHTML = `<option value="">—</option>${vehicles}`;
     $('mk-theme').innerHTML = THEMES.map((t) => `<option value="${t.id}">${t.name}</option>`).join('');
     $('mk-mats').innerHTML = MATERIAL_ORDER.map(
       (m) =>
@@ -186,7 +190,7 @@ export class MakerUi {
     put('mk-right', l.rightY ?? 0);
     put('mk-water', l.waterY);
     put('mk-vehicle', l.vehicle);
-    for (const i of [1, 2, 3]) put(`mk-convoy-${i}`, l.convoy?.[i - 1] ?? '');
+    for (const i of FOLLOWERS) put(`mk-convoy-${i}`, l.convoy?.[i - 1] ?? '');
     put('mk-mast', l.ship?.mast ?? 0);
     $<HTMLInputElement>('mk-mast').disabled = !l.channels?.length;
     for (const m of MATERIAL_ORDER) {
@@ -200,6 +204,9 @@ export class MakerUi {
     put('mk-target', l.target);
     put('mk-toll', l.anchorCost ?? 0);
     put('mk-blocks', l.blocks?.reach ?? 0);
+    put('mk-piles', l.piles?.price ?? 0);
+    $<HTMLInputElement>('mk-piles').disabled = !l.mud?.length;
+    put('mk-flood', l.flood?.rise ?? 0);
     put('mk-bonus-kind', l.bonus.kind);
     const b = l.bonus;
     put('mk-bonus-val', b.kind === 'stress' ? Math.round(b.max * 100) : b.kind === 'without' ? 0 : b.max);
@@ -215,7 +222,7 @@ export class MakerUi {
     l.tip = val('mk-tip').trim().slice(0, 200);
     setSize(l, n('mk-width', l.width), n('mk-right', l.rightY ?? 0), n('mk-water', l.waterY));
     l.vehicle = val('mk-vehicle') as VehicleId;
-    const convoy = [1, 2, 3].map((i) => val(`mk-convoy-${i}`)).filter(Boolean) as VehicleId[];
+    const convoy = FOLLOWERS.map((i) => val(`mk-convoy-${i}`)).filter(Boolean) as VehicleId[];
     if (convoy.length) l.convoy = convoy;
     else delete l.convoy;
     const mast = Math.round(n('mk-mast', 0));
@@ -238,6 +245,13 @@ export class MakerUi {
     const reach = Math.max(0, Math.min(MAX_BLOCK_REACH, Math.round(n('mk-blocks', 0))));
     if (reach) l.blocks = { ...l.blocks, reach };
     else delete l.blocks;
+    const pile = Math.max(0, Math.min(100_000, Math.round(n('mk-piles', 0) / 100) * 100));
+    if (pile && l.mud?.length) l.piles = { price: pile };
+    else delete l.piles;
+    // A flood starts as the traffic reaches the bridge, rising by this much.
+    const rise = Math.max(0, Math.min(MAX_FLOOD, Math.round(n('mk-flood', 0) * 2) / 2));
+    if (rise) l.flood = { at: l.flood?.at ?? 4, rise, current: l.flood?.current ?? FLOOD_CURRENT };
+    else delete l.flood;
     // A new kind of goal starts from a sensible value, not the old kind's number.
     const kind = val('mk-bonus-kind');
     l.bonus = readBonus(kind, kind === l.bonus.kind ? n('mk-bonus-val', Number.NaN) : Number.NaN, val('mk-bonus-mat') as MaterialId, l);

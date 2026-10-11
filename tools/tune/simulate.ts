@@ -1,7 +1,7 @@
 import { Design } from '../../src/design';
 import { goalX, START_X, type LevelDef } from '../../src/levels';
 import { designProblems } from '../../src/rules';
-import { TestRun } from '../../src/physics/world';
+import { TestRun, testSeconds } from '../../src/physics/world';
 
 /** What one test drive of a design showed. */
 export interface Outcome {
@@ -20,7 +20,7 @@ export interface Outcome {
 }
 
 /** Drives a design across a level, the way the game's TEST button does. Budget is not checked here. */
-export function simulate(level: LevelDef, designJson: string, seconds = 30): Outcome {
+export function simulate(level: LevelDef, designJson: string, seconds = testSeconds(level)): Outcome {
   const d = Design.deserialize(designJson);
   const base = { cost: d.cost(), parts: d.parts() };
   const problems = designProblems(level, d, { budget: false });

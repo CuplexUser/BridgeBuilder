@@ -127,7 +127,7 @@ function postUp(d: Design, i: number, heights: Map<number, number>, mat: Materia
 }
 
 /** A chapter 10 bridge: a deck, block towers on the rocks, and block arches from tower to tower. */
-function archBridge(l: LevelDef, deckMat: MaterialId, rows: number[], arches: [number, number][], mat: MaterialId): Design {
+export function archBridge(l: LevelDef, deckMat: MaterialId, rows: number[], arches: [number, number][], mat: MaterialId): Design {
   const d = new Design(l);
   roadRun(d, [0, 0], [l.width, l.rightY ?? 0], deckMat);
   const rocks = (l.rocks ?? []).toSorted((p, r) => p[0] - r[0]);
@@ -431,6 +431,40 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
     trussOver(d, roadRun(d, [0, 0], [16, 0], 'track'), 3, STEELY);
     return d.add([0, -3], [2, 0], 'steel').add([16, -3], [14, 0], 'steel');
   },
+  56: (l) => marchBridge(l),
+  57: (l) => {
+    const d = new Design(l);
+    roadRun(d, [0, 0], [28, 0]);
+    suspend(d, [[6, 12], [10, 7], [14, 5], [18, 7], [22, 12]]);
+    hang(d, [10, 7], [[8, 0], [10, 0]]);
+    hang(d, [14, 5], [[12, 0], [14, 0], [16, 0]]);
+    hang(d, [18, 7], [[18, 0], [20, 0]]);
+    // Tie-downs to the rock, so the gusts can't lift the middle.
+    hang(d, [14, -5], [[12, 0], [16, 0]]);
+    d.add([0, -3], [2, 0], 'steel').add([28, -3], [26, 0], 'steel');
+    return kingPost(kingPost(d, 2, 6, -2, 'wood', 'steel'), 22, 26, -2, 'wood', 'steel');
+  },
+  // 9-2's bridge, its towers braced to the deck and the banks against the quake.
+  58: (l) => SOLUTIONS[42](l).add([0, 0], [2, 3], 'steel').add([8, 0], [6, 3], 'steel').add([40, 0], [42, 3], 'steel').add([48, 0], [46, 3], 'steel'),
+  59: (l) => {
+    const d = SOLUTIONS[42](l);
+    for (const x of [18, 30]) d.add([x, -4], [x - 2, 0], 'damper').add([x, -4], [x + 2, 0], 'damper');
+    return d;
+  },
+  60: (l) => marchBridge(l),
+  // Foundations: trusses from support to support, standing on piles driven into the mud.
+  61: (l) => pileBridge(l, [0, 10, 20], [10]),
+  62: (l) => pileBridge(l, [0, 12, 24], [12]),
+  63: (l) => pileBridge(l, [0, 10, 14, 24], [10, 14]),
+  64: (l) => pileBridge(l, [0, 12, 24, 36], [12, 24]),
+  65: (l) => pileBridge(l, [0, 10, 16, 24, 30, 40], [10, 16, 24, 30]),
+  // The finale.
+  66: (l) => pileBridge(l, [0, 6, 12, 18, 24, 30], [6, 12, 18, 24], 'track'),
+  67: (l) => pileBridge(l, [0, 8, 14, 20, 26, 32, 40], [8, 14, 20, 26, 32], 'heavy'),
+  68: (l) => marchBridge(l),
+  69: (l) => archBridge(l, 'heavy', [4, 4], [[0, 1]], 'steel'),
+  // Piles on both flats, and a deeper all-steel truss over the ship channel between them.
+  70: (l) => pileBridge(l, [0, 6, 12, 18, 30, 36, 42, 48], [6, 12, 18, 30, 36, 42], 'heavy', (x) => (x === 18 ? [3, STEELY] : [2, HEAVY])),
   55: (l) => archBridge(l, 'track', [2, 2, 2, 2], [[0, 1], [1, 2], [2, 3]], 'steel'),
   // A through arch from bolt to bolt, the deck hung under it.
   47: (l) => {
@@ -554,6 +588,35 @@ function suspensionWithSideSpans(l: LevelDef, a: number, b: number, sag: number[
     d.add([mx - side * 2, sag[1]], [mx, 0], 'cable');
     if (second) backstay(d, [at(0), [mx + side * 5, top - 4], [edge + side * 2, top - 8], [edge + side * 7, 0]]);
   }
+  return d;
+}
+
+/**
+ * The mud levels' bridges: a truss over each span between the stations, steel-chorded and 2 m
+ * deep unless `depth` says otherwise for the span starting at x0, and a steel post up to the
+ * deck from the top of the mud at each support, on a pile driven there (or the bolt already there).
+ */
+export function pileBridge(l: LevelDef, stations: number[], piles: number[], deckMat: MaterialId = 'road', depth: (x0: number) => [number, TrussMats] = () => [2, HEAVY]): Design {
+  const d = new Design(l);
+  for (let i = 0; i < stations.length - 1; i++) trussOver(d, roadRun(d, [stations[i], 0], [stations[i + 1], 0], deckMat), ...depth(stations[i]));
+  for (const x of piles) {
+    const top = (l.mud ?? []).find(([x0, x1]) => x >= x0 && x <= x1)![2];
+    d.ensureBlock(x, top);
+    d.add([x, top], [x, 0], 'steel');
+  }
+  return d;
+}
+
+/** The march levels' footbridge: 9-1's suspension span, with dampers in an X from each low bolt in the gap up to the deck. */
+function marchBridge(l: LevelDef): Design {
+  const d = steelSuspension(l, {
+    deck: [[0, 0], [16, 0], [32, 0], [40, 0]],
+    deckMat: 'road',
+    towers: [],
+    hangers: [[[4, 10], [4, 0]], [[36, 10], [36, 0]]],
+    cables: [[[4, 10], [36, 10]], [[-8, 0], [4, 10], undefined, true], [[36, 10], [48, 0], undefined, true]],
+  });
+  for (const [x, y] of l.anchors.filter(([ax, ay]) => ax > 0 && ax < l.width && ay < 0)) d.add([x, y], [x - 2, 0], 'damper').add([x, y], [x + 2, 0], 'damper');
   return d;
 }
 

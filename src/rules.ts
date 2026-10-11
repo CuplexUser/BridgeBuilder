@@ -93,7 +93,8 @@ export function pointAllowed(level: LevelDef, x: number, y: number): boolean {
     return !(level.overhangs ?? []).some((o) => (o.side === 'left') === x < 0 && y > o.bottom - 0.3);
   }
   for (const [px, py] of level.piers) if (Math.abs(x - px) < 0.6 && y < py) return false;
-  for (const [x0, x1, top] of level.rocks ?? []) if (x > x0 - 1e-9 && x < x1 + 1e-9 && y < top - 1e-9) return false;
+  // Nothing goes inside rock or mud; piles stand on the mud's top.
+  for (const [x0, x1, top] of [...(level.rocks ?? []), ...(level.mud ?? [])]) if (x > x0 - 1e-9 && x < x1 + 1e-9 && y < top - 1e-9) return false;
   // A mast's footing stands below its hinge, like a pier.
   for (const [mx, base] of level.masts ?? []) if (Math.abs(x - mx) < 0.6 && y < base) return false;
   for (const o of level.overhangs ?? []) {

@@ -4,10 +4,12 @@ import { Design } from '../src/design';
 import { LEVELS, seatPiers, type LevelDef } from '../src/levels';
 import {
   addChannel,
+  addMud,
   blankLevel,
   channelSpan,
   deckTop,
   CUSTOM_ID_BASE,
+  DEFAULT_PILE_PRICE,
   eraseAt,
   exportLevel,
   loadCustom,
@@ -71,6 +73,44 @@ describe('level editor', () => {
     expect(eraseAt(l, 1, -6).msg).toBe('Rock removed');
     expect(toggleRock(l, 19, -5).msg).toBe('Rock removed');
     expect(l.rocks).toBeUndefined();
+  });
+
+  it('lays mud by dragging, offers piles, and takes the mud away', () => {
+    const l = blankLevel(CUSTOM_ID_BASE);
+    l.width = 24;
+    l.waterY = -8;
+    expect(addMud(l, 4, 12, -2).ok).toBe(true);
+    expect(l.mud).toEqual([[4, 12, -2]]);
+    expect(l.piles).toEqual({ price: DEFAULT_PILE_PRICE });
+    expect(addMud(l, 10, 16, -2).msg).toBe('Overlaps a rock or other mud');
+    expect(addMud(l, 18, 18, -0.5).ok).toBe(false);
+    expect(addMud(l, 18, 18, -9).ok).toBe(false);
+    // A tap lays 4 m around it.
+    expect(addMud(l, 18, 18, -3).ok).toBe(true);
+    expect(l.mud).toEqual([
+      [4, 12, -2],
+      [16, 20, -3],
+    ]);
+    expect(parseLevel(exportLevel(l), l.id).mud).toEqual(l.mud);
+    expect(parseLevel(exportLevel(l), l.id).piles).toEqual(l.piles);
+    expect(eraseAt(l, 6, -5).msg).toBe('Mud removed');
+    expect(addMud(l, 17, 17, -4).msg).toBe('Mud removed');
+    expect(l.mud).toBeUndefined();
+    expect(l.piles).toBeUndefined();
+  });
+
+  it('keeps mud inside the gap when it shrinks', () => {
+    const l = blankLevel(CUSTOM_ID_BASE);
+    l.width = 24;
+    addMud(l, 6, 12, -2);
+    addMud(l, 16, 22, -2);
+    setSize(l, 18, 0, l.waterY);
+    expect(l.mud).toEqual([
+      [6, 12, -2],
+      [16, 18, -2],
+    ]);
+    setSize(l, 16, 0, l.waterY);
+    expect(l.mud).toEqual([[6, 12, -2]]);
   });
 
   it('plays an imported level like the original', () => {

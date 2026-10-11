@@ -1,12 +1,15 @@
 import { Design, type GridPt } from '../../src/design';
-import { bankY, type BonusGoal, type GeometryKey, type LevelDef } from '../../src/levels';
+import { bankY, mudAt, type BonusGoal, type GeometryKey, type LevelDef } from '../../src/levels';
 import { rings } from '../../src/masonry';
 import { MATERIALS, type MaterialId } from '../../src/physics/materials';
-import { blockArch, blockTower, deck, hang, liftOff, roadRun, SOLUTIONS, trussOver, type TrussMats } from '../../src/solutions';
+import { archBridge, blockArch, blockTower, deck, hang, liftOff, pileBridge, roadRun, SOLUTIONS, trussOver, type TrussMats } from '../../src/solutions';
 
 /** A level's geometry for one choice of its tunable parameters. */
 export type Shape = Partial<Pick<LevelDef, GeometryKey>>;
 export type Params = Record<string, number>;
+
+/** Something a level can't be crossed without: a material, or the piles it lets you drive into its mud. */
+export type Requirement = MaterialId | 'piles';
 
 /** What a level is meant to teach, in terms the optimizer can check. */
 export interface Intent {
@@ -15,8 +18,8 @@ export interface Intent {
   /** Tunable geometry: candidate values per parameter, preferred first. */
   params?: Record<string, number[]>;
   shape?: (p: Params) => Shape;
-  /** Materials the level is about: the best design without each must fail or blow the budget. */
-  requires?: MaterialId[];
+  /** Materials the level is about, or its piles: the best design without each must fail or blow the budget. */
+  requires?: Requirement[];
   /** Specific shortcuts that must fail or cost more than the budget. */
   shortcuts?: { name: string; build: (l: LevelDef) => Design }[];
   /** Least share of one-gene variations of the best design that must still cross. */
@@ -77,6 +80,38 @@ function dropBlocks(d0: Design, drop: (x: number, y: number) => boolean): Design
 
 /** The reference with no concrete anchors at all: the masts or towers just tip over. */
 const noBlocks = { name: 'no concrete anchors', build: (l: LevelDef) => dropBlocks(SOLUTIONS[l.id](l), () => true) };
+
+/** The reference with its dampers taken out, or made of another material. */
+function dampers(as: MaterialId | null) {
+  return {
+    name: as ? `${as} for the dampers` : 'no dampers',
+    build: (l: LevelDef) => {
+      const d = SOLUTIONS[l.id](l);
+      if (as) for (const m of d.members) if (m.mat === 'damper') m.mat = as;
+      d.members = d.members.filter((m) => m.mat !== 'damper');
+      d.pruneNodes();
+      return d;
+    },
+  };
+}
+
+/** A design without the members built from the bolt at (x, y). */
+function untie(d: Design, x: number, y: number): Design {
+  const i = d.findNode(x, y);
+  d.members = d.members.filter((m) => m.a !== i && m.b !== i);
+  d.pruneNodes();
+  return d;
+}
+
+/** Trusses from bolt to bolt on the hand-made design's deck, standing on the level's free bolts in the mud instead of on piles. */
+const onBolts = {
+  name: 'posts on the bolts in the mud',
+  build: (l: LevelDef) => {
+    const xs = l.anchors.filter(([x, y]) => mudAt(l, x, y)).map(([x]) => x).toSorted((a, b) => a - b);
+    const deckMat = SOLUTIONS[l.id](l).members.find((m) => MATERIALS[m.mat].drivable)?.mat ?? 'road';
+    return pileBridge(l, [0, ...xs, l.width], xs, deckMat);
+  },
+};
 
 /** The reference keeping only the block nearest each bank: the steepest pull. */
 function nearestBlocks(l: LevelDef): Design {
@@ -276,6 +311,30 @@ export const INTENTS: Record<number, Intent> = {
   53: { requires: ['steel'] },
   54: { requires: ['steel'] },
   55: { requires: ['arch'] },
+  // Dynamics: the reference without what calms it, or with steel in its place, must fail.
+  56: { shortcuts: [noBlocks, dampers(null), dampers('steel')] },
+  57: { shortcuts: [{ name: 'no tie-downs', build: (l) => untie(SOLUTIONS[57](l), 14, -5) }] },
+  58: { shortcuts: [{ name: 'unbraced towers', build: (l) => SOLUTIONS[42](l) }] },
+  59: { shortcuts: [dampers(null), dampers('steel')] },
+  60: { shortcuts: [dampers(null), dampers('steel')] },
+  // Foundations: the deck stands on piles. Bolts on the mud sink under a truck, or a flood scours them out.
+  61: { requires: ['piles'] },
+  62: { requires: ['piles'], shortcuts: [onBolts] },
+  63: { requires: ['piles'], shortcuts: [onBolts] },
+  64: { requires: ['piles'] },
+  65: { requires: ['piles'], shortcuts: [onBolts] },
+  // The finale: each combines two lessons, and each of them is checked.
+  66: { requires: ['piles'], shortcuts: [onBolts] },
+  67: { requires: ['piles', 'heavy'], shortcuts: [onBolts] },
+  68: { shortcuts: [dampers(null), dampers('steel')] },
+  69: {
+    requires: ['arch', 'masonry'],
+    shortcuts: [
+      { name: 'the arch on the bare shelves', build: (l) => archBridge(l, 'heavy', [0, 0], [[0, 1]], 'steel') },
+      { name: 'two rows of blocks under each springing', build: (l) => archBridge(l, 'heavy', [2, 2], [[0, 1]], 'steel') },
+    ],
+  },
+  70: { requires: ['piles'] },
   30: {
     params: { clear: [2, 1.5, 1], side: [8, 10], top: [14, 16, 12] },
     shape: finale,

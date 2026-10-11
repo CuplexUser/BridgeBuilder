@@ -1,6 +1,6 @@
 /**
- * Chapter looks for the painted (test-mode) scene: sky, land, water, trees, weather and time of
- * day. The blueprint stays the same in every chapter so building always feels the same.
+ * Looks for the painted (test-mode) scene, one per topic: sky, land, water, trees, weather and
+ * time of day. The blueprint stays the same everywhere so building always feels the same.
  */
 
 /** Silhouette of the distant land layers. */
@@ -400,9 +400,33 @@ export const THEMES: Theme[] = [
     night: false,
     birds: false,
   },
+  {
+    id: 'delta',
+    name: 'River delta',
+    sky: ['#3c4868', '#b98266', '#efc38f'],
+    sun: { x: 0.8, y: 0.66, r: 0.06, color: '#ffd9a0', glow: '255,186,120' },
+    stars: false,
+    clouds: { rgb: '118,96,104', alpha: 0.5, count: 8, scale: 1.4 },
+    land: 'flat',
+    mountain: '#6d6a78',
+    hillFar: '#5d6650',
+    hillNear: '#46503a',
+    snowCaps: false,
+    flora: 'willow',
+    tree: '#2f3a28',
+    grass: '#7a8a4a',
+    grassDark: '#55622f',
+    tufts: true,
+    rock: '#7a6450',
+    rockDark: '#4a3a2c',
+    waterTop: '#94795a',
+    waterDeep: '#4a3b26',
+    waterFront: 'rgba(120,95,60,0.55)',
+    foam: '#efe2c4',
+    glint: 'rgba(255,220,170,0.45)',
+    vignette: 'rgba(30,15,10,0.4)',
+    weather: 'clear',
+    night: false,
+    birds: true,
+  },
 ];
-
-/** Each chapter has its own look, in chapter order. */
-export function themeForChapter(chapterId: number): Theme {
-  return THEMES[(chapterId - 1) % THEMES.length];
-}

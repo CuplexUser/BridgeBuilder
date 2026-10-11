@@ -237,7 +237,8 @@ export class Editor {
   /** The nearest empty concrete anchor or pile spot within radius, or null. */
   blockSpotAt(wx: number, wy: number, radius: number): [number, number] | null {
     const L = this.level;
-    for (const [x, y] of pileSpots(L)) if (this.design.findNode(x, y) < 0 && Math.hypot(x - wx, y - wy) <= radius) return [x, y];
+    const piles = pileSpots(L).filter(([x, y]) => this.design.findNode(x, y) < 0 && Math.hypot(x - wx, y - wy) <= radius);
+    if (piles.length) return piles.reduce((a, b) => (Math.hypot(b[0] - wx, b[1] - wy) < Math.hypot(a[0] - wx, a[1] - wy) ? b : a));
     if (!L.blocks) return null;
     const x = wx < L.width / 2 ? Math.round(wx) : L.width + Math.round(wx - L.width);
     const y = x < 0 ? 0 : (L.rightY ?? 0);

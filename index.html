@@ -109,9 +109,23 @@
     <!-- Chapter select -->
     <section id="scr-chapters" class="screen hidden">
       <div class="panel xwide">
-        <h2>Chapters</h2>
-        <p class="muted">Cross every level in a chapter to open the next. A finished chapter unlocks its challenge: all five levels in a row, from scratch, with three lives.</p>
-        <div id="chapter-grid" class="chapter-grid"></div>
+        <div class="chs-head">
+          <h2>Chapters</h2>
+          <div class="seg" role="group" aria-label="View">
+            <button class="seg-btn" id="view-map" data-act="chapters-view" data-view="map" title="Every level on one road (V)">MAP</button>
+            <button class="seg-btn" id="view-book" data-act="chapters-view" data-view="book" title="Chapter cards, a page at a time (V)">BOOK</button>
+          </div>
+        </div>
+        <p class="muted" id="chapters-note"></p>
+        <div id="chapter-map" class="chapter-map"></div>
+        <div id="chapter-book" class="chapter-book hidden">
+          <div class="book-page">
+            <button class="book-arrow" id="book-prev" data-act="book-page" data-dir="-1" aria-label="Previous page">‹</button>
+            <div id="chapter-grid" class="chapter-grid"></div>
+            <button class="book-arrow" id="book-next" data-act="book-page" data-dir="1" aria-label="Next page">›</button>
+          </div>
+          <div id="book-dots" class="book-dots"></div>
+        </div>
         <div class="row"><button class="btn" data-act="back">BACK <kbd>Esc</kbd></button></div>
       </div>
     </section>
@@ -261,6 +275,7 @@
             <label>Then <select id="mk-convoy-1"></select></label>
             <label>Then <select id="mk-convoy-2"></select></label>
             <label>Then <select id="mk-convoy-3"></select></label>
+            <label>Then <select id="mk-convoy-4"></select></label>
           </div>
           <label>Tall ship mast, m (0 for none; needs a channel) <input id="mk-mast" type="number" min="0" max="20" step="1" /></label>
         </fieldset>
@@ -268,6 +283,8 @@
           <legend>Materials</legend>
           <div id="mk-mats" class="mk-mats"></div>
           <label>Concrete anchors: how far back on each bank, m (0 for none) <input id="mk-blocks" type="number" min="0" max="12" step="1" /></label>
+          <label>Pile price, $ (0 for none; needs mud) <input id="mk-piles" type="number" min="0" max="100000" step="100" /></label>
+          <label>Flood: how far the river rises, m (0 for none) <input id="mk-flood" type="number" min="0" max="10" step="0.5" /></label>
         </fieldset>
         <fieldset>
           <legend>Money and goals</legend>

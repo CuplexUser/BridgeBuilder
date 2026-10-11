@@ -2,22 +2,23 @@ import { Design, q, type GridPt } from '../../src/design';
 import type { LevelDef } from '../../src/levels';
 import { BLOCK, MATERIALS, type MaterialId } from '../../src/physics/materials';
 import { defaultSag, layMain } from '../../src/maincable';
-import { blockSpot, pointAllowed, topY } from '../../src/rules';
+import { blockSpot, pileSpots, pointAllowed, topY } from '../../src/rules';
 import { ringRise } from '../../src/masonry';
 import { blockArch, blockTower, hangDeck, pylon, towerPosts } from '../../src/solutions';
 
 /**
  * A structure grammar for one level: each gene picks one option, and build() turns the gene
  * values into a design. Genes cover the building blocks every hand-made reference uses:
- * deck spans, trusses over or under them, struts and posts from low anchors, trestles up
- * from deep piers, hangers from high anchors, and sagging main cables between them. On levels
- * with concrete anchors, braced towers on pairs of pier bolts and backstays from mast and tower
- * tops down to blocks on the banks, carrying the side spans on hangers. Where a main cable is
- * on offer, concrete pylons on pier pairs 4 m apart, main cables between their peaks and the
- * mast tops at a chosen sag, and main cable backstays to one or two blocks a side. Where
- * concrete blocks and block arches are on offer, towers of blocks on the rocks, arches from
- * tower to tower at a chosen rise, under the deck on posts or over it on hangers where the towers
- * reach the deck, posts up from both to the deck, and an arch over the road from bank to bank.
+ * deck spans, trusses over or under them, struts and posts from low anchors and from piles
+ * driven into mud (dampers too, where offered), trestles up from deep piers, hangers from high
+ * anchors, and sagging main cables between them. On levels with concrete anchors, braced
+ * towers on pairs of pier bolts and backstays from mast and tower tops down to blocks on the
+ * banks, carrying the side spans on hangers. Where a main cable is on offer, concrete pylons
+ * on pier pairs 4 m apart, main cables between their peaks and the mast tops at a chosen sag,
+ * and main cable backstays to one or two blocks a side. Where concrete blocks and block
+ * arches are on offer, towers of blocks on the rocks, arches from tower to tower at a chosen
+ * rise, under the deck on posts or over it on hangers where the towers reach the deck, posts
+ * up from both to the deck, and an arch over the road from bank to bank.
  */
 export interface Grammar {
   genes: Gene[];
@@ -54,8 +55,9 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
   const decks = (['road', 'heavy', 'track'] as MaterialId[]).filter(offered);
   // A bonus search can ban every beam material; genes still need one option, and build() then skips beams.
   const beamOpts: string[] = beams.length ? beams : ['none'];
-  // Supports may also be rams on drawbridge levels: a post that lifts the leaf.
-  const supportMats: MaterialId[] = [...beams, ...(offered('ram') ? (['ram'] as MaterialId[]) : [])];
+  // Supports may also be rams on drawbridge levels, a post that lifts the leaf, and dampers
+  // where they're offered, braced from below to calm a swinging deck.
+  const supportMats: MaterialId[] = [...beams, ...(['ram', 'damper'] as MaterialId[]).filter(offered)];
 
   // Candidate places to break the deck into spans: interior anchors, to the meter, so a post
   // from a pier bolt can stand straight under the joint where two spans meet.
@@ -88,6 +90,14 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
     shape: add(`support ${x},${y}`, ['none', 'post', 'pair', 'fan', 'trestle'], lifts(x) ? 1 : undefined),
     mat: add(`support ${x},${y} material`, supportMats.length ? supportMats : ['none'], lifts(x) ? supportMats.indexOf('ram') : undefined),
   }));
+  // Piles on the even meters of mud banks, under the deck joints, propping it like low anchors.
+  const pileGenes = pileSpots(level)
+    .filter(([x]) => x % 2 === 0)
+    .map(([x, y]) => ({
+      at: [x, y] as GridPt,
+      shape: add(`pile at ${x}`, ['none', 'post', 'pair', 'fan']),
+      mat: add(`pile at ${x} material`, supportMats.length ? supportMats : ['none']),
+    }));
   const hangGenes = cablesOk
     ? high.map(([x, y]) => ({ at: [x, y] as GridPt, bits: [] as { joint: number; gene: number }[] }))
     : [];
@@ -184,6 +194,12 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
       if (shape === 0 || !supportMats.length) continue;
       const mat = supportMats[g[s.mat]] ?? supportMats[0];
       support(d, s.at, joints, mat, shape);
+    }
+    for (const p of pileGenes) {
+      const shape = g[p.shape];
+      if (shape === 0 || !supportMats.length) continue;
+      d.ensureBlock(p.at[0], p.at[1]);
+      support(d, p.at, joints, supportMats[g[p.mat]] ?? supportMats[0], shape);
     }
     // Hangers.
     for (const h of hangGenes) for (const b of h.bits) if (g[b.gene] === 1 && probeJoints[b.joint]) {

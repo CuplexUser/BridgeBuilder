@@ -26,96 +26,127 @@ export interface ChapterDef {
   levels: number[];
 }
 
+/**
+ * Seven levels a chapter, ordered by difficulty. Each mechanic's levels stay together where
+ * they can, with the one that teaches it (its ghost) first, so a chapter may end on the first
+ * levels of the next topic.
+ */
 export const CHAPTERS: ChapterDef[] = [
   {
     id: 1,
     name: 'Groundwork',
-    blurb: 'Short crossings. Learn the road, triangles and your first truss.',
+    blurb: 'Short crossings. Learn the road, triangles and your first truss, then steel, a slope and a pier.',
     difficulty: 1,
-    effort: 'Quick builds · 4–20 parts',
-    levels: [1, 2, 21, 3, 4],
+    effort: 'Quick builds · 3–20 parts',
+    levels: [1, 2, 21, 3, 4, 5, 6],
   },
   {
     id: 2,
     name: 'Load Bearing',
-    blurb: 'Slopes, piers and heavier vehicles. Steel earns its price.',
+    blurb: 'Piers, trucks and gorges, high anchors, flood water and a busload of kids. Steel earns its price.',
     difficulty: 2,
     effort: 'Short builds · 15–30 parts',
-    levels: [5, 6, 22, 7, 8],
+    levels: [22, 7, 8, 9, 10, 23, 11],
   },
   {
     id: 3,
-    name: 'Deep Water',
-    blurb: 'Longer spans, high anchors, flood water and a busload of kids.',
+    name: 'Tension',
+    blurb: 'Cables only pull. Pylons, cliffs, mid-air joints and ship channels, and a semi on heavy deck to finish.',
     difficulty: 3,
     effort: 'Medium builds · 20–35 parts',
-    levels: [9, 10, 23, 11, 12],
+    levels: [12, 13, 14, 15, 24, 16, 17],
   },
   {
     id: 4,
-    name: 'Tension',
-    blurb: 'Cables only pull. Pylons, cliffs, mid-air joints and ship channels.',
+    name: 'Heavy Traffic',
+    blurb: 'Steep climbs and suspension bridges on heavy deck, then drawbridges on hydraulic rams, convoys and toll bolts.',
     difficulty: 4,
-    effort: 'Medium builds · 15–30 parts',
-    levels: [13, 14, 15, 24, 16],
+    effort: 'Medium builds · 15–40 parts',
+    levels: [18, 25, 26, 19, 31, 32, 33],
   },
   {
     id: 5,
-    name: 'Heavy Metal',
-    blurb: 'Semis and heavy deck, steep climbs and suspension bridges. Mistakes are expensive.',
+    name: 'Arches',
+    blurb: 'Drawbridges in traffic, then concrete blocks and block arches. They only push: send every thrust into rock.',
     difficulty: 5,
-    effort: 'Big builds · 25–40 parts',
-    levels: [17, 18, 25, 26, 19],
+    effort: 'Big builds · 15–75 parts',
+    levels: [34, 35, 46, 47, 48, 49, 50],
   },
   {
     id: 6,
-    name: 'Master Works',
-    blurb: 'Thirty-meter spans and forty-tonne loads. Everything at once.',
+    name: 'Railway',
+    blurb: 'Trains: long, heavy and coupled, on track that climbs 3% at most. Then soft mud that sinks under a load.',
     difficulty: 6,
-    effort: 'Huge builds · 40–60 parts',
-    levels: [27, 28, 20, 29, 30],
+    effort: 'Big builds · 15–55 parts',
+    levels: [51, 52, 53, 54, 55, 61, 62],
   },
   {
     id: 7,
-    name: 'Moving Parts',
-    blurb: 'Drawbridges on hydraulic rams, convoys, toll bolts and rationed steel.',
+    name: 'Anchorage',
+    blurb: 'Floods that wash out what stands on mud, then hinged masts and concrete anchors you set yourself.',
     difficulty: 7,
-    effort: 'Medium builds · 15–40 parts',
-    levels: [31, 32, 33, 34, 35],
+    effort: 'Big builds · 20–50 parts',
+    levels: [63, 64, 65, 36, 37, 38, 39],
   },
   {
     id: 8,
-    name: 'Anchorage',
-    blurb: 'Hinged masts and concrete anchors you set yourself. Balance every pull, or the bank lets go.',
+    name: 'Main Cable',
+    blurb: 'Very long spans: a thick main cable over tall concrete towers, sagged just right and anchored deep in the banks.',
     difficulty: 8,
-    effort: 'Big builds · 30–60 parts',
-    levels: [36, 37, 38, 39, 40],
+    effort: 'Grand builds · 40–95 parts',
+    levels: [40, 41, 42, 43, 44, 45, 27],
   },
   {
     id: 9,
-    name: 'Main Cable',
-    blurb: 'Very long spans: a thick main cable hung over tall concrete towers, sagged just right and anchored deep in the banks.',
+    name: 'Master Works',
+    blurb: 'Thirty-meter spans and forty-tonne loads, then bridges that move: marching boots, gales and an earthquake.',
     difficulty: 9,
-    effort: 'Grand builds · 60–120 parts',
-    levels: [41, 42, 43, 44, 45],
+    effort: 'Huge builds · 25–75 parts',
+    levels: [28, 20, 29, 30, 56, 57, 58],
   },
   {
     id: 10,
-    name: 'Arches',
-    blurb: 'Concrete blocks and block arches, under the road or over it. They only push: send every thrust into rock.',
+    name: 'Grand Finale',
+    blurb: 'Everything at once: the greatest arch, parades in a storm, and trains and semis over a delta in flood.',
     difficulty: 10,
-    effort: 'Big builds · 25–60 parts',
-    levels: [46, 47, 48, 49, 50],
-  },
-  {
-    id: 11,
-    name: 'Railway',
-    blurb: 'Trains: long, heavy and coupled, on track that climbs 3% at most. One stops on the bridge.',
-    difficulty: 11,
-    effort: 'Big builds · 20–60 parts',
-    levels: [51, 52, 53, 54, 55],
+    effort: 'Grand builds · 40–90 parts',
+    levels: [69, 59, 66, 60, 68, 67, 70],
   },
 ];
+
+/**
+ * The scene each level is tested in, as an index into THEMES: the look of the topic it was made
+ * for, whichever chapter it sits in now.
+ */
+const SCENES: number[][] = [
+  [1, 2, 21, 3, 4],
+  [5, 6, 22, 7, 8],
+  [9, 10, 23, 11, 12, 67],
+  [13, 14, 15, 24, 16],
+  [17, 18, 25, 26, 19],
+  [27, 28, 20, 29, 30],
+  [31, 32, 33, 34, 35],
+  [36, 37, 38, 39, 40],
+  [41, 42, 43, 44, 45],
+  [46, 47, 48, 49, 50, 69],
+  [51, 52, 53, 54, 55, 66],
+  [56, 57, 58, 59, 60, 68],
+  [61, 62, 63, 64, 65, 70],
+];
+
+export function sceneOf(levelId: number): number {
+  return Math.max(0, SCENES.findIndex((ids) => ids.includes(levelId)));
+}
+
+/**
+ * The challenge board a chapter's runs go on. Chapters were regrouped from five levels to seven,
+ * so their boards start afresh past the old ones, which stay in storage unseen.
+ */
+export function challengeBoard(chapterId: number): number {
+  return CHALLENGE_BOARDS + chapterId;
+}
+
+const CHALLENGE_BOARDS = 20;
 
 export function levelById(id: number): LevelDef {
   const l = LEVELS.find((x) => x.id === id);
@@ -143,14 +174,18 @@ export function chapterComplete(chapter: ChapterDef, best: BestMap): boolean {
   return chapter.levels.every((id) => crossed(best, id));
 }
 
-/** The first chapter is always open; each later one opens once the one before is finished. */
+/**
+ * The first chapter is always open; each later one opens once the one before is finished. One
+ * with a level already crossed stays open too, so regrouping the chapters locks no one out.
+ */
 export function chapterUnlocked(chapter: ChapterDef, best: BestMap): boolean {
   const i = CHAPTERS.indexOf(chapter);
-  return i <= 0 || chapterComplete(CHAPTERS[i - 1], best);
+  return i <= 0 || chapterComplete(CHAPTERS[i - 1], best) || chapter.levels.some((id) => crossed(best, id));
 }
 
-/** Inside an open chapter, levels open one after another. */
+/** Inside an open chapter, levels open one after another; a level once crossed stays open. */
 export function levelUnlocked(levelId: number, best: BestMap): boolean {
+  if (crossed(best, levelId)) return true;
   const c = chapterOf(levelId);
   if (!chapterUnlocked(c, best)) return false;
   const i = c.levels.indexOf(levelId);

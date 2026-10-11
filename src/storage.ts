@@ -358,6 +358,8 @@ const PREFS_KEY = 'bridgebuilder.prefs';
 export interface Prefs {
   muted: boolean;
   profileId: string | null;
+  /** How the chapters screen was last shown: the map of every level, or the chapter book. */
+  chaptersView?: 'map' | 'book';
 }
 
 export function loadPrefs(): Prefs {

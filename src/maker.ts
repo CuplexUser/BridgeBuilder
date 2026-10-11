@@ -13,11 +13,11 @@ import { safeLocalStorage, type KeyValue } from './storage';
 
 /** Custom levels get ids from here up, clear of the built-in ones. */
 export const CUSTOM_ID_BASE = 1000;
-export const LIMITS = { minWidth: 4, maxWidth: 64, maxHeight: 24, minWater: -14, maxWater: -1, maxConvoy: 4, maxMoney: 1_000_000 };
+export const LIMITS = { minWidth: 4, maxWidth: 64, maxHeight: 24, minWater: -14, maxWater: -1, maxConvoy: 5, maxMoney: 1_000_000 };
 /** Tag on exported files, so an import can tell a level from any other JSON. */
 const FORMAT = 'bridge-builder-level';
 
-export type MakerTool = 'bolt' | 'pier' | 'pylon' | 'mast' | 'rock' | 'channel' | 'erase';
+export type MakerTool = 'bolt' | 'pier' | 'pylon' | 'mast' | 'rock' | 'mud' | 'channel' | 'erase';
 /** Most a level's concrete anchors may sit back from each bank, m. */
 export const MAX_BLOCK_REACH = 12;
 
@@ -197,6 +197,45 @@ export function toggleRock(l: LevelDef, x: number, y: number): { ok: boolean; ms
   return { ok: true, msg: 'Rock added: concrete blocks and block arches stand on it' };
 }
 
+/** Most a level's flood may raise the river, m, and the current it brings, N per m under water. */
+export const MAX_FLOOD = 10;
+export const FLOOD_CURRENT = 300;
+
+/** What a pile costs on a level that gets its first mud bank, $. */
+export const DEFAULT_PILE_PRICE = 1500;
+
+/**
+ * Lays a mud bank from x0 to x1 with its top at `top`: soft riverbed where bolts sink under a
+ * load and piles can be driven. A tap (x0 equal to x1) on a mud bank removes it, and anywhere
+ * else lays one 4 m wide around it. The first mud bank offers piles.
+ */
+export function addMud(l: LevelDef, x0: number, x1: number, top: number): { ok: boolean; msg: string } {
+  const mud = l.mud ?? [];
+  if (x0 === x1) {
+    const i = mud.findIndex(([a, b, t]) => x0 >= a && x0 <= b && top <= t && top > l.waterY - 1);
+    if (i >= 0) {
+      l.mud = mud.filter((_, k) => k !== i);
+      if (!l.mud.length) {
+        delete l.mud;
+        delete l.piles;
+      }
+      return { ok: true, msg: 'Mud removed' };
+    }
+  }
+  if (top <= l.waterY) return { ok: false, msg: 'Mud tops go above the water' };
+  if (top > deckTop(l) - 1) return { ok: false, msg: 'Keep mud a meter under the road' };
+  const a = Math.max(0, x0 === x1 ? x0 - 2 : Math.min(x0, x1));
+  const b = Math.min(l.width, x0 === x1 ? x0 + 2 : Math.max(x0, x1));
+  if (b - a < 2) return { ok: false, msg: x0 === x1 ? 'Too narrow here for mud' : 'Drag across at least 2 m of mud' };
+  const near = (px: number) => px > a - 0.6 && px < b + 0.6;
+  if ([...l.piers.map((p) => p[0]), ...[...(l.towers ?? []), ...(l.masts ?? [])].map((t) => t[0])].some(near)) return { ok: false, msg: 'Too close to a pier, pylon or mast' };
+  if ([...(l.rocks ?? []), ...mud].some(([c, d]) => c < b && d > a)) return { ok: false, msg: 'Overlaps a rock or other mud' };
+  if (l.channels?.some(([c0, c1]) => c0 < b && c1 > a)) return { ok: false, msg: 'In the ship channel' };
+  l.mud = [...mud, [a, b, top] as [number, number, number]].toSorted((p, q) => p[0] - q[0]);
+  l.piles ??= { price: DEFAULT_PILE_PRICE };
+  return { ok: true, msg: `Mud ${b - a} m wide added: bolts on it sink, piles hold` };
+}
+
 /** Mast height a new drawbridge's ship gets: 3 m over the channel, as on the built-in levels. */
 const DEFAULT_MAST = 3;
 
@@ -256,7 +295,7 @@ export function addChannel(l: LevelDef, x0: number, x1: number, top: number): { 
   return { ok: true, msg };
 }
 
-/** Removes the bolt, seat, pylon, mast, rock or channel at a point, in that order. */
+/** Removes the bolt, seat, pylon, mast, rock, mud or channel at a point, in that order. */
 export function eraseAt(l: LevelDef, x: number, y: number): { ok: boolean; msg: string } {
   const i = anchorIndex(l, x, y);
   if (i >= 0) {
@@ -279,6 +318,7 @@ export function eraseAt(l: LevelDef, x: number, y: number): { ok: boolean; msg: 
   const m = l.masts?.find((tw) => Math.abs(tw[0] - x) < 0.6 && y >= tw[1] && y <= tw[2]);
   if (m) return toggleMast(l, m[0], m[2]);
   if (l.rocks?.some(([a, b, top]) => x >= a && x <= b && y <= top)) return toggleRock(l, x, y);
+  if (l.mud?.some(([a, b, top]) => x >= a && x <= b && y <= top)) return addMud(l, x, x, y);
   const c = l.channels?.findIndex(([c0, c1, top]) => x > c0 && x < c1 && y <= top + 0.5) ?? -1;
   if (c >= 0) {
     l.channels!.splice(c, 1);
@@ -331,6 +371,13 @@ export function setSize(l: LevelDef, width: number, rightY: number, waterY: numb
   if (l.rocks) {
     l.rocks = l.rocks.map(([a, b, t]): [number, number, number] => [a, Math.min(b, W), t]).filter(([a, b, t]) => b - a >= 1 && t > water);
     if (!l.rocks.length) delete l.rocks;
+  }
+  if (l.mud) {
+    l.mud = l.mud.map(([a, b, t]): [number, number, number] => [a, Math.min(b, W), t]).filter(([a, b, t]) => b - a >= 2 && t > water);
+    if (!l.mud.length) {
+      delete l.mud;
+      delete l.piles;
+    }
   }
 }
 

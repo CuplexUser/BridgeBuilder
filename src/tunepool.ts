@@ -3,6 +3,7 @@ import type { Outcome } from '../tools/tune/simulate';
 import type { TimedRunner } from './autotune';
 import type { Design } from './design';
 import type { LevelDef } from './levels';
+import { testSeconds } from './physics/world';
 
 interface Job {
   id: number;
@@ -54,7 +55,7 @@ export class TunePool implements TimedRunner {
   }
 
   /** Test drives one design; equal designs on equal levels are only ever simulated once. */
-  run(level: LevelDef, d: Design, seconds = 30): Promise<Outcome> {
+  run(level: LevelDef, d: Design, seconds = testSeconds(level)): Promise<Outcome> {
     const local = { cost: d.cost(), parts: d.parts() };
     if (this.closed) return Promise.resolve({ ...failed('stopped'), ...local });
     const key = `${levelKey(level)}|${seconds}|${canonical(d)}`;

@@ -1,4 +1,5 @@
-import { chapterComplete, chapterUnlocked, CHAPTERS, crossed, levelById, levelCode, levelUnlocked, totals, type Best, type BestMap, type ChapterDef } from '../chapters';
+import { chapterComplete, chapterUnlocked, CHAPTERS, continueLevel, crossed, levelById, levelCode, levelUnlocked, totals, type Best, type BestMap, type ChapterDef } from '../chapters';
+import { mapLayout } from './chaptermap';
 import { money } from '../editor';
 import type { LevelDef } from '../levels';
 import { MATERIAL_ORDER, MATERIALS, type MaterialId } from '../physics/materials';
@@ -8,6 +9,11 @@ import type { BoardRow, HighScore, LevelRecord, Profile, Progress } from '../sto
 
 export type ScreenId = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'workshop' | 'share' | 'mkhelp' | 'pause' | 'confirm' | 'brief' | 'result' | 'collapse' | 'over';
 type BoardTab = 'career' | 'chapter' | 'levels' | 'challenge';
+/** How the chapters screen shows them: a road of level nodes, or pages of chapter cards. */
+export type ChaptersView = 'map' | 'book';
+
+/** Chapter cards on one page of the book. */
+export const BOOK_PAGE = 6;
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 
@@ -277,11 +283,72 @@ export class Ui {
     $('profile-error').textContent = msg;
   }
 
-  /** The chapter map: one card per chapter, with progress, difficulty and lock state. */
-  chapters(best: BestMap): void {
+  /** The chapters screen, as the progression map or as one page of the chapter book. */
+  chapters(best: BestMap, view: ChaptersView, page: number): void {
+    for (const v of ['map', 'book'] as const) {
+      $(`view-${v}`).classList.toggle('on', v === view);
+      $(`view-${v}`).setAttribute('aria-pressed', String(v === view));
+    }
+    $('chapter-map').classList.toggle('hidden', view !== 'map');
+    $('chapter-book').classList.toggle('hidden', view !== 'book');
+    $('chapters-note').textContent =
+      view === 'map'
+        ? 'Every level on one road. Cross each to open the next; a finished chapter unlocks its challenge (⚑).'
+        : `Cross every level in a chapter to open the next. A finished chapter unlocks its challenge: all its levels in a row, from scratch, with three lives.`;
+    if (view === 'map') this.chapterMap(best);
+    else this.chapterBook(best, page);
+  }
+
+  /** Every level as a node on one winding road, with each chapter's heading, the next level lit and the rest locked. */
+  private chapterMap(best: BestMap): void {
+    const box = $('chapter-map');
+    const layout = mapLayout(CHAPTERS, box.clientWidth || 360);
+    const next = continueLevel(best);
+    const order = layout.nodes.map((n) => n.id);
+    // The road is paved up to the furthest level crossed, and dashed beyond.
+    const reached = Math.max(0, ...order.map((id, i) => (crossed(best, id) ? i : 0)));
+    const legs = (from: number, to: number) => layout.legs.slice(from, to).join('');
+    let html = `<svg class="map-road" width="${layout.width}" height="${layout.height}" aria-hidden="true">
+      <path class="ahead" d="${legs(reached, layout.legs.length)}"/>
+      <path class="paved" d="${legs(0, reached)}"/>
+    </svg>`;
+    for (const h of layout.heads) {
+      const c = CHAPTERS[h.chapter - 1];
+      const t = totals(best, c.levels);
+      const open = chapterUnlocked(c, best);
+      html += `<div class="map-head${open ? '' : ' locked'}" style="top:${h.y}px">
+        <button class="map-title" data-act="chapter" data-chapter="${c.id}" ${open ? '' : 'aria-disabled="true"'}><span class="ch-no">CH ${c.id}</span> ${c.name}</button>
+        <span class="map-stars">★ ${t.stars}/${c.levels.length * 3}</span>
+        ${chapterComplete(c, best) ? `<button class="btn small ch-challenge" data-act="challenge" data-chapter="${c.id}" aria-label="Challenge" title="Challenge: all ${c.levels.length} levels in a row, three lives">⚑</button>` : ''}
+      </div>`;
+    }
+    for (const n of layout.nodes) {
+      const l = levelById(n.id);
+      const b = best[n.id];
+      const open = levelUnlocked(n.id, best);
+      const state = b && b.stars > 0 ? 'done' : n.id === next ? 'next' : open ? 'open' : 'locked';
+      html += `<button class="map-node ${state}" style="left:${n.x}px;top:${n.y}px" data-act="pick" data-level="${n.id}" title="${levelCode(n.id)} · ${open ? escapeHtml(l.name) : 'Locked'}" ${open ? '' : 'aria-disabled="true"'}>
+        <span class="dot">${state === 'locked' ? '🔒' : levelCode(n.id)}</span>
+        <span class="name">${open ? escapeHtml(l.name) : ''}</span>
+        <span class="stars">${open ? starText(b?.stars ?? 0) : ''}${b?.bonus ? `<em>${BONUS_MARK}</em>` : ''}</span>
+      </button>`;
+    }
+    box.innerHTML = `<div class="map" style="height:${layout.height}px">${html}</div>`;
+  }
+
+  /** Scrolls the map so the next level to play is in view. */
+  showNextOnMap(best: BestMap, smooth = false): void {
+    const box = $('chapter-map');
+    const node = box.querySelector<HTMLElement>(`.map-node[data-level="${continueLevel(best)}"]`);
+    if (node) box.scrollTo({ top: node.offsetTop - box.clientHeight / 2, behavior: smooth ? 'smooth' : 'instant' });
+  }
+
+  /** One page of chapter cards, with progress, difficulty and lock state, and the arrows and dots to turn pages. */
+  private chapterBook(best: BestMap, page: number): void {
+    const pages = Math.ceil(CHAPTERS.length / BOOK_PAGE);
     const grid = $('chapter-grid');
     grid.innerHTML = '';
-    for (const c of CHAPTERS) {
+    for (const c of CHAPTERS.slice(page * BOOK_PAGE, (page + 1) * BOOK_PAGE)) {
       const open = chapterUnlocked(c, best);
       const done = chapterComplete(c, best);
       const t = totals(best, c.levels);
@@ -298,9 +365,15 @@ export class Ui {
           <span class="ch-progress"><span class="bar"><i style="width:${(t.crossed / c.levels.length) * 100}%"></i></span><span class="long">★ ${t.stars}/${c.levels.length * 3} · ${BONUS_MARK} ${t.bonus}/${c.levels.length}</span><span class="short">★ ${t.stars}/${c.levels.length * 3}</span></span>
           ${open ? '' : `<span class="ch-lock"><span class="long">🔒 Finish ${prev.name} to unlock</span><span class="short">🔒 Locked</span></span>`}
         </button>
-        ${done ? `<button class="btn small ch-challenge" data-act="challenge" data-chapter="${c.id}" aria-label="Challenge" title="Challenge: all five levels in a row, three lives">⚑</button>` : ''}`;
+        ${done ? `<button class="btn small ch-challenge" data-act="challenge" data-chapter="${c.id}" aria-label="Challenge" title="Challenge: all ${c.levels.length} levels in a row, three lives">⚑</button>` : ''}`;
       grid.appendChild(card);
     }
+    $<HTMLButtonElement>('book-prev').disabled = page <= 0;
+    $<HTMLButtonElement>('book-next').disabled = page >= pages - 1;
+    $('book-dots').innerHTML = Array.from(
+      { length: pages },
+      (_, i) => `<button class="book-dot${i === page ? ' on' : ''}" data-act="book-page" data-page="${i}" aria-label="Page ${i + 1} of ${pages}"></button>`,
+    ).join('');
   }
 
   /** One chapter's levels, in play order. */
@@ -346,7 +419,7 @@ export class Ui {
     const name = CHAPTERS[chapter - 1].name;
     $('board-note').textContent = {
       career: 'Every engineer, ranked by the sum of their best score on every level.',
-      chapter: `Ranked by best scores on the five levels of ${name}.`,
+      chapter: `Ranked by best scores on the ${CHAPTERS[chapter - 1].levels.length} levels of ${name}.`,
       levels: `The best single-level score on each level of ${name}.`,
       challenge: `${name} played in a row, from scratch, with three lives.`,
     }[tab];

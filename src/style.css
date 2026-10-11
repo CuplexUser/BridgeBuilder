@@ -19,6 +19,7 @@
   --concrete: #d8cfbe;
   --arch: #e9d58c;
   --masonry: #d9cba8;
+  --mud: #8a6a48;
   --track: #f2a8a0;
   --bonus: #7fe3ff;
   --font: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -1114,10 +1115,267 @@ kbd {
   text-align: left;
 }
 
-/* Nine chapters in two rows on a wide screen, so the list never needs a scrollbar. */
-@media (min-width: 900px) {
+/* A page of the book: six chapters, three across in two rows on a wide screen. */
+@media (min-width: 700px) {
   .chapter-grid {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.chs-head {
+  position: relative;
+}
+
+/* The map or book switch, beside the title. */
+.seg {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--line);
+}
+
+.seg-btn {
+  padding: 5px 12px;
+  border-radius: 7px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.seg-btn.on {
+  background: #1e4579;
+  color: var(--chalk);
+}
+
+.chapter-book {
+  margin: 14px 0 6px;
+}
+
+.book-page {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.book-page .chapter-grid {
+  flex: 1;
+  margin: 0;
+  touch-action: pan-y;
+}
+
+.book-arrow {
+  flex: none;
+  width: 34px;
+  border-radius: 10px;
+  font-size: 28px;
+  line-height: 1;
+  color: var(--chalk);
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--line);
+}
+
+.book-arrow:hover:not(:disabled) {
+  background: #1e4579;
+}
+
+.book-arrow:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.book-dots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.book-dot {
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(233, 243, 255, 0.22);
+}
+
+.book-dot.on {
+  background: var(--bolt);
+}
+
+/*
+ * The progression map: one winding road through every level, chapter by chapter. It scrolls
+ * on its own, so the title and the view switch stay put.
+ */
+#scr-chapters .panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.chapter-map {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 62vh;
+  margin: 10px 0 6px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.map {
+  position: relative;
+}
+
+.map-road {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.map-road path {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.map-road .ahead {
+  stroke: rgba(233, 243, 255, 0.2);
+  stroke-width: 4;
+  stroke-dasharray: 2 9;
+}
+
+.map-road .paved {
+  stroke: var(--gold);
+  stroke-width: 5;
+  opacity: 0.85;
+}
+
+.map-head {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+}
+
+.map-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--chalk);
+}
+
+.map-title .ch-no {
+  margin-right: 4px;
+}
+
+.map-head .map-stars {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--gold);
+}
+
+.map-head.locked {
+  opacity: 0.45;
+}
+
+.map-head .btn.ch-challenge {
+  min-height: 24px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.map-node {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 84px;
+  transform: translate(-50%, -23px);
+}
+
+.map-node .dot {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--chalk);
+  background: #173764;
+  border: 3px solid var(--line);
+  box-shadow: 0 3px 0 #081a33;
+  transition: transform 0.1s;
+}
+
+.map-node:hover .dot {
+  transform: scale(1.08);
+}
+
+.map-node.done .dot {
+  background: #1d5a45;
+  border-color: var(--ok);
+}
+
+.map-node.next .dot {
+  background: var(--bolt);
+  border-color: #ffd1c9;
+  animation: next-pulse 1.4s ease-in-out infinite;
+}
+
+.map-node.locked {
+  opacity: 0.5;
+}
+
+.map-node.locked .dot {
+  font-size: 15px;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.map-node.locked:hover .dot {
+  transform: none;
+}
+
+.map-node .name {
+  max-width: 84px;
+  margin-top: 3px;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--chalk);
+}
+
+.map-node .stars {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--gold);
+}
+
+.map-node .stars em {
+  margin-left: 3px;
+  font-style: normal;
+  color: var(--bonus);
+}
+
+@keyframes next-pulse {
+  0%,
+  100% {
+    box-shadow: 0 3px 0 #081a33, 0 0 0 0 rgba(255, 107, 87, 0.6);
+  }
+  50% {
+    box-shadow: 0 3px 0 #081a33, 0 0 0 10px rgba(255, 107, 87, 0);
   }
 }
 
@@ -1295,9 +1553,30 @@ kbd {
     margin-top: 6px;
   }
   .chapter-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 8px;
     margin: 8px 0 4px;
+  }
+  .chapter-book {
+    margin: 8px 0 4px;
+  }
+  .book-arrow {
+    width: 26px;
+    font-size: 22px;
+  }
+  .seg-btn {
+    padding: 4px 9px;
+  }
+  .map-node {
+    width: 64px;
+  }
+  .map-node .name {
+    display: none;
+  }
+  .map-node .dot {
+    width: 42px;
+    height: 42px;
+    font-size: 11px;
   }
   .ch-open {
     gap: 3px;
@@ -1350,7 +1629,7 @@ kbd {
 
 @media (max-height: 520px) and (min-width: 561px) {
   .chapter-grid {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
   .ch-open {
     padding: 7px 8px 6px;
@@ -1608,10 +1887,26 @@ h2 {
 
 /* Levels */
 
+/* A chapter's seven levels: four and three on a wide screen, two across on a phone. */
 .level-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 10px;
+}
+
+@media (max-width: 560px) {
+  .level-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .lvl-card {
+    min-height: 0;
+    padding: 9px 10px;
+  }
+  .lvl-card .meta,
+  .lvl-card .goal {
+    font-size: 10px;
+  }
 }
 
 .lvl-card {
@@ -2409,6 +2704,10 @@ label.btn {
 
 .mk-tool[data-tool='rock'] {
   --c: var(--masonry);
+}
+
+.mk-tool[data-tool='mud'] {
+  --c: var(--mud);
 }
 
 .mk-tool[data-tool='channel'] {

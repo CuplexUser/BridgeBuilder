@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import type { Design } from '../../src/design';
 import type { LevelDef } from '../../src/levels';
+import { testSeconds } from '../../src/physics/world';
 import { canonical, failed, levelKey, type Runner } from './runner';
 import type { Outcome } from './simulate';
 import type { Task } from './worker';
@@ -104,7 +105,7 @@ export class Pool implements Runner {
   }
 
   /** Test drives one design; equal designs on equal levels are only ever simulated once. */
-  run(level: LevelDef, d: Design, seconds = 30): Promise<Outcome> {
+  run(level: LevelDef, d: Design, seconds = testSeconds(level)): Promise<Outcome> {
     const key = `${levelKey(level)}|${seconds}|${canonical(d)}`;
     const hit = this.cache.get(key);
     const local = { cost: d.cost(), parts: d.parts() };

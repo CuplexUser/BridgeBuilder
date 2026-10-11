@@ -3,6 +3,7 @@ import { quickTune, TUNE_DIFFICULTIES, TUNE_SECONDS, tuneKey, type TuneResult } 
 import { bonusStatus } from './brief';
 import {
   addChannel,
+  addMud,
   blankLevel,
   channelSpan,
   deckTop,
@@ -32,8 +33,9 @@ import { copyText, exportFile } from './platform';
 import { Camera, type Rect } from './render/camera';
 import { MATERIAL_CHALK, PAL } from './render/palette';
 import { Renderer, type FloatText, type SceneView } from './render/renderer';
-import { THEMES, themeForChapter, type Theme } from './render/themes';
+import { THEMES, type Theme } from './render/themes';
 import {
+  challengeBoard,
   chapterComplete,
   chapterOf,
   chapterUnlocked,
@@ -45,6 +47,7 @@ import {
   levelCode,
   levelUnlocked,
   nextInChapter,
+  sceneOf,
   totals,
   type ChapterDef,
 } from './chapters';
@@ -56,7 +59,7 @@ import { SOLUTIONS } from './solutions';
 import { TunePool } from './tunepool';
 import { StressGraph, type GraphPick } from './ui/graph';
 import { MAKER_TOOLS, MakerUi } from './ui/makerui';
-import { offeredInOrder, recordDetail, Ui, type ScreenId } from './ui/ui';
+import { BOOK_PAGE, offeredInOrder, recordDetail, Ui, type ChaptersView, type ScreenId } from './ui/ui';
 
 type State = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'workshop' | 'maker' | 'build' | 'test' | 'result' | 'collapse' | 'over';
 export type Board = 'career' | 'chapter' | 'levels' | 'challenge';
@@ -134,6 +137,7 @@ export class Game {
   private makerUndo: string[] = [];
   private makerRedo: string[] = [];
   private makerHover: [number, number] | null = null;
+  /** Where a channel or mud drag started. */
   private channelFrom: [number, number] | null = null;
   /** A finger or button is down in the level editor and the tool acts where it lifts. */
   private makerPending = false;
@@ -151,6 +155,8 @@ export class Game {
   private levelIdx = 0;
   /** Chapter shown on the chapter screen, and the one a challenge is running on. */
   private chapter: ChapterDef = CHAPTERS[0];
+  /** The chapter book's page, while the chapters screen shows it. */
+  private bookPage = 0;
   private lives = START_LIVES;
   private runScore = 0;
   private levelsCleared = 0;
@@ -276,9 +282,9 @@ export class Game {
     return isCustom(level.id) ? 'CUSTOM' : levelCode(level.id);
   }
 
-  /** Built-in levels take their chapter's scene; custom levels pick one. */
+  /** Built-in levels take their topic's scene; custom levels pick one. */
   private themeOf(level: LevelDef): Theme {
-    return isCustom(level.id) ? (THEMES.find((t) => t.id === level.theme) ?? THEMES[0]) : themeForChapter(chapterOf(level.id).id);
+    return isCustom(level.id) ? (THEMES.find((t) => t.id === level.theme) ?? THEMES[0]) : THEMES[sceneOf(level.id)];
   }
 
   // ───────────────────────────── Flow ─────────────────────────────
@@ -326,8 +332,39 @@ export class Game {
   private enterChapters(): void {
     this.leavePlay();
     this.state = 'chapters';
-    this.ui.chapters(this.data.best);
+    // The book opens on the page with the chapter being played.
+    this.bookPage = Math.floor(CHAPTERS.indexOf(chapterOf(continueLevel(this.data.best))) / BOOK_PAGE);
     this.ui.show('chapters');
+    this.showChapters();
+    if (this.chaptersView === 'map') this.ui.showNextOnMap(this.data.best);
+  }
+
+  private get chaptersView(): ChaptersView {
+    return this.prefs.chaptersView ?? 'map';
+  }
+
+  /** Draws the chapters screen as it stands: the map, or the book at its page. */
+  private showChapters(): void {
+    this.ui.chapters(this.data.best, this.chaptersView, this.bookPage);
+  }
+
+  private setChaptersView(view: ChaptersView): void {
+    if (view === this.chaptersView) return;
+    sfx.ui();
+    this.prefs.chaptersView = view;
+    savePrefs(this.prefs);
+    this.showChapters();
+    if (view === 'map') this.ui.showNextOnMap(this.data.best);
+  }
+
+  /** Turns the chapter book by some pages, or to one. */
+  private turnBook(to: number): void {
+    const last = Math.ceil(CHAPTERS.length / BOOK_PAGE) - 1;
+    const page = Math.max(0, Math.min(last, to));
+    if (page === this.bookPage || this.chaptersView !== 'book') return;
+    sfx.ui();
+    this.bookPage = page;
+    this.showChapters();
   }
 
   private enterChapter(ch: ChapterDef): void {
@@ -638,6 +675,10 @@ export class Game {
       const res = addChannel(copy, x0, x, top);
       return this.channelFrom || !res.ok ? res : { ok: true, msg: 'Tap to fill the open water, or drag' };
     }
+    if (this.tool === 'mud') {
+      const [x0, top] = this.channelFrom ?? [x, y];
+      return addMud(copy, x0, x, top);
+    }
     return this.applyTool(copy, x, y);
   }
 
@@ -657,6 +698,8 @@ export class Game {
         return eraseAt(l, x, y);
       case 'channel':
         return { ok: false, msg: 'Drag across for a ship channel' };
+      case 'mud':
+        return addMud(l, x, x, y);
     }
   }
 
@@ -688,7 +731,7 @@ export class Game {
     const p = this.snapAt(e.clientX, e.clientY);
     this.makerHover = p;
     this.makerPending = true;
-    if (this.tool === 'channel') this.channelFrom = p;
+    if (this.tool === 'channel' || this.tool === 'mud') this.channelFrom = p;
   }
 
   private makerPointerUp(e: PointerEvent, cancelled: boolean): void {
@@ -706,6 +749,11 @@ export class Game {
     this.makerHover = p;
     if (!from) {
       this.makerChange((l) => this.applyTool(l, p[0], p[1]), p);
+      return;
+    }
+    if (this.tool === 'mud') {
+      // A drag lays mud across it, its top where it started; a tap lays or removes one.
+      this.makerChange((l) => addMud(l, from[0], p[0], from[1]), [(from[0] + p[0]) / 2, from[1]]);
       return;
     }
     // A tap fills the open water around it up to the road; a drag marks its own span.
@@ -1237,7 +1285,7 @@ export class Game {
   /** Challenge runs are filed under the current profile's name on that chapter's board. */
   private async recordRun(): Promise<void> {
     if (!this.profile) return;
-    const chapter = this.chapter.id;
+    const chapter = challengeBoard(this.chapter.id);
     try {
       const rank = await this.store.submitScore(this.profile.id, this.runScore, this.levelsCleared, chapter);
       const highs = await this.store.highScores(chapter);
@@ -1267,7 +1315,7 @@ export class Game {
     const still = () => this.state === 'scores' && this.board === tab && this.boardChapter === chapter;
     if (tab === 'challenge') {
       void this.store
-        .highScores(chapter)
+        .highScores(challengeBoard(chapter))
         .catch(() => [])
         .then((h) => still() && this.ui.challengeTable(h, 'score-rows', me));
       return;
@@ -1289,7 +1337,7 @@ export class Game {
     const score = this.runScore;
     this.runScore = 0;
     try {
-      const rank = await this.store.submitScore(this.profile.id, score, this.levelsCleared, this.chapter.id);
+      const rank = await this.store.submitScore(this.profile.id, score, this.levelsCleared, challengeBoard(this.chapter.id));
       this.ui.showToast(rank >= 0 ? `Challenge banked: ${score.toLocaleString('en-US')} points, #${rank + 1} on the board.` : `Challenge banked: ${score.toLocaleString('en-US')} points.`, 3200);
       if (rank >= 0) sfx.star(2);
     } catch {
@@ -1357,6 +1405,12 @@ export class Game {
         break;
       case 'chapter':
         this.openChapter(chapterArg());
+        break;
+      case 'chapters-view':
+        this.setChaptersView(el?.dataset.view === 'book' ? 'book' : 'map');
+        break;
+      case 'book-page':
+        this.turnBook(el?.dataset.page !== undefined ? Number(el.dataset.page) : this.bookPage + Number(el?.dataset.dir ?? 0));
         break;
       case 'pick':
         sfx.select();
@@ -1969,6 +2023,8 @@ export class Game {
 
   onResize(): void {
     this.renderer.resize();
+    // The map lays its road out to the width it has.
+    if (this.state === 'chapters' && this.chaptersView === 'map') this.showChapters();
     if (this.demo) this.demoCamera();
     else if (this.state === 'maker') this.fitMaker(true);
     else if (this.graphOpen) {
@@ -2043,6 +2099,19 @@ export class Game {
 
   private bindInput(): void {
     window.addEventListener('resize', () => this.onResize());
+    // A swipe turns the chapter book's pages.
+    const book = document.getElementById('chapter-book')!;
+    let swipeX = Number.NaN;
+    book.addEventListener('pointerdown', (e) => (swipeX = e.clientX));
+    book.addEventListener('pointerup', (e) => {
+      const dx = e.clientX - swipeX;
+      swipeX = Number.NaN;
+      if (Math.abs(dx) <= 50) return;
+      this.turnBook(this.bookPage + (dx < 0 ? 1 : -1));
+      // The swipe was not a tap on the card it started on.
+      book.addEventListener('click', swallowClick, { capture: true, once: true });
+      setTimeout(() => book.removeEventListener('click', swallowClick, { capture: true }), 400);
+    });
     this.ui.onAction((a, el) => this.act(a, el));
     this.ui.testBtn.addEventListener('click', () => {
       sfx.unlock();
@@ -2402,7 +2471,10 @@ export class Game {
         return;
       case 'chapters':
         if (k === 'Escape' || k === 'Backspace') this.act('back');
-        else if (k >= '1' && k <= String(CHAPTERS.length) && k.length === 1) this.openChapter(CHAPTERS[Number(k) - 1]);
+        else if (lower === 'v') this.setChaptersView(this.chaptersView === 'map' ? 'book' : 'map');
+        else if (k === 'ArrowLeft' || k === 'ArrowRight') this.turnBook(this.bookPage + (k === 'ArrowLeft' ? -1 : 1));
+        else if (k === 'Enter') this.playLevel(continueLevel(this.data.best));
+        else if (chapterKey(k) >= 0) this.openChapter(CHAPTERS[chapterKey(k)]);
         return;
       case 'chapter':
         if (k === 'Escape' || k === 'Backspace') this.act('back');
@@ -2415,7 +2487,7 @@ export class Game {
           e.preventDefault();
           const d = k === 'ArrowLeft' || (k === 'Tab' && e.shiftKey) ? -1 : 1;
           this.showBoard(tabs[(tabs.indexOf(this.board) + d + tabs.length) % tabs.length]);
-        } else if (k >= '1' && k <= String(CHAPTERS.length) && k.length === 1) this.showBoard(this.board === 'career' ? 'chapter' : this.board, Number(k));
+        } else if (chapterKey(k) >= 0) this.showBoard(this.board === 'career' ? 'chapter' : this.board, chapterKey(k) + 1);
         return;
       }
       case 'result':
@@ -2612,4 +2684,16 @@ export class Game {
 /** How far past each bank edge to frame the build view: a little ground, or the whole anchor strip. */
 function sideRoom(level: LevelDef): number {
   return level.blocks ? level.blocks.reach + 1.5 : 2.5;
+}
+
+/** The chapter a digit key picks, 1–9 then 0 for the tenth, as an index into CHAPTERS; -1 for any other key. */
+function chapterKey(k: string): number {
+  if (k.length !== 1 || k < '0' || k > '9') return -1;
+  const i = k === '0' ? 9 : Number(k) - 1;
+  return i < CHAPTERS.length ? i : -1;
+}
+
+/** Stops a click from reaching the game's buttons. */
+function swallowClick(e: MouseEvent): void {
+  e.stopPropagation();
 }

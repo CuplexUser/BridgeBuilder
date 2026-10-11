@@ -2,7 +2,7 @@
 
 A physics bridge-building game for the browser. Build a bridge within a cash budget from road, heavy deck, wood, steel and cable, then send a vehicle across it. The bridge either holds, sags, or snaps into the river.
 
-There are 55 levels in eleven chapters that get harder as you go: from a 4 m brook in *Groundwork* to a 36 m, forty-tonne crossing in *Master Works*, then bridges that move in *Moving Parts*, suspension bridges you anchor yourself in *Anchorage*, spans of 40 to 64 m on concrete towers in *Main Cable*, concrete block arches in *Arches*, and trains in *Railway*. Along the way the game introduces piers, slopes, lattice pylons, heavy deck, rock overhangs, cables, flood water, ship channels, drawbridges on hydraulic rams, convoys, toll bolts, rationed materials, hinged masts, concrete anchors, the curved main cable, concrete, concrete blocks, block arches, track and trains. Each chapter has its own scene when you test: a river at golden hour, a desert canyon, a flood plain in the rain, the coast, snowy mountains, a city at night, a harbor, a fjord at dawn, a golden bay, a limestone gorge and the prairie. `TODO.md` lists planned features and improvements by priority.
+There are 70 levels in ten chapters of seven that get harder as you go: from a 4 m brook in *Groundwork*, through cables in *Tension*, drawbridges in *Heavy Traffic*, block arches in *Arches*, trains and soft mud in *Railway*, concrete anchors in *Anchorage*, spans of 40 to 64 m in *Main Cable*, and marching squads, gales and an earthquake in *Master Works*, to the *Grand Finale*, where the hazards come together. Along the way the game introduces piers, slopes, lattice pylons, heavy deck, rock overhangs, cables, flood water, ship channels, drawbridges on hydraulic rams, convoys, toll bolts, rationed materials, hinged masts, concrete anchors, the curved main cable, concrete, concrete blocks, block arches, track, trains, dampers, marching squads, wind, earthquakes, mud, piles and floods. Each level is tested in the scene of its topic: a river at golden hour, a desert canyon, a flood plain in the rain, the coast, snowy mountains, a city at night, a harbor, a fjord at dawn, a golden bay, a limestone gorge, the prairie, a storm and a river delta at dusk. The chapters screen shows them as a map, one winding road through every level, or as a book of chapter cards. `TODO.md` lists planned features and improvements by priority.
 
 ## Run
 
@@ -72,12 +72,12 @@ Run `npm run android` after every web change before building in Android Studio. 
 | Goals and rules | ⓘ button, or tap the ✦ goal under the level name | I |
 | Stress graph after a test | Link on the result or collapse screen; tap the graph or a member | G, ←/→ to step, Esc back |
 | Pause | II button | P / Esc |
-| Menus | Buttons | Title: Enter continue, C chapters, H leaderboards, L level editor. Chapters: 1–9 open the first nine. Chapter: 1–5 plays a level. Leaderboards: ←/→ tabs, 1–9 chapter. |
+| Menus | Buttons | Title: Enter continue, C chapters, H leaderboards, L level editor. Chapters: V switches between the map and the book, Enter plays the next level, 1–9 and 0 open a chapter, ←/→ turn the book's pages. Chapter: 1–7 plays a level. Leaderboards: ←/→ tabs, 1–9 and 0 chapter. |
 | Mute | Speaker button | M |
 
 Members can cross each other (X-bracing), but they can't lie along an existing member. For example, a wood beam can't run on top of the road.
 
-**Briefing.** Every level opens with a briefing card: who crosses and how far, the level's tip, the three stars (cross, build under the target, keep peak stress below 75%), the bonus goal and what it means, and any special rules such as a drawbridge, a convoy, toll bolts, part limits, or a deck too weak for the vehicle. The ⓘ button or I brings it back while you build. Tutorial levels (the ones with a ghost) also offer **Watch an example** (W): the intended bridge drives across first, then you get your own blueprint back. On 7-1 the ghost is that whole drawbridge, ready to trace. The bonus goal also sits under the level name and is checked live where it can be: ✓ or ✗ for cost, parts and banned materials as you build (with your current part count), while a stress goal is judged on the test drive.
+**Briefing.** Every level opens with a briefing card: who crosses and how far, the level's tip, the three stars (cross, build under the target, keep peak stress below 75%), the bonus goal and what it means, and any special rules such as a drawbridge, a convoy, toll bolts, part limits, or a deck too weak for the vehicle. The ⓘ button or I brings it back while you build. Tutorial levels (the ones with a ghost) also offer **Watch an example** (W): the intended bridge drives across first, then you get your own blueprint back. On *Bascule* the ghost is that whole drawbridge, ready to trace. The bonus goal also sits under the level name and is checked live where it can be: ✓ or ✗ for cost, parts and banned materials as you build (with your current part count), while a stress goal is judged on the test drive.
 
 **Stress graph.** After a test, *See the stress graph* (G) docks a graph under the bridge: the busiest member's load over the whole run, colored by stress, with the 75% safety line, the 100% breaking line, a mark for every break and the drawbridge phases shaded. It opens at the worst moment. Tap or drag across the graph to find the busiest member at any moment, ringed on the bridge (a broken one is shown dashed where it stood), or tap a member to follow its own load as a dashed curve.
 
@@ -85,8 +85,8 @@ Members can cross each other (X-bracing), but they can't lie along an existing m
 
 **L** on the title screen opens the level editor. Make a new level or edit one of yours:
 
-- **Tools** (1–7): *Bolt* adds or removes a bolt, *Pier* stands a pier under a bolt in the gap, *Pylon* raises a lattice pylon with a bolt on top, *Mast* raises a hinged mast whose top tips freely, *Rock* raises a 2 m rock shelf or island for concrete blocks and arches to stand on (and offers them), *Channel* marks a ship channel by dragging across the gap (it stays clear up to the height you start at), and *Erase* removes whatever is under the tap. The cursor says what a tap will do before you tap. A tap acts where the finger lifts, so it can slide into place first under a magnifier, and two fingers pan and zoom without placing anything. Z and Y undo and redo.
-- **Settings** (S): name and tip, the gap's width, far bank height and water level, the vehicle and up to three more behind it, a tall ship's mast height for a drawbridge, the materials on offer and any part limits, how far back concrete anchors may go on each bank, budget, star target, toll per bolt, the bonus goal and the scene for the test drive.
+- **Tools** (1–8): *Bolt* adds or removes a bolt, *Pier* stands a pier under a bolt in the gap, *Pylon* raises a lattice pylon with a bolt on top, *Mast* raises a hinged mast whose top tips freely, *Rock* raises a 2 m rock shelf or island for concrete blocks and arches to stand on (and offers them), *Mud* lays a soft mud bank across the gap by dragging at the height of its top (and offers piles), *Channel* marks a ship channel by dragging across the gap (it stays clear up to the height you start at), and *Erase* removes whatever is under the tap. The cursor says what a tap will do before you tap. A tap acts where the finger lifts, so it can slide into place first under a magnifier, and two fingers pan and zoom without placing anything. Z and Y undo and redo.
+- **Settings** (S): name and tip, the gap's width, far bank height and water level, the vehicle and up to four more behind it, a tall ship's mast height for a drawbridge, the materials on offer and any part limits, how far back concrete anchors may go on each bank, what a pile costs and how far a flood raises the river, budget, star target, toll per bolt, the bonus goal and the scene for the test drive.
 - **Auto-tune**, under *Money and goals* in Settings, searches the level for 5 seconds and sets the budget, star target and bonus goal for the difficulty picked (Easy, Medium or Hard). It keeps the level's kind of bonus goal when it can be met, else picks a peak-stress cap, then a parts cap, then a cost cap. It starts from the last bridge you playtested, and the budget always covers that bridge. The bridges it finds are never shown, only what they tell: the note under the button gives the cheapest crossing found and the lowest peak stress, and the header warns if you then set the budget, star target or stress cap below them. It is a quick, rough search, so a sharper player can beat its numbers. Any edit, including the tune, can be undone. In dev builds (`npm run dev`) two more checkboxes appear. *Show the tune's bridges* adds buttons that drive the cheapest bridge it found, or the one meeting its bonus goal, across the level. *Search up to 20 s if nothing holds* lets a slow level, such as a drawbridge with a convoy, keep searching past 5 seconds until something does. Production builds show neither.
 - **Playtest** (P) plays it like any level, with the briefing, scoring and stress graph, but nothing goes on your career or the leaderboards. The header says what still stops a level from being played, such as a drawbridge with no rams on offer.
 - **Export** shows the level as JSON to copy or download, and **Import** reads one back from pasted text or a `.json` file. The format is the game's own `LevelDef` (`src/levels.ts`), so a built-in level copied from the source imports too. Everything is checked and clamped on the way in.
@@ -108,10 +108,11 @@ Custom levels and the last bridge built on each are kept in this browser's local
 | Block | $120 a block | 1 m squares | Painted on the grid. Almost impossible to crush, heavy, and held together only weakly: pulled apart, a block cracks along its side. It bears on rock (bank tops, canyon walls, rock shelves, pier tops) without being bolted to it, so it can slide or tip. Bars attach at its corners but can't pass through it. |
 | Block arch | $150/m² | one drag | A ring of wedge-shaped blocks 1 m thick, laid in one drag between two springings with a joint under each deck joint. Drag the handle at its crown to set the rise. It pushes outward on its ends, so they need rock or blocks behind them. |
 | Hydraulic ram | $420/m | 4.25 m | Magenta, drawn as a cylinder: a fat barrel on its lower end, a chrome rod above. Strong, heavy and expensive. On drawbridge levels it extends by 75% to lift the leaf, then pulls it back down. Elsewhere it's a stiff, pricey strut. |
+| Damper | $320/m | 4.5 m | Amber, drawn as an oil cylinder between two rods, with a coil spring around it. Its spring is soft, so it carries little standing load and gives under a slow one, but it pushes back hard on anything that moves it quickly. Braced into a bridge that swings, it turns the motion into heat. |
 
 You pay by length, so splitting a beam to add a joint costs nothing. Each level lists the materials it offers.
 
-Vehicles weigh from 9 t (the compact car) to 40 t (the semi). A vehicle heavier than a deck's rating crushes each piece it drives onto, however well the deck is braced. Heavy deck arrives in chapter 5, with the semi. The semi rides on three axles, so its weight spreads along a hung deck the way a real tractor-trailer's does.
+Vehicles weigh from 9 t (the compact car) to 40 t (the semi). A vehicle heavier than a deck's rating crushes each piece it drives onto, however well the deck is braced. Heavy deck arrives at the end of chapter 3, with the semi. The semi rides on three axles, so its weight spreads along a hung deck the way a real tractor-trailer's does.
 
 A road run gets a joint at every bolt it passes over, so a deck laid across a pylon's bolt is fastened to it.
 
@@ -119,25 +120,25 @@ A road run gets a joint at every bolt it passes over, so a deck laid across a py
 
 ## Moving parts
 
-Chapter 7 adds four mechanics, which levels can mix:
+Chapters 4 and 5 add four mechanics, which levels can mix:
 
 - **Drawbridges.** A tall ship has to pass through the channel before traffic may go. When you test, the bridge opens on its hydraulic rams, the ship sails through at the channel's middle, the bridge closes and the vehicle drives. Hinge the leaf at a bank or pier, stand a ram under it, and keep everything clear of the ship's mast.
 - **Convoys.** Several vehicles cross nose to tail at the slowest one's speed, so the bridge carries them all at once. The level card lists them, and all of them have to reach the far side.
 - **Toll bolts.** On some levels every bolt but the two road ends costs money to build from, shown next to the bolt and charged once, however many members use it.
-- **Material limits.** Some levels cap how many parts of a material you may use, on top of the budget. The toolbar shows how many are left. Several cable levels in chapters 4 to 6 ration wood and steel this way, so the cables have to carry the deck.
+- **Material limits.** Some levels cap how many parts of a material you may use, on top of the budget. The toolbar shows how many are left. Several cable levels in chapters 3 to 5 and 9 ration wood and steel this way, so the cables have to carry the deck.
 
 ## Anchorage
 
-Chapter 8 is about suspension bridges anchored in the ground:
+Chapters 7 and 8 bring suspension bridges anchored in the ground:
 
 - **Hinged masts.** A mast stands on a hinge at its foot, so its top bolt tips freely. It carries a load straight down its length but nothing sideways: a main cable pulling its top toward the middle tips it over unless a backstay pulls the other way.
 - **Concrete anchors.** Drag a member onto the bank, from 1 m up to the level's reach behind the edge, and a 5 t concrete block is set there for $1,500. Removing the last member on it removes it, and refunds it. Joints may also go in the air above the anchor strip, 3.5 m or more over the road, to break a long backstay.
 - **Holding and tearing loose.** A block holds by its weight against lift, and by friction plus the soil packed against it against a sideways pull. Lifting it also takes weight off the friction. So a steep backstay lifts it out and a flat one slides it; a block glows as it nears its limit, and past it the block tears out of its pit and drags. Two backstays to two blocks share the pull.
-- **Your own towers.** On 8-3 there are no masts: brace a steel tower on each pair of piers, then backstay it.
+- **Your own towers.** On 7-6, *Raise Your Own*, there are no masts: brace a steel tower on each pair of piers, then backstay it.
 
 ## Main Cable
 
-Chapter 9 is about very long spans, 40 to 64 m:
+Chapter 8 is about very long spans, 40 to 64 m:
 
 - **The main cable.** It is laid in one drag and hangs on a parabola, its joints above the deck's joints so hangers drop plumb, and it is drawn as one smooth curve that keeps moving smoothly under load. The ring near its middle sets the sag: a deeper sag pulls less on the towers and anchors, but needs longer hangers near the towers (a hanger is plain cable, at most 10 m). A main cable may hang low over the anchor strip as it rises from its block, where nothing else may go.
 - **Concrete towers.** Steel crushes under the weight of a long span long before any traffic arrives, so towers are concrete legs on a pier pair with steel struts and chevrons between them. The level sets a build ceiling for them.
@@ -146,7 +147,7 @@ Chapter 9 is about very long spans, 40 to 64 m:
 
 ## Railway
 
-Chapter 11 puts trains on the bridge:
+Chapter 6 puts trains on the bridge:
 
 - **Trains.** A locomotive (36 t) pulls up to four freight wagons (28 t each), coupled close together, so the whole train is on a short bridge at once: a long, heavy load rather than a point. Rail wheels run on track only, and drive and brake against it, so the deck takes the push.
 - **Track** climbs at most 3%. Uneven banks get one straight run, and the bridge is built down to the piers from it.
@@ -154,7 +155,7 @@ Chapter 11 puts trains on the bridge:
 
 ## Arches
 
-Chapter 10 builds with concrete blocks, which only push:
+Chapter 5 builds with concrete blocks, which only push:
 
 - **Blocks** are painted a square meter at a time and simulated as stiff squares that share their corners with the blocks beside them. Each side holds a lot of compression but only a small pull (25 kN), so a wall bent too far opens along its joints and a beam of blocks cracks at its root.
 - **Rock.** Rock shelves at the foot of the canyon walls and islands in the river (`rocks` in a level) are where blocks stand. A block corner bears on rock and grips it by friction, 0.7 times how hard it presses, but nothing bolts it down: a sideways push beyond that slides it, and a block can lift off.
@@ -162,6 +163,29 @@ Chapter 10 builds with concrete blocks, which only push:
 - **Towers and piers.** Stack blocks on shelves that sit too deep for posts to reach, or on an island to make a pier where two arches meet and push against each other. Wood or steel posts stand on the ring's joints and the tower tops to carry the deck.
 - **Over the road.** An arch may also spring from the bank bolts, or from piers built up level with the road, and rise above the deck, which then hangs from its underside on cables: a through arch, for where there's no rock below or a ship channel to keep clear. Its default rise stays under the level's height limit.
 - **The levels** each ask for a different arch: *Keystone* (a ghost of the classic one on block towers), *Hanging Deck* (a through arch from bolt to bolt), *High and Low* (shelves at different heights), *Short Supply* (four blocks, stacked against the walls rather than out on the shelves, where the thrust cracks them) and *Grand Viaduct* (a semi over deck arches to island piers, and a through arch over the ship channel between them).
+
+## Dynamics
+
+Chapter 9 shakes the bridge, in a storm scene:
+
+- **Marching.** Squads of soldiers (`march` in a level) walk at 1.6 m/s, and every boot lands at once at the level's pace, pressing the deck harder and softer by a share of their weight. A light suspension bridge swings in time with them, more with every step, until a backstay tears out or the deck throws someone off.
+- **Wind.** Gusts (`wind`) come every few seconds, never quite still. They push on every member by how tall it stands across the wind and lift the deck by its length, like a wing. Hangers only pull, so a light deck rises off them: tie it down to the rock.
+- **Earthquakes.** The ground (`quake`) starts to shake when the lead vehicle reaches a mark, mostly sideways, building up quickly and dying away. Tall towers whip on their footings unless they're braced to the deck and the banks.
+- **Dampers** are the answer to motion. A stiff prop from the rock to a marching deck takes the bus's full weight as it passes and snaps; a damper gives under it but fights the swing.
+- **The levels.** *Slow March* (a ghost of dampers in an X under a footbridge), *Gale* (tie the deck down), *Aftershock* (brace the towers), *Parade* (a bus and four squads) and *Storm Parade* (the march in a gale).
+
+## Foundations
+
+Chapters 6 and 7 build on soft ground, in a river delta at dusk:
+
+- **Mud.** Mud banks (`mud` in a level) fill the riverbed. Nothing can be built inside them. A bolt on the mud holds a light load, but once its members press it down with more than 15 kN it sinks, faster the more it carries, until it reaches firmer ground 1.5 m down, and the deck sinks with it.
+- **Piles.** Where a level offers them (`piles`), drag a member onto a mud bank to drive a pile there, on whole meters, for the level's price. A pile reaches rock, so it never sinks. Like a concrete anchor, it comes out again once nothing is built from it.
+- **Floods.** On some levels (`flood`) the river rises once the lead vehicle reaches a mark. The current pushes downstream on every member by how much of it is under water, and any bolt on the mud that stands under the flood for a second and a half is scoured out. Piles stay.
+- **The levels.** *Mudflats* (a ghost: one pile under the middle), *Soft Ground* (free bolts on the mud that a truck sinks), *Flash Flood* (bolts that hold until the flood washes them out), *Long Flats* (36 m over two mud flats, with dear piles) and *Floodtide* (the school bus over 40 m, with a flood on the way).
+
+## Grand Finale
+
+Chapter 10 puts the hazards together, two lessons a level, each checked by the optimizer: *Great Arch* (one 36 m block arch for the semi, its springings built up in blocks), *Parade*, *Washout Line* (a freight train over silted mud in a flood: piles, not the free bolts), *Storm Parade*, *Marsh March* (the march over a marsh, where the free bolts in the mud hold a damper but sink under a stiff prop), *Delta Haul* (a semi on heavy deck over a delta in flood) and *Last Crossing* (48 m for the semi over a flooding delta, with a ship channel to keep clear).
 
 ## How it works
 
@@ -178,10 +202,10 @@ Chapter 10 builds with concrete blocks, which only push:
 
 `npm run tune` is an offline optimizer (`tools/tune/`) that decides each level's numbers, so they follow from what can actually be built rather than from guesswork:
 
-1. **Search.** For each level it looks for the cheapest design that crosses with peak stress at or below 92% and without breaking a single member. A genetic algorithm searches a structure grammar built from the level's geometry: deck spans, trusses over or under them, struts, posts and trestles from low anchors, hangers from high anchors, and sagging main cables between them. On drawbridge levels a support may be a ram. On levels with concrete anchors, mast tops count as high anchors, braced towers may stand on pairs of pier bolts, and each outermost mast or tower gets up to two backstays to blocks a chosen distance back, the first carrying its side span on hangers. Each result, and the hand-made design, is then polished by local search that removes members and swaps materials one at a time.
+1. **Search.** For each level it looks for the cheapest design that crosses with peak stress at or below 92% and without breaking a single member. A genetic algorithm searches a structure grammar built from the level's geometry: deck spans, trusses over or under them, struts, posts and trestles from low anchors, hangers from high anchors, and sagging main cables between them. On drawbridge levels a support may be a ram, and where dampers are offered, a damper. Where a level has mud and piles, the even meters along the mud are supports too, each a pile if used. On levels with concrete anchors, mast tops count as high anchors, braced towers may stand on pairs of pier bolts, and each outermost mast or tower gets up to two backstays to blocks a chosen distance back, the first carrying its side span on hangers. Each result, and the hand-made design, is then polished by local search that removes members and swaps materials one at a time.
 2. **Numbers.** The target is the best cost times a slack that shrinks by chapter (by default ×1.3 down to ×1.18), and never less than what the hand-made design costs, so the intended answer earns the cost star. The budget is the best cost times ×2.0 down to ×1.55, at least $1,000 over the target, and never less than the hand-made design plus 35%. The search's best is hard for a person to match, so both leave real room. These slacks are the difficulty settings (see below).
 3. **Bonus goal.** It keeps the level's current kind of goal if it can: a stress cap the reference misses, a material the level can do without, or a parts cap. Each search also starts from the reference itself: upgraded member by member for a stress cap, stripped for a parts cap, or with the banned material swapped for its neighbor. Each goal comes with a design proving it can be met. A geometry whose bonus nothing proves is still usable; the optimizer only prefers another one that has both.
-4. **Intent.** `tools/tune/intents.ts` says what each level is about. `requires` names materials the level is built around: the best design without them must fail or blow the budget, which is how the cable levels keep their cables. `shortcuts` are specific designs that must fail. `minRoom` asks that enough one-step variations of the best design still cross, so there's more than one way over. `params` and `shape` mark geometry the optimizer may change. Level 30's channel clearance, pylon positions and pylon heights are tried in order of preference until everything holds.
+4. **Intent.** `tools/tune/intents.ts` says what each level is about. `requires` names materials the level is built around, or its piles: the best design without them must fail or blow the budget, which is how the cable levels keep their cables and the mud levels their piles. `shortcuts` are specific designs that must fail. `minRoom` asks that enough one-step variations of the best design still cross, so there's more than one way over. `params` and `shape` mark geometry the optimizer may change. Level 30's channel clearance, pylon positions and pylon heights are tried in order of preference until everything holds.
 
 ### Running it
 
@@ -191,7 +215,7 @@ From the command line, `npm run tune` takes the same options. `--levels 7,30` tu
 
 The level editor's **Auto-tune** (`src/autotune.ts`) runs the same search and polishing in the browser, on Web Workers (`src/tunepool.ts`), for a few seconds instead of minutes, with no intents, no hand-made design and no geometry changes. Its difficulties are fixed slacks over what the short search found.
 
-It runs designs in parallel on worker threads and restarts any worker that crashes or hangs. Every finished level is saved right away. An interrupted run continues where it stopped, and a level is only re-tuned when its inputs change (`--fresh` forces it). Bump `PHYSICS_VERSION` in `src/physics/world.ts` when a change alters how bridges behave; the tests then report every level as stale until it's tuned again.
+Each test drive runs 30 seconds, or longer when a slow convoy needs it to get its tail across, such as marching squads (`testSeconds` in `src/physics/world.ts`). It runs designs in parallel on worker threads and restarts any worker that crashes or hangs. Every finished level is saved right away. An interrupted run continues where it stopped, and a level is only re-tuned when its inputs change (`--fresh` forces it). Bump `PHYSICS_VERSION` in `src/physics/world.ts` when a change alters how bridges behave; the tests then report every level as stale until it's tuned again.
 
 ### Difficulty
 
@@ -203,7 +227,7 @@ Everything the tuner decides lives in one committed file, `src/levels.res`: the 
 
 ## Chapters, scoring and leaderboards
 
-**Chapters.** The first chapter is open from the start. A chapter opens once every level of the previous one has been crossed, and inside a chapter the levels open one after another. **Continue** on the title screen takes you to the first level you haven't crossed yet.
+**Chapters.** Seventy levels in ten chapters of seven, ordered by difficulty; each topic's levels stay together where they can, its ghost first. The first chapter is open from the start. A chapter opens once every level of the previous one has been crossed, and inside a chapter the levels open one after another. The chapters screen has two views, and remembers the one you used last. **Map** lays every level out as a node on one winding road, chapter by chapter under its heading, with the stars won on each, the road paved as far as you've crossed, the next level lit, and the locked ones ahead; it opens scrolled to the next level. **Book** shows the chapter cards six to a page, turned with the arrows, a swipe, the dots, or ←/→. Level codes such as 3-2 changed when the chapters were regrouped from five levels to seven, and the challenge boards started afresh; stars, records and saved designs are kept by level id, so they carried over. **Continue** on the title screen takes you to the first level you haven't crossed yet.
 
 **Level score.** 500 for crossing, plus up to 1,000 for money left in the budget, plus up to 400 for safety (low peak stress), plus 250 for the bonus goal. You earn stars for crossing, for building at or under the target cost, and for a peak stress below 75%.
 
@@ -211,13 +235,13 @@ Everything the tuner decides lives in one committed file, `src/levels.res`: the 
 
 **Career.** Your career score is the sum of your best score on every level. Improving any level raises it, so you never need to replay from the start.
 
-**Chapter challenges.** A finished chapter unlocks its challenge: all five levels in a row, from blank designs, with three lives. Each collapse costs a life, and a 3-star crossing earns one back. The run's total goes on that chapter's challenge board, even if you quit part-way; quitting asks first, and says how many points will be banked.
+**Chapter challenges.** A finished chapter unlocks its challenge: all seven levels in a row, from blank designs, with three lives. Each collapse costs a life, and a 3-star crossing earns one back. The run's total goes on that chapter's challenge board, even if you quit part-way; quitting asks first, and says how many points will be banked.
 
 **Engineer's review.** After a crossing the result card says how the cost compares with the best known design (the optimizer's or the hand-made one, whichever is cheaper), counts parts that never carried more than 20% of their strength, and steel that wood could carry under 75% load, with what each costs. IMPROVE marks them on the blueprint until you change the bridge. The briefing offers **hints**: each one shows one more member of the best known design as a ghost to trace, and takes 100 points off every score on that level from then on (a crossing always keeps its 500). Challenges have no hints.
 
 **Leaderboards** have four tabs:
 
 - **Career**: every engineer, ranked by career score.
-- **Chapter**: ranked by best scores on one chapter's five levels.
+- **Chapter**: ranked by best scores on one chapter's seven levels.
 - **Levels**: the record holder on each level of a chapter, with what the record bridge cost and its peak stress, and your own best when someone else holds it. Once you've crossed a level yourself, **Watch it** drives the record bridge across, keeping your own blueprint.
 - **Challenges**: the top challenge runs on one chapter.

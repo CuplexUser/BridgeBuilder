@@ -1161,6 +1161,19 @@ export function convoyLayout(level: LevelDef): { def: VehicleDef; x: number }[] 
   return out;
 }
 
+/**
+ * How long a test drive may run before it counts as stuck, s: 30, or longer for a convoy too slow
+ * to get its last vehicle to the goal in that time, such as marching squads.
+ */
+export function testSeconds(level: LevelDef): number {
+  const lay = convoyLayout(level);
+  const speed = Math.min(...lay.map((c) => c.def.speed));
+  const tail = Math.min(...lay.map((c) => c.x));
+  const waits = SETTLE_TIME + (level.ship ? OPEN_TIME + SHIP_TIME + CLOSE_TIME : 0) + (level.brake ? (level.brake.hold ?? 1.5) + 4 : 0);
+  // A third more than a steady drive takes, for starting off, braking and climbing.
+  return Math.max(30, Math.ceil(waits + ((goalX(level) - tail) / speed) * 4 / 3));
+}
+
 /** Most a deck may kink at a joint and still act as one continuous beam there, radians. */
 const MAX_BEND_KINK = 0.6;
 

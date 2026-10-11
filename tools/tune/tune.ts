@@ -218,7 +218,7 @@ async function tryGeometry(base: LevelBase, intent: Intent, current: Tuned, ch: 
   // The level's idea must be needed: without each required material, nothing affordable crosses.
   const requires: LevelResult['requires'] = [];
   for (const mat of intent.requires ?? []) {
-    const without: LevelDef = { ...tuned, materials: tuned.materials.filter((m) => m !== mat) };
+    const without: LevelDef = mat === 'piles' ? { ...tuned, piles: undefined } : { ...tuned, materials: tuned.materials.filter((m) => m !== mat) };
     const obj = cheapest(money, 1);
     progress.stage(`${tag} · checking it needs ${mat}`, Math.round(effort.population * (effort.generations + 1) * effort.side));
     const f = await evolve(pool, without, grammarFor(without, { deck: intent.deck?.(without) }), obj, sideOptions(base.id, 7));
