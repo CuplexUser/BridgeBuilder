@@ -54,6 +54,9 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:${rootProject.ext.androidxCoordinatorLayoutVersion}"
     implementation "androidx.core:core-splashscreen:${rootProject.ext.coreSplashScreenVersion}"
     implementation project(':capacitor-android')
+    // The game's own plugins: Play Games (achievements, leaderboards, cloud save) and Play Billing (the full-game unlock).
+    implementation "com.google.android.gms:play-services-games-v2:${rootProject.ext.playGamesVersion}"
+    implementation "com.android.billingclient:billing:${rootProject.ext.billingVersion}"
     testImplementation "junit:junit:${rootProject.ext.junitVersion}"
     androidTestImplementation "androidx.test.ext:junit:${rootProject.ext.androidxJunitVersion}"
     androidTestImplementation "androidx.test.espresso:espresso-core:${rootProject.ext.androidxEspressoCoreVersion}"

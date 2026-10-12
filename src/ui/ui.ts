@@ -5,9 +5,10 @@ import type { LevelDef } from '../levels';
 import { MATERIAL_ORDER, MATERIALS, type MaterialId } from '../physics/materials';
 import { levelBrief, traffic } from '../brief';
 import { bonusLabel, GOAL_SCORE, type LevelScore } from '../scoring';
+import { platform, uiProfile, type BillingStatus, type GamesStatus } from '../platform';
 import type { BoardRow, HighScore, LevelRecord, Profile, Progress } from '../storage';
 
-export type ScreenId = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'workshop' | 'share' | 'mkhelp' | 'pause' | 'confirm' | 'brief' | 'result' | 'collapse' | 'over';
+export type ScreenId = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'workshop' | 'share' | 'mkhelp' | 'pause' | 'confirm' | 'unlock' | 'brief' | 'result' | 'collapse' | 'over';
 type BoardTab = 'career' | 'chapter' | 'levels' | 'challenge';
 /** How the chapters screen shows them: a road of level nodes, or pages of chapter cards. */
 export type ChaptersView = 'map' | 'book';
@@ -46,6 +47,7 @@ export class Ui {
     mkhelp: $('scr-mkhelp'),
     pause: $('scr-pause'),
     confirm: $('scr-confirm'),
+    unlock: $('scr-unlock'),
     brief: $('scr-brief'),
     result: $('scr-result'),
     collapse: $('scr-collapse'),
@@ -53,6 +55,8 @@ export class Ui {
   };
   private toastTimer = 0;
   current: ScreenId | null = 'title';
+  /** Chapters behind the full-game unlock, marked as such wherever chapters are shown. */
+  forSale: (c: ChapterDef) => boolean = () => false;
 
   constructor() {
     const mats = $('mats');
@@ -90,7 +94,8 @@ export class Ui {
     this.current = id;
     if (id) {
       const primary = this.screens[id].querySelector<HTMLButtonElement>('.btn.primary:not(.hidden)');
-      if (primary && matchMedia('(hover: hover)').matches) primary.focus({ preventScroll: true });
+      // A keyboard can press it at once; on a touch screen, focus would only draw a ring.
+      if (primary && uiProfile === 'desktop') primary.focus({ preventScroll: true });
     }
   }
 
@@ -258,6 +263,7 @@ export class Ui {
     const level = levelById(next);
     $('continue-sub').textContent = crossed(save.best, next) ? `Replay ${levelCode(next)} · ${level.name}` : `${levelCode(next)} · ${level.name}`;
     $('title-engineer').innerHTML = profile ? `Engineer: <b>${escapeHtml(profile.name)}</b>` : '';
+    $('title-unlock').classList.toggle('hidden', !CHAPTERS.some((c) => this.forSale(c)));
   }
 
   profiles(list: Profile[], storage: 'server' | 'local', error = ''): void {
@@ -272,11 +278,18 @@ export class Ui {
       box.appendChild(b);
     }
     $('profile-error').textContent = error;
-    $('storage-note').textContent = storage === 'server' ? 'Saved to the SQLite database on the server.' : 'Saved in this browser (local storage).';
+    $('storage-note').textContent =
+      storage === 'server'
+        ? 'Saved to the SQLite database on the server.'
+        : platform === 'android'
+          ? 'Saved on this phone, and to Google Play Games when you are signed in.'
+          : platform === 'desktop'
+            ? 'Saved on this computer.'
+            : 'Saved in this browser (local storage).';
     this.show('profile');
     const input = $<HTMLInputElement>('profile-name');
     input.value = '';
-    if (matchMedia('(hover: hover)').matches) setTimeout(() => input.focus(), 50);
+    if (uiProfile === 'desktop') setTimeout(() => input.focus(), 50);
   }
 
   profileError(msg: string): void {
@@ -315,19 +328,21 @@ export class Ui {
     for (const h of layout.heads) {
       const c = chapterById(h.chapter)!;
       const t = totals(best, c.levels);
-      const open = chapterUnlocked(c, best);
-      html += `<div class="map-head${open ? '' : ' locked'}" style="top:${h.y}px">
+      const sale = this.forSale(c);
+      const open = chapterUnlocked(c, best) && !sale;
+      html += `<div class="map-head${open ? '' : sale ? ' for-sale' : ' locked'}" style="top:${h.y}px">
         <button class="map-title" data-act="chapter" data-chapter="${c.id}" ${open ? '' : 'aria-disabled="true"'}><span class="ch-no">CH ${chapterNumber(c)}</span> ${c.name}</button>
-        <span class="map-stars">★ ${t.stars}/${c.levels.length * 3}</span>
-        ${chapterComplete(c, best) ? `<button class="btn small ch-challenge" data-act="challenge" data-chapter="${c.id}" aria-label="Challenge" title="Challenge: all ${c.levels.length} levels in a row, three lives">⚑</button>` : ''}
+        ${sale ? '<button class="full-tag" data-act="unlock" title="Part of the full game">FULL GAME</button>' : `<span class="map-stars">★ ${t.stars}/${c.levels.length * 3}</span>`}
+        ${chapterComplete(c, best) && !sale ? `<button class="btn small ch-challenge" data-act="challenge" data-chapter="${c.id}" aria-label="Challenge" title="Challenge: all ${c.levels.length} levels in a row, three lives">⚑</button>` : ''}
       </div>`;
     }
     for (const n of layout.nodes) {
       const l = levelById(n.id);
       const b = best[n.id];
-      const open = levelUnlocked(n.id, best);
-      const state = b && b.stars > 0 ? 'done' : n.id === next ? 'next' : open ? 'open' : 'locked';
-      html += `<button class="map-node ${state}" style="left:${n.x}px;top:${n.y}px" data-act="pick" data-level="${n.id}" title="${levelCode(n.id)} · ${open ? escapeHtml(l.name) : 'Locked'}" ${open ? '' : 'aria-disabled="true"'}>
+      const sale = this.forSale(chapterById(n.chapter)!);
+      const open = levelUnlocked(n.id, best) && !sale;
+      const state = sale ? 'locked' : b && b.stars > 0 ? 'done' : n.id === next ? 'next' : open ? 'open' : 'locked';
+      html += `<button class="map-node ${state}" style="left:${n.x}px;top:${n.y}px" data-act="pick" data-level="${n.id}" title="${levelCode(n.id)} · ${open ? escapeHtml(l.name) : sale ? 'Full game' : 'Locked'}" ${open ? '' : 'aria-disabled="true"'}>
         <span class="dot">${state === 'locked' ? '🔒' : levelCode(n.id)}</span>
         <span class="name">${open ? escapeHtml(l.name) : ''}</span>
         <span class="stars">${open ? starText(b?.stars ?? 0) : ''}${b?.bonus ? `<em>${BONUS_MARK}</em>` : ''}</span>
@@ -349,7 +364,8 @@ export class Ui {
     const grid = $('chapter-grid');
     grid.innerHTML = '';
     for (const c of CHAPTERS.slice(page * BOOK_PAGE, (page + 1) * BOOK_PAGE)) {
-      const open = chapterUnlocked(c, best);
+      const sale = this.forSale(c);
+      const open = chapterUnlocked(c, best) && !sale;
       const done = chapterComplete(c, best);
       const t = totals(best, c.levels);
       const card = document.createElement('div');
@@ -363,9 +379,9 @@ export class Ui {
           <span class="ch-blurb">${c.blurb}</span>
           <span class="ch-effort">${c.effort}</span>
           <span class="ch-progress"><span class="bar"><i style="width:${(t.crossed / c.levels.length) * 100}%"></i></span><span class="long">★ ${t.stars}/${c.levels.length * 3} · ${BONUS_MARK} ${t.bonus}/${c.levels.length}</span><span class="short">★ ${t.stars}/${c.levels.length * 3}</span></span>
-          ${open ? '' : `<span class="ch-lock"><span class="long">🔒 Finish ${prev.name} to unlock</span><span class="short">🔒 Locked</span></span>`}
+          ${open ? '' : sale ? '<span class="ch-lock sale"><span class="long">🔒 Full game: tap to unlock</span><span class="short">🔒 Full game</span></span>' : `<span class="ch-lock"><span class="long">🔒 Finish ${prev.name} to unlock</span><span class="short">🔒 Locked</span></span>`}
         </button>
-        ${done ? `<button class="btn small ch-challenge" data-act="challenge" data-chapter="${c.id}" aria-label="Challenge" title="Challenge: all ${c.levels.length} levels in a row, three lives">⚑</button>` : ''}`;
+        ${done && !sale ? `<button class="btn small ch-challenge" data-act="challenge" data-chapter="${c.id}" aria-label="Challenge" title="Challenge: all ${c.levels.length} levels in a row, three lives">⚑</button>` : ''}`;
       grid.appendChild(card);
     }
     $<HTMLButtonElement>('book-prev').disabled = page <= 0;
@@ -547,6 +563,48 @@ export class Ui {
         : 'Nothing goes on the board: no level cleared yet.';
     $('confirm-note').textContent = 'The run ends here. A new challenge starts again from the first level.';
     this.show('confirm');
+  }
+
+  /** The full-game offer: what it opens, its price, and buttons to buy or restore it. */
+  unlockOffer(b: BillingStatus, owned: boolean): void {
+    const paid = CHAPTERS.filter((c) => this.forSale(c));
+    const levels = paid.reduce((n, c) => n + c.levels.length, 0);
+    $('unlock-what').textContent = paid.length
+      ? `Chapters ${chapterNumber(paid[0])}–${chapterNumber(paid[paid.length - 1])}: ${levels} more levels, from ${paid[0].name} to ${paid[paid.length - 1].name}, and every chapter still to come.`
+      : 'Every chapter is open.';
+    const buy = $<HTMLButtonElement>('unlock-buy');
+    buy.disabled = owned || !b.available;
+    buy.innerHTML = owned ? 'UNLOCKED' : `UNLOCK${b.price ? ` · ${escapeHtml(b.price)}` : ''} <kbd>Enter</kbd>`;
+    $<HTMLButtonElement>('unlock-restore').disabled = owned || !b.available;
+    $('unlock-note').textContent = owned
+      ? 'Thank you! Every chapter is open.'
+      : b.pending
+        ? 'Your purchase is waiting on payment. Every chapter opens as soon as it goes through.'
+        : b.available
+          ? 'One payment through Google Play. No ads, ever.'
+          : 'Google Play is not reachable right now. Check the connection and try again.';
+    this.show('unlock');
+  }
+
+  /** Shows the buttons that share the last collapse's clip, once it's ready. */
+  setClip(ready: boolean): void {
+    for (const b of document.querySelectorAll<HTMLElement>('.clip-share')) b.classList.toggle('hidden', !ready);
+  }
+
+  /** The pause menu's vibration switch, on devices that can vibrate. */
+  setHaptics(can: boolean, on: boolean): void {
+    const b = $('pause-haptics');
+    b.classList.toggle('hidden', !can);
+    b.textContent = `VIBRATION: ${on ? 'ON' : 'OFF'}`;
+    b.setAttribute('aria-pressed', String(on));
+  }
+
+  /** The Play Games bar over the leaderboards, in the Android app. */
+  playGames(s: GamesStatus): void {
+    $('pgs-bar').classList.toggle('hidden', !s.available);
+    $('pgs-signin').classList.toggle('hidden', s.signedIn);
+    for (const id of ['pgs-boards', 'pgs-achievements']) $(id).classList.toggle('hidden', !s.signedIn);
+    $('pgs-who').textContent = s.signedIn ? `Google Play Games${s.player ? `: ${s.player}` : ''}` : 'Google Play Games';
   }
 
   collapse(reason: string, lives: number | null, maxLives: number, playtest = false): void {

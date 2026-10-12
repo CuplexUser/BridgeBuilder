@@ -98,16 +98,18 @@ Let the optimizer teach:
 
 ## P4: Platforms and tech
 
-- [ ] **Desktop and Android from one codebase.** Keep a single game codebase and add two build targets rather than forking:
-  - **Desktop:** the web build, optionally packaged with Tauri or Electron. Full keyboard and mouse, denser UI, and room for larger levels.
-  - **Android:** the same web build wrapped with Capacitor, with a touch-first UI profile, native storage, and app-store packaging.
-  - Put platform differences (input, UI density, storage, level caps) behind one small `platform` module.
+- [x] **Desktop and Android from one codebase.** One game, three builds, with every difference behind `src/platform.ts`:
+  - **Desktop:** the web build in Electron (`npm run desktop`, `desktop:dist` for a Windows installer and portable .exe). It serves `dist/` from an `app://` origin, keeps saves in the app's data folder, remembers the window, saves levels and clips through a save dialog, and goes full screen on F11.
+  - **Android:** the web build in Capacitor, as before, now with haptics, clips, Play Games and the store (below).
+  - **UI profiles:** `touch` (the app, phones and tablets) hides key hints and keeps finger-sized targets; `desktop` shows keys and, on wide screens, tightens buttons and the toolbar. The stylesheet follows `data-ui` rather than guessing from hover.
+  - **Level caps:** levels may be 96 m wide (they were 64). The editor grows them that far on desktop and stops at 64 m on touch devices; a wider level edited on a phone keeps its width.
 - [ ] Profile physics on the 30 m+ levels on low-end phones. If needed, lower substeps adaptively, or move the simulation to a worker.
 - [x] **End-to-end smoke test** (`npm run smoke`): a headless Chrome or Edge builds 1-1 with the keyboard, tests it, and checks the result screen and leaderboards, against its own dev server and database.
 - [x] **Batched member painting.** Measured first: with the CPU slowed 4×, a test drive on 9-5 spent 1.4 ms of a 21 ms frame on the static scenery (hills, trees, banks), so caching it wasn't worth it, and 11 ms painting members a few strokes at a time. Members and joints are now painted a few strokes per material and shade, which brought that to under 5 ms. Physics is most of what's left.
-- [ ] **Android extras.** The Play upload still waits on account verification.
-  - **Haptics synced to stress:** a light buzz as members creak, a hard pulse when something snaps (Capacitor Haptics).
-  - **Collapse clip export:** record the last seconds of the canvas with MediaRecorder and share the video through the share sheet. Collapses are the best marketing material.
-  - **Play Games Services:** achievements, cloud save and sign-in, so Android players reach the server leaderboards without the name-based profile.
-  - **Monetization:** the first two or three chapters free, then a one-time unlock for the rest and future chapters. No ads while building; they kill a puzzle game's flow.
+- [x] **Android extras.**
+  - **Haptics synced to stress:** a light buzz as members creak (quicker near breaking), a hard pulse when something snaps or an anchor tears out, and a long one when the bridge goes down. A switch in the pause menu turns them off.
+  - **Collapse clip export:** every test drive is recorded into a 1280 px MP4 with the game's sound and a caption naming the level. While nothing has broken, the recording restarts every 12 s, so a clip is the lead-in and the whole collapse. SHARE THE CLIP (S) opens the share sheet, a save dialog on desktop, or a download. Works in every build, not only Android.
+  - **Play Games Services:** sign-in at launch, 21 achievements (progress-based ones come back on a new phone), leaderboards for career, stars and each chapter's challenge, and a cloud save merged level by level with the phone's. A fresh install plays under the Play Games name without a profile screen. Google's own leaderboards stand in for the server boards, which the app never reached.
+  - **Monetization:** chapters 1–3 free, then one in-app product (`full_game`) for the rest and every chapter to come, through Play Billing. Locked chapters say FULL GAME; no ads. Web and desktop stay free.
+- [ ] **Play Console setup and a phone test**, once the account is verified: create the Play Games achievements and leaderboards from `games-ids.xml` and paste in their ids, turn on saved games, add the `full_game` product, then check haptics, sign-in, the cloud save, a license-tester purchase and a restore on a real phone. Until `app_id` is filled in, Play Games stays off.
 - [x] **Save format versioning.** Designs carry a version, and a saved design is fitted to a changed level instead of discarded: what no longer fits comes off and the player is told, and an over-budget bridge loads for trimming.

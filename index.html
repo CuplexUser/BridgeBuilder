@@ -84,9 +84,10 @@
           <span id="title-engineer"></span>
           <button class="link-btn" data-act="profiles">Switch engineer</button>
         </div>
+        <button class="link-btn title-unlock hidden" id="title-unlock" data-act="unlock">Unlock the full game</button>
       </div>
       <div class="controls-hint">
-        <span><b>Drag</b> from a bolt to build</span><span><b>Tap</b> a beam to remove</span><span><b>T</b> test</span><span><b>Arrows + Space</b> build by keyboard</span>
+        <span><b>Drag</b> from a bolt to build</span><span><b>Tap</b> a beam to remove</span><span class="key-only"><b>T</b> test</span><span class="key-only"><b>Arrows + Space</b> build by keyboard</span>
       </div>
       <p class="app-version" id="app-version"></p>
     </section>
@@ -155,6 +156,12 @@
           <button class="tab" role="tab" data-act="board" data-board="chapter" id="tab-chapter">CHAPTER</button>
           <button class="tab" role="tab" data-act="board" data-board="levels" id="tab-levels">LEVELS</button>
           <button class="tab" role="tab" data-act="board" data-board="challenge" id="tab-challenge">CHALLENGES</button>
+        </div>
+        <div class="pgs-bar hidden" id="pgs-bar">
+          <span id="pgs-who">Google Play Games</span>
+          <button class="btn small" id="pgs-signin" data-act="pgs-signin">SIGN IN</button>
+          <button class="btn small hidden" id="pgs-boards" data-act="pgs-boards">LEADERBOARDS</button>
+          <button class="btn small hidden" id="pgs-achievements" data-act="pgs-achievements">ACHIEVEMENTS</button>
         </div>
         <div class="chapter-pills" id="board-chapters"></div>
         <p class="board-note" id="board-note"></p>
@@ -334,6 +341,7 @@
           <button class="btn primary" data-act="resume">RESUME <kbd>Esc</kbd></button>
           <button class="btn" data-act="retry" id="pause-retry">BACK TO DRAWING BOARD <kbd>R</kbd></button>
           <button class="btn" data-act="quit" id="pause-quit">QUIT TO MENU <kbd>Q</kbd></button>
+          <button class="btn hidden" data-act="haptics" id="pause-haptics" aria-pressed="true">VIBRATION: ON</button>
         </div>
         <div class="keys">
           <div><kbd>Drag</kbd> build from a node</div>
@@ -346,6 +354,21 @@
           <div><kbd>T</kbd> test · <kbd>M</kbd> mute</div>
           <div><kbd>I</kbd> goals and rules</div>
         </div>
+      </div>
+    </section>
+
+    <!-- The full game: the chapters past the free ones, bought once (Android app) -->
+    <section id="scr-unlock" class="screen dim hidden">
+      <div class="panel confirm unlock">
+        <div class="unlock-kicker">FULL GAME</div>
+        <h2>Keep building</h2>
+        <p class="unlock-what" id="unlock-what"></p>
+        <p class="muted" id="unlock-note"></p>
+        <div class="row">
+          <button class="btn" data-act="unlock-close">NOT NOW <kbd>Esc</kbd></button>
+          <button class="btn primary" data-act="buy" id="unlock-buy">UNLOCK <kbd>Enter</kbd></button>
+        </div>
+        <button class="link-btn" data-act="restore" id="unlock-restore">Bought it already? Restore the purchase</button>
       </div>
     </section>
 
@@ -415,6 +438,7 @@
         <div id="col-lives" class="lives big"></div>
         <p id="col-note" class="muted"></p>
         <button class="link-btn stress-link" data-act="stress">Where did it fail? Stress graph <kbd>G</kbd></button>
+        <button class="btn small clip-share hidden" data-act="share-clip" title="A video of the collapse, to share">SHARE THE CLIP <kbd>S</kbd></button>
         <div class="row">
           <button class="btn" data-act="quit" id="col-quit">MENU <kbd>Esc</kbd></button>
           <button class="btn primary" data-act="retry">RETRY <kbd>R</kbd></button>
@@ -430,6 +454,7 @@
         <p class="muted" id="over-sub"></p>
         <p id="over-rank" class="over-rank"></p>
         <table class="scores small"><tbody id="over-rows"></tbody></table>
+        <button class="btn small clip-share hidden" data-act="share-clip" title="A video of the collapse, to share">SHARE THE CLIP <kbd>S</kbd></button>
         <div class="row">
           <button class="btn" data-act="quit" id="col-quit">MENU <kbd>Esc</kbd></button>
           <button class="btn primary" data-act="restart">TRY AGAIN <kbd>R</kbd></button>

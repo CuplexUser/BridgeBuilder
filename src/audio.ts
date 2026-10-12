@@ -4,6 +4,9 @@ import type { MaterialId } from './physics/materials';
 export class Sfx {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
+  /** The mix after the compressor, as heard: what a recording taps. */
+  private out: AudioNode | null = null;
+  private tap: MediaStreamAudioDestinationNode | null = null;
   private noise: AudioBuffer | null = null;
   private engine: { osc: OscillatorNode; osc2: OscillatorNode; gain: GainNode; filter: BiquadFilterNode } | null = null;
   private lastCreak = 0;
@@ -22,10 +25,21 @@ export class Sfx {
     this.master.gain.value = this.muted ? 0 : 0.55;
     const comp = this.ctx.createDynamicsCompressor();
     this.master.connect(comp).connect(this.ctx.destination);
+    this.out = comp;
     const len = this.ctx.sampleRate;
     this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
     const d = this.noise.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  }
+
+  /** The game's sound as a stream, for a recording to carry. Null until audio has started. */
+  stream(): MediaStream | null {
+    if (!this.ctx || !this.out) return null;
+    if (!this.tap) {
+      this.tap = this.ctx.createMediaStreamDestination();
+      this.out.connect(this.tap);
+    }
+    return this.tap.stream;
   }
 
   setMuted(m: boolean): void {

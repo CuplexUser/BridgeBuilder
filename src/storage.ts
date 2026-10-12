@@ -152,7 +152,7 @@ export function insertHigh(highs: HighScore[], entry: HighScore): number {
 
 // ───────────────────────────── Local (browser) ─────────────────────────────
 
-interface LocalData {
+export interface LocalData {
   profiles: { id: string; name: string; created: string }[];
   progress: Record<string, Progress>;
   highs: HighScore[];
@@ -255,6 +255,26 @@ export class LocalStore implements Store {
     return (p && d.progress[p.id]?.best[level]?.design) ?? null;
   }
 
+  /** Everything this store keeps, for a cloud save. */
+  snapshot(): string {
+    return JSON.stringify(this.read());
+  }
+
+  /** Merges a cloud save into this store. Returns true if anything here changed. */
+  mergeSnapshot(json: string): boolean {
+    let other: Partial<LocalData>;
+    try {
+      other = JSON.parse(json) as Partial<LocalData>;
+    } catch {
+      return false;
+    }
+    const before = this.read();
+    const merged = mergeLocalData(before, { profiles: other.profiles ?? [], progress: other.progress ?? {}, highs: other.highs ?? [] });
+    if (JSON.stringify(merged) === JSON.stringify(before)) return false;
+    this.write(merged);
+    return true;
+  }
+
   async submitScore(profileId: string, score: number, levels: number, chapter: number): Promise<number> {
     const d = this.read();
     const p = d.profiles.find((x) => x.id === profileId);
@@ -266,6 +286,56 @@ export class LocalStore implements Store {
     this.write(d);
     return rank;
   }
+}
+
+/**
+ * Merges two devices' saves, such as this phone's and the Play Games cloud save, losing nothing:
+ * profiles are matched by name, each level keeps its better result, designs and hints already
+ * here stay, and the challenge boards keep the best runs from both. Profiles keep this device's ids.
+ */
+export function mergeLocalData(here: LocalData, there: LocalData): LocalData {
+  const out: LocalData = { profiles: [...here.profiles], progress: { ...here.progress }, highs: [...here.highs] };
+  for (const p of there.profiles) {
+    const mine = out.profiles.find((x) => x.name.toLowerCase() === p.name.toLowerCase());
+    const theirs = there.progress[p.id];
+    if (!mine) {
+      out.profiles.push(p);
+      if (theirs) out.progress[p.id] = theirs;
+      continue;
+    }
+    if (theirs) out.progress[mine.id] = mergeProgress(out.progress[mine.id] ?? blankProgress(), theirs);
+  }
+  const key = (h: HighScore) => `${h.chapter ?? 0}|${h.name.toLowerCase()}|${h.score}|${h.levels}|${h.date}`;
+  const seen = new Set(out.highs.map(key));
+  for (const h of there.highs) if (!seen.has(key(h))) out.highs.push(h);
+  // Each chapter's board keeps its own top runs.
+  const byChapter = new Map<number, HighScore[]>();
+  for (const h of out.highs) byChapter.set(h.chapter ?? 0, [...(byChapter.get(h.chapter ?? 0) ?? []), h]);
+  out.highs = [...byChapter.values()].flatMap((board) => board.toSorted((a, b) => b.score - a.score).slice(0, MAX_HIGHS));
+  return out;
+}
+
+function mergeProgress(here: Progress, there: Progress): Progress {
+  const best: Record<number, BestEntry> = { ...here.best };
+  for (const [id, b] of Object.entries(there.best ?? {})) {
+    const a = best[Number(id)];
+    if (!a) {
+      best[Number(id)] = b;
+      continue;
+    }
+    // The better run's details go with its score; stars and the bonus are kept from either.
+    const top = b.score > a.score ? b : a;
+    best[Number(id)] = { ...top, stars: Math.max(a.stars, b.stars), ...(a.bonus || b.bonus ? { bonus: true } : {}) };
+  }
+  // Hints taken on either device count against the level's scores.
+  const hints: Record<number, number[]> = { ...here.hints };
+  for (const [id, list] of Object.entries(there.hints ?? {})) if (list.length > (hints[Number(id)]?.length ?? 0)) hints[Number(id)] = list;
+  return {
+    best,
+    unlocked: Math.max(here.unlocked ?? 1, there.unlocked ?? 1),
+    designs: { ...there.designs, ...here.designs },
+    ...(Object.keys(hints).length ? { hints } : {}),
+  };
 }
 
 let deviceKv: KeyValue | null = null;
@@ -360,6 +430,8 @@ export interface Prefs {
   profileId: string | null;
   /** How the chapters screen was last shown: the map of every level, or the chapter book. */
   chaptersView?: 'map' | 'book';
+  /** Haptics on devices that can buzz; on unless turned off. */
+  haptics?: boolean;
 }
 
 export function loadPrefs(): Prefs {

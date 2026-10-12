@@ -8,6 +8,9 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // The game's own plugins register before the bridge starts.
+        registerPlugin(PlayGamesPlugin.class);
+        registerPlugin(PlayBillingPlugin.class);
         super.onCreate(savedInstanceState);
         // Draw behind the system bars on every Android version, as Capacitor's SystemBars docs advise.
         // The page keeps its HUD clear of them with env(safe-area-inset-*).

@@ -96,12 +96,12 @@ kbd {
   vertical-align: 1px;
 }
 
-@media (hover: none) {
-  .btn kbd,
-  .go-btn kbd,
-  .mat kbd {
-    display: none;
-  }
+/* Key hints are for keyboards: the touch profile (platform.ts) leaves them out. */
+[data-ui='touch'] .btn kbd,
+[data-ui='touch'] .go-btn kbd,
+[data-ui='touch'] .mat kbd,
+[data-ui='touch'] .link-btn kbd {
+  display: none;
 }
 
 /* ───────── HUD ───────── */
@@ -1282,8 +1282,21 @@ kbd {
   color: var(--gold);
 }
 
-.map-head.locked {
+.map-head.locked,
+.map-head.for-sale .map-title {
   opacity: 0.45;
+}
+
+/* Marks a chapter of the full game, and opens the offer. */
+.full-tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 3px 7px;
+  border-radius: 6px;
+  color: #2a1d00;
+  background: var(--gold);
 }
 
 .map-head .btn.ch-challenge {
@@ -2172,10 +2185,8 @@ h2 {
   color: var(--chalk);
 }
 
-@media (hover: none) {
-  .keys {
-    display: none;
-  }
+[data-ui='touch'] .keys {
+  display: none;
 }
 
 /* Result */
@@ -2920,5 +2931,83 @@ label.btn {
   }
   .ws-btns .btn {
     flex: 1;
+  }
+}
+
+/* ───────── Platform extras ───────── */
+
+/* Keyboard-only hints, such as the title's key list. */
+[data-ui='touch'] .key-only {
+  display: none;
+}
+
+.title-unlock {
+  margin-top: 6px;
+  color: var(--gold);
+}
+
+.ch-lock.sale {
+  color: var(--gold);
+}
+
+/* Over the leaderboards in the Android app: the player's Play Games boards and achievements. */
+.pgs-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 10px;
+  margin: 4px 0 10px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.panel .clip-share {
+  margin: 4px auto 0;
+  display: block;
+}
+
+.unlock-kicker {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--gold);
+}
+
+.unlock-what {
+  margin: 10px 0 6px;
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.panel.unlock .link-btn {
+  margin-top: 8px;
+}
+
+/*
+ * Desktop: a mouse needs smaller targets than a finger, so on a big screen the menus and the
+ * toolbar tighten up and leave more of the screen to the bridge.
+ */
+@media (min-width: 900px) {
+  [data-ui='desktop'] .btn {
+    min-height: 42px;
+    padding: 8px 16px;
+  }
+  [data-ui='desktop'] .btn.small {
+    min-height: 30px;
+    padding: 5px 11px;
+  }
+  [data-ui='desktop'] .icon-btn {
+    width: 38px;
+    height: 38px;
+  }
+  [data-ui='desktop'] .mat {
+    width: 64px;
+    height: 50px;
+  }
+  [data-ui='desktop'] .go-btn {
+    min-height: 50px;
+    font-size: 16px;
   }
 }

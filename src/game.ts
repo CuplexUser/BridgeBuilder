@@ -29,7 +29,10 @@ import { DebrisField, Particles, PK, Shake } from './fx/particles';
 import { bankY, goalX, LEVELS, START_X, type LevelDef } from './levels';
 import { MATERIALS, type MaterialId } from './physics/materials';
 import { marchAccel, quakeAccel, STEP, TestRun, windGust } from './physics/world';
-import { copyText, exportFile } from './platform';
+import { billing, canVibrate, copyText, exportFile, games, hasPaywall, shareVideo, vibrate, type BillingStatus } from './platform';
+import { PlayGamesLink } from './playgames';
+import { HapticFeel } from './haptics';
+import { ClipRecorder } from './clip';
 import { Camera, type Rect } from './render/camera';
 import { MATERIAL_CHALK, PAL } from './render/palette';
 import { Renderer, type FloatText, type SceneView } from './render/renderer';
@@ -44,6 +47,7 @@ import {
   continueLevel,
   crossed,
   highestUnlocked,
+  inFullGame,
   levelById,
   levelCode,
   levelUnlocked,
@@ -55,7 +59,7 @@ import {
 import { bonusLabel, HINT_PENALTY, scoreLevel, type LevelScore } from './scoring';
 import { efficiency, IDLE_LOAD } from './efficiency';
 import { bestKnown, costReview, ghosts, nextHint, type Ghost } from './review';
-import { bestPerLevel, blankProgress, loadPrefs, rankProfiles, savePrefs, type Prefs, type Profile, type Progress, type Store } from './storage';
+import { bestPerLevel, blankProgress, loadPrefs, LocalStore, rankProfiles, safeLocalStorage, savePrefs, type Prefs, type Profile, type Progress, type Store } from './storage';
 import { SOLUTIONS } from './solutions';
 import { TunePool } from './tunepool';
 import { StressGraph, type GraphPick } from './ui/graph';
@@ -69,6 +73,10 @@ const MAX_LIVES = 5;
 const START_LIVES = 3;
 const RESULT_DELAY = 1.5;
 const COLLAPSE_DELAY = 1.7;
+/** A collapse clip runs on this long after the collapse card comes up, ms. */
+const CLIP_TAIL = 1200;
+/** Where the app remembers that the full game was bought, for when Google Play can't be asked. */
+const OWNED_KEY = 'bridgebuilder.fullgame';
 
 /** The level editor's bolt preview never places members, so it ignores editor events. */
 const NO_EVENTS = { place() {}, remove() {}, invalid() {} };
@@ -128,6 +136,18 @@ export class Game {
   private graphOpen = false;
   private pick: GraphPick | null = null;
   private graph = new StressGraph(document.getElementById('stress-canvas') as HTMLCanvasElement);
+
+  // Platform extras: haptics, collapse clips, Play Games and the full-game unlock.
+  private haptics = new HapticFeel(vibrate);
+  private clip = ClipRecorder.create(() => sfx.stream());
+  private playGames: PlayGamesLink;
+  /** The full game is bought, where there's a paywall at all. */
+  private owned = false;
+  private billing: BillingStatus = { available: false, owned: false };
+  /** The full-game offer is open over this screen. */
+  private unlockFrom: ScreenId | null = null;
+  /** A life was lost in the challenge running, which rules out a flawless finish. */
+  private lifeLost = false;
 
   // Level editor.
   private makerUi = new MakerUi();
@@ -222,9 +242,12 @@ export class Game {
   constructor(canvas: HTMLCanvasElement, store: Store) {
     this.canvas = canvas;
     this.store = store;
+    this.playGames = new PlayGamesLink(store instanceof LocalStore ? store : null);
     this.renderer = new Renderer(canvas, this.cam, this.particles, this.debris);
     sfx.muted = this.prefs.muted;
     this.ui.setMuted(this.prefs.muted);
+    this.haptics.enabled = this.prefs.haptics !== false;
+    this.ui.forSale = (c) => this.forSale(c);
     this.ui.fps.classList.toggle('hidden', !this.debug);
     this.bindInput();
     this.onResize();
@@ -238,6 +261,47 @@ export class Game {
     const last = list.find((p) => p.id === this.prefs.profileId);
     if (last) await this.useProfile(last.name);
     else this.enterProfiles(list);
+    void this.startServices();
+  }
+
+  /**
+   * The store and Play Games, in the Android app. Neither holds the game up: each answers when it
+   * can, and the game carries on without them.
+   */
+  private async startServices(): Promise<void> {
+    if (hasPaywall) {
+      this.owned = safeLocalStorage()?.getItem(OWNED_KEY) === '1';
+      billing.onChange((s) => this.setBilling(s, true));
+      void billing.status().then((s) => this.setBilling(s));
+    }
+    this.flushSave();
+    if (await this.playGames.start()) await this.afterCloudSave();
+    else await this.adoptPlayer();
+    if (this.profile) this.playGames.progress(this.data.best);
+  }
+
+  /** The cloud save changed what's on this device: reread the open profile, or the list to pick from. */
+  private async afterCloudSave(): Promise<void> {
+    if (this.profile) {
+      this.data = await this.store.loadProgress(this.profile.id);
+      if (this.state === 'title') this.enterTitle();
+      else if (this.state === 'chapters') this.showChapters();
+      this.ui.showToast('Progress from Google Play Games is here.');
+    } else await this.adoptPlayer();
+  }
+
+  /**
+   * A Play Games player on a fresh install plays under their Play Games name, without picking a
+   * profile. Profiles that came with the cloud save are offered as usual.
+   */
+  private async adoptPlayer(): Promise<void> {
+    const player = this.playGames.status.player;
+    if (this.profile || this.state !== 'profile' || !player) return;
+    const list = await this.store.listProfiles().catch(() => [] as Profile[]);
+    const last = list.find((p) => p.id === this.prefs.profileId);
+    if (last) await this.useProfile(last.name);
+    else if (!list.length) await this.useProfile(player);
+    else this.ui.profiles(list, this.store.kind);
   }
 
   private async enterProfiles(list?: Profile[]): Promise<void> {
@@ -273,6 +337,8 @@ export class Game {
     clearTimeout(this.saveTimer);
     if (!this.profile) return;
     this.store.saveProgress(this.profile.id, this.data).catch(() => this.ui.showToast('Could not save progress.'));
+    this.playGames.progress(this.data.best);
+    this.playGames.saveSoon();
   }
 
   get level(): LevelDef {
@@ -304,6 +370,7 @@ export class Game {
     this.briefing = false;
     this.hideGraph();
     this.stopEngine();
+    this.clip?.cancel();
     this.editor = null;
     this.customLevel = null;
     this.channelFrom = null;
@@ -379,6 +446,10 @@ export class Game {
 
   /** Free play: any open level, starting from your saved design. */
   private playLevel(id: number): void {
+    if (this.forSale(chapterOf(id))) {
+      this.offerFullGame();
+      return;
+    }
     if (!levelUnlocked(id, this.data.best)) {
       sfx.invalid();
       return;
@@ -390,6 +461,10 @@ export class Game {
 
   /** A finished chapter played again in a row, from blank designs, with lives: one score for the board. */
   private startChallenge(ch: ChapterDef): void {
+    if (this.forSale(ch)) {
+      this.offerFullGame();
+      return;
+    }
     if (!chapterComplete(ch, this.data.best)) {
       sfx.invalid();
       this.ui.showToast(`Finish every level in ${ch.name} to unlock its challenge.`);
@@ -397,6 +472,7 @@ export class Game {
     }
     this.mode = 'challenge';
     this.chapter = ch;
+    this.lifeLost = false;
     this.lives = START_LIVES;
     this.runScore = 0;
     this.levelsCleared = 0;
@@ -1150,6 +1226,9 @@ export class Game {
     this.ui.testBtn.classList.remove('pulse');
     this.hoverMember = this.hoverNode = -1;
     this.fitCamera(false);
+    // Recorded in case it comes down: the collapse card offers the clip.
+    this.clip?.start(this.canvas, `${this.codeOf(this.level)} ${this.level.name.toUpperCase()}`);
+    this.ui.setClip(false);
     sfx.whoosh();
     sfx.engineStart(this.engineBase());
   }
@@ -1162,6 +1241,7 @@ export class Game {
     }
     this.hideGraph();
     this.stopEngine();
+    this.clip?.cancel();
     this.run = null;
     this.state = 'build';
     this.paused = false;
@@ -1187,6 +1267,7 @@ export class Game {
       // A playtest scores like any level, but nothing goes on the career or the boards.
       const s = scoreLevel(level, this.editor!.design, run.peakStress);
       this.persistDesign();
+      this.playGames.moment('playtest');
       this.state = 'result';
       this.stopEngine();
       this.ui.result(level, s, run.peakStress, 'PLAYTEST · NOT ON YOUR CAREER', true, 'EDIT LEVEL', this.review(level, run, true));
@@ -1249,7 +1330,13 @@ export class Game {
   private finishCollapse(): void {
     this.state = 'collapse';
     this.stopEngine();
+    this.playGames.moment('collapse');
+    this.ui.setClip(false);
+    void this.clip?.finish(CLIP_TAIL).then((clip) => {
+      if (clip && (this.state === 'collapse' || this.state === 'over')) this.ui.setClip(true);
+    });
     if (this.mode === 'challenge') {
+      this.lifeLost = true;
       this.lives--;
       this.ui.setLives(this.lives, MAX_LIVES, 'lost');
       if (this.lives <= 0) {
@@ -1279,6 +1366,10 @@ export class Game {
     if (victory) sfx.success();
     else sfx.gameOver();
     this.ui.over(victory, this.runScore, this.levelsCleared, this.chapter);
+    if (victory) {
+      this.playGames.moment('challenge');
+      if (!this.lifeLost) this.playGames.moment('flawless');
+    }
     this.ui.challengeTable([], 'over-rows', this.profile?.name ?? '');
     if (victory) this.confetti(this.cam.wx(this.renderer.w / 2), this.cam.wy(this.renderer.h * 0.3), 120);
     void this.recordRun();
@@ -1289,6 +1380,7 @@ export class Game {
     if (!this.profile) return;
     const chapter = challengeBoard(this.chapter.id);
     try {
+      this.playGames.challenge(this.chapter, this.runScore);
       const rank = await this.store.submitScore(this.profile.id, this.runScore, this.levelsCleared, chapter);
       const highs = await this.store.highScores(chapter);
       if (this.state !== 'over') return;
@@ -1304,6 +1396,7 @@ export class Game {
     this.leavePlay();
     this.state = 'scores';
     this.ui.show('scores');
+    this.ui.playGames(this.playGames.status);
     this.showBoard(this.board);
   }
 
@@ -1339,6 +1432,7 @@ export class Game {
     if (this.mode !== 'challenge' || this.runScore <= 0 || !this.profile) return;
     const score = this.runScore;
     this.runScore = 0;
+    this.playGames.challenge(this.chapter, score);
     try {
       const rank = await this.store.submitScore(this.profile.id, score, this.levelsCleared, challengeBoard(this.chapter.id));
       this.ui.showToast(rank >= 0 ? `Challenge banked: ${score.toLocaleString('en-US')} points, #${rank + 1} on the board.` : `Challenge banked: ${score.toLocaleString('en-US')} points.`, 3200);
@@ -1353,13 +1447,45 @@ export class Game {
     if (p) this.closeBrief();
     if (p === this.paused) return;
     this.paused = p;
-    if (p) this.ui.pauseMenu(this.state === 'test', this.mode === 'custom');
+    if (p) {
+      this.ui.pauseMenu(this.state === 'test', this.mode === 'custom');
+      this.ui.setHaptics(canVibrate, this.haptics.enabled);
+    }
     this.ui.show(p ? 'pause' : null);
     if (p) this.editor?.cancel();
     if (this.state === 'test' && this.run?.status === 'running') {
       if (p) sfx.engineStop();
       else sfx.engineStart(this.engineBase());
     }
+  }
+
+  private toggleHaptics(): void {
+    this.haptics.enabled = !this.haptics.enabled;
+    this.prefs.haptics = this.haptics.enabled;
+    savePrefs(this.prefs);
+    this.ui.setHaptics(canVibrate, this.haptics.enabled);
+    if (this.haptics.enabled) vibrate('heavy');
+    sfx.ui();
+  }
+
+  /** Shares the clip of the last collapse through the share sheet, or saves it. */
+  private async shareClip(): Promise<void> {
+    const clip = this.clip?.clip;
+    if (!clip || !this.clip) return;
+    const name = `bridge-builder-${this.codeOf(this.level).toLowerCase()}-collapse.${this.clip.extension}`;
+    try {
+      await shareVideo(name, clip);
+    } catch {
+      this.ui.showToast('Could not share the clip.');
+    }
+  }
+
+  /** Signs in to Play Games from the leaderboards, pulling in the cloud save as it does. */
+  private async signInPlayGames(): Promise<void> {
+    if (await this.playGames.signIn()) await this.afterCloudSave();
+    if (this.state === 'scores') this.ui.playGames(this.playGames.status);
+    if (this.playGames.signedIn) this.playGames.progress(this.data.best);
+    else this.ui.showToast('Not signed in to Google Play Games.');
   }
 
   private toggleMute(): void {
@@ -1381,11 +1507,74 @@ export class Game {
     this.persist();
   }
 
+  // ───────────────────────────── Full game ─────────────────────────────
+
+  /** A chapter past the free ones in a build with a paywall, while the full game isn't bought. */
+  private forSale(ch: ChapterDef): boolean {
+    return hasPaywall && !this.owned && inFullGame(ch);
+  }
+
+  /**
+   * What Google Play says about the full game. Play is believed whenever it answers; when it
+   * can't be reached, the last answer stands, so a bought game stays open offline.
+   */
+  private setBilling(s: BillingStatus, announce = false): void {
+    this.billing = s;
+    if (s.available && s.owned !== this.owned) {
+      this.owned = s.owned;
+      try {
+        safeLocalStorage()?.setItem(OWNED_KEY, s.owned ? '1' : '0');
+      } catch {
+        // Play is asked again next time.
+      }
+      if (s.owned && announce) {
+        sfx.star(2);
+        this.ui.showToast('Full game unlocked. Every chapter is open.', 3200);
+      }
+      if (this.state === 'chapters') this.showChapters();
+      else if (this.state === 'title') this.enterTitle();
+    }
+    if (this.unlockFrom) this.ui.unlockOffer(this.billing, this.owned);
+  }
+
+  /** Shows what the full game opens and its price, over the current screen. */
+  private offerFullGame(): void {
+    sfx.ui();
+    this.unlockFrom ??= this.ui.current ?? 'title';
+    this.ui.unlockOffer(this.billing, this.owned);
+    // The price may not have arrived yet, and Play may have come back since.
+    void billing.status().then((s) => this.setBilling(s));
+  }
+
+  private closeOffer(): void {
+    if (!this.unlockFrom) return;
+    this.ui.show(this.unlockFrom);
+    this.unlockFrom = null;
+  }
+
+  private async buyFullGame(restore: boolean): Promise<void> {
+    if (this.owned) {
+      this.closeOffer();
+      return;
+    }
+    try {
+      const s = await (restore ? billing.restore() : billing.buy());
+      this.setBilling(s, true);
+      if (s.owned) this.closeOffer();
+      else if (s.pending) this.ui.showToast('The purchase is waiting on payment. Every chapter opens as soon as it goes through.', 4500);
+      else if (restore) this.ui.showToast('No purchase of the full game on this Google account.', 3200);
+    } catch (e) {
+      sfx.invalid();
+      this.ui.showToast(e instanceof Error && e.message ? e.message : 'Google Play could not be reached.', 3200);
+    }
+  }
+
   // ───────────────────────────── Actions ─────────────────────────────
 
   /** Opens a chapter's level list, or explains what unlocks it. */
   private openChapter(ch: ChapterDef): void {
-    if (chapterUnlocked(ch, this.data.best)) {
+    if (this.forSale(ch)) this.offerFullGame();
+    else if (chapterUnlocked(ch, this.data.best)) {
       sfx.select();
       this.enterChapter(ch);
     } else {
@@ -1508,6 +1697,40 @@ export class Game {
       case 'restart':
         sfx.select();
         this.startChallenge(this.chapter);
+        break;
+      case 'share-clip':
+        sfx.ui();
+        void this.shareClip();
+        break;
+      case 'unlock':
+        this.offerFullGame();
+        break;
+      case 'buy':
+        sfx.select();
+        void this.buyFullGame(false);
+        break;
+      case 'restore':
+        sfx.ui();
+        void this.buyFullGame(true);
+        break;
+      case 'unlock-close':
+        sfx.ui();
+        this.closeOffer();
+        break;
+      case 'haptics':
+        this.toggleHaptics();
+        break;
+      case 'pgs-signin':
+        sfx.ui();
+        void this.signInPlayGames();
+        break;
+      case 'pgs-boards':
+        sfx.ui();
+        void games.showLeaderboards().catch(() => this.ui.showToast('Google Play Games could not be reached.'));
+        break;
+      case 'pgs-achievements':
+        sfx.ui();
+        void games.showAchievements().catch(() => this.ui.showToast('Google Play Games could not be reached.'));
         break;
       default:
         this.makerAct(a, el);
@@ -1775,6 +1998,8 @@ export class Game {
       this.particles.spawn(PK.Ring, b.x, b.y, 0, 0, 0.45, 2.2, '#ffffff');
       if (!this.demo) {
         sfx.crack(mat);
+        this.haptics.snap();
+        this.clip?.markBreak();
         this.shake.add(0.45);
         this.flash = Math.max(this.flash, 0.25);
         const word = b.link.crushed ? 'TOO HEAVY!' : mat === 'steel' || mat === 'ram' || mat === 'damper' ? 'CLANG!' : mat === 'cable' || mat === 'tendon' ? 'PING!' : mat === 'main' ? 'TWANG!' : mat === 'heavy' || mat === 'concrete' || mat === 'masonry' || mat === 'arch' ? 'CRACK!' : 'SNAP!';
@@ -1797,6 +2022,8 @@ export class Game {
       this.particles.burst(PK.Dust, x, y, 18, 2.4, 1.5, 0.4, ['#b9a88f', '#d8cbb4'], 1);
       if (!this.demo) {
         sfx.crack('heavy');
+        this.haptics.snap();
+        this.clip?.markBreak();
         this.shake.add(0.5);
         this.float(x, y + 1.2, 'PULLED OUT!', PAL.bad, 24, 0.9);
         if (!this.anyBreak) this.slowmo = 0.7;
@@ -1845,6 +2072,7 @@ export class Game {
       const s = Math.abs(l.stress);
       if (s > 0.7 && Math.random() < dt * 6 * s) {
         sfx.creak(s);
+        this.haptics.creak(s);
         const t = Math.random();
         this.particles.spawn(PK.Dust, w.x[l.a] + (w.x[l.b] - w.x[l.a]) * t, w.y[l.a] + (w.y[l.b] - w.y[l.a]) * t, (Math.random() - 0.5) * 0.4, -0.5, 0.8, 0.08, '#e8dcc8');
       }
@@ -1864,9 +2092,11 @@ export class Game {
           this.confetti(x, y + 3, 90);
           this.float(x - 2, y + 3.5, 'BRIDGE HOLDS!', PAL.ok, 30, 1.6);
           this.shake.add(0.2);
+          this.clip?.cancel();
         } else {
           sfx.fail();
           sfx.engineStop();
+          this.haptics.collapse();
         }
       }
       this.endTimer += dt;
@@ -2064,6 +2294,7 @@ export class Game {
       reviewHint: this.state === 'build' && this.mode === 'play' && this.hintsShown().length ? this.hintsShown().flatMap((i) => this.allGhosts()?.slice(i, i + 1) ?? []) : null,
       marks: this.state === 'build' && this.marks && this.marks.revision === this.editor?.revision ? this.marks : null,
     });
+    this.clip?.frame(this.canvas);
   }
 
   /** While a finger places something, a magnifier shows the point the finger hides. */
@@ -2197,6 +2428,7 @@ export class Game {
   suspend(): void {
     this.setPaused(true);
     this.flushSave();
+    this.playGames.flush();
   }
 
   /**
@@ -2204,6 +2436,10 @@ export class Game {
    * screen, and on the first-run profile screen, where back leaves the app.
    */
   back(): boolean {
+    if (this.unlockFrom) {
+      this.closeOffer();
+      return true;
+    }
     if (this.state === 'title') return false;
     if (this.state === 'profile') {
       if (!this.profile) return false;
@@ -2457,6 +2693,11 @@ export class Game {
       else if (lower === 'q') this.act('quit-confirm');
       return;
     }
+    if (this.unlockFrom) {
+      if (k === 'Escape' || k === 'Backspace') this.act('unlock-close');
+      else if (k === 'Enter') this.act('buy');
+      return;
+    }
 
     switch (this.state) {
       case 'title':
@@ -2510,7 +2751,8 @@ export class Game {
           return;
         }
         if (this.state === 'collapse') {
-          if (lower === 'r' || k === 'Enter' || k === ' ') {
+          if (lower === 's') this.act('share-clip');
+          else if (lower === 'r' || k === 'Enter' || k === ' ') {
             e.preventDefault();
             this.act('retry');
           } else if (k === 'Escape') this.act('quit');
@@ -2523,7 +2765,8 @@ export class Game {
         else if (k === 'Escape') this.act('quit');
         return;
       case 'over':
-        if (lower === 'r' || k === 'Enter') {
+        if (lower === 's') this.act('share-clip');
+        else if (lower === 'r' || k === 'Enter') {
           e.preventDefault();
           this.act('restart');
         } else if (k === 'Escape') this.act('quit');

@@ -205,6 +205,14 @@ export function chapterUnlocked(chapter: ChapterDef, best: BestMap): boolean {
   return i <= 0 || chapterComplete(CHAPTERS[i - 1], best) || chapter.levels.some((id) => crossed(best, id));
 }
 
+/** Chapters free to play, in play order, where the game has a paywall (the Android app). */
+export const FREE_CHAPTERS = 3;
+
+/** A chapter that the one-time unlock of the full game opens, past the free ones. */
+export function inFullGame(chapter: ChapterDef): boolean {
+  return CHAPTERS.indexOf(chapter) >= FREE_CHAPTERS;
+}
+
 /** Inside an open chapter, levels open one after another; a level once crossed stays open. */
 export function levelUnlocked(levelId: number, best: BestMap): boolean {
   if (crossed(best, levelId)) return true;

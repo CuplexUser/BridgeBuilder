@@ -5,6 +5,7 @@ import type { BonusGoal, LevelDef } from '../levels';
 import { FLOOD_CURRENT, LIMITS, makerIssues, makerWarnings, MAX_BLOCK_REACH, MAX_FLOOD, setSize, type MakerTool } from '../maker';
 import { MATERIAL_ORDER, MATERIALS, type MaterialId } from '../physics/materials';
 import { VEHICLES, type VehicleId } from '../physics/vehicles';
+import { levelCaps } from '../platform';
 import { THEMES } from '../render/themes';
 import { bonusLabel } from '../scoring';
 
@@ -187,6 +188,7 @@ export class MakerUi {
     put('mk-name', l.name);
     put('mk-tip', l.tip);
     put('mk-width', l.width);
+    $<HTMLInputElement>('mk-width').max = String(Math.max(levelCaps.maxWidth, l.width));
     put('mk-right', l.rightY ?? 0);
     put('mk-water', l.waterY);
     put('mk-vehicle', l.vehicle);
@@ -220,7 +222,7 @@ export class MakerUi {
   read(l: LevelDef): void {
     l.name = val('mk-name').trim().slice(0, 40) || 'My level';
     l.tip = val('mk-tip').trim().slice(0, 200);
-    setSize(l, n('mk-width', l.width), n('mk-right', l.rightY ?? 0), n('mk-water', l.waterY));
+    setSize(l, n('mk-width', l.width), n('mk-right', l.rightY ?? 0), n('mk-water', l.waterY), levelCaps.maxWidth);
     l.vehicle = val('mk-vehicle') as VehicleId;
     const convoy = FOLLOWERS.map((i) => val(`mk-convoy-${i}`)).filter(Boolean) as VehicleId[];
     if (convoy.length) l.convoy = convoy;

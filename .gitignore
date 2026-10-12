@@ -17,3 +17,5 @@ android/.idea/AndroidProjectSystem.xml
 android/.idea/migrations.xml
 android/.idea/misc.xml
 android/.idea/runConfigurations.xml
+# Desktop installers (npm run desktop:dist)
+release/

@@ -12,6 +12,7 @@ import {
   DEFAULT_PILE_PRICE,
   eraseAt,
   exportLevel,
+  LIMITS,
   loadCustom,
   makerIssues,
   makerWarnings,
@@ -113,6 +114,19 @@ describe('level editor', () => {
     expect(l.mud).toEqual([[6, 12, -2]]);
   });
 
+  it('stops growing a level at the size cap but keeps one already wider', () => {
+    const l = blankLevel(CUSTOM_ID_BASE);
+    setSize(l, 90, 0, l.waterY, 64);
+    expect(l.width).toBe(64);
+    setSize(l, 90, 0, l.waterY);
+    expect(l.width).toBe(90);
+    // A 90 m level from a desktop, edited on a phone: other settings change, the width stays.
+    setSize(l, 90, 0, -6, 64);
+    expect(l.width).toBe(90);
+    setSize(l, 200, 0, -6);
+    expect(l.width).toBe(LIMITS.maxWidth);
+  });
+
   it('plays an imported level like the original', () => {
     const level = parseLevel(exportLevel(L(31)), CUSTOM_ID_BASE);
     const d = SOLUTIONS[31](level);
@@ -121,8 +135,8 @@ describe('level editor', () => {
   });
 
   it('reads a bare LevelDef and clamps what is out of range', () => {
-    const l = parseLevel(JSON.stringify({ width: 400, anchors: [[0, 0], [70, 0], [3, -100], [2, 'x']], materials: ['road', 'unobtanium'], vehicle: 'tank', money: -5 }), 1001);
-    expect(l.width).toBe(64);
+    const l = parseLevel(JSON.stringify({ width: 400, anchors: [[0, 0], [100, 0], [3, -100], [2, 'x']], materials: ['road', 'unobtanium'], vehicle: 'tank', money: -5 }), 1001);
+    expect(l.width).toBe(LIMITS.maxWidth);
     expect(l.anchors).toEqual([[0, 0]]);
     expect(l.materials).toEqual(['road']);
     expect(l.vehicle).toBe('car');

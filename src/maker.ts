@@ -13,7 +13,8 @@ import { safeLocalStorage, type KeyValue } from './storage';
 
 /** Custom levels get ids from here up, clear of the built-in ones. */
 export const CUSTOM_ID_BASE = 1000;
-export const LIMITS = { minWidth: 4, maxWidth: 64, maxHeight: 24, minWater: -14, maxWater: -1, maxConvoy: 5, maxMoney: 1_000_000 };
+/** What a level may hold. The editor may stop short of `maxWidth` on a phone: see `levelCaps` in platform.ts. */
+export const LIMITS = { minWidth: 4, maxWidth: 96, maxHeight: 24, minWater: -14, maxWater: -1, maxConvoy: 5, maxMoney: 1_000_000 };
 /** Tag on exported files, so an import can tell a level from any other JSON. */
 const FORMAT = 'bridge-builder-level';
 
@@ -334,11 +335,12 @@ export function eraseAt(l: LevelDef, x: number, y: number): { ok: boolean; msg: 
 /**
  * Resizes the gap: the right bank moves with it, carrying its bolts (the road end and any on
  * its wall) at the same height relative to the road, and anything that no longer fits goes.
- * The water stays below both banks.
+ * The water stays below both banks. `maxWidth` caps growing the gap; a level already wider (made
+ * on a bigger screen) keeps its width.
  */
-export function setSize(l: LevelDef, width: number, rightY: number, waterY: number): void {
+export function setSize(l: LevelDef, width: number, rightY: number, waterY: number, maxWidth = LIMITS.maxWidth): void {
   const [oldW, oldR] = rightEnd(l);
-  const W = clampInt(width, LIMITS.minWidth, LIMITS.maxWidth);
+  const W = clampInt(width, LIMITS.minWidth, Math.min(LIMITS.maxWidth, Math.max(maxWidth, oldW)));
   const R = clampInt(rightY, -8, 8);
   const water = clampWater(waterY, R);
   const pylonTop = (x: number, y: number) => !!l.towers?.some((t) => same([t[0], t[2]], x, y));

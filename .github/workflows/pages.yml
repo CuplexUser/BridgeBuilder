@@ -26,7 +26,10 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      # The desktop app's Electron binary isn't needed to build the site.
       - run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
       - run: npm run lint
       - run: npm test
       - run: npm run build

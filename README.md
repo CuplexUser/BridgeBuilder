@@ -1,6 +1,6 @@
 # Bridge Builder
 
-A physics bridge-building game for the browser. Build a bridge within a cash budget from road, heavy deck, wood, steel and cable, then send a vehicle across it. The bridge either holds, sags, or snaps into the river.
+A physics bridge-building game for the browser, Android and the desktop. Build a bridge within a cash budget from road, heavy deck, wood, steel and cable, then send a vehicle across it. The bridge either holds, sags, or snaps into the river.
 
 There are 77 levels in eleven chapters of seven that get harder as you go: from a 4 m brook in *Groundwork*, through cables in *Tension*, drawbridges in *Heavy Traffic*, block arches in *Arches*, trains and soft mud in *Railway*, concrete anchors in *Anchorage*, spans of 40 to 64 m in *Main Cable*, marching squads, gales and an earthquake in *Master Works*, and prestressed girders, a double-deck railway and drawbridges that split, lift and swing in *Modern Works*, to the *Grand Finale*, where the hazards come together. Along the way the game introduces piers, slopes, lattice pylons, heavy deck, rock overhangs, cables, flood water, ship channels, drawbridges on hydraulic rams, convoys, toll bolts, rationed materials, hinged masts, concrete anchors, the curved main cable, concrete, concrete blocks, block arches, track, trains, dampers, marching squads, wind, earthquakes, mud, piles, floods, prestressing tendons, double decks, center locks, lift towers and swing bridges. Each level is tested in the scene of its topic: a river at golden hour, a desert canyon, a flood plain in the rain, the coast, snowy mountains, a city at night, a harbor, a fjord at dawn, a golden bay, a limestone gorge, the prairie, a storm and a river delta at dusk. The chapters screen shows them as a map, one winding road through every level, or as a book of chapter cards. `TODO.md` lists planned features and improvements by priority.
 
@@ -20,6 +20,7 @@ npm run tuner    # tuner page: pick levels and effort, run the optimizer, edit t
 npm run tune     # level optimizer from the command line: tunes budgets, targets, bonus goals and marked geometry
 npm run tune:unpack  # readable JSON copies of src/levels.res in tools/tune/results
 npm run verify   # level verifier: checks every level's quality in a couple of minutes, without optimizing
+npm run desktop  # build, then run the desktop app (see Desktop below)
 ```
 
 `npm start` reads `PORT` (default 3000) and `DB_FILE` (default `data/bridgebuilder.db`). Add `?debug` to the URL for an FPS counter.
@@ -34,7 +35,8 @@ At startup the game probes `api/health`:
 
 - **Server present** (`npm run dev`, `npm run preview`, `npm start`): everything is stored in SQLite (`server/api.mjs`). The tables are `profiles`, `level_progress` and `scores`.
 - **No server** (GitHub Pages or any static host): everything is stored in the browser's `localStorage`, per device.
-- **Android app**: no server probe. Everything is stored on the phone in native preferences (`src/native.ts`), which the system doesn't clear the way it can clear a WebView's `localStorage`.
+- **Android app**: no server probe. Everything is stored on the phone in native preferences (`src/native.ts`), which the system doesn't clear the way it can clear a WebView's `localStorage`. With Google Play Games signed in, the same save also goes to the Play Games cloud (see Android below).
+- **Desktop app**: no server probe. Everything is stored on the computer, in the app's data folder (`%APPDATA%\Bridge Builder` on Windows).
 
 The profile screen tells you which storage is in use. The last-used profile resumes automatically on the same device.
 
@@ -42,9 +44,35 @@ The profile screen tells you which storage is in use. The last-used profile resu
 
 `.github/workflows/pages.yml` lints, tests and builds, then publishes `dist/` on every push to `main`. Enable it once under **Settings → Pages → Source: GitHub Actions**. The build uses relative paths, so it works from the `/<repo>/` sub-path.
 
+### One codebase, three builds
+
+The web build, the Android app and the desktop app are the same game code. Everything that differs sits behind `src/platform.ts`:
+
+- **Which build** (`platform`: `web`, `android` or `desktop`), also set on `<html data-platform>`.
+- **UI profile** (`uiProfile`, on `<html data-ui>`): `touch` in the Android app and in browsers whose main pointer is a finger, `desktop` otherwise. Touch hides key hints and doesn't move focus to buttons. Desktop shows the keys and, on screens 900 px and wider, tightens buttons and the toolbar so more of the screen is bridge.
+- **Level caps** (`levelCaps`): any build loads a custom level up to 96 m wide, but on a touch device the editor stops growing one at 64 m, where a phone's screen and physics still keep up. A wider level from a desktop keeps its width when edited on a phone.
+- **Storage, files and sharing**: device storage, level export and collapse clips (a download in the browser, a save dialog on desktop, the share sheet on Android), and the clipboard.
+- **Android only**: the back button, haptics, Google Play Games and the full-game unlock.
+
+Each shell's side is loaded on demand (`src/native.ts` for Android, `desktop/preload.cjs` for desktop), so the web build carries none of it.
+
+### Collapse clips and haptics
+
+Every test drive is recorded off the canvas into a 1280 px video with the game's sound and a caption naming the level (`src/clip.ts`). While nothing has broken, the recording restarts every 12 s, so a clip holds at most that much lead-in and then the whole collapse. When the bridge comes down, the collapse card offers **SHARE THE CLIP** (S). The clip is an MP4 where the browser can record one (Chrome, Edge, Electron and the Android WebView), and WebM otherwise. A bridge that holds throws its recording away.
+
+On phones, members creak with a light buzz, every snap is a hard pulse, and a collapse is a long one (`src/haptics.ts` paces them). On devices that can vibrate, the pause menu has a switch for it.
+
 ### Android
 
-The Android app is the same web build wrapped with [Capacitor](https://capacitorjs.com) (app ID `se.cuplex.bridgebuilder`). The native project lives in `android/`. Platform differences sit in `src/platform.ts`, which loads `src/native.ts` only inside the app: device storage, the back button (it does what Escape does, and leaves the app from the title screen), level export through the share sheet, the clipboard, and saving when the app goes to the background.
+The Android app is the same web build wrapped with [Capacitor](https://capacitorjs.com) (app ID `se.cuplex.bridgebuilder`). The native project lives in `android/`. `src/native.ts` covers device storage, the back button (it does what Escape does, and leaves the app from the title screen), level export and clips through the share sheet, the clipboard, haptics, saving when the app goes to the background, and the game's two Java plugins in `android/app/src/main/java/se/cuplex/bridgebuilder/`:
+
+- **`PlayGamesPlugin`**: Google Play Games Services v2. Players are signed in as the app starts. Achievements (`src/achievements.ts`) mostly follow from progress, so they come back on a new phone. A few come from moments in play: a first collapse, a finished or flawless challenge, crossing your own level. Leaderboards take the career score, total stars and each chapter's challenge. The profiles and progress on the phone go to a Play Games saved game, and a save from another phone is merged in, keeping the better result on every level. A fresh install signed in to Play Games plays under the player's Play Games name, with no profile screen. The Play Games bar on the leaderboards screen opens Google's leaderboards and achievements, or signs in.
+- **`PlayBillingPlugin`**: Google Play Billing for the full game. The first three chapters are free (`FREE_CHAPTERS` in `src/chapters.ts`). The rest are one in-app product, `full_game`, bought once. Locked chapters show **FULL GAME** on the map and in the book, and opening one shows the offer with Play's price, a buy button and a restore link. Ownership is read from Play at every start, and the last answer is kept for when Play can't be reached. There are no ads. The web and desktop builds have no paywall.
+
+To set them up in the Play Console:
+
+1. **Play Games Services**: create the project, then add the achievements and leaderboards listed in `android/app/src/main/res/values/games-ids.xml`, each with its name and what it's for. Turn on **Saved games**. Then copy the ids from **Get resources** into that file by name, `app_id` included. The Console makes resource names from the names you give (*First Crossing* becomes `achievement_first_crossing`), so a different name only needs its line renamed. With `app_id` empty, Play Games stays off and the app runs without it. `npm run games-ids` rewrites the file after achievements change in the code, keeping the ids already filled in.
+2. **In-app product**: a one-time product with the id `full_game`, at the price you choose. Add your account as a license tester to buy it for free while testing.
 
 Requires Android Studio (its bundled JDK is enough) and the Android SDK.
 
@@ -55,6 +83,18 @@ npm run android:run   # build, copy and run on a connected device or emulator
 ```
 
 Run `npm run android` after every web change before building in Android Studio. Release builds (a signed `.aab` for Google Play) are made in Android Studio under **Build → Generate Signed App Bundle**. Keep the keystore out of git.
+
+### Desktop
+
+The desktop app wraps the same web build in [Electron](https://www.electronjs.org) (`desktop/main.mjs`). It serves `dist/` from an `app://` origin, so modules, the tuner worker and storage work as on the web. It keeps saves in the app's data folder, remembers the window's size and place, and saves exported levels and collapse clips through a save dialog. F11 toggles full screen. There's no paywall, and the level editor goes up to 96 m.
+
+```sh
+npm run desktop       # build, then run the app
+npm run desktop:dev   # run the app against npm run dev (start that first): Ctrl+R reloads, F12 opens the developer tools
+npm run desktop:dist  # build a Windows installer and a portable .exe in release/
+```
+
+`desktop/builder.json` configures [electron-builder](https://www.electron.build). It also has Linux (AppImage) and macOS (dmg) targets, which have to be built on those systems. The builds aren't code-signed, so Windows SmartScreen warns on first launch.
 
 ## Controls
 
@@ -75,6 +115,7 @@ Run `npm run android` after every web change before building in Android Studio. 
 | Pause | II button | P / Esc |
 | Menus | Buttons | Title: Enter continue, C chapters, H leaderboards, L level editor. Chapters: V switches between the map and the book, Enter plays the next level, 1–9 and 0 open the first ten chapters, ←/→ turn the book's pages. Chapter: 1–7 plays a level. Leaderboards: ←/→ tabs, 1–9 and 0 chapter. |
 | Mute | Speaker button | M |
+| Share a collapse | SHARE THE CLIP on the collapse card | S |
 
 Members can cross each other (X-bracing), but they can't lie along an existing member. For example, a wood beam can't run on top of the road.
 
@@ -266,3 +307,11 @@ Everything the tuner decides lives in one committed file, `src/levels.res`: the 
 - **Chapter**: ranked by best scores on one chapter's seven levels.
 - **Levels**: the record holder on each level of a chapter, with what the record bridge cost and its peak stress, and your own best when someone else holds it. Once you've crossed a level yourself, **Watch it** drives the record bridge across, keeping your own blueprint.
 - **Challenges**: the top challenge runs on one chapter.
+
+## License
+
+Bridge Builder is source-available under the [PolyForm Noncommercial License 1.0.0](LICENSE). You may read, run, change and share the code for any noncommercial purpose: personal play, study, hobby projects, teaching and research. Selling it, or publishing a version with ads or in-app purchases, is not allowed. For any other use, open an issue on GitHub to ask. Anyone who passes the code on must include the license and its `Required Notice:` line.
+
+The license covers the code. It doesn't let you use the name "Bridge Builder" or the app icon to present your own version as this game, in an app store or anywhere else.
+
+The libraries the game uses keep their own licenses (MIT or Apache 2.0). Versions published before October 12, 2026 were released under the MIT License, and those copies stay under it.
