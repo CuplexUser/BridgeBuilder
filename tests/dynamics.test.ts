@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { levelById } from '../src/chapters';
 import { LEVELS } from '../src/levels';
 import { MATERIALS } from '../src/physics/materials';
-import { marchAccel, quakeAccel, testSeconds, TestRun, windGust, World } from '../src/physics/world';
+import { marchAccel, quakeAccel, windGust } from '../src/physics/hazards';
+import { testSeconds, TestRun } from '../src/physics/testrun';
+import { World } from '../src/physics/world';
 import { hang, SOLUTIONS } from '../src/solutions';
 import { INTENTS } from '../tools/tune/intents';
 

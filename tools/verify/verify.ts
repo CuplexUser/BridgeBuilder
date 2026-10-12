@@ -29,7 +29,7 @@ import { fileURLToPath } from 'node:url';
 import { CHAPTERS, levelCode } from '../../src/chapters';
 import { Design, type GridPt } from '../../src/design';
 import { LEVELS, type LevelDef } from '../../src/levels';
-import { testSeconds } from '../../src/physics/world';
+import { testSeconds } from '../../src/physics/testrun';
 import { blockSpot, pileSpots } from '../../src/rules';
 import { layMain } from '../../src/maincable';
 import { addBlock, layRing, ringPath, ringRise } from '../../src/masonry';

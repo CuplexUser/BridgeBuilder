@@ -4,7 +4,7 @@ import { Editor } from '../src/editor';
 import type { LevelDef } from '../src/levels';
 import { curveY, deckStations, defaultSag, layMain, mainPath, mainRuns, runSag } from '../src/maincable';
 import { MATERIALS } from '../src/physics/materials';
-import { TestRun } from '../src/physics/world';
+import { TestRun } from '../src/physics/testrun';
 import { designProblems } from '../src/rules';
 import { roadRun } from '../src/solutions';
 

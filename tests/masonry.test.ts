@@ -3,7 +3,8 @@ import { Design, type GridPt } from '../src/design';
 import { Editor, fitDesign } from '../src/editor';
 import type { LevelDef } from '../src/levels';
 import { addBlock, blockPoly, cellProblem, flatProblem, layRing, RING, ringPath, ringPolys, ringRise, rings, riseOf } from '../src/masonry';
-import { buildWorld, TestRun } from '../src/physics/world';
+import { buildWorld } from '../src/physics/build';
+import { TestRun } from '../src/physics/testrun';
 import { designProblems } from '../src/rules';
 import { blockArch, roadRun } from '../src/solutions';
 

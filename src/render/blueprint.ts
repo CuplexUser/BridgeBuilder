@@ -4,7 +4,7 @@ import { bankY, goalX, seatPiers, type LevelDef } from '../levels';
 import { defaultSag, mainPathIn } from '../maincable';
 import { blockPoly, RING, ringPath, ringPolys, ringRise } from '../masonry';
 import { MATERIALS, type MaterialId } from '../physics/materials';
-import type { TestRun } from '../physics/world';
+import type { TestRun } from '../physics/testrun';
 import { blockSpots, pileSpots } from '../rules';
 import type { Members } from './members';
 import { MATERIAL_CHALK, PAL } from './palette';

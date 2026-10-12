@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 import type { Design } from '../../src/design';
 import type { LevelDef } from '../../src/levels';
-import { testSeconds } from '../../src/physics/world';
+import { testSeconds } from '../../src/physics/testrun';
 import { DiskCache } from './diskcache';
 import { canonical, failed, levelKey, type Runner } from './runner';
 import type { Outcome } from './simulate';

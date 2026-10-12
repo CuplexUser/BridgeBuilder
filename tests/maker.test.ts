@@ -29,7 +29,7 @@ import {
 import { designProblems } from '../src/rules';
 import { roadRun, SOLUTIONS, trussOver } from '../src/solutions';
 import type { KeyValue } from '../src/storage';
-import { TestRun } from '../src/physics/world';
+import { TestRun } from '../src/physics/testrun';
 
 const WOOD = { chord: 'wood', web: 'wood', vert: 'wood' } as const;
 const L = (id: number) => LEVELS.find((l) => l.id === id)!;

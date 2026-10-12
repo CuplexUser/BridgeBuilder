@@ -3,7 +3,7 @@ import { levelById } from '../src/chapters';
 import { Design } from '../src/design';
 import type { LevelDef } from '../src/levels';
 import { MATERIALS } from '../src/physics/materials';
-import { TestRun, testSeconds } from '../src/physics/world';
+import { TestRun, testSeconds } from '../src/physics/testrun';
 import { designProblems } from '../src/rules';
 import { blockGirder, deck, SOLUTIONS } from '../src/solutions';
 

@@ -4,7 +4,8 @@ import { Editor } from '../src/editor';
 import type { LevelDef } from '../src/levels';
 import { exportLevel, parseLevel, setSize, toggleMast } from '../src/maker';
 import { BLOCK, blockOf } from '../src/physics/materials';
-import { TestRun, World } from '../src/physics/world';
+import { TestRun } from '../src/physics/testrun';
+import { World } from '../src/physics/world';
 import { blockSpot, blockSpots, cableBolt, designProblems, pointAllowed } from '../src/rules';
 import { roadRun, suspend } from '../src/solutions';
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Design } from '../src/design';
 import { LEVELS, TUNED, type LevelDef } from '../src/levels';
-import { TestRun, testSeconds } from '../src/physics/world';
+import { TestRun, testSeconds } from '../src/physics/testrun';
 import { designProblems } from '../src/rules';
 import { bonusLabel, bonusMet } from '../src/scoring';
 import { levelFingerprint } from '../tools/tune/fingerprint';

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Design, type GridPt } from '../src/design';
 import { Editor } from '../src/editor';
 import type { LevelDef } from '../src/levels';
-import { TestRun } from '../src/physics/world';
+import { TestRun } from '../src/physics/testrun';
 import { designProblems } from '../src/rules';
 import { roadRun, trussOver } from '../src/solutions';
 

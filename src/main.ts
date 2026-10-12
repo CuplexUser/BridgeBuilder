@@ -1,4 +1,4 @@
-import { Game } from './game';
+import { Game } from './game/game';
 import { appVersion, bindApp, initPlatform, platform } from './platform';
 import { LocalStore, pickStore } from './storage';
 
@@ -9,7 +9,7 @@ if (version) document.getElementById('app-version')!.textContent = `v${version}`
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 // The Android and desktop apps have no server to look for: they keep everything on the device.
 const game = new Game(canvas, platform === 'web' ? await pickStore() : new LocalStore());
-bindApp(game);
+bindApp(game.input);
 
 let last = performance.now();
 function frame(now: number): void {

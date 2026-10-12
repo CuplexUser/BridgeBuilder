@@ -1,5 +1,6 @@
 import type { LevelDef } from '../levels';
-import { LOG_RADIUS, SHIP_HALF, TUNNEL_HEIGHT, type TestRun } from '../physics/world';
+import type { TestRun } from '../physics/testrun';
+import { LOG_RADIUS, SHIP_HALF, TUNNEL_HEIGHT } from '../physics/world';
 import { PAL, stressColor } from './palette';
 import type { SceneView } from './renderer';
 import { PILE_DEPTH, TAU } from './shapes';

@@ -1,6 +1,6 @@
 /** A swing bridge turning on its pier, seen in perspective: the projection every part draws it with. */
 import type { LevelDef } from '../levels';
-import type { TestRun } from '../physics/world';
+import type { TestRun } from '../physics/testrun';
 
 /** How wide a swing bridge's road shows between its two side trusses as it turns end-on, m. */
 export const SWING_ROAD = 2.8;

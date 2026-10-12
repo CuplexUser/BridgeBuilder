@@ -1,0 +1,225 @@
+import { sfx } from '../audio';
+import { challengeBoard, chapterById, chapterComplete, CHAPTERS, highestUnlocked, levelById, nextInChapter, totals } from '../chapters';
+import { LEVELS } from '../levels';
+import { scoreLevel, type LevelScore } from '../scoring';
+import { bestPerLevel, rankProfiles } from '../storage';
+import { MAX_LIVES, type Board, type Game } from './game';
+
+/** A collapse clip runs on this long after the collapse card comes up, ms. */
+const CLIP_TAIL = 1200;
+
+/** How a run ends: the result card and its score, a collapse, the next level, game over, and the leaderboards. */
+export class Results {
+  board: Board = 'career';
+  /** The leaderboard's chapter, by id. */
+  private boardChapter = 1;
+  resultAnim: { t: number; score: LevelScore; shown: number; stars: number; bonusShown: boolean } | null = null;
+
+  constructor(private game: Game) {}
+
+  finishSuccess(): void {
+    const run = this.game.run!;
+    const level = this.game.level;
+    if (this.game.mode === 'custom') {
+      // A playtest scores like any level, but nothing goes on the career or the boards.
+      const s = scoreLevel(level, this.game.editor!.design, run.peakStress);
+      this.game.persistDesign();
+      this.game.playGames.moment('playtest');
+      this.game.state = 'result';
+      this.game.drive.stopEngine();
+      this.game.ui.result(level, s, run.peakStress, 'PLAYTEST · NOT ON YOUR CAREER', true, 'EDIT LEVEL', this.game.review(level, run, true));
+      this.resultAnim = { t: 0, score: s, shown: 0, stars: 0, bonusShown: false };
+      return;
+    }
+    const ch = this.game.chapter;
+    const best = this.game.data.best;
+    // Hints count against free play only: a challenge starts from scratch and offers none.
+    const score = scoreLevel(level, this.game.editor!.design, run.peakStress, this.game.mode === 'play' ? this.game.hintsShown().length : 0);
+    const prev = best[level.id];
+    const careerBefore = totals(best).score;
+    const wasComplete = chapterComplete(ch, best);
+    // The record run's cost, peak stress and bridge go with the best score, for the level boards.
+    const record = !prev || score.total > prev.score;
+    const { cost, peak, design } = record ? { cost: score.spent, peak: run.peakStress, design: this.game.editor!.design.serialize() } : prev;
+    best[level.id] = {
+      score: Math.max(prev?.score ?? 0, score.total),
+      stars: Math.max(prev?.stars ?? 0, score.stars),
+      ...(prev?.bonus || score.bonus ? { bonus: true } : {}),
+      ...(cost === undefined ? {} : { cost }),
+      ...(peak === undefined ? {} : { peak }),
+      ...(design === undefined ? {} : { design }),
+    };
+    this.game.data.unlocked = highestUnlocked(best);
+    // Challenge runs start from scratch; they never overwrite your saved free-play design.
+    if (this.game.mode === 'play') this.game.data.designs[level.id] = this.game.editor!.design.serialize();
+    this.game.flushSave();
+
+    const lines: string[] = [];
+    if (this.game.mode === 'challenge') {
+      this.game.runScore += score.total;
+      this.game.levelsCleared++;
+      lines.push(`CHALLENGE ${this.game.runScore.toLocaleString('en-US')}`);
+      if (score.stars === 3 && this.game.lives < MAX_LIVES) {
+        this.game.lives++;
+        this.game.ui.setLives(this.game.lives, MAX_LIVES, 'gained');
+        lines.push('PERFECT: +1 LIFE');
+      }
+      this.game.ui.setScore(`CHALLENGE ${this.game.runScore.toLocaleString('en-US')}`, true);
+    } else if (!prev) lines.push('FIRST CROSSING');
+    else if (score.total > prev.score) lines.push('NEW PERSONAL BEST');
+    else lines.push(`BEST ${prev.score.toLocaleString('en-US')}`);
+    if (score.bonus && !prev?.bonus) lines.push('BONUS GOAL MET');
+    const gain = totals(best).score - careerBefore;
+    if (gain > 0) lines.push(`CAREER +${gain.toLocaleString('en-US')}`);
+    if (!wasComplete && chapterComplete(ch, best)) {
+      const next = CHAPTERS[CHAPTERS.indexOf(ch) + 1];
+      lines.push(next ? `CHAPTER COMPLETE · ${next.name.toUpperCase()} UNLOCKED` : 'EVERY CHAPTER COMPLETE');
+    }
+
+    this.game.state = 'result';
+    this.game.drive.stopEngine();
+    const next = nextInChapter(level.id);
+    const nextLabel = next ? 'NEXT' : this.game.mode === 'challenge' ? 'FINISH' : 'CHAPTERS';
+    this.game.ui.result(level, score, run.peakStress, lines.join(' · '), this.game.mode === 'play', nextLabel, this.game.review(level, run, this.game.mode === 'play'));
+    this.resultAnim = { t: 0, score, shown: 0, stars: 0, bonusShown: false };
+  }
+
+  finishCollapse(): void {
+    this.game.state = 'collapse';
+    this.game.drive.stopEngine();
+    this.game.playGames.moment('collapse');
+    this.game.ui.setClip(false);
+    void this.game.clip?.finish(CLIP_TAIL).then((clip) => {
+      if (clip && (this.game.state === 'collapse' || this.game.state === 'over')) this.game.ui.setClip(true);
+    });
+    if (this.game.mode === 'challenge') {
+      this.game.lifeLost = true;
+      this.game.lives--;
+      this.game.ui.setLives(this.game.lives, MAX_LIVES, 'lost');
+      if (this.game.lives <= 0) {
+        this.gameOver(false);
+        return;
+      }
+      this.game.ui.collapse(this.game.run!.reason, this.game.lives, MAX_LIVES);
+    } else this.game.ui.collapse(this.game.run!.reason, null, MAX_LIVES, this.game.mode === 'custom');
+  }
+
+  nextLevel(): void {
+    if (this.game.mode === 'custom') {
+      this.game.maker.enterMaker(this.game.level);
+      return;
+    }
+    const next = nextInChapter(this.game.level.id);
+    if (this.game.mode === 'challenge') {
+      if (next) this.game.loadLevel(LEVELS.indexOf(levelById(next)));
+      else this.gameOver(true);
+    } else if (next) this.game.playLevel(next);
+    else this.game.enterChapters();
+  }
+
+  private gameOver(victory: boolean): void {
+    this.game.state = 'over';
+    this.game.drive.stopEngine();
+    if (victory) sfx.success();
+    else sfx.gameOver();
+    this.game.ui.over(victory, this.game.runScore, this.game.levelsCleared, this.game.chapter);
+    if (victory) {
+      this.game.playGames.moment('challenge');
+      if (!this.game.lifeLost) this.game.playGames.moment('flawless');
+    }
+    this.game.ui.challengeTable([], 'over-rows', this.game.profile?.name ?? '');
+    if (victory) this.game.confetti(this.game.cam.wx(this.game.renderer.w / 2), this.game.cam.wy(this.game.renderer.h * 0.3), 120);
+    void this.recordRun();
+  }
+
+  /** Challenge runs are filed under the current profile's name on that chapter's board. */
+  private async recordRun(): Promise<void> {
+    if (!this.game.profile) return;
+    const chapter = challengeBoard(this.game.chapter.id);
+    try {
+      this.game.playGames.challenge(this.game.chapter, this.game.runScore);
+      const rank = await this.game.store.submitScore(this.game.profile.id, this.game.runScore, this.game.levelsCleared, chapter);
+      const highs = await this.game.store.highScores(chapter);
+      if (this.game.state !== 'over') return;
+      this.game.ui.challengeTable(highs, 'over-rows', this.game.profile.name, rank);
+      this.game.ui.overRank(rank);
+      if (rank >= 0) sfx.star(2);
+    } catch {
+      this.game.ui.showToast('Could not save the score.');
+    }
+  }
+
+  enterScores(): void {
+    this.game.leavePlay();
+    this.game.state = 'scores';
+    this.game.ui.show('scores');
+    this.game.ui.playGames(this.game.playGames.status);
+    this.showBoard(this.board);
+  }
+
+  /** Every board is computed from the same per-level bests, except challenges, which have their own table. */
+  /** Shows a leaderboard tab, for the chapter with the given id. */
+  showBoard(tab: Board, chapter = this.boardChapter): void {
+    this.board = tab;
+    this.boardChapter = chapter;
+    const me = this.game.profile?.name ?? '';
+    const ch = chapterById(chapter) ?? CHAPTERS[0];
+    this.game.ui.boardTabs(tab, chapter);
+    const still = () => this.game.state === 'scores' && this.board === tab && this.boardChapter === chapter;
+    if (tab === 'challenge') {
+      void this.game.store
+        .highScores(challengeBoard(chapter))
+        .catch(() => [])
+        .then((h) => still() && this.game.ui.challengeTable(h, 'score-rows', me));
+      return;
+    }
+    void this.game.store
+      .levelScores()
+      .catch(() => [])
+      .then((rows) => {
+        if (!still()) return;
+        if (tab === 'career') this.game.ui.rankTable(rankProfiles(rows), me, 'career');
+        else if (tab === 'chapter') this.game.ui.rankTable(rankProfiles(rows, ch.levels), me, 'chapter');
+        else this.game.ui.levelRecordTable(ch.levels.map(levelById), bestPerLevel(rows), this.game.data, me);
+      });
+  }
+
+  /** Quitting a challenge mid-way still banks the score earned so far on that chapter's board. */
+  async bankAbandonedRun(): Promise<void> {
+    if (this.game.mode !== 'challenge' || this.game.runScore <= 0 || !this.game.profile) return;
+    const score = this.game.runScore;
+    this.game.runScore = 0;
+    this.game.playGames.challenge(this.game.chapter, score);
+    try {
+      const rank = await this.game.store.submitScore(this.game.profile.id, score, this.game.levelsCleared, challengeBoard(this.game.chapter.id));
+      this.game.ui.showToast(rank >= 0 ? `Challenge banked: ${score.toLocaleString('en-US')} points, #${rank + 1} on the board.` : `Challenge banked: ${score.toLocaleString('en-US')} points.`, 3200);
+      if (rank >= 0) sfx.star(2);
+    } catch {
+      this.game.ui.showToast('Could not save the score.');
+    }
+  }
+
+  animateResult(dt: number): void {
+    const a = this.resultAnim!;
+    a.t += dt;
+    const starTimes = [0.35, 0.6, 0.85];
+    while (a.stars < a.score.stars && a.t > starTimes[a.stars]) {
+      this.game.ui.lightStar(a.stars);
+      sfx.star(a.stars);
+      a.stars++;
+    }
+    if (a.score.bonus && !a.bonusShown && a.t > 1.15) {
+      a.bonusShown = true;
+      this.game.ui.lightBonus();
+      sfx.star(3);
+    }
+    const countT = Math.max(0, Math.min(1, (a.t - 0.5) / 1.0));
+    const shown = Math.round(a.score.total * (1 - (1 - countT) ** 3));
+    if (shown !== a.shown) {
+      if (Math.floor(shown / 60) !== Math.floor(a.shown / 60)) sfx.tick();
+      a.shown = shown;
+      this.game.ui.setResultTotal(shown);
+    }
+    if (countT >= 1 && (a.bonusShown || !a.score.bonus)) this.resultAnim = null;
+  }
+}

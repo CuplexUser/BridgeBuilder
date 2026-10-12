@@ -1,4 +1,5 @@
-import type { Phase, World } from './world';
+import type { Phase } from './testrun';
+import type { World } from './world';
 
 /** Seconds between samples. */
 export const SAMPLE_EVERY = 0.1;

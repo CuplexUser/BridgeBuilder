@@ -1,7 +1,8 @@
 import { PK, type Particles } from '../fx/particles';
 import { bankY, type LevelDef } from '../levels';
 import type { VehicleDef } from '../physics/vehicles';
-import { convoyLayout, type TestRun, type VehicleHandle } from '../physics/world';
+import { convoyLayout, type VehicleHandle } from '../physics/build';
+import type { TestRun } from '../physics/testrun';
 import { PAL } from './palette';
 import { hash, TAU } from './shapes';
 import { ScenePart, type Stage } from './stage';

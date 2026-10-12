@@ -1,7 +1,7 @@
 import { Design } from '../../src/design';
 import { goalX, START_X, type LevelDef } from '../../src/levels';
 import { designProblems } from '../../src/rules';
-import { TestRun, testSeconds } from '../../src/physics/world';
+import { TestRun, testSeconds } from '../../src/physics/testrun';
 
 /** What one test drive of a design showed. */
 export interface Outcome {

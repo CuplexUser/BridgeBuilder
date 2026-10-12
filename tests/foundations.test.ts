@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { levelById } from '../src/chapters';
 import type { LevelDef } from '../src/levels';
-import { TestRun, testSeconds } from '../src/physics/world';
+import { TestRun, testSeconds } from '../src/physics/testrun';
 import { pileSpot, pileSpots, pointAllowed } from '../src/rules';
 import { pileBridge } from '../src/solutions';
 

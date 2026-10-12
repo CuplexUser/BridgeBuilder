@@ -1,6 +1,6 @@
 import type { MaterialId } from './physics/materials';
 import type { VehicleId } from './physics/vehicles';
-import type { Flood, March, Quake, Wind } from './physics/world';
+import type { Flood, March, Quake, Wind } from './physics/hazards';
 import { levels as tunedLevels } from './levels.res';
 
 export type Pt = [number, number];

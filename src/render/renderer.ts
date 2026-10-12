@@ -16,7 +16,7 @@ import type { AttachPick, Editor } from '../editor';
 import type { GridPt } from '../design';
 import type { LevelDef } from '../levels';
 import type { MaterialId } from '../physics/materials';
-import type { TestRun } from '../physics/world';
+import type { TestRun } from '../physics/testrun';
 
 export interface FloatText {
   x: number;

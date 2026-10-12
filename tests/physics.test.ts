@@ -3,7 +3,8 @@ import { Design, type GridPt } from '../src/design';
 import { LEVELS, type LevelDef } from '../src/levels';
 import { MATERIALS } from '../src/physics/materials';
 import { VEHICLES } from '../src/physics/vehicles';
-import { TestRun, World } from '../src/physics/world';
+import { TestRun } from '../src/physics/testrun';
+import { World } from '../src/physics/world';
 import { deck, prattAbove, roadRun, SOLUTIONS, trussOver, type TrussMats } from '../src/solutions';
 import { designs } from '../src/levels.res';
 

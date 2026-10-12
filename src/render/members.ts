@@ -1,5 +1,6 @@
 import { MATERIALS, type MaterialId } from '../physics/materials';
-import type { Link, TestRun } from '../physics/world';
+import type { TestRun } from '../physics/testrun';
+import type { Link } from '../physics/world';
 import { MATERIAL_CHALK, PAL, stressColor } from './palette';
 import { MEMBER_WIDTH, runControls, TAU, type Ctl, type Pt2 } from './shapes';
 import { ScenePart } from './stage';

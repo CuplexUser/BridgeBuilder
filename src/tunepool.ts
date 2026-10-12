@@ -3,7 +3,7 @@ import type { Outcome } from '../tools/tune/simulate';
 import type { TimedRunner } from './autotune';
 import type { Design } from './design';
 import type { LevelDef } from './levels';
-import { testSeconds } from './physics/world';
+import { testSeconds } from './physics/testrun';
 
 interface Job {
   id: number;

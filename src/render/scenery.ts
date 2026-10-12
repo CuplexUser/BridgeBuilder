@@ -1,5 +1,6 @@
 import { bankY, goalX, seatPiers, type Overhang } from '../levels';
-import { windGust, type TestRun, type Wind } from '../physics/world';
+import { windGust, type Wind } from '../physics/hazards';
+import type { TestRun } from '../physics/testrun';
 import { PAL } from './palette';
 import type { SceneView } from './renderer';
 import { footings, hash, MEMBER_WIDTH, mudPoly, overhangPoly, rockPoly, TAU } from './shapes';

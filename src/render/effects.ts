@@ -1,5 +1,5 @@
 import { PK, WHIP_LIFE, type Debris, type Particles, type Whip } from '../fx/particles';
-import type { TestRun } from '../physics/world';
+import type { TestRun } from '../physics/testrun';
 import type { Members } from './members';
 import { PAL } from './palette';
 import type { FloatText } from './renderer';

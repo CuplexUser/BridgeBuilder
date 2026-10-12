@@ -4,7 +4,7 @@ import { money } from '../src/editor';
 import { efficiency, IDLE_LOAD } from '../src/efficiency';
 import { LEVELS } from '../src/levels';
 import { MATERIALS } from '../src/physics/materials';
-import { TestRun } from '../src/physics/world';
+import { TestRun } from '../src/physics/testrun';
 import { bestKnown, costReview, ghosts, nextHint } from '../src/review';
 import { SOLUTIONS } from '../src/solutions';
 
