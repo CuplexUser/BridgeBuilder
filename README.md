@@ -36,7 +36,7 @@ At startup the game probes `api/health`:
 - **Server present** (`npm run dev`, `npm run preview`, `npm start`): everything is stored in SQLite (`server/api.mjs`). The tables are `profiles`, `level_progress` and `scores`.
 - **No server** (GitHub Pages or any static host): everything is stored in the browser's `localStorage`, per device.
 - **Android app**: no server probe. Everything is stored on the phone in native preferences (`src/native.ts`), which the system doesn't clear the way it can clear a WebView's `localStorage`. With Google Play Games signed in, the same save also goes to the Play Games cloud (see Android below).
-- **Desktop app**: no server probe. Everything is stored on the computer, in the app's data folder (`%APPDATA%\Bridge Builder` on Windows).
+- **Desktop app**: no server probe. Everything is stored on the computer, in the app's data folder (`%LOCALAPPDATA%\se.cuplex.bridgebuilder` on Windows).
 
 The profile screen tells you which storage is in use. The last-used profile resumes automatically on the same device.
 
@@ -54,11 +54,11 @@ The web build, the Android app and the desktop app are the same game code. Every
 - **Storage, files and sharing**: device storage, level export and collapse clips (a download in the browser, a save dialog on desktop, the share sheet on Android), and the clipboard.
 - **Android only**: the back button, haptics, Google Play Games and the full-game unlock.
 
-Each shell's side is loaded on demand (`src/native.ts` for Android, `desktop/preload.cjs` for desktop), so the web build carries none of it.
+Each shell's side is loaded on demand (`src/native.ts` for Android, `desktop/src/bridge.js` for desktop), so the web build carries none of it.
 
 ### Collapse clips and haptics
 
-Every test drive is recorded off the canvas into a 1280 px video with the game's sound and a caption naming the level (`src/clip.ts`). While nothing has broken, the recording restarts every 12 s, so a clip holds at most that much lead-in and then the whole collapse. When the bridge comes down, the collapse card offers **SHARE THE CLIP** (S). The clip is an MP4 where the browser can record one (Chrome, Edge, Electron and the Android WebView), and WebM otherwise. A bridge that holds throws its recording away.
+Every test drive is recorded off the canvas into a 1280 px video with the game's sound and a caption naming the level (`src/clip.ts`). While nothing has broken, the recording restarts every 12 s, so a clip holds at most that much lead-in and then the whole collapse. When the bridge comes down, the collapse card offers **SHARE THE CLIP** (S). The clip is an MP4 where the browser can record one (Chrome, Edge, the desktop app's WebView2 and the Android WebView), and WebM otherwise. A bridge that holds throws its recording away.
 
 On phones, members creak with a light buzz, every snap is a hard pulse, and a collapse is a long one (`src/haptics.ts` paces them). On devices that can vibrate, the pause menu has a switch for it.
 
@@ -86,15 +86,15 @@ Run `npm run android` after every web change before building in Android Studio. 
 
 ### Desktop
 
-The desktop app wraps the same web build in [Electron](https://www.electronjs.org) (`desktop/main.mjs`). It serves `dist/` from an `app://` origin, so modules, the tuner worker and storage work as on the web. It keeps saves in the app's data folder, remembers the window's size and place, and saves exported levels and collapse clips through a save dialog. F11 toggles full screen. There's no paywall, and the level editor goes up to 96 m.
+The desktop app wraps the same web build in [Tauri](https://tauri.app), a small Rust shell around the system's WebView (WebView2 on Windows) (`desktop/`). It serves `dist/` from its own origin, so modules, the tuner worker and storage work as on the web. It keeps saves in the app's data folder, remembers the window's size and place, and saves exported levels and collapse clips through a save dialog. F11 toggles full screen. There's no paywall, and the level editor goes up to 96 m.
 
 ```sh
 npm run desktop       # build, then run the app
-npm run desktop:dev   # run the app against npm run dev (start that first): Ctrl+R reloads, F12 opens the developer tools
+npm run desktop:dev   # run the app against the Vite dev server, which it starts: Ctrl+R reloads, F12 opens the developer tools
 npm run desktop:dist  # build a Windows installer and a portable .exe in release/
 ```
 
-`desktop/builder.json` configures [electron-builder](https://www.electron.build). It also has Linux (AppImage) and macOS (dmg) targets, which have to be built on those systems. The builds aren't code-signed, so Windows SmartScreen warns on first launch.
+Building it needs [Rust](https://rustup.rs) as well as Node. The first build compiles Tauri and takes a few minutes; later ones are quick. `desktop/tauri.conf.json` configures the window's origin and the installers, and `desktop/src/main.rs` is the shell: the window, the save dialog and full screen. `desktop/src/bridge.js` runs in the page before the game and puts `window.bridgeDesktop` there. The installer fetches WebView2 if a computer lacks it, and the portable .exe expects it (Windows 10 and 11 have it). The config also has Linux (AppImage) and macOS (dmg) targets, which have to be built on those systems. The builds aren't code-signed, so Windows SmartScreen warns on first launch.
 
 ## Controls
 

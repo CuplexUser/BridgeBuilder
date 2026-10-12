@@ -6,7 +6,6 @@
   "description": "Draw the truss. Send the truck. Pray.",
   "author": "Martin Dahl",
   "license": "PolyForm-Noncommercial-1.0.0",
-  "main": "desktop/main.mjs",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
@@ -23,15 +22,14 @@
     "android:run": "npm run android && cap run android",
     "android:open": "cap open android",
     "games-ids": "node --import tsx --import ./tools/tune/res-register.mjs tools/games-ids.ts",
-    "desktop": "npm run build && electron .",
-    "desktop:dev": "electron . --dev",
-    "desktop:dist": "npm run build && electron-builder --config desktop/builder.json"
+    "desktop": "npm run build && cargo run --release --manifest-path desktop/Cargo.toml --features tauri/custom-protocol",
+    "desktop:dev": "tauri dev",
+    "desktop:dist": "node tools/desktop-dist.mjs"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.3",
+    "@tauri-apps/cli": "^2.12.2",
     "@types/node": "^26.6.4",
-    "electron": "^44.7.0",
-    "electron-builder": "^26.15.3",
     "oxlint": "^1.87.0",
     "playwright-core": "^1.64.0",
     "tsx": "^4.23.15",

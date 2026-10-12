@@ -1,6 +1,6 @@
 /**
- * What the desktop app's preload script (desktop/preload.cjs) puts on `window.bridgeDesktop`.
- * The Electron shell serves the same web build; this is all it adds.
+ * What the desktop app's bridge script (desktop/src/bridge.js) puts on `window.bridgeDesktop`.
+ * The Tauri shell serves the same web build; this is all it adds.
  */
 export interface DesktopBridge {
   /** The installed app's version. */

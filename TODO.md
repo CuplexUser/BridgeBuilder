@@ -99,7 +99,7 @@ Let the optimizer teach:
 ## P4: Platforms and tech
 
 - [x] **Desktop and Android from one codebase.** One game, three builds, with every difference behind `src/platform.ts`:
-  - **Desktop:** the web build in Electron (`npm run desktop`, `desktop:dist` for a Windows installer and portable .exe). It serves `dist/` from an `app://` origin, keeps saves in the app's data folder, remembers the window, saves levels and clips through a save dialog, and goes full screen on F11.
+  - **Desktop:** the web build in Tauri, a Rust shell around WebView2 (`npm run desktop`, `desktop:dist` for a Windows installer and portable .exe). It started in Electron; the Tauri build is a 3.6 MB executable rather than about 100 MB. It serves `dist/` from its own origin, keeps saves in the app's data folder, remembers the window, saves levels and clips through a save dialog, and goes full screen on F11.
   - **Android:** the web build in Capacitor, as before, now with haptics, clips, Play Games and the store (below).
   - **UI profiles:** `touch` (the app, phones and tablets) hides key hints and keeps finger-sized targets; `desktop` shows keys and, on wide screens, tightens buttons and the toolbar. The stylesheet follows `data-ui` rather than guessing from hover.
   - **Level caps:** levels may be 96 m wide (they were 64). The editor grows them that far on desktop and stops at 64 m on touch devices; a wider level edited on a phone keeps its width.

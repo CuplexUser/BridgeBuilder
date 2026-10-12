@@ -19,3 +19,6 @@ android/.idea/misc.xml
 android/.idea/runConfigurations.xml
 # Desktop installers (npm run desktop:dist)
 release/
+# The desktop app's Rust build and the schemas Tauri generates
+desktop/target/
+desktop/gen/

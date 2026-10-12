@@ -1,6 +1,6 @@
 /**
  * Differences between the three builds of the one game: the web build, the Android app (Capacitor)
- * and the desktop app (Electron). The game itself is the same code on all three. This module decides
+ * and the desktop app (Tauri). The game itself is the same code on all three. This module decides
  * the UI profile (touch-first or dense desktop) and the level editor's size caps, and swaps device
  * storage, file and video export, the clipboard, the back button, haptics, Play Games and the store.
  * Each shell's side is loaded on demand, so the web build carries none of it.
