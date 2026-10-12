@@ -12,7 +12,7 @@ import { defaultSag, mainPathIn } from '../maincable';
 import { blockPoly, RING, ringPath, ringPolys, ringRise } from '../masonry';
 import { MATERIAL_CHALK, PAL, stressColor } from './palette';
 import { THEMES, type Land, type Theme } from './themes';
-import { drawBody, drawRailWheel, drawSoldier, drawWheel, SQUAD_RANKS, squadRank } from './vehicles';
+import { drawBody, drawRailWheel, drawSoldier, drawWheel, shade as tint, SQUAD_RANKS, squadRank } from './vehicles';
 
 export interface FloatText {
   x: number;
@@ -130,6 +130,138 @@ function turnPoint(t: Turn, x: number, y: number, side: number): [number, number
 /** Piers, and the footing under each mast's hinge: concrete columns up from the riverbed. */
 function footings(L: LevelDef): [number, number][] {
   return [...L.piers, ...(L.masts ?? []).map(([x, base]): [number, number] => [x, base])];
+}
+
+/** The layers every willow on a bank adds to, each painted once, back to front in this order. */
+interface WillowLayers {
+  /** The dark inside of the crown. */
+  shade: Path2D;
+  /** Trunk and limbs, seen through gaps in the fronds. */
+  wood: Path2D;
+  /** Crown clumps and hanging fronds. */
+  leaves: Path2D;
+  /** Light catching the crown's clumps on their upper left edge, painted just behind them. */
+  lit: Path2D;
+}
+
+/** A cubic curve: start, two control points and end, as x, y pairs. */
+type Cubic = [number, number, number, number, number, number, number, number];
+
+/** The unit normal on the right of travel along (dx, dy), on screen. */
+function rightNormal(dx: number, dy: number): [number, number] {
+  const l = Math.hypot(dx, dy) || 1;
+  return [dy / l, -dx / l];
+}
+
+/**
+ * A tapered ribbon along a cubic curve, w0 wide at the start and w1 at the end. It always winds
+ * clockwise on screen, like Path2D.ellipse, so overlapping shapes in one path fill as a union.
+ */
+function ribbon(p: Path2D, [x0, y0, ax, ay, bx, by, x1, y1]: Cubic, w0: number, w1: number): void {
+  const n0 = rightNormal(ax - x0, ay - y0);
+  const na = rightNormal(bx - x0, by - y0);
+  const nb = rightNormal(x1 - ax, y1 - ay);
+  const n1 = rightNormal(x1 - bx, y1 - by);
+  const wa = (w0 * 0.75 + w1 * 0.25) / 2;
+  const wb = (w0 * 0.35 + w1 * 0.65) / 2;
+  p.moveTo(x0 + (n0[0] * w0) / 2, y0 + (n0[1] * w0) / 2);
+  p.bezierCurveTo(ax + na[0] * wa, ay + na[1] * wa, bx + nb[0] * wb, by + nb[1] * wb, x1 + (n1[0] * w1) / 2, y1 + (n1[1] * w1) / 2);
+  p.lineTo(x1 - (n1[0] * w1) / 2, y1 - (n1[1] * w1) / 2);
+  p.bezierCurveTo(bx - nb[0] * wb, by - nb[1] * wb, ax - na[0] * wa, ay - na[1] * wa, x0 - (n0[0] * w0) / 2, y0 - (n0[1] * w0) / 2);
+  p.closePath();
+}
+
+/**
+ * A weeping willow rooted at (sx, sy), s pixels to the meter: a trunk that forks into arching
+ * limbs, a lumpy crown, and fronds that arch out of it and hang almost to the ground, swaying a
+ * little. Light comes from the upper left.
+ */
+function willow(L: WillowLayers, sx: number, sy: number, h: number, r: number, s: number, seed: number, time: number): void {
+  const H = (2.4 + h * 0.6) * s;
+  const W = (0.9 + h * 0.2) * (0.85 + r * 0.3) * s;
+  const cx = sx + (r - 0.5) * 0.6 * s;
+  const top = sy - H;
+  /** The crown's outline, in screen y, across u = -1 (left edge) to 1 (right edge). */
+  const dome = (u: number): number => top + (1 - Math.sqrt(Math.max(0, 1 - u * u))) * W * 0.55 + 0.08 * W;
+  const rnd = (k: number): number => hash(seed * 37 + k);
+
+  // The shaded inside: a mass behind the crown and the top of the curtain. It stops well above
+  // the ground, so the fringe below is loose fronds with the background between them.
+  const inner = W * 0.82;
+  const shadeHem = sy - 1.15 * s;
+  L.shade.moveTo(cx - inner, dome(-0.82));
+  for (let k = -8; k <= 8; k++) L.shade.lineTo(cx + (k / 10) * W, dome(k / 10));
+  L.shade.lineTo(cx + inner, dome(0.82));
+  L.shade.quadraticCurveTo(cx + inner * 1.12, (top + shadeHem) / 2, cx + inner * 1.05, shadeHem);
+  for (let k = 0; k < 5; k++) {
+    const xa = cx + inner * 1.05 - (k / 5) * inner * 2.1;
+    const xb = cx + inner * 1.05 - ((k + 1) / 5) * inner * 2.1;
+    L.shade.quadraticCurveTo((xa + xb) / 2, shadeHem + (0.15 + 0.2 * rnd(k)) * s, xb, shadeHem);
+  }
+  L.shade.quadraticCurveTo(cx - inner * 1.12, (top + shadeHem) / 2, cx - inner, dome(-0.82));
+  L.shade.closePath();
+
+  // Trunk with a flared foot, forking into limbs that arch up and out under the crown.
+  const forkY = sy - H * 0.42;
+  L.wood.moveTo(sx - 0.26 * s, sy);
+  L.wood.quadraticCurveTo(sx - 0.13 * s, sy - 0.1 * s, sx - 0.14 * s, sy - 0.35 * s);
+  L.wood.lineTo(cx - 0.1 * s, forkY);
+  L.wood.lineTo(cx + 0.1 * s, forkY);
+  L.wood.lineTo(sx + 0.14 * s, sy - 0.35 * s);
+  L.wood.quadraticCurveTo(sx + 0.13 * s, sy - 0.1 * s, sx + 0.26 * s, sy);
+  L.wood.closePath();
+  for (const [k, u0] of [-0.75, -0.25, 0.3, 0.8].entries()) {
+    const u = u0 + (rnd(k + 10) - 0.5) * 0.2;
+    const tx = cx + u * W * 0.75;
+    const ty = dome(u * 0.75) + 0.15 * s;
+    ribbon(L.wood, [cx + u * 0.08 * s, forkY + 0.05 * s, cx + u * W * 0.15, forkY - H * 0.22, tx - u * W * 0.2, ty + 0.15 * s, tx, ty], 0.13 * s, 0.04 * s);
+  }
+
+  /** A frond arching out of the crown at u and hanging down to y1, w wide at the top. */
+  const frond = (p: Path2D, u: number, y1: number, w: number, flare: number): void => {
+    const x0 = cx + u * W * 0.9;
+    const y0 = dome(u) + 0.12 * s;
+    const sway = Math.sin(time * 0.9 + seed * 1.7 + u * 1.3) * 0.12 * s * (0.5 + 0.5 * Math.abs(u));
+    const x1 = x0 + u * W * flare + sway;
+    ribbon(p, [x0, y0, x0 + u * W * 0.35, y0 - 0.3 * s, x1 - sway * 0.5, y0 + (y1 - y0) * 0.4, x1, y1], w, 0.03 * s);
+  };
+
+  // Back fronds, in shadow, hanging between the front ones.
+  const n = 10 + Math.round((W / s) * 6);
+  for (let k = 0; k < n; k++) {
+    const u = -1 + (2 * k + 1.5) / (n + 0.5) + (rnd(k + 80) - 0.5) * 0.1;
+    if (Math.abs(u) > 0.97) continue;
+    frond(L.shade, u, sy - (0.3 + 0.8 * rnd(k + 90) + (1 - Math.abs(u)) * 0.6) * s, (0.16 + 0.1 * rnd(k + 95)) * s, 0.25);
+  }
+
+  // Front fronds. The outer ones flare out and reach lowest; the inner ones stop higher, so the
+  // trunk shows at the foot.
+  for (let k = 0; k < n; k++) {
+    const u = -1 + (2 * (k + 0.5)) / n + (rnd(k + 40) - 0.5) * 0.12;
+    const out = Math.abs(u);
+    const y1 = sy - (0.15 + 0.9 * rnd(k + 50) + (1 - out) * 0.9) * s;
+    frond(L.leaves, u, y1, (0.18 + 0.14 * rnd(k + 60)) * s, 0.3 + 0.1 * rnd(k + 65));
+  }
+
+  // Crown: two rows of leafy clumps, so the top is lumpy rather than one smooth dome, lit softly
+  // from the upper left.
+  for (let k = 0; k < 12; k++) {
+    const row = k < 7 ? 0 : 1;
+    const u = row === 0 ? -0.9 + (k / 6) * 1.8 : -0.75 + ((k - 7) / 4) * 1.5;
+    const ex = cx + u * W * (0.85 - row * 0.1) + (rnd(k + 25) - 0.5) * 0.2 * s;
+    const ey = dome(u) + (0.12 + row * 0.45) * s;
+    const rx = W * (0.18 + 0.1 * rnd(k + 20));
+    const ry = (0.22 + 0.1 * rnd(k + 30)) * s;
+    L.leaves.moveTo(ex + rx, ey);
+    L.leaves.ellipse(ex, ey, rx, ry, 0, 0, TAU);
+    // The same clump, nudged up and left behind this one, shows as a lit rim.
+    if (row === 0 && u < 0.6) {
+      const lx = ex - 0.09 * s;
+      const ly = ey - 0.08 * s;
+      L.lit.moveTo(lx + rx, ly);
+      L.lit.ellipse(lx, ly, rx, ry, 0, 0, TAU);
+    }
+  }
 }
 
 /** Deterministic 0..1 noise so scenery stays put between frames. */
@@ -875,8 +1007,8 @@ export class Renderer {
     ctx.fillStyle = T.grassDark;
     ctx.fillRect(cam.sx(-80), cam.sy(0) - 1 + gs, cam.sx(0.1) - cam.sx(-80), 2);
     ctx.fillRect(cam.sx(W - 0.1), cam.sy(rY) - 1 + gs, cam.sx(W + 80) - cam.sx(W - 0.1), 2);
-    this.flora(-2.5, -45, 0, 1);
-    this.flora(goalX(L) + 2, W + 45, rY, 2);
+    this.flora(-2.5, -45, 0, 1, v.time);
+    this.flora(goalX(L) + 2, W + 45, rY, 2, v.time);
     if (T.tufts) {
       this.tufts(-40, -0.3, 0);
       this.tufts(W + 0.3, W + 40, rY);
@@ -1043,7 +1175,7 @@ export class Renderer {
   }
 
   /** Whatever grows or stands along a bank, from x0 toward x1, rooted at height y. */
-  private flora(x0: number, x1: number, y: number, seed: number): void {
+  private flora(x0: number, x1: number, y: number, seed: number, time: number): void {
     const { ctx, cam } = this;
     const T = this.look;
     const dir = Math.sign(x1 - x0);
@@ -1051,6 +1183,7 @@ export class Renderer {
     const sy = cam.sy(y);
     const path = new Path2D();
     const snow = new Path2D();
+    const willows: WillowLayers = { shade: new Path2D(), wood: new Path2D(), leaves: new Path2D(), lit: new Path2D() };
     const glows: [number, number][] = [];
     for (let i = 0, x = x0; (x1 - x) * dir > 0 && i < 40; i++) {
       const r = hash(seed * 100 + i);
@@ -1058,7 +1191,8 @@ export class Renderer {
       const sx = cam.sx(x);
       const gap = T.flora === 'lamps' ? 5 : T.flora === 'cactus' ? 2.4 + hash(seed * 50 + i) * 4 : 1.4 + hash(seed * 50 + i) * 2.6;
       x += dir * gap;
-      if (sx < -80 || sx > this.w + 80) continue;
+      const margin = 80 + 2.5 * s;
+      if (sx < -margin || sx > this.w + margin) continue;
       switch (T.flora) {
         case 'mixed':
         case 'pine':
@@ -1088,22 +1222,9 @@ export class Renderer {
         case 'cactus':
           this.cactus(sx, sy, h * 0.75, r, s);
           break;
-        case 'willow': {
-          path.rect(sx - 0.09 * s, sy - h * 0.55 * s, 0.18 * s, h * 0.55 * s);
-          const rx = 1.2 * s * (0.8 + r * 0.4);
-          const cy = sy - h * 0.72 * s;
-          path.moveTo(sx + rx, cy);
-          path.ellipse(sx, cy, rx, 0.75 * s, 0, 0, TAU);
-          // A drooping curtain of leaves.
-          path.moveTo(sx - rx, cy);
-          for (let k = 0; k <= 8; k++) {
-            const px = sx - rx + (k / 8) * rx * 2;
-            path.lineTo(px, sy - (h * 0.2 + 0.25 * hash(i * 9 + k)) * s);
-            path.lineTo(Math.min(sx + rx, px + rx * 0.12), cy + 0.2 * s);
-          }
-          path.closePath();
+        case 'willow':
+          willow(willows, sx, sy, h, r, s, seed * 100 + i, time);
           break;
-        }
         case 'palm':
           this.palm(sx, sy, h, r, s);
           break;
@@ -1121,6 +1242,17 @@ export class Renderer {
     }
     ctx.fillStyle = T.tree;
     ctx.fill(path);
+    if (T.flora === 'willow') {
+      for (const [layer, f] of [
+        [willows.shade, -0.3],
+        [willows.wood, -0.5],
+        [willows.lit, 0.14],
+        [willows.leaves, 0],
+      ] as const) {
+        ctx.fillStyle = f ? tint(T.tree, f) : T.tree;
+        ctx.fill(layer);
+      }
+    }
     if (T.snowCaps) {
       ctx.fillStyle = 'rgba(245,250,255,0.9)';
       ctx.fill(snow);

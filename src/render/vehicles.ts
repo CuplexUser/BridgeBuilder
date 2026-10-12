@@ -238,6 +238,32 @@ function car(p: Painter, def: VehicleDef): void {
   p.lamp(-0.86, 0.3, 0.08, 0.18, '#ff4a3d');
 }
 
+/** A parcel box drawn at an angle, centered at (x, y), with tape and speed lines behind it. */
+function parcel(p: Painter, x: number, y: number, color: string): void {
+  const a = 0.16;
+  const top: [number, number] = [x, y + 0.16];
+  const ul: [number, number] = [x - a, y + 0.08];
+  const ur: [number, number] = [x + a, y + 0.08];
+  const c: [number, number] = [x, y];
+  const ll: [number, number] = [x - a, y - 0.1];
+  const lr: [number, number] = [x + a, y - 0.1];
+  const bottom: [number, number] = [x, y - 0.18];
+  p.fill(poly([top, ur, c, ul]), shade(color, 0.35));
+  p.fill(poly([ul, c, bottom, ll]), color);
+  p.fill(poly([c, ur, lr, bottom]), shade(color, -0.3));
+  // Tape across the lid and down the front.
+  const tape = 'rgba(255,255,255,0.85)';
+  p.line(x - a / 2, y + 0.12, x + a / 2, y + 0.04, tape, 1.6);
+  p.line(x + a / 2, y + 0.04, x + a / 2, y - 0.14, tape, 1.6);
+  for (const [dy, len] of [
+    [0.06, 0.16],
+    [-0.02, 0.24],
+    [-0.1, 0.12],
+  ]) {
+    p.line(x - a - 0.05 - len, y + dy, x - a - 0.05, y + dy, color, 2.2);
+  }
+}
+
 function van(p: Painter, def: VehicleDef): void {
   const wb = def.wheelbase;
   const R = def.wheelR;
@@ -255,12 +281,10 @@ function van(p: Painter, def: VehicleDef): void {
   p.panel(body, def.color, 1.52, -0.1);
   p.arch(0, R);
   p.arch(wb, R);
-  // Livery stripe and a parcel logo.
+  // Livery stripe, and the logo: a taped parcel box speeding along.
   p.lamp(-0.74, 0.46, wb + 1.7, 0.16, def.trim);
   p.lamp(-0.74, 0.66, wb + 1.64, 0.035, def.trim);
-  p.lamp(0.55, 0.86, 0.36, 0.3, def.trim);
-  p.line(0.73, 0.86, 0.73, 1.16, 'rgba(255,255,255,0.9)', 1.2);
-  p.line(0.55, 1.01, 0.91, 1.01, 'rgba(255,255,255,0.9)', 1.2);
+  parcel(p, 0.8, 1.03, def.trim);
   const wind = poly([
     [wb + 0.18, 0.86],
     [wb + 0.8, 0.86],
