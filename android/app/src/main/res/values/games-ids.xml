@@ -7,75 +7,75 @@
 -->
 <resources>
     <!-- Play Games project id -->
-    <string name="app_id" translatable="false"></string>
+    <string name="app_id" translatable="false">671164571578</string>
 
     <!-- First Crossing: Cross any level. -->
-    <string name="achievement_first_crossing" translatable="false"></string>
+    <string name="achievement_first_crossing" translatable="false">CgkIur-apMQTEAIQBg</string>
     <!-- Three Stars: Earn all three stars on a level. -->
-    <string name="achievement_three_stars" translatable="false"></string>
+    <string name="achievement_three_stars" translatable="false">CgkIur-apMQTEAIQEA</string>
     <!-- Above and Beyond: Meet a bonus goal. -->
-    <string name="achievement_above_and_beyond" translatable="false"></string>
+    <string name="achievement_above_and_beyond" translatable="false">CgkIur-apMQTEAIQFQ</string>
     <!-- Chapter Groundwork: Cross every level in Groundwork. -->
-    <string name="achievement_chapter_groundwork" translatable="false"></string>
+    <string name="achievement_chapter_groundwork" translatable="false">CgkIur-apMQTEAIQDg</string>
     <!-- Chapter Load Bearing: Cross every level in Load Bearing. -->
-    <string name="achievement_chapter_load_bearing" translatable="false"></string>
+    <string name="achievement_chapter_load_bearing" translatable="false">CgkIur-apMQTEAIQDA</string>
     <!-- Chapter Tension: Cross every level in Tension. -->
-    <string name="achievement_chapter_tension" translatable="false"></string>
+    <string name="achievement_chapter_tension" translatable="false">CgkIur-apMQTEAIQEw</string>
     <!-- Chapter Heavy Traffic: Cross every level in Heavy Traffic. -->
-    <string name="achievement_chapter_heavy_traffic" translatable="false"></string>
+    <string name="achievement_chapter_heavy_traffic" translatable="false">CgkIur-apMQTEAIQEQ</string>
     <!-- Chapter Arches: Cross every level in Arches. -->
-    <string name="achievement_chapter_arches" translatable="false"></string>
+    <string name="achievement_chapter_arches" translatable="false">CgkIur-apMQTEAIQCg</string>
     <!-- Chapter Railway: Cross every level in Railway. -->
-    <string name="achievement_chapter_railway" translatable="false"></string>
+    <string name="achievement_chapter_railway" translatable="false">CgkIur-apMQTEAIQEg</string>
     <!-- Chapter Anchorage: Cross every level in Anchorage. -->
-    <string name="achievement_chapter_anchorage" translatable="false"></string>
+    <string name="achievement_chapter_anchorage" translatable="false">CgkIur-apMQTEAIQBA</string>
     <!-- Chapter Main Cable: Cross every level in Main Cable. -->
-    <string name="achievement_chapter_main_cable" translatable="false"></string>
+    <string name="achievement_chapter_main_cable" translatable="false">CgkIur-apMQTEAIQDw</string>
     <!-- Chapter Master Works: Cross every level in Master Works. -->
-    <string name="achievement_chapter_master_works" translatable="false"></string>
+    <string name="achievement_chapter_master_works" translatable="false">CgkIur-apMQTEAIQDQ</string>
     <!-- Chapter Modern Works: Cross every level in Modern Works. -->
-    <string name="achievement_chapter_modern_works" translatable="false"></string>
+    <string name="achievement_chapter_modern_works" translatable="false">CgkIur-apMQTEAIQFA</string>
     <!-- Chapter Grand Finale: Cross every level in Grand Finale. -->
-    <string name="achievement_chapter_grand_finale" translatable="false"></string>
+    <string name="achievement_chapter_grand_finale" translatable="false">CgkIur-apMQTEAIQCA</string>
     <!-- Chief Engineer: Cross every level. -->
-    <string name="achievement_chief_engineer" translatable="false"></string>
+    <string name="achievement_chief_engineer" translatable="false">CgkIur-apMQTEAIQAQ</string>
     <!-- Perfectionist: Earn three stars on every level. -->
-    <string name="achievement_perfectionist" translatable="false"></string>
+    <string name="achievement_perfectionist" translatable="false">CgkIur-apMQTEAIQBQ</string>
     <!-- Overachiever: Meet every bonus goal. -->
-    <string name="achievement_overachiever" translatable="false"></string>
+    <string name="achievement_overachiever" translatable="false">CgkIur-apMQTEAIQBw</string>
     <!-- Back to the Drawing Board: Watch one of your bridges collapse. -->
-    <string name="achievement_back_to_the_drawing_board" translatable="false"></string>
+    <string name="achievement_back_to_the_drawing_board" translatable="false">CgkIur-apMQTEAIQAw</string>
     <!-- Against the Odds: Finish a chapter challenge. -->
-    <string name="achievement_against_the_odds" translatable="false"></string>
+    <string name="achievement_against_the_odds" translatable="false">CgkIur-apMQTEAIQAg</string>
     <!-- Flawless: Finish a chapter challenge without losing a life. -->
-    <string name="achievement_flawless" translatable="false"></string>
+    <string name="achievement_flawless" translatable="false">CgkIur-apMQTEAIQCQ</string>
     <!-- Architect: Cross a level you made in the level editor. -->
-    <string name="achievement_architect" translatable="false"></string>
+    <string name="achievement_architect" translatable="false">CgkIur-apMQTEAIQCw</string>
 
     <!-- Career: The sum of your best score on every level. -->
-    <string name="leaderboard_career" translatable="false"></string>
+    <string name="leaderboard_career" translatable="false">CgkIur-apMQTEAIQFg</string>
     <!-- Stars: Stars earned over every level, bonus stars not counted. -->
-    <string name="leaderboard_stars" translatable="false"></string>
+    <string name="leaderboard_stars" translatable="false">CgkIur-apMQTEAIQFw</string>
     <!-- Challenge Groundwork: Groundwork in a row, from scratch, with three lives. -->
-    <string name="leaderboard_challenge_groundwork" translatable="false"></string>
+    <string name="leaderboard_challenge_groundwork" translatable="false">CgkIur-apMQTEAIQGA</string>
     <!-- Challenge Load Bearing: Load Bearing in a row, from scratch, with three lives. -->
-    <string name="leaderboard_challenge_load_bearing" translatable="false"></string>
+    <string name="leaderboard_challenge_load_bearing" translatable="false">CgkIur-apMQTEAIQGQ</string>
     <!-- Challenge Tension: Tension in a row, from scratch, with three lives. -->
-    <string name="leaderboard_challenge_tension" translatable="false"></string>
+    <string name="leaderboard_challenge_tension" translatable="false">CgkIur-apMQTEAIQGg</string>
     <!-- Challenge Heavy Traffic: Heavy Traffic in a row, from scratch, with three lives. -->
-    <string name="leaderboard_challenge_heavy_traffic" translatable="false"></string>
+    <string name="leaderboard_challenge_heavy_traffic" translatable="false">CgkIur-apMQTEAIQGw</string>
     <!-- Challenge Arches: Arches in a row, from scratch, with three lives. -->
-    <string name="leaderboard_challenge_arches" translatable="false"></string>
+    <string name="leaderboard_challenge_arches" translatable="false">CgkIur-apMQTEAIQHA</string>
     <!-- Challenge Railway: Railway in a row, from scratch, with three lives. -->
-    <string name="leaderboard_challenge_railway" translatable="false"></string>
+    <string name="leaderboard_challenge_railway" translatable="false">CgkIur-apMQTEAIQHQ</string>
     <!-- Challenge Anchorage: Anchorage in a row, from scratch, with three lives. -->
-    <string name="leaderboard_challenge_anchorage" translatable="false"></string>
+    <string name="leaderboard_challenge_anchorage" translatable="false">CgkIur-apMQTEAIQHg</string>
     <!-- Challenge Main Cable: Main Cable in a row, from scratch, with three lives. -->
-    <string name="leaderboard_challenge_main_cable" translatable="false"></string>
+    <string name="leaderboard_challenge_main_cable" translatable="false">CgkIur-apMQTEAIQHw</string>
     <!-- Challenge Master Works: Master Works in a row, from scratch, with three lives. -->
-    <string name="leaderboard_challenge_master_works" translatable="false"></string>
+    <string name="leaderboard_challenge_master_works" translatable="false">CgkIur-apMQTEAIQIA</string>
     <!-- Challenge Modern Works: Modern Works in a row, from scratch, with three lives. -->
-    <string name="leaderboard_challenge_modern_works" translatable="false"></string>
+    <string name="leaderboard_challenge_modern_works" translatable="false">CgkIur-apMQTEAIQIQ</string>
     <!-- Challenge Grand Finale: Grand Finale in a row, from scratch, with three lives. -->
-    <string name="leaderboard_challenge_grand_finale" translatable="false"></string>
+    <string name="leaderboard_challenge_grand_finale" translatable="false">CgkIur-apMQTEAIQIg</string>
 </resources>
