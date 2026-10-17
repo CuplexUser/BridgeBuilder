@@ -228,14 +228,17 @@ export function doubleBascule(l: LevelDef, m: TrussMats): Design {
   return d;
 }
 
-/** A lift bridge: approaches from the banks to the towers' seats, each braced from its low bank bolt, and a span from seat to seat on rams. */
-export function liftBridge(l: LevelDef, deckMat: MaterialId, m: TrussMats): Design {
+/**
+ * A lift bridge: approaches from the banks to the towers' seats, each braced from its low bank
+ * bolt, and a span from seat to seat on rams. Without truss materials the deck goes bare, for track
+ * stiff enough to carry itself between the props.
+ */
+export function liftBridge(l: LevelDef, deckMat: MaterialId, m: TrussMats | null): Design {
   const d = new Design(l);
   const [a, b] = l.lift!;
-  trussOver(d, roadRun(d, [0, 0], [a, 0], deckMat), 2, m);
-  trussOver(d, roadRun(d, [b, 0], [l.width, 0], deckMat), 2, m);
+  const runs = [roadRun(d, [0, 0], [a, 0], deckMat), roadRun(d, [b, 0], [l.width, 0], deckMat), roadRun(d, [a, 0], [b, 0], deckMat)];
+  if (m) for (const run of runs) trussOver(d, run, 2, m);
   d.add([0, -3], [2, 0], 'steel').add([l.width, -3], [l.width - 2, 0], 'steel');
-  trussOver(d, roadRun(d, [a, 0], [b, 0], deckMat), 2, m);
   for (const [x, y] of l.anchors) if (x > a && x < b) d.add([x, y], [x, 0], 'ram');
   return d;
 }
@@ -669,7 +672,8 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
   74: (l) => doubleBascule(l, STEELY),
   75: (l) => liftBridge(l, 'road', WOOD),
   76: (l) => swingBridge(l, true),
-  77: (l) => liftBridge(l, 'track', WOOD),
+  // Track carries the train from strut to ram on its own; trusses over it would set the target too high.
+  77: (l) => liftBridge(l, 'track', null),
 };
 
 /** Level 27: a road deck on a braced trestle up from each deep pier, with a truss over each span. */

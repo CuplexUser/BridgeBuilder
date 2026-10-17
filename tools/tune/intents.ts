@@ -186,6 +186,15 @@ function joinedLift(l: LevelDef, deckMat: MaterialId): Design {
   return d;
 }
 
+/** The lift bridge as bare deck on its rams, with nothing under the approaches. */
+function bareLift(l: LevelDef, deckMat: MaterialId): Design {
+  const d = new Design(l);
+  const [a, b] = l.lift!;
+  for (const [x0, x1] of [[0, a], [a, b], [b, l.width]]) roadRun(d, [x0, 0], [x1, 0], deckMat);
+  for (const [x, y] of l.anchors) if (x > a && x < b) d.add([x, y], [x, 0], 'ram');
+  return d;
+}
+
 export const INTENTS: Record<number, Intent> = {
   7: { bonus: ['stress', 'without', 'parts'] },
   13: {
@@ -430,7 +439,14 @@ export const INTENTS: Record<number, Intent> = {
   75: { requires: ['ram'], shortcuts: [{ name: 'one deck from bank to bank', build: (l) => joinedLift(l, 'road') }] },
   // Balanced on two bolts with nothing out wide, the open bridge tips and folds.
   76: { shortcuts: [{ name: 'posts only under the pivot', build: (l) => swingBridge(l, false) }] },
-  77: { requires: ['ram'], shortcuts: [{ name: 'one deck from bank to bank', build: (l) => joinedLift(l, 'track') }] },
+  // Track is stiff, but not enough to carry the train bare over the approaches.
+  77: {
+    requires: ['ram'],
+    shortcuts: [
+      { name: 'one deck from bank to bank', build: (l) => joinedLift(l, 'track') },
+      { name: 'bare track on the rams', build: (l) => bareLift(l, 'track') },
+    ],
+  },
 };
 
 /** The hand-made reference for a level, if it still fits the level's (possibly tuned) geometry. */

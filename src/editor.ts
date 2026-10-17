@@ -357,8 +357,9 @@ export class Editor {
       this.beginBlock(spot[0], spot[1]);
       return 'block';
     }
-    // An arch may spring from any free grid point, such as the top of a rock shelf.
-    if (MATERIALS[this.mat].cell === 'ring') {
+    // An arch may spring from any free grid point, such as the top of a rock shelf. A tap on a
+    // block or ring already built is left to take it off.
+    if (MATERIALS[this.mat].cell === 'ring' && this.cellAt(wx, wy) < 0) {
       const [gx, gy] = [Math.round(wx), Math.round(wy)];
       if (Math.hypot(gx - wx, gy - wy) <= nodeRadius && pointAllowed(this.level, gx, gy) && !this.design.nodes.some((n) => Math.hypot(n.x - gx, n.y - gy) < MIN_JOINT_GAP)) {
         this.beginBlock(gx, gy);

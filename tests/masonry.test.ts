@@ -110,6 +110,24 @@ describe('arch rings', () => {
     expect(rings(ed.design)).toHaveLength(1);
   });
 
+  it('comes off with a tap on a grid point inside it while the arch is in hand', () => {
+    const ed = new Editor(SHELVES, noop);
+    ed.setMaterial('arch');
+    ed.beginAt(1, -5, 0.1, 0.1);
+    ed.aim(19, -5);
+    ed.commit();
+    // A grid point inside the ring, clear of its joints, where a new arch could otherwise spring.
+    const inside: [number, number][] = [];
+    for (let x = 2; x <= 18; x++) for (let y = -5; y <= 0; y++) {
+      if (ed.cellAt(x, y) >= 0 && ed.nodeAt(x, y, 0.4) < 0) inside.push([x, y]);
+    }
+    expect(inside.length).toBeGreaterThan(0);
+    const [x, y] = inside[0];
+    expect(ed.beginAt(x, y, 0.4, 0.3)).toBe(null);
+    ed.removeCell(ed.cellAt(x, y));
+    expect(ed.design.cells).toEqual([]);
+  });
+
   it('takes a new rise from its crown handle, its top following its underside', () => {
     const ed = new Editor(DEEP, noop);
     ed.design = shelfArch(0, 4.5);
