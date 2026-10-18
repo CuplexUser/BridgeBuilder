@@ -88,19 +88,38 @@ public class PlayGamesPlugin extends Plugin {
         return id.isEmpty() ? null : id;
     }
 
+    /**
+     * Unlocks and scores wait for Play Games' answer, so the game only counts one as sent once it
+     * got there, and tries a failed one again later.
+     */
     @PluginMethod
     public void unlock(PluginCall call) {
-        String id = id("achievement_", call.getString("key"));
-        if (available && id != null) PlayGames.getAchievementsClient(getActivity()).unlock(id);
-        call.resolve();
+        String key = call.getString("key");
+        String id = id("achievement_", key);
+        if (!available || id == null) {
+            call.reject(available ? "No achievement id for " + key : "Google Play Games is not available");
+            return;
+        }
+        settle(call, PlayGames.getAchievementsClient(getActivity()).unlockImmediate(id), "unlock " + key);
     }
 
     @PluginMethod
     public void submitScore(PluginCall call) {
-        String id = id("leaderboard_", call.getString("key"));
+        String key = call.getString("key");
+        String id = id("leaderboard_", key);
         Long score = call.getLong("score");
-        if (available && id != null && score != null) PlayGames.getLeaderboardsClient(getActivity()).submitScore(id, score);
-        call.resolve();
+        if (!available || id == null || score == null) {
+            call.reject(available ? "No leaderboard id for " + key : "Google Play Games is not available");
+            return;
+        }
+        settle(call, PlayGames.getLeaderboardsClient(getActivity()).submitScoreImmediate(id, score), "submit a score to " + key);
+    }
+
+    private void settle(PluginCall call, Task<?> task, String what) {
+        task.addOnCompleteListener(t -> {
+            if (t.isSuccessful()) call.resolve();
+            else call.reject("Could not " + what + ": " + t.getException(), t.getException());
+        });
     }
 
     @PluginMethod

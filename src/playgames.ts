@@ -3,8 +3,12 @@ import type { BestMap, ChapterDef } from './chapters';
 import { games, type GamesStatus } from './platform';
 import { safeLocalStorage, type LocalStore } from './storage';
 
-/** What has been sent to Play Games, per player, so nothing is sent twice. */
-const SENT_KEY = 'bridgebuilder.playgames';
+/**
+ * What Play Games has taken, per player, so nothing is sent twice. Up to 1.0.10 a send was
+ * counted before Play Games answered, so that record (`bridgebuilder.playgames`) may hold
+ * achievements that never arrived; this one starts over and sends them again.
+ */
+const SENT_KEY = 'bridgebuilder.playgames.2';
 /** A burst of saves goes up to the cloud as one write, this long after the last, ms. */
 const CLOUD_DELAY = 20_000;
 
@@ -22,6 +26,8 @@ interface Sent {
 export class PlayGamesLink {
   status: GamesStatus = { available: false, signedIn: false };
   private cloudTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Unlocks and scores on their way, so a save while they're out doesn't send them again. */
+  private inFlight = new Set<string>();
 
   constructor(private store: LocalStore | null) {}
 
@@ -58,38 +64,50 @@ export class PlayGamesLink {
   progress(best: BestMap): void {
     if (!this.signedIn) return;
     const sent = this.sent();
-    for (const key of earnedBy(best)) {
-      if (sent.achievements.includes(key)) continue;
-      games.unlock(key);
-      sent.achievements.push(key);
-    }
+    for (const key of earnedBy(best)) this.unlock(sent, key);
     for (const { key, score } of progressScores(best)) this.submit(sent, key, score);
-    this.keep(sent);
   }
 
   /** An achievement earned by a moment in play. */
   moment(m: PlayMoment): void {
     if (!this.signedIn) return;
-    const sent = this.sent();
-    const key = momentAchievement(m);
-    if (sent.achievements.includes(key)) return;
-    games.unlock(key);
-    sent.achievements.push(key);
-    this.keep(sent);
+    this.unlock(this.sent(), momentAchievement(m));
   }
 
   /** A finished chapter challenge, for that chapter's leaderboard. */
   challenge(c: ChapterDef, score: number): void {
     if (!this.signedIn) return;
-    const sent = this.sent();
-    this.submit(sent, challengeBoardKey(c), score);
-    this.keep(sent);
+    this.submit(this.sent(), challengeBoardKey(c), score);
+  }
+
+  /** Counts an achievement as sent only once Play Games has it; a failed one goes again with the next save. */
+  private unlock(sent: Sent, key: string): void {
+    const flight = `a:${key}`;
+    if (sent.achievements.includes(key) || this.inFlight.has(flight)) return;
+    this.inFlight.add(flight);
+    games
+      .unlock(key)
+      .then(() => this.record((s) => void (s.achievements.includes(key) || s.achievements.push(key))))
+      .catch((e: unknown) => console.log('Play Games:', e))
+      .finally(() => this.inFlight.delete(flight));
   }
 
   private submit(sent: Sent, key: string, score: number): void {
-    if (score <= 0 || score <= (sent.scores[key] ?? 0)) return;
-    games.submitScore(key, score);
-    sent.scores[key] = score;
+    const flight = `s:${key}:${score}`;
+    if (score <= 0 || score <= (sent.scores[key] ?? 0) || this.inFlight.has(flight)) return;
+    this.inFlight.add(flight);
+    games
+      .submitScore(key, score)
+      .then(() => this.record((s) => void (s.scores[key] = Math.max(s.scores[key] ?? 0, score))))
+      .catch((e: unknown) => console.log('Play Games:', e))
+      .finally(() => this.inFlight.delete(flight));
+  }
+
+  /** Rereads the record before changing it, since other sends may have landed in the meantime. */
+  private record(change: (sent: Sent) => void): void {
+    const sent = this.sent();
+    change(sent);
+    this.keep(sent);
   }
 
   /** The device's saves changed: send them to the cloud once things settle. */

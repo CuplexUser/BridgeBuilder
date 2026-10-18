@@ -67,8 +67,8 @@ export interface Native {
   games: {
     status(): Promise<GamesStatus>;
     signIn(): Promise<GamesStatus>;
-    unlock(key: string): void;
-    submitScore(key: string, score: number): void;
+    unlock(key: string): Promise<void>;
+    submitScore(key: string, score: number): Promise<void>;
     showAchievements(): Promise<void>;
     showLeaderboards(): Promise<void>;
     loadSave(): Promise<string | null>;
@@ -150,8 +150,8 @@ export async function createNative(): Promise<Native> {
     games: {
       status: () => PlayGames.status().catch(() => ({ available: false, signedIn: false })),
       signIn: () => PlayGames.signIn().catch(() => ({ available: false, signedIn: false })),
-      unlock: (key) => quiet(PlayGames.unlock({ key })),
-      submitScore: (key, score) => quiet(PlayGames.submitScore({ key, score })),
+      unlock: (key) => PlayGames.unlock({ key }),
+      submitScore: (key, score) => PlayGames.submitScore({ key, score }),
       showAchievements: () => PlayGames.showAchievements(),
       showLeaderboards: () => PlayGames.showLeaderboards(),
       loadSave: async () => (await PlayGames.loadSave({ name: CLOUD_SAVE })).data,

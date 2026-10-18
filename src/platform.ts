@@ -142,13 +142,13 @@ export type { GamesStatus };
  * Google Play Games Services: achievements, leaderboards and a cloud save. Only the Android app
  * has them, and only once the Play Console's game IDs are in the build (android/.../games-ids.xml).
  * Achievements and leaderboards are named by their key in that file, without the
- * `achievement_` or `leaderboard_` prefix; a key that isn't there is skipped.
+ * `achievement_` or `leaderboard_` prefix. An unlock or score rejects if it didn't reach Play Games.
  */
 export const games = {
   status: (): Promise<GamesStatus> => native?.games.status() ?? Promise.resolve({ available: false, signedIn: false }),
   signIn: (): Promise<GamesStatus> => native?.games.signIn() ?? Promise.resolve({ available: false, signedIn: false }),
-  unlock: (key: string): void => native?.games.unlock(key),
-  submitScore: (key: string, score: number): void => native?.games.submitScore(key, score),
+  unlock: (key: string): Promise<void> => native?.games.unlock(key) ?? Promise.reject(new Error('No Play Games here')),
+  submitScore: (key: string, score: number): Promise<void> => native?.games.submitScore(key, score) ?? Promise.reject(new Error('No Play Games here')),
   showAchievements: (): Promise<void> => native?.games.showAchievements() ?? Promise.resolve(),
   showLeaderboards: (): Promise<void> => native?.games.showLeaderboards() ?? Promise.resolve(),
   loadSave: (): Promise<string | null> => native?.games.loadSave() ?? Promise.resolve(null),
