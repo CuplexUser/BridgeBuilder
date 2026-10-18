@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  PlayGamesPlugin looks the Play Games ids in games-ids.xml up by name, which the release build's
+  resource shrinker can't see, so it would strip every one of them.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@string/achievement_*,@string/leaderboard_*" />

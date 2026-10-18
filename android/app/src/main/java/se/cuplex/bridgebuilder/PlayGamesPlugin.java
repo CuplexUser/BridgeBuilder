@@ -1,6 +1,7 @@
 package se.cuplex.bridgebuilder;
 
 import android.content.Intent;
+import android.util.Log;
 import androidx.activity.result.ActivityResult;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -29,6 +30,8 @@ import java.nio.charset.StandardCharsets;
  */
 @CapacitorPlugin(name = "PlayGames")
 public class PlayGamesPlugin extends Plugin {
+
+    private static final String TAG = "PlayGames";
 
     private boolean available;
 
@@ -97,7 +100,7 @@ public class PlayGamesPlugin extends Plugin {
         String key = call.getString("key");
         String id = id("achievement_", key);
         if (!available || id == null) {
-            call.reject(available ? "No achievement id for " + key : "Google Play Games is not available");
+            fail(call, available ? "No achievement id for " + key : "Google Play Games is not available", null);
             return;
         }
         settle(call, PlayGames.getAchievementsClient(getActivity()).unlockImmediate(id), "unlock " + key);
@@ -109,17 +112,25 @@ public class PlayGamesPlugin extends Plugin {
         String id = id("leaderboard_", key);
         Long score = call.getLong("score");
         if (!available || id == null || score == null) {
-            call.reject(available ? "No leaderboard id for " + key : "Google Play Games is not available");
+            fail(call, available ? "No leaderboard id for " + key : "Google Play Games is not available", null);
             return;
         }
         settle(call, PlayGames.getLeaderboardsClient(getActivity()).submitScoreImmediate(id, score), "submit a score to " + key);
     }
 
+    /** The outcome goes to logcat too, since a release build keeps the web console quiet. */
     private void settle(PluginCall call, Task<?> task, String what) {
         task.addOnCompleteListener(t -> {
-            if (t.isSuccessful()) call.resolve();
-            else call.reject("Could not " + what + ": " + t.getException(), t.getException());
+            if (t.isSuccessful()) {
+                Log.i(TAG, "Did " + what);
+                call.resolve();
+            } else fail(call, "Could not " + what + ": " + t.getException(), t.getException());
         });
+    }
+
+    private void fail(PluginCall call, String message, Exception e) {
+        Log.w(TAG, message, e);
+        call.reject(message, e);
     }
 
     @PluginMethod
