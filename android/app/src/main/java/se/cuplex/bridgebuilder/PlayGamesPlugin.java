@@ -110,9 +110,12 @@ public class PlayGamesPlugin extends Plugin {
     public void submitScore(PluginCall call) {
         String key = call.getString("key");
         String id = id("leaderboard_", key);
-        Long score = call.getLong("score");
+        // Not getLong: Capacitor hands a small JS number over as an Integer, which getLong turns into null.
+        JSObject data = call.getData();
+        Long score = data.has("score") ? data.optLong("score") : null;
         if (!available || id == null || score == null) {
-            fail(call, available ? "No leaderboard id for " + key : "Google Play Games is not available", null);
+            String why = !available ? "Google Play Games is not available" : id == null ? "No leaderboard id for " + key : "No score for " + key;
+            fail(call, why, null);
             return;
         }
         settle(call, PlayGames.getLeaderboardsClient(getActivity()).submitScoreImmediate(id, score), "submit a score to " + key);
