@@ -520,6 +520,7 @@ export class Ui {
       [`Safety (peak ${Math.round(peak * 100)}%)`, `+${s.safetyBonus}`],
       [`Bonus goal: ${bonusLabel(level.bonus)}`, s.bonus ? `+${GOAL_SCORE}` : 'missed'],
     ];
+    if (s.lost) lines.splice(1, 0, ['A squad went into the river', 'one star only']);
     if (s.hintPenalty) lines.push(["Engineer's hints", `−${s.hintPenalty}`]);
     $('res-review').innerHTML = review.length ? `<b>Engineer's review</b><ul>${review.map((r) => `<li>${escapeHtml(r)}</li>`).join('')}</ul>` : '';
     rows.innerHTML = lines.map(([a, b], i) => `<tr style="animation-delay:${0.25 + i * 0.18}s"><td>${a}</td><td>${b}</td></tr>`).join('');
@@ -607,7 +608,9 @@ export class Ui {
     $('pgs-who').textContent = s.signedIn ? `Google Play Games${s.player ? `: ${s.player}` : ''}` : 'Google Play Games';
   }
 
-  collapse(reason: string, lives: number | null, maxLives: number, playtest = false): void {
+  /** The card after a failed run: COLLAPSED if the bridge itself gave way, else just FAILED. */
+  collapse(reason: string, collapsed: boolean, lives: number | null, maxLives: number, playtest = false): void {
+    $('col-stamp').textContent = collapsed ? 'COLLAPSED' : 'FAILED';
     $('col-quit').innerHTML = playtest ? 'EDIT LEVEL <kbd>Esc</kbd>' : 'MENU <kbd>Esc</kbd>';
     $('col-reason').textContent = reason;
     const livesEl = $('col-lives');

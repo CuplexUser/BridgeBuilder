@@ -2,6 +2,7 @@ import { Design, type GridPt } from '../../src/design';
 import { bankY, mudAt, type BonusGoal, type GeometryKey, type LevelDef } from '../../src/levels';
 import { rings } from '../../src/masonry';
 import { MATERIALS, type MaterialId } from '../../src/physics/materials';
+import { crossesChannel } from '../../src/rules';
 import { archBridge, blockArch, blockGirder, blockTower, deck, doubleBascule, doubleDeck, hang, liftOff, pileBridge, roadRun, SOLUTIONS, swingBridge, trussOver, warrenAbove, type TrussMats } from '../../src/solutions';
 
 /** A level's geometry for one choice of its tunable parameters. */
@@ -110,6 +111,22 @@ const onBolts = {
     const xs = l.anchors.filter(([x, y]) => mudAt(l, x, y)).map(([x]) => x).toSorted((a, b) => a - b);
     const deckMat = SOLUTIONS[l.id](l).members.find((m) => MATERIALS[m.mat].drivable)?.mat ?? 'road';
     return pileBridge(l, [0, ...xs, l.width], xs, deckMat);
+  },
+};
+
+/**
+ * The reference with steel braces fanned out from each pile to the deck joints either side:
+ * stiff enough in calm water, but the flood's current and driftwood push on all that stands in
+ * it.
+ */
+const fannedPiles = {
+  name: 'braces fanned out from the piles, in the water',
+  build: (l: LevelDef) => {
+    const d = SOLUTIONS[l.id](l);
+    for (const n of d.nodes.filter((p) => p.pile)) {
+      for (const dx of [-2, 2]) if (d.findNode(n.x + dx, 0) >= 0 && !crossesChannel(l, n.x, n.y, n.x + dx, 0)) d.add([n.x, n.y], [n.x + dx, 0], 'steel');
+    }
+    return d;
   },
 };
 
@@ -384,10 +401,11 @@ export const INTENTS: Record<number, Intent> = {
   62: { requires: ['piles'], shortcuts: [onBolts] },
   63: { requires: ['piles'], shortcuts: [onBolts] },
   64: { requires: ['piles'] },
-  65: { requires: ['piles'], shortcuts: [onBolts] },
+  // The flood bites what stands in the water: keep it slim.
+  65: { requires: ['piles'], shortcuts: [onBolts, fannedPiles] },
   // The finale: each combines two lessons, and each of them is checked.
   66: { requires: ['piles'], shortcuts: [onBolts] },
-  67: { requires: ['piles', 'heavy'], shortcuts: [onBolts] },
+  67: { requires: ['piles', 'heavy'], shortcuts: [onBolts, fannedPiles] },
   68: { shortcuts: [dampers(null), dampers('steel')] },
   69: {
     requires: ['arch', 'masonry'],

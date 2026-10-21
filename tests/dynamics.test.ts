@@ -135,7 +135,29 @@ describe('marching', () => {
     expect(run.vehicle.wheels.some((p) => marchers.has(p))).toBe(false);
   });
 
-  it('loses the run when a squad is thrown off its feet, not when its boots bounce on a lively deck', () => {
+  it('lets one thrown squad go into the river, and loses the run with a second', () => {
+    /** Slow March's hand-made bridge, with the given squads flung up off the deck 10 s in. */
+    const fling = (squads: number[]) => {
+      const { run, level } = drive(56);
+      const w = run.world;
+      for (let i = 0; i < 600; i++) run.step();
+      for (const k of squads) for (const p of [...run.vehicles[k].wheels, run.vehicles[k].rearTop, run.vehicles[k].frontTop]) w.vy[p] = 8;
+      while (run.status === 'running' && run.time < testSeconds(level)) run.step();
+      return run;
+    };
+    // The last squad in line, so the deck under the others marches on much as before.
+    const one = fling([3]);
+    expect(one.status).toBe('success');
+    expect([...one.lost]).toEqual([one.vehicles[3]]);
+    // It dropped away below the bridge, out of the way.
+    expect(one.world.y[one.vehicles[3].rearWheel]).toBeLessThan(one.world.waterY);
+    const two = fling([2, 3]);
+    expect(two.status).toBe('fail');
+    expect(two.reason).toBe('The deck threw a second squad off its feet.');
+    expect(two.collapsed).toBe(false);
+  });
+
+  it('loses no squad when its boots bounce on a lively deck', () => {
     const { run, level } = drive(56);
     const w = run.world;
     const squads = run.vehicles.filter((v) => v.def.marches);
@@ -149,6 +171,7 @@ describe('marching', () => {
     }
     expect(bounced).toBe(true);
     expect(run.status).toBe('success');
+    expect(run.lost.size).toBe(0);
     // Off the deck and dropping fast.
     const thrown = drive(56).run;
     for (let i = 0; i < 600; i++) thrown.step();

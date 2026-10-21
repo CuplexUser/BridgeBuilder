@@ -21,6 +21,8 @@ export interface LevelScore {
   safe: boolean;
   /** The level's bonus goal was met: the fourth star. */
   bonus: boolean;
+  /** Marching squads the deck threw into the river: a crossing that loses one earns its first star only. */
+  lost: number;
 }
 
 export const BASE_SCORE = 500;
@@ -60,14 +62,18 @@ export function bonusLabel(goal: BonusGoal): string {
   }
 }
 
-/** Scores a crossing. `hints` is how many of the engineer's hints were taken on the level. */
-export function scoreLevel(level: LevelDef, design: Design, peakStress: number, hints = 0): LevelScore {
+/**
+ * Scores a crossing. `hints` is how many of the engineer's hints were taken on the level, and
+ * `lost` how many marching squads went into the river: such a bridge is neither safe nor a
+ * bargain, and meets no bonus goal.
+ */
+export function scoreLevel(level: LevelDef, design: Design, peakStress: number, hints = 0, lost = 0): LevelScore {
   const spent = design.cost();
   const savingsBonus = Math.round(SAVINGS_MAX * Math.max(0, Math.min(1, 1 - spent / level.money)));
-  const safetyBonus = Math.round(SAFETY_MAX * Math.max(0, Math.min(1, 1 - peakStress)));
-  const underTarget = spent <= level.target;
-  const safe = peakStress < SAFE_STRESS;
-  const bonus = bonusMet(level.bonus, design, peakStress);
+  const safetyBonus = lost ? 0 : Math.round(SAFETY_MAX * Math.max(0, Math.min(1, 1 - peakStress)));
+  const underTarget = !lost && spent <= level.target;
+  const safe = !lost && peakStress < SAFE_STRESS;
+  const bonus = !lost && bonusMet(level.bonus, design, peakStress);
   const goalBonus = bonus ? GOAL_SCORE : 0;
   const earned = savingsBonus + safetyBonus + goalBonus;
   const hintPenalty = Math.min(earned, hints * HINT_PENALTY);
@@ -83,5 +89,6 @@ export function scoreLevel(level: LevelDef, design: Design, peakStress: number, 
     underTarget,
     safe,
     bonus,
+    lost,
   };
 }

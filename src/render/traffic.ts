@@ -120,11 +120,11 @@ export class Traffic extends ScenePart {
     if (!state) this.squads.set(v, (state = { last: t, broken: null }));
     const dt = Math.min(0.1, Math.max(0, t - state.last));
     state.last = t;
-    // Marching boots leave the ground at every step, so a fall goes by how fast the squad
-    // drops and how far it tips, as the test run judges it.
+    // Marching boots leave the ground at every step: the squad breaks ranks once the test run
+    // judges it thrown off its feet, or, once the run is over, as the bridge comes down.
     const vx = (w.vx[v.rearWheel] + w.vx[v.frontWheel]) / 2;
     const vy = Math.min(w.vy[v.rearWheel], w.vy[v.frontWheel]);
-    if (!state.broken && squadThrown(w, v)) {
+    if (!state.broken && (run.lost.has(v) || (run.status !== 'running' && squadThrown(w, v)))) {
       state.broken = Array.from({ length: SQUAD_RANKS }, (_, k): Soldier => {
         const lx = squadRank(k);
         const ly = -def.wheelR;

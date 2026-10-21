@@ -22,7 +22,7 @@ export class Results {
     const level = this.game.level;
     if (this.game.mode === 'custom') {
       // A playtest scores like any level, but nothing goes on the career or the boards.
-      const s = scoreLevel(level, this.game.editor!.design, run.peakStress);
+      const s = scoreLevel(level, this.game.editor!.design, run.peakStress, 0, run.lost.size);
       this.game.persistDesign();
       this.game.playGames.moment('playtest');
       this.game.state = 'result';
@@ -34,7 +34,7 @@ export class Results {
     const ch = this.game.chapter;
     const best = this.game.data.best;
     // Hints count against free play only: a challenge starts from scratch and offers none.
-    const score = scoreLevel(level, this.game.editor!.design, run.peakStress, this.game.mode === 'play' ? this.game.hintsShown().length : 0);
+    const score = scoreLevel(level, this.game.editor!.design, run.peakStress, this.game.mode === 'play' ? this.game.hintsShown().length : 0, run.lost.size);
     const prev = best[level.id];
     const careerBefore = totals(best).score;
     const wasComplete = chapterComplete(ch, best);
@@ -87,7 +87,8 @@ export class Results {
   finishCollapse(): void {
     this.game.state = 'collapse';
     this.game.drive.stopEngine();
-    this.game.playGames.moment('collapse');
+    const run = this.game.run!;
+    if (run.collapsed) this.game.playGames.moment('collapse');
     this.game.ui.setClip(false);
     void this.game.clip?.finish(CLIP_TAIL).then((clip) => {
       if (clip && (this.game.state === 'collapse' || this.game.state === 'over')) this.game.ui.setClip(true);
@@ -100,8 +101,8 @@ export class Results {
         this.gameOver(false);
         return;
       }
-      this.game.ui.collapse(this.game.run!.reason, this.game.lives, MAX_LIVES);
-    } else this.game.ui.collapse(this.game.run!.reason, null, MAX_LIVES, this.game.mode === 'custom');
+      this.game.ui.collapse(run.reason, run.collapsed, this.game.lives, MAX_LIVES);
+    } else this.game.ui.collapse(run.reason, run.collapsed, null, MAX_LIVES, this.game.mode === 'custom');
   }
 
   nextLevel(): void {

@@ -31,9 +31,9 @@ export function simulate(level: LevelDef, designJson: string, seconds = testSeco
     run.step();
     furthest = Math.max(furthest, run.vehicleX);
   }
-  const crossed = run.status === 'success';
+  // A squad lost on the way earns the player a star, but no design here should settle for that.
+  const crossed = run.status === 'success' && !run.lost.size;
+  const reason = run.status === 'success' ? 'The deck threw a squad off its feet.' : run.reason || 'timed out';
   const progress = crossed ? 1 : Math.max(0, Math.min(1, (furthest - START_X) / (goalX(level) - START_X)));
-  // A concrete anchor torn out of the bank is as much a failure as a snapped member.
-  const broken = run.world.links.some((l) => l.bridge && l.broken) || run.world.blocks.some((b) => b.loose);
-  return { ...base, valid: true, crossed, reason: crossed ? '' : run.reason || 'timed out', peak: run.peakStress, progress, broken };
+  return { ...base, valid: true, crossed, reason: crossed ? '' : reason, peak: run.peakStress, progress, broken: run.collapsed };
 }

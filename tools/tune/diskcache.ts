@@ -8,7 +8,7 @@ import type { Outcome } from './simulate';
 const DIR = fileURLToPath(new URL('./cache', import.meta.url));
 const ROOT = new URL('../../', import.meta.url);
 /** The simulator's own source: an edit to any of it can change an outcome. */
-const SOURCES = ['src/physics/world.ts', 'src/physics/materials.ts', 'src/physics/stresslog.ts', 'src/physics/vehicles.ts', 'src/design.ts', 'src/rules.ts', 'src/masonry.ts', 'src/maincable.ts', 'tools/tune/simulate.ts'];
+const SOURCES = ['src/physics/world.ts', 'src/physics/testrun.ts', 'src/physics/build.ts', 'src/physics/hazards.ts', 'src/physics/materials.ts', 'src/physics/stresslog.ts', 'src/physics/vehicles.ts', 'src/design.ts', 'src/rules.ts', 'src/masonry.ts', 'src/maincable.ts', 'tools/tune/simulate.ts'];
 
 /** Identifies the simulator as it stands, by its source. */
 function simulatorId(): string {

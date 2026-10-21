@@ -1082,10 +1082,10 @@ export const BASE_LEVELS: LevelBase[] = [
     tip: 'Four squads march in step behind the bus, over a river in flood. Steel falls short of the drowned rocks and the towers must stay low: dampers on the rocks calm the swing.',
     width: 48,
     // The rock bolts lie just beyond steel's reach of the lowest joint the flood allows, and
-    // within a damper's: nothing stiff can stand on them.
-    anchors: [[0, 0], [48, 0], [2, 0], [6, 0], [42, 0], [46, 0], [18, -4.4], [30, -4.4]],
+    // within a damper's, straight up or leaning a meter: nothing stiff can stand on them.
+    anchors: [[0, 0], [48, 0], [2, 0], [6, 0], [42, 0], [46, 0], [17, -4.3], [18, -4.3], [19, -4.3], [29, -4.3], [30, -4.3], [31, -4.3]],
     piers: [[2, 0], [6, 0], [42, 0], [46, 0]],
-    rocks: [[17, 19, -4.4], [29, 31, -4.4]],
+    rocks: [[17, 19, -4.3], [29, 31, -4.3]],
     blocks: { reach: 10, tonnes: 20 },
     // Low towers keep the main cable shallow, so the deck stays lively: a deep cable would
     // stiffen it enough to need no dampers.
@@ -1337,7 +1337,8 @@ export const BASE_LEVELS: LevelBase[] = [
     piles: { price: 2500 },
     materials: ['road', 'heavy', 'wood', 'steel'],
     vehicle: 'semi',
-    flood: { at: 6, rise: 5, current: 2000 },
+    // Up over the mud, so the flood pushes on what stands in it.
+    flood: { at: 6, rise: 6, current: 2000 },
     waterY: -8,
   },
   // Modern works: prestressed girders, a double deck, and drawbridges that split, lift and swing.

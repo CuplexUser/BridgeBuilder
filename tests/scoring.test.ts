@@ -53,6 +53,14 @@ describe('scoreLevel', () => {
     expect(scoreLevel(level, design, 0.25, 99).total).toBe(BASE_SCORE);
   });
 
+  it('gives a crossing that lost a squad its first star only, and no safety or goal points', () => {
+    const s = scoreLevel(level, design, 0.25, 0, 1);
+    expect(s.stars).toBe(1);
+    expect(s.bonus).toBe(false);
+    expect(s.safetyBonus).toBe(0);
+    expect(s.total).toBe(BASE_SCORE + s.savingsBonus);
+  });
+
   it('never gives a negative bonus', () => {
     const s = scoreLevel({ ...level, money: spent / 2 }, design, 1.2);
     expect(s.savingsBonus).toBe(0);

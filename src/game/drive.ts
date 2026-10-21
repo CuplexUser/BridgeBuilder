@@ -1,6 +1,7 @@
 import { sfx } from '../audio';
 import { PK } from '../fx/particles';
 import { bankY, goalX } from '../levels';
+import type { VehicleHandle } from '../physics/build';
 import { marchAccel, quakeAccel, windGust } from '../physics/hazards';
 import { TestRun } from '../physics/testrun';
 import { STEP } from '../physics/world';
@@ -14,6 +15,8 @@ const COLLAPSE_DELAY = 1.7;
 /** A test drive as it runs: stepping it, breaks and splashes, engine and wheel sounds, and the hazards called out. */
 export class Drive {
   private splashed = new WeakSet<TestRun>();
+  /** Squads already called out as thrown into the river. */
+  private overboard = new WeakSet<VehicleHandle>();
   acc = 0;
   /** Drawbridge phase last announced, so each is called out once. */
   lastPhase = '';
@@ -237,7 +240,13 @@ export class Drive {
     // Every boot lands at once: a tramp on each footfall, and a callout as the column steps on.
     if (L.march) {
       const a = marchAccel(L.march, w.time);
-      const marching = run.vehicles.filter((m) => m.def.marches && w.x[m.frontWheel] > -2 && w.x[m.rearWheel] < L.width + 2);
+      for (const m of run.lost) {
+        if (this.overboard.has(m)) continue;
+        this.overboard.add(m);
+        this.game.float(w.x[m.frontWheel], w.y[m.frontWheel] + 3.5, 'SQUAD OVERBOARD!', PAL.bad, 24, 1.6);
+        sfx.splash(false);
+      }
+      const marching = run.vehicles.filter((m) => m.def.marches && !run.lost.has(m) && w.x[m.frontWheel] > -2 && w.x[m.rearWheel] < L.width + 2);
       if (a > 0 && this.lastStep <= 0 && marching.length) {
         sfx.tramp(Math.min(1, marching.length / 3));
         if (!this.stepSaid) {

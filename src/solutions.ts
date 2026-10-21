@@ -288,7 +288,7 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
     const a: GridPt = [0, 0];
     const b: GridPt = [12, -1];
     const d = new Design(l);
-    trussOver(d, roadRun(d, a, b), 2, { ...HEAVY, vert: 'steel' });
+    trussOver(d, roadRun(d, a, b), 2, WOOD);
     return d.add([0, -3], on(a, b, 2), 'steel').add([12, -3], on(a, b, 10), 'steel');
   },
   10: (l) => {
@@ -377,7 +377,7 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
     d.add([0, -3], [2, 0], 'steel').add([28, -3], [26, 0], 'steel');
     return kingPost(kingPost(d, 2, 6, -2, 'wood', 'steel'), 22, 26, -2, 'wood', 'steel');
   },
-  // Main span over the pier, plus a steel post onto the pier.
+  // The stiff deck runs from the side cables to a steel post on the pier.
   20: (l) => longWay(l).add([16, -4], [16, 0], 'steel'),
   21: (l) => deck(new Design(l), 0, 8).add([4, -2], [2, 0], 'wood').add([4, -2], [6, 0], 'wood').add([4, -2], [4, 0], 'wood'),
   22: (l) => {
@@ -575,8 +575,8 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
   },
   // 9-2's bridge, its towers braced to the deck and the banks against the quake.
   58: (l) => SOLUTIONS[42](l).add([0, 0], [2, 3], 'steel').add([8, 0], [6, 3], 'steel').add([40, 0], [42, 3], 'steel').add([48, 0], [46, 3], 'steel'),
-  // A suspension bridge on concrete pylons as low as the level allows, and a damper straight up
-  // from each drowned rock to the deck.
+  // A suspension bridge on concrete pylons as low as the level allows, and dampers from each
+  // drowned rock's bolts to the deck joints over it.
   59: (l) => {
     const top = l.ceiling ?? 10;
     const d = steelSuspension(l, {
@@ -586,7 +586,10 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
       legs: 'concrete',
       cables: [[[4, top], [44, top], 6], [[-10, 0], [4, top]], [[44, top], [58, 0]]],
     });
-    for (const [x, rock] of l.anchors.filter((a) => a[1] < 0)) d.add([x, rock], [x, 0], 'damper');
+    for (const [x0, x1, rock] of l.rocks!) {
+      const mid = (x0 + x1) / 2;
+      d.add([x0, rock], [mid - 2, 0], 'damper').add([mid, rock], [mid, 0], 'damper').add([x1, rock], [mid + 2, 0], 'damper');
+    }
     return d;
   },
   // 9-5's footbridge, with two more dampers, straight down from the low bolts, against the flutter.
@@ -698,16 +701,14 @@ function skyRoad(l: LevelDef, sides: TrussMats): Design {
   return trussOver(d, span(26, 34), 2, sides);
 }
 
-/** Level 20's cable work: a sagging main span and a backstay span on each side. */
+/** Level 20's cable work: a short span of cable hung from each side's tower down to its bank. */
 function longWay(l: LevelDef): Design {
   const d = new Design(l);
   roadRun(d, [0, 0], [32, 0], 'heavy');
-  mainCable(d, alongX(8, [11, 7, 5, 4, 4, 4, 5, 7, 11]), 16);
   mainCable(d, alongX(0, [4, 3, 4, 6, 11]));
   mainCable(d, alongX(32, [4, 3, 4, 6, 11], -2));
-  // The joints under the pylons hang from both neighbours.
-  d.add([6, 6], [8, 0], 'cable').add([10, 7], [8, 0], 'cable');
-  return d.add([26, 6], [24, 0], 'cable').add([22, 7], [24, 0], 'cable');
+  // The joints under the pylons hang from the cable's last joint before them.
+  return d.add([6, 6], [8, 0], 'cable').add([26, 6], [24, 0], 'cable');
 }
 
 /**

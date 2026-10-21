@@ -21,7 +21,7 @@ export function testSeconds(level: LevelDef): number {
 
 /**
  * Whether a marching squad has been thrown off its feet: off the deck altogether and falling
- * fast, or tipped steeply. Its soldiers break ranks, and the run is lost. A lively deck bounces
+ * fast, or tipped steeply. Its soldiers break ranks and go into the river. A lively deck bounces
  * a squad's boots off it at every step without throwing anyone.
  */
 export function squadThrown(w: World, v: VehicleHandle): boolean {
@@ -30,6 +30,9 @@ export function squadThrown(w: World, v: VehicleHandle): boolean {
   if (w.contact[v.rearWheel] || w.contact[v.frontWheel]) return false;
   return (w.vy[v.rearWheel] + w.vy[v.frontWheel] + w.vy[v.rearTop] + w.vy[v.frontTop]) / 4 < -2.5;
 }
+
+/** Squads a crossing may lose and still count, though for one star only. */
+export const SQUADS_SPARED = 1;
 
 export type RunStatus = 'running' | 'success' | 'fail';
 export type Phase = 'settle' | 'opening' | 'ship' | 'closing' | 'driving';
@@ -51,6 +54,8 @@ export class TestRun {
   reason = '';
   peakStress = 0;
   splashed = false;
+  /** Marching squads the deck threw off, which no longer count toward the crossing. */
+  readonly lost = new Set<VehicleHandle>();
   phase: Phase = 'settle';
   /** Where the tall ship passes through, on drawbridge levels: the channel's middle. */
   shipX = 0;
@@ -107,7 +112,7 @@ export class TestRun {
 
   /** Middle of the convoy, for the camera. */
   get convoyX(): number {
-    const xs = this.vehicles.map((v) => this.xOf(v));
+    const xs = this.vehicles.filter((v) => !this.lost.has(v)).map((v) => this.xOf(v));
     return (Math.min(...xs) + Math.max(...xs)) / 2;
   }
 
@@ -155,7 +160,12 @@ export class TestRun {
   private hold(on: boolean): void {
     const w = this.world;
     let k = 0;
-    for (const v of this.vehicles) for (const p of v.wheels) w.drive[p] = on ? 0 : this.speeds[k++];
+    for (const v of this.vehicles) {
+      for (const p of v.wheels) {
+        const speed = this.speeds[k++];
+        w.drive[p] = on || this.lost.has(v) ? 0 : speed;
+      }
+    }
   }
 
   /** Opens and closes a drawbridge on its timeline and moves the ship through: first, or once the traffic is across. */
@@ -225,14 +235,19 @@ export class TestRun {
       return;
     }
     for (const v of this.vehicles) {
+      if (this.lost.has(v)) continue;
+      if (v.def.marches && squadThrown(w, v)) {
+        this.lose(v);
+        if (this.lost.size > SQUADS_SPARED) {
+          this.fail('The deck threw a second squad off its feet.');
+          return;
+        }
+        continue;
+      }
       const lowest = Math.min(w.y[v.rearWheel], w.y[v.frontWheel], w.y[v.rearTop], w.y[v.frontTop]);
       if (lowest < w.waterY) {
         this.splashed = true;
         this.fail('Your cargo went for a swim.');
-        return;
-      }
-      if (v.def.marches && squadThrown(w, v)) {
-        this.fail('The deck threw a squad off its feet.');
         return;
       }
       const upX = w.x[v.frontTop] - w.x[v.rearTop];
@@ -244,7 +259,8 @@ export class TestRun {
       }
     }
     this.vehicles.forEach((v, i) => {
-      if (Math.min(w.x[v.rearWheel], w.x[v.frontWheel]) > goalX(this.level)) this.done[i] = true;
+      if (this.lost.has(v)) this.done[i] = true;
+      else if (Math.min(w.x[v.rearWheel], w.x[v.frontWheel]) > goalX(this.level)) this.done[i] = true;
     });
     if (this.done.every(Boolean)) {
       // Where the ship waits for the traffic, the run ends once it has sailed through too.
@@ -261,6 +277,23 @@ export class TestRun {
     } else if (this.time - this.lastProgressT > 3.5) {
       this.fail('The vehicle got stuck.');
     }
+  }
+
+  /** A thrown squad's soldiers go into the river: it leaves the deck and the convoy. */
+  private lose(v: VehicleHandle): void {
+    const w = this.world;
+    this.lost.add(v);
+    const ps = [...v.wheels, v.rearTop, v.frontTop];
+    for (const p of ps) {
+      w.radius[p] = 0;
+      w.drive[p] = 0;
+    }
+    w.marchers = w.marchers.filter((p) => !ps.includes(p));
+  }
+
+  /** Whether the bridge itself gave way: a member broken or an anchor torn loose. */
+  get collapsed(): boolean {
+    return this.world.links.some((l) => l.bridge && l.broken) || this.world.blocks.some((b) => b.loose);
   }
 
   private fail(reason: string): void {
