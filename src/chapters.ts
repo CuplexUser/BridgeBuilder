@@ -101,7 +101,7 @@ export const CHAPTERS: ChapterDef[] = [
     name: 'Master Works',
     blurb: 'Thirty-meter spans and forty-tonne loads, then bridges that move: marching boots, gales and an earthquake.',
     difficulty: 9,
-    effort: 'Huge builds · 25–75 parts',
+    effort: 'Huge builds · 20–75 parts',
     levels: [28, 20, 29, 30, 56, 57, 58],
   },
   // Added after the finale, and played before it: its id is 11, its number 10. See chapterNumber.

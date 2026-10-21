@@ -210,11 +210,13 @@ export class TestRun {
     if (q && w.quakeStart === Infinity && w.x[this.vehicle.frontWheel] >= q.at) w.quakeStart = w.time;
     const f = this.level.flood;
     if (f && w.floodStart === Infinity && w.x[this.vehicle.frontWheel] >= f.at) w.floodStart = w.time;
-    let snapped: (typeof w.links)[number] | null = null;
+    let deckBroke: (typeof w.links)[number] | null = null;
     for (const l of w.links) {
       if (!l.bridge) continue;
       if (l.broken) {
-        snapped ??= l;
+        // A part that broke was loaded to its limit, whether or not the deck came down with it.
+        this.peakStress = 1;
+        if (l.drivable) deckBroke ??= l;
         continue;
       }
       this.peakStress = Math.max(this.peakStress, Math.abs(l.stress));
@@ -228,10 +230,10 @@ export class TestRun {
     this.log.record(this.time, w, this.phase, this.endedAt);
     if (this.status !== 'running') return;
 
-    // The bridge has to hold: a member that snaps, or an anchor torn loose, loses the run even if
-    // the traffic could still scramble across.
-    if (snapped || w.blocks.some((b) => b.loose)) {
-      this.fail(snapped ? `The ${MATERIALS[snapped.mat!].name.toLowerCase()} gave way.` : '');
+    // The bridge has to hold: once its deck gives way, the run is lost even if the traffic could
+    // still scramble across. A part that breaks off without bringing the deck down is no collapse.
+    if (deckBroke) {
+      this.fail(`The ${MATERIALS[deckBroke.mat!].name.toLowerCase()} gave way.`);
       return;
     }
     for (const v of this.vehicles) {
@@ -291,7 +293,7 @@ export class TestRun {
     w.marchers = w.marchers.filter((p) => !ps.includes(p));
   }
 
-  /** Whether the bridge itself gave way: a member broken or an anchor torn loose. */
+  /** Whether anything on the bridge broke: a member snapped or an anchor torn loose. */
   get collapsed(): boolean {
     return this.world.links.some((l) => l.bridge && l.broken) || this.world.blocks.some((b) => b.loose);
   }

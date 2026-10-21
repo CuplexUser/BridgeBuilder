@@ -479,6 +479,9 @@ export class Game {
     const out: string[] = [];
     const best = isCustom(level.id) ? null : bestKnown(level);
     if (best) out.push(costReview(d.cost(), best.cost(), money));
+    const broke = new Set(run.world.links.filter((l) => l.bridge && l.broken && l.member >= 0).map((l) => l.member)).size;
+    const tore = run.world.blocks.filter((b) => b.loose).length;
+    if (broke || tore) out.push(`${[broke && `${plural(broke, 'part')} broke`, tore && `${plural(tore, 'concrete anchor')} tore loose`].filter(Boolean).join(' and ')} on the way, but the deck held.`);
     const e = efficiency(level, d, run.peakPull, run.peakPush);
     if (e.idleParts) out.push(`${plural(e.idleParts, 'part')} never carried over ${Math.round(IDLE_LOAD * 100)}% of ${e.idleParts === 1 ? 'its' : 'their'} strength (${money(e.idleCost)}). Some may only brace others.`);
     if (e.woodParts) out.push(`${plural(e.woodParts, 'steel part')} could be wood and save ${money(e.woodSaving)}.`);

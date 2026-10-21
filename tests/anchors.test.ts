@@ -292,13 +292,23 @@ describe('concrete anchors: physics', () => {
     expect(run.world.blocks.every((b) => !b.loose)).toBe(true);
   });
 
-  it('says so when a concrete anchor tore loose', () => {
-    // A bus is far too much for one block per side. On heavy deck, which holds it, the blocks give first.
-    const level: LevelDef = { ...MASTED, vehicle: 'bus', materials: [...MASTED.materials, 'heavy'] };
-    const run = drive(hungDeck(level, 4, 'heavy'), level);
+  it('says so when a concrete anchor tore loose and the deck came down', () => {
+    // A bus is far too much for one block per side.
+    const level: LevelDef = { ...MASTED, vehicle: 'bus' };
+    const run = drive(hungDeck(level, 6), level);
     expect(run.status).toBe('fail');
     expect(run.world.blocks.some((b) => b.loose)).toBe(true);
     expect(run.reason).toMatch(/^A concrete anchor tore loose/);
+    expect(run.peakStress).toBe(1);
+  });
+
+  it('still counts the crossing when an anchor tears loose but the deck holds', () => {
+    // On heavy deck, stiff enough to carry the bus without its backstays.
+    const level: LevelDef = { ...MASTED, vehicle: 'bus', materials: [...MASTED.materials, 'heavy'] };
+    const run = drive(hungDeck(level, 4, 'heavy'), level);
+    expect(run.world.blocks.some((b) => b.loose)).toBe(true);
+    expect(run.status).toBe('success');
+    expect(run.collapsed).toBe(true);
     expect(run.peakStress).toBe(1);
   });
 });

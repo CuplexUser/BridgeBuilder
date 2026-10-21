@@ -41,16 +41,29 @@ describe('failures', () => {
     expect(run.status).toBe('fail');
   });
 
-  it('a member that snaps ends the run, though the car could still get across', () => {
+  it('a deck that gives way ends the run, though the car could still get across', () => {
     const level = LEVELS[0];
     const run = new TestRun(SOLUTIONS[level.id](level), level);
     for (let i = 0; i < 120; i++) run.step();
     expect(run.status).toBe('running');
-    const brace = run.world.links.find((l) => l.bridge && l.member >= 0 && !MATERIALS[l.mat!].drivable)!;
-    run.world.breakLink(brace);
+    const road = run.world.links.find((l) => l.bridge && l.drivable)!;
+    run.world.breakLink(road);
     run.step();
     expect(run.status).toBe('fail');
-    expect(run.reason).toBe(`The ${MATERIALS[brace.mat!].name.toLowerCase()} gave way.`);
+    expect(run.reason).toBe(`The ${MATERIALS[road.mat!].name.toLowerCase()} gave way.`);
+  });
+
+  it('a part that breaks off without bringing the deck down is no collapse', () => {
+    // 11-3's bridge with braces fanned out from its piles into the flood, which breaks them off.
+    const level = LEVELS[65];
+    const d = SOLUTIONS[level.id](level);
+    for (const n of d.nodes.filter((p) => p.pile)) for (const dx of [-2, 2]) if (d.findNode(n.x + dx, 0) >= 0) d.add([n.x, n.y], [n.x + dx, 0], 'steel');
+    const run = drive(d, 65, 40);
+    expect(run.world.links.some((l) => l.bridge && l.broken && !l.drivable)).toBe(true);
+    expect(run.world.links.some((l) => l.bridge && l.broken && l.drivable)).toBe(false);
+    expect(run.status).toBe('success');
+    // It was loaded to its limit, so the crossing earns no safety star.
+    expect(run.peakStress).toBe(1);
   });
 });
 
