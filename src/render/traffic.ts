@@ -2,7 +2,7 @@ import { PK, type Particles } from '../fx/particles';
 import { bankY, type LevelDef } from '../levels';
 import type { VehicleDef } from '../physics/vehicles';
 import { convoyLayout, type VehicleHandle } from '../physics/build';
-import type { TestRun } from '../physics/testrun';
+import { squadThrown, type TestRun } from '../physics/testrun';
 import { PAL } from './palette';
 import { hash, TAU } from './shapes';
 import { ScenePart, type Stage } from './stage';
@@ -121,10 +121,10 @@ export class Traffic extends ScenePart {
     const dt = Math.min(0.1, Math.max(0, t - state.last));
     state.last = t;
     // Marching boots leave the ground at every step, so a fall goes by how fast the squad
-    // drops and how far it tips.
+    // drops and how far it tips, as the test run judges it.
     const vx = (w.vx[v.rearWheel] + w.vx[v.frontWheel]) / 2;
     const vy = Math.min(w.vy[v.rearWheel], w.vy[v.frontWheel]);
-    if (!state.broken && (vy < -2.5 || Math.abs(ang) > 0.5)) {
+    if (!state.broken && squadThrown(w, v)) {
       state.broken = Array.from({ length: SQUAD_RANKS }, (_, k): Soldier => {
         const lx = squadRank(k);
         const ly = -def.wheelR;

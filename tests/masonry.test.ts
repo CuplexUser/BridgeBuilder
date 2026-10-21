@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Design, type GridPt } from '../src/design';
-import { Editor, fitDesign } from '../src/editor';
+import { Editor, fitDesign, UNSUPPORTED } from '../src/editor';
 import type { LevelDef } from '../src/levels';
 import { addBlock, blockPoly, cellProblem, flatProblem, layRing, RING, ringPath, ringPolys, ringRise, rings, riseOf } from '../src/masonry';
 import { buildWorld } from '../src/physics/build';
@@ -152,20 +152,68 @@ describe('arch rings', () => {
     expect(designProblems(SHELVES, d)).toEqual(['arch ring 1,-5-19,-5: too flat: rise 3.6 m at least']);
   });
 
-  it('is refused where the deck leaves no room to rise a fifth of the span, or dragged flatter', () => {
+  it('is refused where the deck leaves no room to rise a fifth of the span', () => {
     const ed = new Editor(SHELVES, noop);
     roadRun(ed.design, [0, 0], [20, 0]);
     ed.setMaterial('arch');
     ed.beginAt(1, -5, 0.1, 0.1);
     ed.aim(19, -5);
     expect(ed.drag!.reason).toBe('Too flat: rise 3.6 m at least');
+  });
+
+  it('stops at a fifth of its span when its handle is dragged flatter', () => {
+    const ed = new Editor(DEEP, noop);
     ed.design = shelfArch(0, 4.5);
     const h = ed.sagHandles().find((x) => x.mat === 'arch')!;
     ed.beginSag(h);
-    ed.aimSag(h.y - 1.5);
+    ed.aimSag(h.y - 3);
+    expect(ed.sag!.reason).toBe('');
     ed.commit();
     const r = rings(ed.design)[0];
-    expect(ed.design.nodes[r.intra.find((i) => ed.design.nodes[i].x === 10)!].y).toBeCloseTo(-1.5, 6);
+    expect(ed.design.nodes[r.intra.find((i) => ed.design.nodes[i].x === 10)!].y).toBeCloseTo(-6 + 3.6, 6);
+  });
+
+  it('steps its rise a quarter meter at a time', () => {
+    const ed = new Editor(DEEP, noop);
+    ed.design = shelfArch(0, 4.5);
+    const h = ed.sagHandles().find((x) => x.mat === 'arch')!;
+    ed.beginSag(h);
+    ed.aimSag(h.y - 0.3);
+    const crown = () => ed.design.nodes[rings(ed.design)[0].intra.find((i) => ed.design.nodes[i].x === 10)!].y;
+    expect(crown()).toBeCloseTo(-6 + 4.25, 6);
+    ed.aimSag(h.y - 0.1);
+    expect(crown()).toBeCloseTo(-6 + 4.5, 6);
+  });
+
+  it('stays at the highest rise it could take when let go up against the deck', () => {
+    const ed = new Editor(DEEP, noop);
+    ed.design = shelfArch(0, 4.5);
+    const h = ed.sagHandles().find((x) => x.mat === 'arch')!;
+    ed.beginSag(h);
+    ed.aimSag(h.y + 0.25);
+    expect(ed.sag!.reason).toBe('');
+    // Its top would run into the road.
+    ed.aimSag(h.y + 3);
+    expect(ed.sag!.valid).toBe(false);
+    ed.commit();
+    const r = rings(ed.design)[0];
+    expect(ed.design.nodes[r.intra.find((i) => ed.design.nodes[i].x === 10)!].y).toBeCloseTo(-6 + 4.75, 6);
+    expect(designProblems(DEEP, ed.design)).toEqual([]);
+    ed.undo();
+    expect(ed.design.nodes[rings(ed.design)[0].intra.find((i) => ed.design.nodes[i].x === 10)!].y).toBeCloseTo(-1.5, 6);
+  });
+
+  it('keeps its handle off its joints, wherever the deck puts them', () => {
+    const d = new Design(DEEP);
+    // A deck joint at 11 m, the odd meter by mid-span where the handle used to sit.
+    roadRun(d, [0, 0], [11, 0]);
+    roadRun(d, [11, 0], [20, 0]);
+    blockArch(d, DEEP, [1, -6], [19, -6], 'steel', 4.5);
+    const ed = new Editor(DEEP, noop);
+    ed.design = d;
+    const h = ed.sagHandles().find((x) => x.mat === 'arch')!;
+    expect(d.nodes.every((n) => Math.hypot(n.x - h.x, n.y - h.y) > 0.5)).toBe(true);
+    expect(ed.beginAt(h.x, h.y, 0.4, 0.3)).toBe('sag');
   });
 
   it('keeps under each joint of a sloping deck at its own height', () => {
@@ -208,6 +256,36 @@ describe('concrete blocks', () => {
     expect(cellProblem(SHELVES, d, blockPoly(0, -5))).toBe('Overlaps a block');
     d.add([3, -3], [6, -1], 'steel');
     expect(cellProblem(SHELVES, d, blockPoly(4, -3))).toBe('A beam runs through it');
+  });
+
+  it('go only where they touch rock or another block', () => {
+    const ed = new Editor(SHELVES, noop);
+    ed.setMaterial('masonry');
+    // Out in the open, on a shelf, against the canyon wall above it, and on a pier of blocks.
+    expect(ed.blockProblem(8, -3)).toBe(UNSUPPORTED);
+    expect(ed.blockProblem(1, -5)).toBe('');
+    expect(ed.blockProblem(0, -3)).toBe('');
+    addBlock(ed.design, 1, -5);
+    expect(ed.blockProblem(1, -4)).toBe('');
+    expect(ed.blockProblem(2, -5)).toBe('');
+    // Touching only at a corner isn't enough.
+    expect(ed.blockProblem(2, -4)).toBe(UNSUPPORTED);
+    // A stroke from out in the open doesn't start, so it can pan.
+    expect(ed.beginPaint(8.5, -2.5, true)).toBe(false);
+    expect(ed.paint).toBe(null);
+    expect(ed.beginPaint(8.5, -2.5)).toBe(true);
+    ed.endPaint();
+    expect(ed.design.cells).toHaveLength(1);
+  });
+
+  it('fill every square a quick stroke passes over', () => {
+    const ed = new Editor(SHELVES, noop);
+    ed.setMaterial('masonry');
+    expect(ed.beginPaint(0.5, -4.5, true)).toBe(true);
+    ed.paintAt(5.5, -4.5);
+    ed.endPaint();
+    expect(ed.design.cells).toHaveLength(6);
+    expect(ed.design.parts()).toBe(6);
   });
 
   it('turn away a member through them, but take one from a corner', () => {

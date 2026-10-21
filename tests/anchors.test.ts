@@ -3,7 +3,7 @@ import { Design, type GridPt } from '../src/design';
 import { Editor } from '../src/editor';
 import type { LevelDef } from '../src/levels';
 import { exportLevel, parseLevel, setSize, toggleMast } from '../src/maker';
-import { BLOCK, blockOf } from '../src/physics/materials';
+import { BLOCK, blockOf, type MaterialId } from '../src/physics/materials';
 import { TestRun } from '../src/physics/testrun';
 import { World } from '../src/physics/world';
 import { blockSpot, blockSpots, cableBolt, designProblems, pointAllowed } from '../src/rules';
@@ -48,10 +48,10 @@ const NEAR: LevelDef = {
 /** A cable from the near mast top down to a block 3 m behind the left bank: 10 m. */
 const STAY_COST = 10 * 140 + BLOCK.price;
 
-/** A road deck hung from a main cable between the mast tops, backstayed to blocks `back` m behind each bank. */
-function hungDeck(level: LevelDef, back: number | null): Design {
+/** A deck hung from a main cable between the mast tops, backstayed to blocks `back` m behind each bank. */
+function hungDeck(level: LevelDef, back: number | null, deck: MaterialId = 'road'): Design {
   const d = new Design(level);
-  roadRun(d, [0, 0], [20, 0]);
+  roadRun(d, [0, 0], [20, 0], deck);
   const main: GridPt[] = [[4, 9], [6, 6], [8, 4], [10, 3], [12, 4], [14, 6], [16, 9]];
   suspend(d, main);
   for (const [x, y] of main.slice(1, -1)) d.add([x, y], [x, 0], 'cable');
@@ -293,10 +293,12 @@ describe('concrete anchors: physics', () => {
   });
 
   it('says so when a concrete anchor tore loose', () => {
-    // A bus is far too much for one block per side.
-    const level: LevelDef = { ...MASTED, vehicle: 'bus' };
-    const run = drive(hungDeck(level, 4), level);
+    // A bus is far too much for one block per side. On heavy deck, which holds it, the blocks give first.
+    const level: LevelDef = { ...MASTED, vehicle: 'bus', materials: [...MASTED.materials, 'heavy'] };
+    const run = drive(hungDeck(level, 4, 'heavy'), level);
+    expect(run.status).toBe('fail');
     expect(run.world.blocks.some((b) => b.loose)).toBe(true);
+    expect(run.reason).toMatch(/^A concrete anchor tore loose/);
     expect(run.peakStress).toBe(1);
   });
 });

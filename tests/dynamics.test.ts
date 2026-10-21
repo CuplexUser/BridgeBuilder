@@ -3,7 +3,7 @@ import { levelById } from '../src/chapters';
 import { LEVELS } from '../src/levels';
 import { MATERIALS } from '../src/physics/materials';
 import { marchAccel, quakeAccel, windGust } from '../src/physics/hazards';
-import { testSeconds, TestRun } from '../src/physics/testrun';
+import { squadThrown, testSeconds, TestRun } from '../src/physics/testrun';
 import { World } from '../src/physics/world';
 import { hang, SOLUTIONS } from '../src/solutions';
 import { INTENTS } from '../tools/tune/intents';
@@ -133,6 +133,29 @@ describe('marching', () => {
     const marchers = new Set(run.world.marchers);
     expect(run.vehicles.slice(1).every((v) => v.wheels.every((p) => marchers.has(p)))).toBe(true);
     expect(run.vehicle.wheels.some((p) => marchers.has(p))).toBe(false);
+  });
+
+  it('loses the run when a squad is thrown off its feet, not when its boots bounce on a lively deck', () => {
+    const { run, level } = drive(56);
+    const w = run.world;
+    const squads = run.vehicles.filter((v) => v.def.marches);
+    let bounced = false;
+    while (run.status === 'running' && run.time < testSeconds(level)) {
+      run.step();
+      // The hand-made bridge swings hard enough to whip a boot down faster than 2.5 m/s, and
+      // still gets everyone across.
+      if (squads.some((v) => Math.min(w.vy[v.rearWheel], w.vy[v.frontWheel]) < -2.5)) bounced = true;
+      expect(squads.some((v) => squadThrown(w, v))).toBe(false);
+    }
+    expect(bounced).toBe(true);
+    expect(run.status).toBe('success');
+    // Off the deck and dropping fast.
+    const thrown = drive(56).run;
+    for (let i = 0; i < 600; i++) thrown.step();
+    const v = thrown.vehicles[1];
+    for (const p of [...v.wheels, v.rearTop, v.frontTop]) thrown.world.vy[p] = -3;
+    for (const p of v.wheels) thrown.world.contact[p] = 0;
+    expect(squadThrown(thrown.world, v)).toBe(true);
   });
 });
 

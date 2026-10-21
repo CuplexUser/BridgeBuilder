@@ -129,15 +129,21 @@ export function runSag(d: Design, chain: number[]): number {
 }
 
 /**
- * Where a run's sag handle sits: on the curve near the middle, at the odd meter between two
- * joints, so it doesn't cover the joint a hanger starts from.
+ * Where a run's sag handle sits: on the curve halfway along the piece across its middle, between
+ * two joints, so it doesn't cover the joint a hanger or a post starts from.
  */
 export function sagHandle(d: Design, chain: number[]): GridPt {
   const a = d.nodes[chain[0]];
   const b = d.nodes[chain[chain.length - 1]];
   const mid = (a.x + b.x) / 2;
-  let x = Math.floor(mid / 2) * 2 + 1;
-  if (x <= Math.min(a.x, b.x) || x >= Math.max(a.x, b.x)) x = mid;
+  let x = mid;
+  for (let i = 1; i < chain.length; i++) {
+    const [p, r] = [d.nodes[chain[i - 1]].x, d.nodes[chain[i]].x];
+    if (Math.min(p, r) <= mid && mid < Math.max(p, r)) {
+      x = (p + r) / 2;
+      break;
+    }
+  }
   return [x, curveY([a.x, a.y], [b.x, b.y], runSag(d, chain), x)];
 }
 

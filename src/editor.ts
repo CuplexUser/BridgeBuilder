@@ -3,7 +3,7 @@ import type { LevelDef } from './levels';
 import { bow, defaultSag, mainPathIn, mainRuns, MIN_MAIN_SPAN, MIN_SAG, resag, sagHandle } from './maincable';
 import { blockOf, MATERIALS, type MaterialId } from './physics/materials';
 import { blockSpot, pileSpots, cableBolt, crossesChannel, lowOverStrip, MIN_JOINT_GAP, pointAllowed, topY } from './rules';
-import { addBlock, blockPoly, cellPoly, cellProblem, cellUnder, flatProblem, hitsCells, layRing, polyArea, ringPath, ringPolys, ringProblem, ringRise, rings, settleRing } from './masonry';
+import { addBlock, blockPoly, blockSupported, cellPoly, cellProblem, cellUnder, flatProblem, hitsCells, layRing, MIN_RISE, polyArea, RING, ringPath, ringPolys, ringProblem, ringRise, rings, settleRing } from './masonry';
 
 export interface DragState {
   /**
@@ -43,6 +43,8 @@ export interface SagDrag {
   eys: number[];
   valid: boolean;
   reason: string;
+  /** The last sag of this drag that could be let go, which a drag let go where it can't stays at; null if none yet. */
+  good: number | null;
 }
 
 /** Concrete blocks being painted, or erased, under a finger or the mouse. */
@@ -53,6 +55,8 @@ export interface PaintStroke {
   changed: boolean;
   /** The last cell visited, by its lower left corner, so each is painted once a pass. */
   last: string;
+  /** Where the stroke last was, so a quick one paints every square along the way. */
+  at: GridPt;
 }
 
 /** A main cable's sag handle, or an arch's rise handle. */
@@ -85,6 +89,10 @@ const JOINT_BONUS = 0.2;
 const MAX_RUN = 40;
 /** Farthest a main cable reaches in one drag, m. */
 const MAX_MAIN_REACH = 80;
+/** What stops a block that would touch nothing. */
+export const UNSUPPORTED = 'Must touch rock or a block';
+/** How far apart the rises an arch's handle steps between, m; a main cable's sag steps a tenth of a meter. */
+const RISE_STEP = 0.25;
 
 /**
  * A saved design brought up to date with its level, which may have changed since it was
@@ -336,13 +344,12 @@ export class Editor {
 
   /** Starts a drag at a node, a main cable's sag handle, a beam attach point or an empty anchor spot. Returns what was picked. */
   beginAt(wx: number, wy: number, nodeRadius: number, attachRadius: number, handleRadius = nodeRadius): 'node' | 'sag' | 'split' | 'block' | null {
-    const node = this.nodeAt(wx, wy, nodeRadius);
-    const handle = this.sagHandleAt(wx, wy, handleRadius);
-    const nodeDist = node >= 0 ? Math.hypot(this.design.nodes[node].x - wx, this.design.nodes[node].y - wy) : Infinity;
-    if (handle && Math.hypot(handle.x - wx, handle.y - wy) < nodeDist) {
+    const handle = this.handlePick(wx, wy, nodeRadius, handleRadius);
+    if (handle) {
       this.beginSag(handle);
       return 'sag';
     }
+    const node = this.nodeAt(wx, wy, nodeRadius);
     if (node >= 0) {
       this.begin(node);
       return 'node';
@@ -609,11 +616,29 @@ export class Editor {
     return best;
   }
 
+  /** The sag or rise handle a press here takes hold of, rather than a joint, or null. */
+  handlePick(wx: number, wy: number, nodeRadius: number, handleRadius = nodeRadius): SagHandle | null {
+    const handle = this.sagHandleAt(wx, wy, handleRadius);
+    if (!handle) return null;
+    const node = this.nodeAt(wx, wy, nodeRadius);
+    const nodeDist = node >= 0 ? Math.hypot(this.design.nodes[node].x - wx, this.design.nodes[node].y - wy) : Infinity;
+    const handleDist = Math.hypot(handle.x - wx, handle.y - wy);
+    // Right on the handle's ring, the handle wins even over a joint as near.
+    return handleDist < nodeDist || handleDist <= handleRadius / 2 ? handle : null;
+  }
+
+  /** The rise handle of the arch ring a cell belongs to, or null if it isn't one. */
+  ringHandle(k: number): SagHandle | null {
+    const c = this.design.cells[k];
+    if (c?.mat !== 'arch' || c.part === undefined) return null;
+    return this.sagHandles().find((h) => h.mat === 'arch' && h.part === c.part) ?? null;
+  }
+
   /** Picks up a main cable by its sag handle. */
   beginSag(h: SagHandle): void {
     this.drag = null;
     const { nodes } = this.design;
-    this.sag = { part: h.part, chain: h.chain, x: h.x, y: h.y, before: this.design.serialize(), ys: h.chain.map((n) => nodes[n].y), extra: h.extra, eys: h.extra.map((n) => nodes[n].y), valid: true, reason: '' };
+    this.sag = { part: h.part, chain: h.chain, x: h.x, y: h.y, before: this.design.serialize(), ys: h.chain.map((n) => nodes[n].y), extra: h.extra, eys: h.extra.map((n) => nodes[n].y), valid: true, reason: '', good: null };
   }
 
   /** Hangs the main cable being dragged so its handle comes as near height wy as it may. */
@@ -626,14 +651,42 @@ export class Editor {
     const t = (s.x - a.x) / (b.x - a.x);
     const w = 4 * t * (1 - t);
     const chord = a.y + (b.y - a.y) * t;
-    // Sag in tenths of a meter, so the handle steps like the grid does. An arch rises: its sag is negative.
-    const dir = s.extra.length ? -1 : bow(this.design.members.find((m) => m.part === s.part)?.mat ?? 'main');
-    const sag = dir * Math.max(MIN_SAG, Math.round(((dir * (chord - wy)) / w) * 10) / 10);
+    // Sag in tenths of a meter, so the handle steps like the grid does. An arch rises: its sag is
+    // negative, in steps of RISE_STEP, and it stays between the flattest it may be and the top.
+    const arch = s.extra.length > 0;
+    const dir = arch ? -1 : bow(this.design.members.find((m) => m.part === s.part)?.mat ?? 'main');
+    const per = arch ? 1 / RISE_STEP : 10;
+    let depth = Math.max(MIN_SAG, Math.round(((dir * (chord - wy)) / w) * per) / per);
+    if (arch) {
+      const [least, most] = this.riseRange(s.chain);
+      depth = Math.max(least, most >= least ? Math.min(depth, most) : depth);
+    }
+    const sag = dir * depth;
     resag(this.design, s.chain, sag);
-    if (s.extra.length) settleRing(this.design, s.chain, s.extra);
+    if (arch) settleRing(this.design, s.chain, s.extra);
     s.y = chord - w * sag;
     s.reason = this.sagProblem(s.chain, s.extra, s.part);
     s.valid = s.reason === '';
+    if (s.valid) s.good = sag;
+  }
+
+  /**
+   * The lowest and highest rise an arch ring along these underside joints may take: a fifth of
+   * its span at its joints, as flatProblem asks, and its top joints no higher than anyone may build.
+   */
+  private riseRange(chain: number[]): [number, number] {
+    const { nodes } = this.design;
+    const a = nodes[chain[0]];
+    const b = nodes[chain[chain.length - 1]];
+    const span = Math.abs(b.x - a.x);
+    const inner = chain.slice(1, -1).map((i) => {
+      const u = (nodes[i].x - a.x) / (b.x - a.x);
+      return { w: 4 * u * (1 - u), chord: a.y + (b.y - a.y) * u };
+    });
+    const top = Math.max(...inner.map((j) => j.w));
+    const least = Math.ceil(MIN_RISE * span * 10 - 1e-6) / 10 / top;
+    const most = Math.min(...inner.map((j) => (this.topY - RING - j.chord) / j.w));
+    return [least, most];
   }
 
   /** Moves the dragged sag handle up (positive) or down by dy meters. */
@@ -677,16 +730,23 @@ export class Editor {
     return '';
   }
 
-  /** Lets go of a sag handle: keeps the new sag if it is valid, or puts the cable back. */
+  /**
+   * Lets go of a sag handle: keeps the new sag if it is valid. Let go where it can't be, the cable
+   * stays at the last sag of the drag that could, or goes back if there was none.
+   */
   private commitSag(): void {
     const s = this.sag!;
     this.sag = null;
     const { nodes } = this.design;
     if (!s.valid) {
-      s.chain.forEach((n, i) => (nodes[n].y = s.ys[i]));
-      s.extra.forEach((n, i) => (nodes[n].y = s.eys[i]));
       this.ev.invalid(s.reason, s.x, s.y);
-      return;
+      if (s.good === null) {
+        s.chain.forEach((n, i) => (nodes[n].y = s.ys[i]));
+        s.extra.forEach((n, i) => (nodes[n].y = s.eys[i]));
+        return;
+      }
+      resag(this.design, s.chain, s.good);
+      if (s.extra.length) settleRing(this.design, s.chain, s.extra);
     }
     if (s.chain.every((n, i) => nodes[n].y === s.ys[i])) return;
     this.undoStack.push(s.before);
@@ -755,6 +815,7 @@ export class Editor {
   blockProblem(x: number, y: number): string {
     const why = cellProblem(this.level, this.design, blockPoly(x, y));
     if (why) return why;
+    if (!blockSupported(this.level, this.design, x, y)) return UNSUPPORTED;
     const price = MATERIALS[this.mat].price;
     if (price > this.left()) return `Over budget by ${money(price - this.left())}`;
     const left = this.partsLeft();
@@ -764,21 +825,36 @@ export class Editor {
 
   /**
    * Starts painting concrete blocks at a point, a square meter at a time: on an empty square it
-   * paints, on a block it erases. False if the brush isn't the material in hand.
+   * paints, on a block it erases. False if the brush isn't the material in hand, or, with
+   * `onlyWhereItPaints`, if the square can take no block, so that a drag from there can pan.
    */
-  beginPaint(wx: number, wy: number): boolean {
+  beginPaint(wx: number, wy: number, onlyWhereItPaints = false): boolean {
     if (MATERIALS[this.mat].cell !== 'brush') return false;
-    this.drag = null;
     const on = this.cellAt(wx, wy);
-    this.paint = { mode: on >= 0 && this.design.cells[on].mat === this.mat ? 'erase' : 'add', before: this.design.serialize(), changed: false, last: '' };
+    const erase = on >= 0 && this.design.cells[on].mat === this.mat;
+    if (onlyWhereItPaints && !erase && this.blockProblem(Math.floor(wx), Math.floor(wy))) return false;
+    this.drag = null;
+    this.paint = { mode: erase ? 'erase' : 'add', before: this.design.serialize(), changed: false, last: '', at: [wx, wy] };
     this.paintAt(wx, wy, true);
     return true;
   }
 
-  /** Paints or erases the square under a point. `first` reports why the first square couldn't be painted. */
+  /**
+   * Paints or erases every square from where the stroke last was to a point, so a quick stroke
+   * leaves no gaps. `first` reports why the first square couldn't be painted.
+   */
   paintAt(wx: number, wy: number, first = false): void {
     const p = this.paint;
     if (!p) return;
+    const [lx, ly] = p.at;
+    p.at = [wx, wy];
+    const n = first ? 1 : Math.max(1, Math.ceil(Math.hypot(wx - lx, wy - ly) / 0.25));
+    for (let i = 1; i <= n; i++) this.paintSquare(lx + ((wx - lx) * i) / n, ly + ((wy - ly) * i) / n, first);
+  }
+
+  /** Paints or erases the one square under a point. */
+  private paintSquare(wx: number, wy: number, first: boolean): void {
+    const p = this.paint!;
     const [x, y] = [Math.floor(wx), Math.floor(wy)];
     const key = `${x} ${y}`;
     if (key === p.last) return;

@@ -19,6 +19,18 @@ export function testSeconds(level: LevelDef): number {
   return Math.max(30, Math.ceil(waits + ((goalX(level) - tail) / speed) * 4 / 3));
 }
 
+/**
+ * Whether a marching squad has been thrown off its feet: off the deck altogether and falling
+ * fast, or tipped steeply. Its soldiers break ranks, and the run is lost. A lively deck bounces
+ * a squad's boots off it at every step without throwing anyone.
+ */
+export function squadThrown(w: World, v: VehicleHandle): boolean {
+  const ang = Math.atan2(w.y[v.frontTop] - w.y[v.rearTop], w.x[v.frontTop] - w.x[v.rearTop]);
+  if (Math.abs(ang) > 0.5) return true;
+  if (w.contact[v.rearWheel] || w.contact[v.frontWheel]) return false;
+  return (w.vy[v.rearWheel] + w.vy[v.frontWheel] + w.vy[v.rearTop] + w.vy[v.frontTop]) / 4 < -2.5;
+}
+
 export type RunStatus = 'running' | 'success' | 'fail';
 export type Phase = 'settle' | 'opening' | 'ship' | 'closing' | 'driving';
 /** One test drive: steps the world and decides success or failure. */
@@ -188,8 +200,13 @@ export class TestRun {
     if (q && w.quakeStart === Infinity && w.x[this.vehicle.frontWheel] >= q.at) w.quakeStart = w.time;
     const f = this.level.flood;
     if (f && w.floodStart === Infinity && w.x[this.vehicle.frontWheel] >= f.at) w.floodStart = w.time;
+    let snapped: (typeof w.links)[number] | null = null;
     for (const l of w.links) {
-      if (!l.bridge || l.broken) continue;
+      if (!l.bridge) continue;
+      if (l.broken) {
+        snapped ??= l;
+        continue;
+      }
       this.peakStress = Math.max(this.peakStress, Math.abs(l.stress));
       if (l.member < 0) continue;
       if (l.stress > this.peakPull[l.member]) this.peakPull[l.member] = l.stress;
@@ -201,11 +218,21 @@ export class TestRun {
     this.log.record(this.time, w, this.phase, this.endedAt);
     if (this.status !== 'running') return;
 
+    // The bridge has to hold: a member that snaps, or an anchor torn loose, loses the run even if
+    // the traffic could still scramble across.
+    if (snapped || w.blocks.some((b) => b.loose)) {
+      this.fail(snapped ? `The ${MATERIALS[snapped.mat!].name.toLowerCase()} gave way.` : '');
+      return;
+    }
     for (const v of this.vehicles) {
       const lowest = Math.min(w.y[v.rearWheel], w.y[v.frontWheel], w.y[v.rearTop], w.y[v.frontTop]);
       if (lowest < w.waterY) {
         this.splashed = true;
         this.fail('Your cargo went for a swim.');
+        return;
+      }
+      if (v.def.marches && squadThrown(w, v)) {
+        this.fail('The deck threw a squad off its feet.');
         return;
       }
       const upX = w.x[v.frontTop] - w.x[v.rearTop];

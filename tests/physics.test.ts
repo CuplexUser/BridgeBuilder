@@ -40,6 +40,18 @@ describe('failures', () => {
     const run = drive(deck(new Design(LEVELS[2]), 0, 8), 2);
     expect(run.status).toBe('fail');
   });
+
+  it('a member that snaps ends the run, though the car could still get across', () => {
+    const level = LEVELS[0];
+    const run = new TestRun(SOLUTIONS[level.id](level), level);
+    for (let i = 0; i < 120; i++) run.step();
+    expect(run.status).toBe('running');
+    const brace = run.world.links.find((l) => l.bridge && l.member >= 0 && !MATERIALS[l.mat!].drivable)!;
+    run.world.breakLink(brace);
+    run.step();
+    expect(run.status).toBe('fail');
+    expect(run.reason).toBe(`The ${MATERIALS[brace.mat!].name.toLowerCase()} gave way.`);
+  });
 });
 
 describe('convoys', () => {

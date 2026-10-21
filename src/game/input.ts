@@ -1,6 +1,7 @@
 import { sfx } from '../audio';
 import { CHAPTERS, continueLevel } from '../chapters';
 import { MATERIALS } from '../physics/materials';
+import type { SagHandle } from '../editor';
 import { PAL } from '../render/palette';
 import { offeredInOrder } from '../ui/ui';
 import { sideRoom, type Board, type Game } from './game';
@@ -35,6 +36,10 @@ export class Input {
   private pendingDelete = -1;
   /** A block tapped for removal, taken off if the tap lifts without moving. */
   private pendingCell = -1;
+  /** Where the block brush went down on a square that can't take a block: a tap there says why, a drag pans. */
+  private pendingBrush: [number, number] | null = null;
+  /** How far above the pointer the sag or rise handle being dragged sits, so it doesn't jump to it. */
+  private sagOffset = 0;
   pinchDist = 0;
   private lastMid: [number, number] = [0, 0];
 
@@ -190,6 +195,8 @@ export class Input {
       this.game.editor?.cancel();
       this.dragging = false;
       this.pendingDelete = -1;
+      this.pendingCell = -1;
+      this.pendingBrush = null;
       this.panning = false;
       this.startPinch();
       return;
@@ -207,15 +214,33 @@ export class Input {
         return;
       }
       // With the block brush in hand, a drag paints blocks, or erases them if it starts on one.
-      if (e.button === 0 && ed.beginPaint(wx, wy)) {
-        this.dragging = true;
-        this.pendingDelete = -1;
-        this.game.refreshHud();
+      // Started where no block can go, such as out in the open, it pans instead.
+      if (MATERIALS[ed.mat].cell === 'brush') {
+        if (e.button === 0 && ed.beginPaint(wx, wy, true)) {
+          this.dragging = true;
+          this.pendingDelete = -1;
+          this.game.refreshHud();
+        } else {
+          this.pendingBrush = [wx, wy];
+          this.panning = true;
+        }
         return;
       }
       const touch = e.pointerType === 'touch';
+      // With the arch in hand, a press on a ring takes hold of its rise; a tap still takes it off.
+      const ring = this.ringRiseAt(wx, wy, touch);
+      if (ring) {
+        ed.beginSag(ring.handle);
+        this.sagOffset = ring.handle.y - wy;
+        this.dragging = true;
+        this.pendingDelete = -1;
+        this.pendingCell = ring.cell;
+        sfx.tick();
+        return;
+      }
       const picked = ed.beginAt(wx, wy, this.pickRadius(touch ? 26 : 18, 0.4), this.pickRadius(touch ? 18 : 12, 0.3));
       if (picked === 'sag') {
+        this.sagOffset = ed.sag!.y - wy;
         this.dragging = true;
         this.pendingDelete = -1;
         sfx.tick();
@@ -245,6 +270,19 @@ export class Input {
       }
     }
     this.panning = true;
+  }
+
+  /**
+   * With the arch in hand, the ring under a point and its rise handle: a press anywhere on a ring
+   * takes hold of its rise, unless it's right on a joint, where a new arch can start. Null otherwise.
+   */
+  private ringRiseAt(wx: number, wy: number, touch: boolean): { cell: number; handle: SagHandle } | null {
+    const ed = this.game.editor;
+    if (!ed || MATERIALS[ed.mat].cell !== 'ring') return null;
+    const cell = ed.cellAt(wx, wy);
+    const handle = cell >= 0 ? ed.ringHandle(cell) : null;
+    if (!handle || ed.nodeAt(wx, wy, this.pickRadius(touch ? 12 : 8, 0.15)) >= 0) return null;
+    return { cell, handle };
   }
 
   /** Takes the first two fingers down as the starting point of a pinch. */
@@ -287,10 +325,12 @@ export class Input {
       if (ed.design.cells.length !== n) this.game.refreshHud();
       return;
     }
-    if (this.pendingCell >= 0 && p && Math.hypot(e.clientX - p.startX, e.clientY - p.startY) > 10) this.pendingCell = -1;
+    const moved = !!p && Math.hypot(e.clientX - p.startX, e.clientY - p.startY) > 10;
+    if (this.pendingCell >= 0 && moved) this.pendingCell = -1;
+    if (this.pendingBrush && moved) this.pendingBrush = null;
     if (this.dragging && ed?.sag) {
       const before = ed.sag.y;
-      ed.aimSag(wy);
+      ed.aimSag(wy + this.sagOffset);
       if (ed.sag.y !== before) {
         sfx.tick();
         this.game.refreshHud();
@@ -320,7 +360,11 @@ export class Input {
       this.game.hoverCell = this.game.hoverMember < 0 ? ed.cellAt(wx, wy) : -1;
       this.game.brushAt = brush ? [Math.floor(wx), Math.floor(wy)] : null;
       if (brush) this.game.hoverNode = this.game.hoverMember = -1;
-    }
+      // Over a handle, or a ring with the arch in hand, a press raises or lowers it.
+      const rise = !brush && (this.ringRiseAt(wx, wy, false) !== null || ed.handlePick(wx, wy, this.pickRadius(18, 0.4)) !== null);
+      if (rise) this.game.hoverNode = this.game.hoverMember = this.game.hoverCell = -1;
+      this.game.canvas.style.cursor = rise ? 'ns-resize' : '';
+    } else if (!p) this.game.canvas.style.cursor = '';
   }
 
   private pointerUp(e: PointerEvent, cancelled = false): void {
@@ -344,7 +388,7 @@ export class Input {
       this.game.refreshHud();
     } else if (this.dragging && ed) {
       const sag = !!ed.sag;
-      if (cancelled || this.pendingDelete >= 0) ed.cancel();
+      if (cancelled || this.pendingDelete >= 0 || this.pendingCell >= 0) ed.cancel();
       else ed.commit();
       if (sag) this.game.refreshHud();
       this.dragging = false;
@@ -357,8 +401,11 @@ export class Input {
       ed.removeCell(this.pendingCell);
       this.game.refreshHud();
     }
+    // A tap where the brush couldn't paint says why.
+    if (this.pendingBrush && ed && !cancelled && ed.beginPaint(...this.pendingBrush)) ed.endPaint();
     this.pendingDelete = -1;
     this.pendingCell = -1;
+    this.pendingBrush = null;
     if (e.pointerType !== 'mouse') this.game.hoverCell = -1;
     this.panning = false;
     if (e.pointerType !== 'mouse') this.game.hoverMember = -1;

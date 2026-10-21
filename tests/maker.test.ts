@@ -451,6 +451,8 @@ describe('stress log', () => {
     for (let x = 0; x < 12; x += 2) d.add([x, 0], [x + 2, 0], 'road');
     const run = drive(d, level);
     expect(run.status).toBe('fail');
+    // The run ends at the first break; the game plays the collapse on, and the log samples it.
+    for (let i = 0; i < 60; i++) run.step();
     expect(run.log.breaks.length).toBeGreaterThan(0);
     const b = run.log.breaks[0];
     expect(Number.isNaN(run.log.members.at(-1)![b.member])).toBe(true);

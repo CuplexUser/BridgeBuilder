@@ -160,6 +160,23 @@ export function cellProblem(level: LevelDef, d: Design, poly: GridPt[], ignore: 
   return '';
 }
 
+/**
+ * Whether a 1 m block with its lower left corner at (x, y) has something to stand on or lean
+ * against: rock along one of its sides, or a block or arch wedge it shares a side with. A block
+ * painted out in the open, touching nothing, would only fall.
+ */
+export function blockSupported(level: LevelDef, d: Design, x: number, y: number): boolean {
+  const e = 0.02;
+  // Points just outside each side, near both ends and in the middle.
+  const probes: GridPt[] = [0.1, 0.5, 0.9].flatMap((t): GridPt[] => [
+    [x + t, y - e],
+    [x + t, y + 1 + e],
+    [x - e, y + t],
+    [x + 1 + e, y + t],
+  ]);
+  return probes.some(([px, py]) => inRock(level, px, py) || cellUnder(d, px, py) >= 0);
+}
+
 /** The block cell at (x, y), the one whose lower left corner it is, or -1. */
 export function blockAt(d: Design, x: number, y: number): number {
   return d.cells.findIndex((c) => c.mat === 'masonry' && d.nodes[c.n[0]].x === x && d.nodes[c.n[0]].y === y);
