@@ -693,7 +693,7 @@ const de: Table = {
   'level.32.name': 'Konvoi',
   'level.32.tip': 'Drei Lieferwagen, dicht an dicht, alle zugleich auf der Brücke. Stahl ist rationiert.',
   'level.33.name': 'Mautbrücke',
-  'level.33.tip': 'Jeder Bolzen abseits der Straße kostet 3.000 $, wenn du von ihm aus baust. Wähle deine Pfeiler.',
+  'level.33.tip': 'Jeder Bolzen abseits der Straße kostet $3.000, wenn du von ihm aus baust. Wähle deine Pfeiler.',
   'level.34.name': 'Hafentor',
   'level.34.tip': 'Ein festes Feld bis zum Pfeiler, dann eine Klappe, die für das Schiff hebt.',
   'level.35.name': 'Berufsverkehr',

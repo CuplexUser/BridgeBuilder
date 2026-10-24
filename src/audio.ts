@@ -31,7 +31,7 @@ export class Sfx {
   private lastCreak = 0;
   muted = false;
   /** Where each volume slider sits, 0 to 1 (Settings). */
-  volume: Record<VolumeBus, number> = { master: 1, sfx: 1, music: 0.6, ambience: 0.7 };
+  volume: Record<VolumeBus, number> = { master: 1, sfx: 1, music: 0.5, ambience: 0.3 };
 
   /** Must be called from a user gesture before audio can start. */
   unlock(): void {

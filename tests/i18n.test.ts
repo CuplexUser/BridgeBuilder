@@ -108,11 +108,11 @@ describe('i18n: switching language', () => {
   it('translates messages and data, and falls back to English for anything missing', async () => {
     addLocale('de', { 'goal.target': 'Baue für {money} oder weniger', 'level.1.name': 'Erste Überquerung', 'vehicle.van.name': 'Lieferwagen' });
     await setLocale('de');
-    expect(plain(t('goal.target', { money: fmt.money(9500) }))).toBe('Baue für 9.500 $ oder weniger');
+    expect(plain(t('goal.target', { money: fmt.money(9500) }))).toBe('Baue für $9.500 oder weniger');
     expect(levelName(LEVELS.find((l) => l.id === 1)!)).toBe('Erste Überquerung');
     expect(t('goal.safeNote')).toBe(en['goal.safeNote']);
     expect(traffic(LEVELS.find((l) => l.id === 32)!)).toMatch(/^Lieferwagen ×3 · 15 t/);
-    expect(plain(costReview(1140, 1000, fmt.money))).toBe('14 % above the best known design (1.000 $).');
+    expect(plain(costReview(1140, 1000, fmt.money))).toBe('14 % above the best known design ($1.000).');
   });
 });
 

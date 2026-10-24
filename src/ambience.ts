@@ -62,8 +62,8 @@ export class Ambience {
     const city = th.land === 'city';
     const layers: Layer[] = [];
     const storm = THUNDER.has(th.id);
-    layers.push(this.wind(storm ? 0.5 : th.weather === 'snow' ? 0.3 : city ? 0.1 : 0.2, storm ? 900 : th.weather === 'snow' ? 1400 : 500, storm));
-    layers.push(this.water(th.land === 'mesa' || th.land === 'peaks' ? 0.12 : 0.22));
+    layers.push(this.wind(storm ? 0.35 : th.weather === 'snow' ? 0.16 : city ? 0.05 : 0.08, storm ? 900 : th.weather === 'snow' ? 1400 : 500, storm));
+    layers.push(this.water(th.land === 'mesa' || th.land === 'peaks' ? 0.06 : 0.12));
     if (th.weather === 'rain') layers.push(this.rain(storm ? 0.16 : 0.1));
     if (city) layers.push(this.hum(th.night ? 0.05 : 0.035));
     if (th.night) layers.push(this.crickets());
@@ -120,9 +120,10 @@ export class Ambience {
     return b.layer;
   }
 
+  /** Water lapping: a low wash that swells and falls away, so it reads as waves and not as hiss. */
   private water(vol: number): Layer {
-    const b = this.noiseBed('lowpass', 420, 0.8, vol);
-    b.wobble(0.22, vol * 0.6, b.gain.gain);
+    const b = this.noiseBed('lowpass', 300, 0.8, vol);
+    b.wobble(0.16, vol * 0.9, b.gain.gain);
     return b.layer;
   }
 

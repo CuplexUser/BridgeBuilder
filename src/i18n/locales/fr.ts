@@ -718,7 +718,7 @@ const fr: Table = {
   'level.32.name': 'Convoi',
   'level.32.tip': 'Trois camionnettes, pare-chocs contre pare-chocs, toutes sur le pont à la fois. L’acier est rationné.',
   'level.33.name': 'Pont à péage',
-  'level.33.tip': 'Chaque boulon hors de la route coûte 3 000 $ pour construire depuis lui. Choisissez vos piles.',
+  'level.33.tip': 'Chaque boulon hors de la route coûte $3 000 pour construire depuis lui. Choisissez vos piles.',
   'level.34.name': 'L’entrée du port',
   'level.34.tip': 'Une travée fixe jusqu’à la pile, puis un tablier qui se lève pour le navire.',
   'level.35.name': 'Heure de pointe',

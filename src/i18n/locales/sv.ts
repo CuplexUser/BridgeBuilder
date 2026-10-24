@@ -693,7 +693,7 @@ const sv: Table = {
   'level.32.name': 'Konvojen',
   'level.32.tip': 'Tre skåpbilar, tätt i rad, alla på bron på en gång. Stålet är ransonerat.',
   'level.33.name': 'Tullbron',
-  'level.33.tip': 'Varje bult utanför vägen kostar 3 000 $ att bygga från. Välj dina pelare.',
+  'level.33.tip': 'Varje bult utanför vägen kostar $3 000 att bygga från. Välj dina pelare.',
   'level.34.name': 'Hamninloppet',
   'level.34.tip': 'Ett fast spann ut till pelaren, sedan en klaff som lyfter för fartyget.',
   'level.35.name': 'Rusningstrafik',

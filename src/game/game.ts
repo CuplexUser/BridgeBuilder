@@ -1054,7 +1054,7 @@ export class Game {
     const state: MusicState = this.paused ? 'pause' : s === 'test' ? 'test' : s === 'result' ? 'result' : s === 'collapse' || s === 'over' ? 'collapse' : inLevel ? 'build' : 'menu';
     const theme = this.renderer.theme;
     music.update(state, theme.id, this.run?.peakStress ?? 0);
-    ambience.update(theme, this.paused ? 0.35 : !inLevel ? 0.5 : s === 'build' || s === 'maker' ? 0.75 : 1);
+    ambience.update(theme, this.paused ? 0.35 : !inLevel ? 0.3 : s === 'build' || s === 'maker' ? 0.75 : 1);
   }
 
   update(dtReal: number): void {

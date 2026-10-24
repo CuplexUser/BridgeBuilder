@@ -755,7 +755,10 @@ kbd {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 70px;
+  /* As wide as its name, but never narrower than the swatch needs. */
+  flex: 0 1 auto;
+  min-width: 70px;
+  padding: 0 8px;
   height: 58px;
   border-radius: var(--r);
   background: var(--panel);
@@ -875,9 +878,12 @@ kbd {
 }
 
 .mat span {
+  min-width: 0;
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .mat span.short {
@@ -1060,6 +1066,7 @@ kbd {
     flex: 1 1 0;
     max-width: 84px;
     height: 54px;
+    padding: 0 2px;
   }
   .mat span {
     font-size: 11px;
@@ -1095,6 +1102,28 @@ kbd {
   .hud-goal {
     max-width: 42vw;
     font-size: 10px;
+  }
+}
+
+/*
+ * Between a phone held upright and a desktop window, and on a phone on its side, a level's seven
+ * materials don't fit by their full names: they go by their short ones and share the room.
+ */
+@media (min-width: 561px) and (max-width: 900px), (min-width: 561px) and (max-height: 520px) {
+  .mats {
+    min-width: 0;
+  }
+  .mat {
+    width: 66px;
+    min-width: 0;
+    flex: 0 1 auto;
+    padding: 0 2px;
+  }
+  .mat span.full {
+    display: none;
+  }
+  .mat span.short {
+    display: inline;
   }
 }
 
@@ -1142,8 +1171,9 @@ kbd {
   inset: 0;
   z-index: 10;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  /* Safe: a screen taller than the window scrolls from its top instead of losing it above. */
+  align-items: safe center;
+  justify-content: safe center;
   padding: 16px;
   overflow-y: auto;
   animation: fadein 0.25s ease-out;
@@ -2132,6 +2162,56 @@ h2 {
   color: var(--muted);
 }
 
+/*
+ * A phone on its side: too short for the title card's one column, so the logo and the career
+ * stand to the left of the menu, and the hints under the card make way.
+ */
+@media (max-height: 520px) and (min-width: 561px) {
+  #scr-title {
+    gap: 8px;
+    padding-block: 8px;
+  }
+  .title-card {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 24px;
+    align-items: center;
+    width: min(780px, 100%);
+    padding: 14px 20px 12px;
+  }
+  .title-tag {
+    grid-area: 1 / 1;
+    padding-inline: 0;
+  }
+  .logo {
+    grid-area: 2 / 1;
+    margin: 8px 0 0;
+    font-size: 44px;
+  }
+  .subtitle {
+    grid-area: 3 / 1;
+    margin-top: 6px;
+    font-size: 13px;
+  }
+  #title-career {
+    grid-area: 4 / 1;
+  }
+  .title-card .menu {
+    grid-area: 1 / 2 / 5;
+    margin: 0;
+    padding-top: 30px;
+  }
+  .title-card .engineer {
+    grid-area: 5 / 2;
+  }
+  .title-unlock {
+    grid-area: 6 / 2;
+  }
+  .controls-hint {
+    display: none;
+  }
+}
+
 /* Levels */
 
 /* A chapter's seven levels: four and three on a wide screen, two across on a phone. */
@@ -2989,6 +3069,30 @@ h2 {
 .set-list {
   display: flex;
   flex-direction: column;
+}
+
+/* Sideways on a phone, the settings run in two columns so they fit without scrolling. */
+@media (max-height: 520px) and (min-width: 561px) {
+  .panel.settings {
+    width: min(760px, 100%);
+    padding: 14px 20px;
+  }
+  .panel.settings h2 {
+    margin: 0 0 2px;
+    font-size: 22px;
+  }
+  .panel.settings .row {
+    margin-top: 10px;
+  }
+  .set-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 28px;
+  }
+  .set-row {
+    min-height: 42px;
+    padding: 3px 0;
+  }
 }
 
 .set-row {

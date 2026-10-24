@@ -1,12 +1,13 @@
 /**
  * Screenshots every screen of the game, for checking a style or layout change by eye or by diff.
  *
- *   npm run screens -- [--out dir] [--narrow] [--lang code]
+ *   npm run screens -- [--out dir] [--narrow | --landscape] [--lang code]
  *
  * It walks a new engineer through the game as the smoke test does (see tools/browser.ts) and saves
  * two pictures of each screen: `<name>.png` as a player sees it, and `<name>.dom.png` with the
  * canvas hidden and CSS animations finished, which stays the same from run to run. --narrow uses
- * a 360×740 touch phone instead of a 1280×760 desktop window. --lang runs the browser in that
+ * a 360×740 touch phone instead of a 1280×760 desktop window, and
+ * --landscape the same phone turned on its side, 800×360. --lang runs the browser in that
  * language (de, ja, pt-BR…), so the game picks it up as a player's device would; without it, English.
  *
  * Text that runs out of its box is listed as it is first seen and again at the end, and fails the
@@ -24,8 +25,9 @@ const opt = (name: string) => {
   return i >= 0 ? args[i + 1] : undefined;
 };
 const narrow = args.includes('--narrow');
+const landscape = args.includes('--landscape');
 const lang = opt('--lang');
-const out = resolve(opt('--out') ?? join(tmpdir(), 'bridge-screens', `${narrow ? 'narrow' : 'wide'}${lang ? `-${lang}` : ''}`));
+const out = resolve(opt('--out') ?? join(tmpdir(), 'bridge-screens', `${narrow ? 'narrow' : landscape ? 'landscape' : 'wide'}${lang ? `-${lang}` : ''}`));
 
 type GameHandle = {
   act(a: string): void;
@@ -94,7 +96,8 @@ async function main(): Promise<void> {
   const { url, close } = await startServer();
   const browser = await launch();
   try {
-    const device = narrow ? { viewport: { width: 360, height: 740 }, hasTouch: true, isMobile: true } : { viewport: { width: 1280, height: 760 } };
+    const phone = { hasTouch: true, isMobile: true };
+    const device = narrow ? { viewport: { width: 360, height: 740 }, ...phone } : landscape ? { viewport: { width: 800, height: 360 }, ...phone } : { viewport: { width: 1280, height: 760 } };
     const page = await browser.newPage({ ...device, locale: lang ?? 'en-US' });
     page.on('pageerror', (e) => console.error(`  page error: ${e.message}`));
 

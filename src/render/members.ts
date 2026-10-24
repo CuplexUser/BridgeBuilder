@@ -56,9 +56,6 @@ function segPath(p: Path2D, s: Seg, off: number): void {
 
 /** The bridge itself: members and cells painted by stress, chalk outlines, and a swing bridge turning. */
 export class Members extends ScenePart {
-  /** A turning swing bridge's farther parts are drawn here first, then darkened as one. Sized on first use. */
-  private hazeLayer: HTMLCanvasElement = document.createElement('canvas');
-
   /**
    * Paints one member in the golden-hour style. Coordinates are screen px; `sag` bows a slack
    * cable downward by that many px at its middle.
@@ -766,34 +763,6 @@ export class Members extends ScenePart {
     });
     for (let k = half; k < SWING_SLICES; k++) both(k);
     for (let i = 0; i < n; i++) [w.x[i], w.y[i]] = near[i];
-  }
-
-  /** Draws on a layer of its own, then lays that over the picture darkened by `dim`, 0..1. */
-  private hazed(dim: number, draw: () => void): void {
-    if (dim < 0.02) return draw();
-    const main = this.ctx;
-    const c = this.hazeLayer;
-    const W = Math.round(this.w * this.dpr);
-    const H = Math.round(this.h * this.dpr);
-    if (c.width !== W || c.height !== H) {
-      c.width = W;
-      c.height = H;
-    }
-    const x = c.getContext('2d')!;
-    x.setTransform(1, 0, 0, 1, 0, 0);
-    x.clearRect(0, 0, W, H);
-    x.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    this.stage.ctx = x;
-    try {
-      draw();
-    } finally {
-      this.stage.ctx = main;
-    }
-    x.globalCompositeOperation = 'source-atop';
-    x.fillStyle = `rgba(22,30,46,${dim.toFixed(3)})`;
-    x.fillRect(0, 0, this.w, this.h);
-    x.globalCompositeOperation = 'source-over';
-    main.drawImage(c, 0, 0, this.w, this.h);
   }
 
   /** The underside of a turning swing bridge's road between its trusses, with a cross beam at each joint. */

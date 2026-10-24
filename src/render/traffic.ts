@@ -4,7 +4,7 @@ import type { VehicleDef } from '../physics/vehicles';
 import { convoyLayout, type VehicleHandle } from '../physics/build';
 import { squadThrown, type TestRun } from '../physics/testrun';
 import { PAL } from './palette';
-import { hash, TAU } from './shapes';
+import { hash, MEMBER_WIDTH, TAU } from './shapes';
 import { ScenePart, type Stage } from './stage';
 import { drawBody, drawRailWheel, drawSoldier, drawWheel, SQUAD_RANKS, squadRank } from './vehicles';
 
@@ -22,6 +22,13 @@ interface Soldier {
   swim: { t: number; x: number } | null;
 }
 
+/**
+ * How the oncoming lane sits behind the near one: `lift` meters up the picture, drawn `scale`
+ * the size toward the middle of the view, and hazed by `haze`, so the two lanes pass instead of
+ * meeting head on.
+ */
+const FAR = { lift: 0.6, scale: 0.85, haze: 0.3 };
+
 /** Vehicles on the bridge: parked, driving, their lights at night, and a marching squad. */
 export class Traffic extends ScenePart {
   constructor(stage: Stage, private particles: Particles) {
@@ -35,16 +42,31 @@ export class Traffic extends ScenePart {
   private shadows = new WeakMap<VehicleHandle, number>();
 
   drawVehicleParked(level: LevelDef): void {
+    const { ctx } = this;
     for (const { def, x, y, dir } of convoyLayout(level)) {
       const r = y + def.wheelR;
       const top = r + def.height * 0.6;
       const fx = x + dir * def.wheelbase;
       const mids = (def.midAxles ?? []).map((ax): [number, number] => [x + dir * ax, r]);
+      ctx.save();
+      if (dir < 0) this.farView(y);
       this.vehicle(def, x, r, fx, r, x, top, fx, top, mids, [0, 0], true, 1, dir);
+      ctx.restore();
     }
   }
 
   drawVehicleRun(run: TestRun, angles: [number, number][]): void {
+    // Oncoming traffic runs on the far track or lane: its strip of deck first, then its vehicles
+    // hazed together, and the near lane over them.
+    if (run.vehicles.some((v) => v.dir < 0)) {
+      this.farLane(run);
+      this.hazed(FAR.haze, () => this.lane(run, -1, angles));
+    }
+    this.lane(run, 1, angles);
+  }
+
+  /** One direction's vehicles, with the couplers between its rail vehicles. */
+  private lane(run: TestRun, dir: 1 | -1, angles: [number, number][]): void {
     const w = run.world;
     const { ctx, cam } = this;
     // Couplers between rail vehicles, at buffer height.
@@ -53,25 +75,80 @@ export class Traffic extends ScenePart {
     ctx.lineCap = 'butt';
     for (let i = 1; i < run.vehicles.length; i++) {
       const [a, b] = [run.vehicles[i - 1], run.vehicles[i]];
-      if (!a.def.rail || !b.def.rail || a.lane !== b.lane) continue;
+      if (a.dir !== dir || !a.def.rail || !b.def.rail || a.lane !== b.lane) continue;
       const up = (p: number) => w.y[p] + 0.35;
+      ctx.save();
+      if (dir < 0) this.farView(this.contact(run, a));
       ctx.beginPath();
       ctx.moveTo(cam.sx(w.x[b.frontWheel]), cam.sy(up(b.frontWheel)));
       ctx.lineTo(cam.sx(w.x[a.rearWheel]), cam.sy(up(a.rearWheel)));
       ctx.stroke();
+      ctx.restore();
     }
-    // Oncoming traffic runs on the far track or lane: drawn first, behind the rest, and a shade darker.
-    const order = run.vehicles.map((_, i) => i).toSorted((a, b) => run.vehicles[a].dir - run.vehicles[b].dir);
-    for (const i of order) {
-      const v = run.vehicles[i];
-      const far = v.dir < 0;
-      if (far) {
-        ctx.save();
-        ctx.filter = 'brightness(0.72) saturate(0.85)';
-      }
+    run.vehicles.forEach((v, i) => {
+      if (v.dir !== dir) return;
+      ctx.save();
+      if (dir < 0) this.farView(this.contact(run, v));
       this.runVehicle(run, v, i, angles);
-      if (far) ctx.restore();
+      ctx.restore();
+    });
+  }
+
+  /** Where a vehicle's wheels meet the deck, in world meters up. */
+  private contact(run: TestRun, v: VehicleHandle): number {
+    return run.world.y[v.rearWheel] - v.def.wheelR;
+  }
+
+  /**
+   * Sets the far lane's view, for a vehicle whose wheels touch at world height `y`: lifted up the
+   * picture and drawn smaller toward the middle of the view, as the far side of the deck is seen
+   * from a little above it.
+   */
+  private farView(y: number): void {
+    const { ctx, cam } = this;
+    const px = this.w / 2;
+    const py = cam.sy(y);
+    ctx.translate(px, py - FAR.lift * cam.scale);
+    ctx.scale(FAR.scale, FAR.scale);
+    ctx.translate(-px, -py);
+  }
+
+  /**
+   * The top of the deck and the banks between the near lane and the far one, seen from a little
+   * above: a strip as deep as the far lane is lifted, with its rail or lane line along the top.
+   */
+  private farLane(run: TestRun): void {
+    const { ctx, cam } = this;
+    const w = run.world;
+    const L = run.level;
+    const rail = run.vehicles.some((v) => v.dir < 0 && v.def.rail);
+    const strip = new Path2D();
+    const edge = new Path2D();
+    const piece = (ax: number, ay: number, bx: number, by: number, base: number) => {
+      strip.moveTo(cam.sx(ax), cam.sy(ay + base));
+      strip.lineTo(cam.sx(bx), cam.sy(by + base));
+      strip.lineTo(cam.sx(bx), cam.sy(by + FAR.lift));
+      strip.lineTo(cam.sx(ax), cam.sy(ay + FAR.lift));
+      strip.closePath();
+      edge.moveTo(cam.sx(ax), cam.sy(ay + FAR.lift));
+      edge.lineTo(cam.sx(bx), cam.sy(by + FAR.lift));
+    };
+    // The banks out to the edges of the view, and every deck member still standing.
+    const reach = (this.w / cam.scale) * 2 + L.width;
+    piece(-reach, 0, 0, 0, 0);
+    piece(L.width, bankY(L), L.width + reach, bankY(L), 0);
+    for (const l of w.links) {
+      if (!l.bridge || l.broken || !l.drivable || !l.mat) continue;
+      piece(w.x[l.a], w.y[l.a], w.x[l.b], w.y[l.b], MEMBER_WIDTH[l.mat] / 2);
     }
+    ctx.fillStyle = rail ? PAL.track : PAL.road;
+    ctx.fill(strip);
+    ctx.fillStyle = 'rgba(22,30,46,0.3)';
+    ctx.fill(strip);
+    ctx.lineCap = 'butt';
+    ctx.strokeStyle = rail ? PAL.rail : 'rgba(214,220,228,0.6)';
+    ctx.lineWidth = Math.max(1, (rail ? 0.07 : 0.04) * cam.scale);
+    ctx.stroke(edge);
   }
 
   private runVehicle(run: TestRun, v: VehicleHandle, i: number, angles: [number, number][]): void {
@@ -259,6 +336,7 @@ export class Traffic extends ScenePart {
     const tx = w.x[v.rearWheel] - dx * R * 1.3 + ux * lift * 1.2;
     const ty = w.y[v.rearWheel] - dy * R * 1.3 + uy * lift * 1.2;
     ctx.save();
+    if (v.dir < 0) this.farView(this.contact(run, v));
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = develop;
     // The beam: a cone angled slightly down the road.

@@ -718,7 +718,7 @@ const es: Table = {
   'level.32.name': 'Convoy',
   'level.32.tip': 'Tres furgonetas, pegadas, todas sobre el puente a la vez. El acero está racionado.',
   'level.33.name': 'Puente de peaje',
-  'level.33.tip': 'Construir desde cada perno fuera de la carretera cuesta 3000 $. Elige bien tus pilas.',
+  'level.33.tip': 'Construir desde cada perno fuera de la carretera cuesta $3000. Elige bien tus pilas.',
   'level.34.name': 'La bocana',
   'level.34.tip': 'Un tramo fijo hasta la pila y luego una hoja que se levanta para el barco.',
   'level.35.name': 'Hora punta',

@@ -763,7 +763,7 @@ const pl: Table = {
   'level.32.name': 'Konwój',
   'level.32.tip': 'Trzy furgonetki, zderzak w zderzak, wszystkie naraz na moście. Stal na kartki.',
   'level.33.name': 'Most płatny',
-  'level.33.tip': 'Budowa od każdego sworznia poza drogą kosztuje 3000 $. Wybieraj filary rozważnie.',
+  'level.33.tip': 'Budowa od każdego sworznia poza drogą kosztuje $3000. Wybieraj filary rozważnie.',
   'level.34.name': 'Wejście do portu',
   'level.34.tip': 'Stałe przęsło do filara, potem klapa, która unosi się dla statku.',
   'level.35.name': 'Godzina szczytu',

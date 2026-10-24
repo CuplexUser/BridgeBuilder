@@ -152,8 +152,11 @@ export const fmt = {
   fixed: (v: number, digits: number): string => nf(`f${digits}`, { minimumFractionDigits: digits, maximumFractionDigits: digits }).format(v),
   /** A number with up to `digits` decimals and no trailing zeros, e.g. 2.5 or 3. */
   dec: (v: number, digits = 2): string => nf(`d${digits}`, { maximumFractionDigits: digits }).format(v),
-  /** Dollars, the game's one currency, as the locale writes them, e.g. $12,500 or 12.500 $. */
-  money: (v: number): string => nf('usd', { style: 'currency', currency: 'USD', maximumFractionDigits: 0, minimumFractionDigits: 0 }).format(Math.round(v)),
+  /**
+   * Dollars, the game's own play money: always a $ in front, with the locale's grouping, e.g.
+   * $12,500 or $12 500. Not a currency format, which would write US$ or 12 500 $.
+   */
+  money: (v: number): string => `${Math.round(v) < 0 ? '-' : ''}$${fmt.num(Math.abs(v))}`,
   /** A ratio as a whole percent, e.g. 0.66 → 66%. */
   pct: (ratio: number): string => nf('pct', { style: 'percent', maximumFractionDigits: 0 }).format(ratio),
   /** "a, b and c" in the locale's own words. */
