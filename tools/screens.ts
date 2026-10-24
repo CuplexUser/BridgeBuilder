@@ -60,6 +60,11 @@ async function main(): Promise<void> {
     await page.press('#profile-name', 'Enter');
     await visible(page, 'scr-title');
     await shot(page, 'title');
+    await game(page, (g) => g.act('settings'));
+    await visible(page, 'scr-settings');
+    await shot(page, 'settings');
+    await game(page, (g) => g.act('settings-close'));
+    await visible(page, 'scr-title');
 
     await game(page, (g) => g.act('chapters'));
     await visible(page, 'scr-chapters');

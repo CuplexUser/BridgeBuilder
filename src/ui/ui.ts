@@ -11,7 +11,7 @@ import { fmt, t, tn } from '../i18n';
 import { chapterText, levelName, matName, matShort } from '../i18n/data';
 import { escapeHtml } from '../i18n/dom';
 
-export type ScreenId = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'workshop' | 'share' | 'mkhelp' | 'pause' | 'confirm' | 'unlock' | 'brief' | 'result' | 'collapse' | 'over';
+export type ScreenId = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'workshop' | 'share' | 'mkhelp' | 'pause' | 'settings' | 'confirm' | 'unlock' | 'brief' | 'result' | 'collapse' | 'over';
 type BoardTab = 'career' | 'chapter' | 'levels' | 'challenge';
 /** How the chapters screen shows them: a road of level nodes, or pages of chapter cards. */
 export type ChaptersView = 'map' | 'book';
@@ -49,6 +49,7 @@ export class Ui {
     share: $('scr-share'),
     mkhelp: $('scr-mkhelp'),
     pause: $('scr-pause'),
+    settings: $('scr-settings'),
     confirm: $('scr-confirm'),
     unlock: $('scr-unlock'),
     brief: $('scr-brief'),
@@ -597,13 +598,6 @@ export class Ui {
   }
 
   /** The pause menu's vibration switch, on devices that can vibrate. */
-  setHaptics(can: boolean, on: boolean): void {
-    const b = $('pause-haptics');
-    b.classList.toggle('hidden', !can);
-    b.textContent = t('pause.vibration', { state: t(on ? 'common.on' : 'common.off') });
-    b.setAttribute('aria-pressed', String(on));
-  }
-
   /** The Play Games bar over the leaderboards, in the Android app. */
   playGames(s: GamesStatus): void {
     $('pgs-bar').classList.toggle('hidden', !s.available);

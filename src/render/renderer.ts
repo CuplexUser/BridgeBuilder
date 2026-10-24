@@ -1,4 +1,5 @@
 import type { DebrisField, Particles } from '../fx/particles';
+import { motion } from '../motion';
 import { BLOCK, blockOf } from '../physics/materials';
 import { Blueprint } from './blueprint';
 import type { Camera } from './camera';
@@ -231,11 +232,13 @@ export class Renderer extends ScenePart {
     ctx.fillStyle = PAL.paperDeep;
     ctx.fillRect(0, 0, this.w, this.h);
 
-    // Background: blueprint, then the painted scene wiped in from the left.
+    // Background: blueprint, then the painted scene wiped in from the left (faded in, with less motion).
+    const wipe = v.develop < 1 && !motion.reduced;
     if (v.develop < 1) this.blueprint.drawBlueprint(v);
     if (v.develop > 0) {
       ctx.save();
-      if (v.develop < 1) {
+      if (v.develop < 1 && !wipe) ctx.globalAlpha = v.develop;
+      if (wipe) {
         const edge = this.w * 1.3 * v.develop - this.h * 0.3;
         ctx.beginPath();
         ctx.moveTo(-10, -10);
@@ -247,7 +250,7 @@ export class Renderer extends ScenePart {
       }
       this.scenery.drawScene(v);
       ctx.restore();
-      if (v.develop < 1) {
+      if (wipe) {
         const edge = this.w * 1.3 * v.develop - this.h * 0.3;
         ctx.beginPath();
         ctx.moveTo(edge + this.h * 0.3, -10);
@@ -308,7 +311,7 @@ export class Renderer extends ScenePart {
       ctx.drawImage(this.vignetteLayer, 0, 0, this.w, this.h);
       ctx.globalAlpha = 1;
     }
-    if (v.flash > 0) {
+    if (v.flash > 0 && !motion.reduced) {
       ctx.fillStyle = `rgba(255,250,235,${Math.min(0.6, v.flash)})`;
       ctx.fillRect(0, 0, this.w, this.h);
     }

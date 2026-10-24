@@ -51,6 +51,11 @@ export function registerLocales(files: Record<string, () => Promise<unknown>>): 
   }
 }
 
+/** The languages there are tables for, in the picker's order: English, then each one registered or added. */
+export function available(): Lang[] {
+  return SUPPORTED.filter((c) => c === 'en' || loaders.has(c) || loaded.has(c));
+}
+
 /** Adds a table that is already loaded. */
 export function addLocale(code: Lang, messages: Table): void {
   loaded.set(code, messages);

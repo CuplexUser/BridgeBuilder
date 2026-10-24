@@ -1,4 +1,21 @@
 /*
+ * Fonts ship with the game, so they work offline in the apps. Space Grotesk has no Cyrillic:
+ * Manrope, a close grotesque, sets Russian. Japanese uses the system's own fonts (below).
+ */
+@import '@fontsource/space-grotesk/latin-500.css';
+@import '@fontsource/space-grotesk/latin-700.css';
+@import '@fontsource/space-grotesk/latin-ext-500.css';
+@import '@fontsource/space-grotesk/latin-ext-700.css';
+@import '@fontsource/manrope/cyrillic-500.css';
+@import '@fontsource/manrope/cyrillic-700.css';
+@import '@fontsource/jetbrains-mono/latin-500.css';
+@import '@fontsource/jetbrains-mono/latin-700.css';
+@import '@fontsource/jetbrains-mono/latin-ext-500.css';
+@import '@fontsource/jetbrains-mono/latin-ext-700.css';
+@import '@fontsource/jetbrains-mono/cyrillic-500.css';
+@import '@fontsource/jetbrains-mono/cyrillic-700.css';
+
+/*
  * Design tokens. Colors start from the palette; surfaces, lines and glows are mixed from it, so a
  * change to a base color carries through.
  */
@@ -67,6 +84,10 @@
   --shadow-float: 0 12px 40px rgba(0, 0, 0, 0.45);
   --shadow-panel: 0 20px 60px var(--shade);
 
+  /* The stress ramps (render/palette.ts), for the Settings preview. */
+  --ramp-classic: linear-gradient(90deg, #39d98a, #ffd23f, #ff3b3b);
+  --ramp-colorblind: linear-gradient(90deg, #56b4e9, #f0e442, #ff6f1a);
+
   /* Corners and motion. */
   --r-sm: 8px;
   --r: 12px;
@@ -76,12 +97,18 @@
   --t-press: 0.08s;
   --t-hover: 0.15s;
 
-  --font: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font: 'Space Grotesk', 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-l: env(safe-area-inset-left, 0px);
   --safe-r: env(safe-area-inset-right, 0px);
+}
+
+/* Japanese: Latin and digits stay in the game's fonts, kana and kanji come from the system. */
+:root:lang(ja) {
+  --font: 'Space Grotesk', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic UI', 'Yu Gothic', Meiryo, 'Noto Sans JP', 'Noto Sans CJK JP', sans-serif;
+  --mono: 'JetBrains Mono', 'Hiragino Sans', 'Yu Gothic UI', Meiryo, 'Noto Sans JP', 'Noto Sans CJK JP', monospace;
 }
 
 /*
@@ -1946,6 +1973,7 @@ h2 {
 }
 
 .title-card {
+  position: relative;
   width: min(460px, 100%);
   padding: 26px 26px 20px;
   border: 2px solid var(--chalk);
@@ -1957,7 +1985,23 @@ h2 {
   animation: pop 0.5s cubic-bezier(0.2, 1.5, 0.4, 1);
 }
 
+/* Settings, in the card's corner beside the tag line. */
+#scr-title .title-gear {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-sm);
+}
+
+#scr-title .title-gear svg {
+  width: 20px;
+  height: 20px;
+}
+
 .title-tag {
+  padding-inline: 34px;
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: 0.22em;
@@ -2658,10 +2702,151 @@ h2 {
   pointer-events: none;
 }
 
+/* Reduce motion (Settings, or the system's setting until it's changed): no animated screens. */
+[data-motion='reduce'] * {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  * {
+  :root:not([data-motion]) * {
     animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
+}
+
+/* ───────── Settings ───────── */
+
+.panel.settings {
+  width: min(480px, 100%);
+  text-align: left;
+}
+
+.panel.settings h2 {
+  text-align: center;
+}
+
+.set-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.set-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+  min-height: 54px;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--line-faint);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.set-name {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.set-name small {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.set-row select {
+  max-width: 62%;
+  padding: 8px 10px;
+  border-radius: var(--r-sm);
+  background: var(--field);
+  border: 1px solid var(--line);
+  color: var(--chalk);
+  font: inherit;
+  font-size: 14px;
+}
+
+.set-row input[type='range'] {
+  flex: 0 1 150px;
+  min-width: 0;
+  margin: 0;
+  accent-color: var(--cyan);
+}
+
+/* An on/off switch, from a checkbox. */
+.switch {
+  appearance: none;
+  flex: none;
+  position: relative;
+  width: 46px;
+  height: 26px;
+  margin: 0;
+  border-radius: var(--r-pill);
+  background: var(--well-deep);
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition: background var(--t-hover), border-color var(--t-hover);
+}
+
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform var(--t-hover), background var(--t-hover);
+}
+
+.switch:checked {
+  background: var(--ok-deep);
+  border-color: var(--ok);
+}
+
+.switch:checked::after {
+  transform: translateX(20px);
+  background: var(--ok);
+}
+
+.set-row :is(select, input):focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+
+/* In a row, not beside a title. */
+.set-row .seg {
+  position: static;
+  flex: none;
+}
+
+.ramp {
+  display: block;
+  width: 96px;
+  max-width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--ramp-classic);
+}
+
+.ramp[data-palette='colorblind'] {
+  background: var(--ramp-colorblind);
+}
+
+.set-controls h3 {
+  margin: 18px 0 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.set-controls .keys {
+  margin-top: 10px;
 }
 
 /* ───────── Level editor ───────── */

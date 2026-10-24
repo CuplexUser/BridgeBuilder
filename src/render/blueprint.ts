@@ -1,19 +1,20 @@
 import type { GridPt } from '../design';
 import type { Editor } from '../editor';
+import { fmt, t } from '../i18n';
+import { matInline, matName } from '../i18n/data';
 import { bankY, goalX, seatPiers, type LevelDef } from '../levels';
 import { defaultSag, mainPathIn } from '../maincable';
 import { blockPoly, RING, ringPath, ringPolys, ringRise } from '../masonry';
 import { MATERIALS, type MaterialId } from '../physics/materials';
 import type { TestRun } from '../physics/testrun';
 import { blockSpots, pileSpots } from '../rules';
+import { font } from './fonts';
 import type { Members } from './members';
 import { MATERIAL_CHALK, PAL } from './palette';
 import type { SceneView } from './renderer';
 import { curveControls, footings, inside, MEMBER_WIDTH, mudPoly, overhangPoly, PILE_DEPTH, rockPoly, runControls, TAU, type Ctl, type Pt2 } from './shapes';
 import { ScenePart, type Stage } from './stage';
 import type { Structures } from './structures';
-import { fmt, t } from '../i18n';
-import { matInline, matName } from '../i18n/data';
 
 /** Traces a smooth curve through screen points. */
 function smoothPath(ctx: CanvasRenderingContext2D, pts: Pt2[]): void {
@@ -219,7 +220,7 @@ export class Blueprint extends ScenePart {
       ctx.fill();
     }
     const label = t('unit.m', { v: fmt.fixed(W, 1) });
-    ctx.font = '600 12px "JetBrains Mono", monospace';
+    ctx.font = font(600, 12, 'mono');
     const tw = ctx.measureText(label).width + 12;
     ctx.fillStyle = PAL.paper;
     ctx.fillRect((ax + bx) / 2 - tw / 2, dimY - 9, tw, 18);

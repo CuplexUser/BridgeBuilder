@@ -1,9 +1,13 @@
 import type { MaterialId } from './physics/materials';
+import type { VolumeBus } from './storage';
 
 /** Every sound is synthesized on the fly with WebAudio, so there are no asset files. */
 export class Sfx {
   private ctx: AudioContext | null = null;
-  private master: GainNode | null = null;
+  /** Master volume, or silence when muted, ahead of the compressor. */
+  private main: GainNode | null = null;
+  /** What every sound effect plays into: the effects volume. */
+  private fx: GainNode | null = null;
   /** The mix after the compressor, as heard: what a recording taps. */
   private out: AudioNode | null = null;
   private tap: MediaStreamAudioDestinationNode | null = null;
@@ -11,6 +15,8 @@ export class Sfx {
   private engine: { osc: OscillatorNode; osc2: OscillatorNode; gain: GainNode; filter: BiquadFilterNode } | null = null;
   private lastCreak = 0;
   muted = false;
+  /** Where each volume slider sits, 0 to 1 (Settings). */
+  volume: Record<VolumeBus, number> = { master: 1, sfx: 1 };
 
   /** Must be called from a user gesture before audio can start. */
   unlock(): void {
@@ -21,10 +27,12 @@ export class Sfx {
     const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!AC) return;
     this.ctx = new AC();
-    this.master = this.ctx.createGain();
-    this.master.gain.value = this.muted ? 0 : 0.55;
+    this.main = this.ctx.createGain();
+    this.main.gain.value = this.mainGain();
+    this.fx = this.ctx.createGain();
+    this.fx.gain.value = this.volume.sfx ** 2;
     const comp = this.ctx.createDynamicsCompressor();
-    this.master.connect(comp).connect(this.ctx.destination);
+    this.fx.connect(this.main).connect(comp).connect(this.ctx.destination);
     this.out = comp;
     const len = this.ctx.sampleRate;
     this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
@@ -44,12 +52,27 @@ export class Sfx {
 
   setMuted(m: boolean): void {
     this.muted = m;
-    if (this.master && this.ctx) this.master.gain.setTargetAtTime(m ? 0 : 0.55, this.ctx.currentTime, 0.02);
+    this.fade(this.main, this.mainGain());
+  }
+
+  /** Sets a slider's volume. The gain is its square, so the slider's travel sounds even. */
+  setVolume(bus: VolumeBus, v: number): void {
+    this.volume[bus] = v;
+    if (bus === 'master') this.fade(this.main, this.mainGain());
+    else this.fade(this.fx, v ** 2);
+  }
+
+  private mainGain(): number {
+    return this.muted ? 0 : 0.55 * this.volume.master ** 2;
+  }
+
+  private fade(node: GainNode | null, to: number): void {
+    if (node && this.ctx) node.gain.setTargetAtTime(to, this.ctx.currentTime, 0.02);
   }
 
   private tone(freq: number, dur: number, type: OscillatorType, vol: number, slideTo?: number, delay = 0): void {
     const ctx = this.ctx;
-    if (!ctx || !this.master) return;
+    if (!ctx || !this.fx) return;
     const t = ctx.currentTime + delay;
     const o = ctx.createOscillator();
     const g = ctx.createGain();
@@ -59,14 +82,14 @@ export class Sfx {
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(vol, t + 0.005);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g).connect(this.master);
+    o.connect(g).connect(this.fx);
     o.start(t);
     o.stop(t + dur + 0.02);
   }
 
   private burst(dur: number, vol: number, filter: BiquadFilterType, freq: number, q = 1, sweepTo?: number, delay = 0): void {
     const ctx = this.ctx;
-    if (!ctx || !this.master || !this.noise) return;
+    if (!ctx || !this.fx || !this.noise) return;
     const t = ctx.currentTime + delay;
     const src = ctx.createBufferSource();
     src.buffer = this.noise;
@@ -79,7 +102,7 @@ export class Sfx {
     const g = ctx.createGain();
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(f).connect(g).connect(this.master);
+    src.connect(f).connect(g).connect(this.fx);
     src.start(t, Math.random() * 0.5);
     src.stop(t + dur + 0.02);
   }
@@ -181,7 +204,7 @@ export class Sfx {
   engineStart(base: number): void {
     const ctx = this.ctx;
     // Marchers have no engine.
-    if (!ctx || !this.master || this.engine || !base) return;
+    if (!ctx || !this.fx || this.engine || !base) return;
     const osc = ctx.createOscillator();
     const osc2 = ctx.createOscillator();
     const filter = ctx.createBiquadFilter();
@@ -196,7 +219,7 @@ export class Sfx {
     gain.gain.setTargetAtTime(0.06, ctx.currentTime, 0.1);
     osc.connect(filter);
     osc2.connect(filter);
-    filter.connect(gain).connect(this.master);
+    filter.connect(gain).connect(this.fx);
     osc.start();
     osc2.start();
     this.engine = { osc, osc2, gain, filter };

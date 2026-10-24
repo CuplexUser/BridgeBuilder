@@ -1,3 +1,4 @@
+import { motion } from '../motion';
 import type { MaterialId } from '../physics/materials';
 
 export const PK = {
@@ -278,6 +279,7 @@ export class Shake {
   private t = 0;
 
   add(amount: number): void {
+    if (motion.reduced) return;
     this.trauma = Math.min(1, this.trauma + amount);
   }
 

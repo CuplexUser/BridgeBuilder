@@ -1,7 +1,8 @@
 import { MATERIALS, type MaterialId } from '../physics/materials';
 import type { TestRun } from '../physics/testrun';
 import type { Link } from '../physics/world';
-import { MATERIAL_CHALK, PAL, stressColor } from './palette';
+import { SAFE_STRESS } from '../scoring';
+import { MATERIAL_CHALK, PAL, stressColor, stressLook } from './palette';
 import { MEMBER_WIDTH, runControls, TAU, type Ctl, type Pt2 } from './shapes';
 import { ScenePart } from './stage';
 import { SWING_SLICES, turnPoint, type Turn } from './swing';
@@ -422,14 +423,15 @@ export class Members extends ScenePart {
       const mat = list[0].mat;
       const s = Number(key.split(' ')[1]) / 20;
       const w = width(mat);
-      stroke(list, 0, stressColor(s, 0.35 + 0.6 * Math.min(1, s * 1.3)), Math.max(1.5, w * (MATERIALS[mat].drivable ? 0.3 : mat === 'cable' ? 0.9 : mat === 'main' ? 0.7 : mat === 'concrete' || mat === 'arch' ? 0.35 : 0.55)), 'butt');
+      const dash = stressLook.dashed && s > SAFE_STRESS ? [w * 0.9, w * 0.6] : null;
+      stroke(list, 0, stressColor(s, 0.35 + 0.6 * Math.min(1, s * 1.3)), Math.max(1.5, w * (MATERIALS[mat].drivable ? 0.3 : mat === 'cable' ? 0.9 : mat === 'main' ? 0.7 : mat === 'concrete' || mat === 'arch' ? 0.35 : 0.55)), 'butt', dash);
     }
     // Members near failure throb, each at its own strength.
     const pulse = 0.75 + 0.25 * Math.sin(time * 18);
     for (const sg of segs) {
       const s = Math.abs(sg.stress);
       if (s <= 0.75) continue;
-      stroke([sg], 0, `rgba(255,59,59,${(s - 0.75) * 1.4 * pulse})`, width(sg.mat) + 10 * (s - 0.5) * pulse);
+      stroke([sg], 0, stressColor(1, (s - 0.75) * 1.4 * pulse), width(sg.mat) + 10 * (s - 0.5) * pulse);
     }
   }
 

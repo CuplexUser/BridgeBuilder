@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { traffic } from '../src/brief';
 import { costReview } from '../src/review';
 import { en, type Plural } from '../src/i18n/en';
-import { addLocale, detectLocale, fmt, setLocale, t, tn, type Table } from '../src/i18n';
+import { addLocale, detectLocale, fmt, setLocale, SUPPORTED, t, tn, type Table } from '../src/i18n';
 import { levelName } from '../src/i18n/data';
 import { allKeys, placeholders, tags } from '../src/i18n/keys';
 import { LEVELS } from '../src/levels';
@@ -93,6 +93,11 @@ describe('i18n: the English table', () => {
 });
 
 describe('i18n: switching language', () => {
+  it('offers Android the same languages the game ships', () => {
+    const xml = readFileSync('android/app/src/main/res/xml/locales_config.xml', 'utf8');
+    expect([...xml.matchAll(/android:name="([^"]+)"/g)].map((m) => m[1])).toEqual([...SUPPORTED]);
+  });
+
   it('follows the device to the nearest language it ships', () => {
     expect(detectLocale(['de-AT', 'en'])).toBe('de');
     expect(detectLocale(['pt-PT'])).toBe('pt-BR');

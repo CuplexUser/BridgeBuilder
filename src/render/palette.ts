@@ -1,3 +1,5 @@
+import type { StressPalette } from '../storage';
+
 /** One palette for canvas and menus so the whole game reads as a single piece. */
 export const PAL = {
   // Blueprint (build mode)
@@ -83,14 +85,32 @@ function hexToRgb(h: string): [number, number, number] {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-const OK = hexToRgb(PAL.ok);
-const WARN = hexToRgb(PAL.warn);
-const BAD = hexToRgb(PAL.bad);
+type Rgb = [number, number, number];
 
-/** Green → yellow → red for |stress| in 0..1. */
+/**
+ * Stress from none to breaking: green → yellow → red, or for colorblind players blue → yellow →
+ * vermillion (Okabe–Ito), which differ in lightness as well as hue.
+ */
+const RAMPS: Record<StressPalette, [Rgb, Rgb, Rgb]> = {
+  classic: [hexToRgb(PAL.ok), hexToRgb(PAL.warn), hexToRgb(PAL.bad)],
+  colorblind: [hexToRgb('#56b4e9'), hexToRgb('#f0e442'), hexToRgb('#ff6f1a')],
+};
+let ramp = RAMPS.classic;
+
+/** How stress is drawn. `dashed`: overloaded members are dashed too, so color isn't the only cue. */
+export const stressLook = { palette: 'classic' as StressPalette, dashed: false };
+
+export function setStressPalette(p: StressPalette): void {
+  ramp = RAMPS[p];
+  stressLook.palette = p;
+  stressLook.dashed = p === 'colorblind';
+}
+
+/** The stress ramp's color for |stress| in 0..1. */
 export function stressColor(s: number, alpha = 1): string {
   const t = Math.min(1, Math.abs(s));
-  const [a, b, u] = t < 0.5 ? [OK, WARN, t / 0.5] : [WARN, BAD, (t - 0.5) / 0.5];
+  const [ok, warn, bad] = ramp;
+  const [a, b, u] = t < 0.5 ? [ok, warn, t / 0.5] : [warn, bad, (t - 0.5) / 0.5];
   const r = Math.round(a[0] + (b[0] - a[0]) * u);
   const g = Math.round(a[1] + (b[1] - a[1]) * u);
   const bl = Math.round(a[2] + (b[2] - a[2]) * u);

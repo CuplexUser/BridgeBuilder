@@ -1,5 +1,6 @@
 import { PK, WHIP_LIFE, type Debris, type Particles, type Whip } from '../fx/particles';
 import type { TestRun } from '../physics/testrun';
+import { font } from './fonts';
 import type { Members } from './members';
 import { PAL } from './palette';
 import type { FloatText } from './renderer';
@@ -68,7 +69,7 @@ export class Effects extends ScenePart {
       const t = f.life / f.max;
       const pop = t > 0.85 ? 1 + (t - 0.85) * 3 : 1;
       ctx.globalAlpha = Math.min(1, t * 2.5);
-      ctx.font = `800 ${Math.round(f.size * pop)}px "Space Grotesk", system-ui, sans-serif`;
+      ctx.font = font(800, Math.round(f.size * pop));
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const x = cam.sx(f.x);

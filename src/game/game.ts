@@ -7,11 +7,14 @@ import { Editor, fitDesign, isOverBudget, money, type AttachPick } from '../edit
 import { efficiency, IDLE_LOAD } from '../efficiency';
 import { DebrisField, Particles, PK, Shake } from '../fx/particles';
 import { HapticFeel } from '../haptics';
+import { fmt, t, tn } from '../i18n';
+import { chapterText, levelName, matInline } from '../i18n/data';
 import { bankY, goalX, LEVELS, START_X, type LevelDef } from '../levels';
 import { isCustom, loadCustom, saveCustom, type CustomSave } from '../maker';
+import { motion } from '../motion';
 import { type MaterialId } from '../physics/materials';
 import { TestRun } from '../physics/testrun';
-import { billing, canVibrate, games, hasPaywall, shareVideo, vibrate, type BillingStatus } from '../platform';
+import { billing, games, hasPaywall, shareVideo, vibrate, type BillingStatus } from '../platform';
 import { PlayGamesLink } from '../playgames';
 import { Camera, type Rect } from '../render/camera';
 import { MATERIAL_CHALK, PAL } from '../render/palette';
@@ -22,12 +25,11 @@ import { bonusLabel, HINT_PENALTY } from '../scoring';
 import { SOLUTIONS } from '../solutions';
 import { blankProgress, loadPrefs, LocalStore, safeLocalStorage, savePrefs, type Prefs, type Profile, type Progress, type Store } from '../storage';
 import { BOOK_PAGE, recordDetail, Ui, type ChaptersView, type ScreenId } from '../ui/ui';
-import { fmt, t, tn } from '../i18n';
-import { chapterText, levelName, matInline } from '../i18n/data';
 import { Drive } from './drive';
 import { Input } from './input';
 import { Maker } from './maker';
 import { Results } from './results';
+import { Settings } from './settings';
 import { StressView } from './stress';
 
 export type State = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'workshop' | 'maker' | 'build' | 'test' | 'result' | 'collapse' | 'over';
@@ -63,7 +65,8 @@ export class Game {
   renderer: Renderer;
   ui = new Ui();
   store: Store;
-  private prefs: Prefs = loadPrefs();
+  /** The device's settings, saved with savePrefs as they change. */
+  prefs: Prefs = loadPrefs();
   profile: Profile | null = null;
   data: Progress = blankProgress();
   private saveTimer = 0;
@@ -144,6 +147,7 @@ export class Game {
   readonly drive = new Drive(this);
   readonly results = new Results(this);
   readonly stress = new StressView(this);
+  readonly settings = new Settings(this);
 
   constructor(canvas: HTMLCanvasElement, store: Store) {
     this.canvas = canvas;
@@ -153,6 +157,7 @@ export class Game {
     sfx.muted = this.prefs.muted;
     this.ui.setMuted(this.prefs.muted);
     this.haptics.enabled = this.prefs.haptics !== false;
+    this.settings.apply();
     this.ui.forSale = (c) => this.forSale(c);
     this.ui.fps.classList.toggle('hidden', !this.debug);
     this.input.bindInput();
@@ -601,10 +606,7 @@ export class Game {
     if (p) this.closeBrief();
     if (p === this.paused) return;
     this.paused = p;
-    if (p) {
-      this.ui.pauseMenu(this.state === 'test', this.mode === 'custom');
-      this.ui.setHaptics(canVibrate, this.haptics.enabled);
-    }
+    if (p) this.ui.pauseMenu(this.state === 'test', this.mode === 'custom');
     this.ui.show(p ? 'pause' : null);
     if (p) this.editor?.cancel();
     if (this.state === 'test' && this.run?.status === 'running') {
@@ -613,13 +615,17 @@ export class Game {
     }
   }
 
-  private toggleHaptics(): void {
-    this.haptics.enabled = !this.haptics.enabled;
-    this.prefs.haptics = this.haptics.enabled;
-    savePrefs(this.prefs);
-    this.ui.setHaptics(canVibrate, this.haptics.enabled);
-    if (this.haptics.enabled) vibrate('heavy');
-    sfx.ui();
+  /** Writes again, in the language just picked, the text the script put on screen. */
+  relabel(): void {
+    this.ui.relabel();
+    this.maker.makerUi.relabel();
+    if (this.state === 'title') this.ui.title(this.profile, this.data, continueLevel(this.data.best));
+    if (this.state === 'build' || this.state === 'test') {
+      this.ui.setLevel(this.level, this.codeOf(this.level));
+      this.ui.setTesting(this.state === 'test');
+      this.ui.pauseMenu(this.state === 'test', this.mode === 'custom');
+      this.refreshHud();
+    }
   }
 
   /** Shares the clip of the last collapse through the share sheet, or saves it. */
@@ -871,8 +877,14 @@ export class Game {
         sfx.ui();
         this.closeOffer();
         break;
-      case 'haptics':
-        this.toggleHaptics();
+      case 'settings':
+        this.settings.open();
+        break;
+      case 'settings-close':
+        this.settings.close();
+        break;
+      case 'set-palette':
+        this.settings.setPalette(el?.dataset.palette === 'colorblind' ? 'colorblind' : 'classic');
         break;
       case 'pgs-signin':
         sfx.ui();
@@ -1010,6 +1022,7 @@ export class Game {
   }
 
   confetti(x: number, y: number, n: number): void {
+    if (motion.reduced) n = Math.ceil(n / 4);
     for (let i = 0; i < n; i++) {
       const a = Math.PI / 2 + (Math.random() - 0.5) * 1.6;
       const s = 6 + Math.random() * 9;

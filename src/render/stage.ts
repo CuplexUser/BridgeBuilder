@@ -1,5 +1,6 @@
 import type { BlockDef } from '../physics/materials';
 import type { Camera } from './camera';
+import { font } from './fonts';
 import { PAL } from './palette';
 import { TAU } from './shapes';
 import type { Turn } from './swing';
@@ -75,7 +76,7 @@ export abstract class ScenePart {
   /** A chalk caption on a dark tag, centered on (x, y). */
   protected label(text: string, x: number, y: number, color: string): void {
     const { ctx } = this;
-    ctx.font = '600 12px "JetBrains Mono", monospace';
+    ctx.font = font(600, 12, 'mono');
     const w = ctx.measureText(text).width + 10;
     ctx.fillStyle = 'rgba(11,29,56,0.85)';
     ctx.fillRect(x - w / 2, y - 9, w, 18);

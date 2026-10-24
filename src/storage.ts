@@ -434,7 +434,16 @@ export interface Prefs {
   haptics?: boolean;
   /** The language picked in Settings, e.g. "de"; unset follows the device. */
   lang?: string;
+  /** Volume per bus, 0 to 1 as the slider sits; unset is full. */
+  volume?: Partial<Record<VolumeBus, number>>;
+  /** Less movement on screen; unset follows the system's reduced-motion setting. */
+  reduceMotion?: boolean;
+  /** The colors stress is drawn in: green to red, or a ramp colorblind players can tell apart. */
+  stressPalette?: StressPalette;
 }
+
+export type VolumeBus = 'master' | 'sfx';
+export type StressPalette = 'classic' | 'colorblind';
 
 export function loadPrefs(): Prefs {
   try {

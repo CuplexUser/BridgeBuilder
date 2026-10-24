@@ -13,9 +13,6 @@
         color: #e9f3ff;
       }
     </style>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2310284a'/%3E%3Cpath d='M3 22h26M6 22l5-9 5 9 5-9 5 9M11 13h10' stroke='%23e9f3ff' stroke-width='2.2' fill='none' stroke-linejoin='round'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="/src/style.css" />
   </head>
@@ -76,6 +73,9 @@
     <!-- Title -->
     <section id="scr-title" class="screen">
       <div class="title-card">
+        <button class="icon-btn title-gear" data-act="settings" aria-label="Settings" title="Settings (S)" data-i18n-aria="title.settingsAria" data-i18n-title="title.settingsTitle">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
+        </button>
         <div class="title-tag" data-i18n="title.tag">PROJECT № 01 · STRUCTURAL DIVISION</div>
         <h1 class="logo"><span>BRIDGE</span><span class="logo-b">BUILDER</span></h1>
         <p class="subtitle" data-i18n="title.subtitle">Draw the truss. Send the truck. Pray.</p>
@@ -347,18 +347,60 @@
           <button class="btn primary" data-act="resume" data-i18n="pause.resume">RESUME <kbd>Esc</kbd></button>
           <button class="btn" data-act="retry" id="pause-retry" data-i18n="pause.retry">BACK TO DRAWING BOARD <kbd>R</kbd></button>
           <button class="btn" data-act="quit" id="pause-quit">QUIT TO MENU <kbd>Q</kbd></button>
-          <button class="btn hidden" data-act="haptics" id="pause-haptics" aria-pressed="true">VIBRATION: ON</button>
+          <button class="btn" data-act="settings" data-i18n="pause.settings">SETTINGS <kbd>S</kbd></button>
         </div>
-        <div class="keys">
-          <div data-i18n="keys.drag"><kbd>Drag</kbd> build from a node</div>
-          <div data-i18n="keys.remove"><kbd>Tap</kbd>/<kbd>Right-click</kbd> remove beam</div>
-          <div data-i18n="keys.material"><kbd>1</kbd>–<kbd>9</kbd> material · <kbd>Q</kbd>/<kbd>E</kbd> cycle</div>
-          <div data-i18n="keys.cursor"><kbd>Arrows</kbd> move cursor · <kbd>Space</kbd> place</div>
-          <div data-i18n="keys.delete"><kbd>X</kbd> delete at cursor</div>
-          <div data-i18n="keys.undo"><kbd>Z</kbd>/<kbd>Y</kbd> undo / redo</div>
-          <div data-i18n="keys.zoom"><kbd>Wheel</kbd>/<kbd>Pinch</kbd> zoom · <kbd>F</kbd> refit</div>
-          <div data-i18n="keys.test"><kbd>T</kbd> test · <kbd>M</kbd> mute</div>
-          <div data-i18n="keys.brief"><kbd>I</kbd> goals and rules</div>
+      </div>
+    </section>
+
+    <!-- Settings, over the title or the pause menu. Everything here is kept for the device, not the profile. -->
+    <section id="scr-settings" class="screen dim hidden">
+      <div class="panel settings">
+        <h2 data-i18n="settings.title">Settings</h2>
+        <div class="set-list">
+          <label class="set-row">
+            <span data-i18n="settings.language">Language</span>
+            <select id="set-lang"></select>
+          </label>
+          <label class="set-row">
+            <span data-i18n="settings.volume">Volume</span>
+            <input type="range" class="set-volume" data-bus="master" min="0" max="1" step="0.05" />
+          </label>
+          <label class="set-row">
+            <span data-i18n="settings.effects">Sound effects</span>
+            <input type="range" class="set-volume" data-bus="sfx" min="0" max="1" step="0.05" />
+          </label>
+          <label class="set-row hidden" id="set-haptics-row">
+            <span data-i18n="settings.vibration">Vibration</span>
+            <input type="checkbox" class="switch" id="set-haptics" />
+          </label>
+          <label class="set-row">
+            <span class="set-name"><span data-i18n="settings.motion">Reduce motion</span><small data-i18n="settings.motionNote">No camera shake, flashes or wipes</small></span>
+            <input type="checkbox" class="switch" id="set-motion" />
+          </label>
+          <div class="set-row">
+            <span class="set-name"><span data-i18n="settings.stress">Stress colors</span><i class="ramp" id="set-ramp"></i></span>
+            <div class="seg">
+              <button class="seg-btn" data-act="set-palette" data-palette="classic" data-i18n="settings.classic">CLASSIC</button>
+              <button class="seg-btn" data-act="set-palette" data-palette="colorblind" data-i18n="settings.colorblind">COLORBLIND</button>
+            </div>
+          </div>
+        </div>
+        <div class="set-controls key-only">
+          <h3 data-i18n="settings.controls">Keyboard and mouse</h3>
+          <div class="keys">
+            <div data-i18n="keys.drag"><kbd>Drag</kbd> build from a node</div>
+            <div data-i18n="keys.remove"><kbd>Tap</kbd>/<kbd>Right-click</kbd> remove beam</div>
+            <div data-i18n="keys.material"><kbd>1</kbd>–<kbd>9</kbd> material · <kbd>Q</kbd>/<kbd>E</kbd> cycle</div>
+            <div data-i18n="keys.cursor"><kbd>Arrows</kbd> move cursor · <kbd>Space</kbd> place</div>
+            <div data-i18n="keys.delete"><kbd>X</kbd> delete at cursor</div>
+            <div data-i18n="keys.undo"><kbd>Z</kbd>/<kbd>Y</kbd> undo / redo</div>
+            <div data-i18n="keys.zoom"><kbd>Wheel</kbd>/<kbd>Pinch</kbd> zoom · <kbd>F</kbd> refit</div>
+            <div data-i18n="keys.test"><kbd>T</kbd> test · <kbd>M</kbd> mute</div>
+            <div data-i18n="keys.brief"><kbd>I</kbd> goals and rules</div>
+          </div>
+        </div>
+        <div class="row">
+          <button class="btn primary" data-act="settings-close" data-i18n="settings.done">DONE <kbd>Esc</kbd></button>
         </div>
       </div>
     </section>

@@ -1,3 +1,5 @@
+import { font } from './render/fonts';
+
 /**
  * Collapse clips. A test drive is recorded off the game canvas so that, when the bridge comes
  * down, the player can share the last seconds of it. The frames are copied into a smaller canvas
@@ -97,7 +99,7 @@ export class ClipRecorder {
     c.fillRect(0, 0, w, h);
     c.drawImage(source, (w - dw) / 2, (h - dh) / 2, dw, dh);
     const px = Math.round(h * 0.034);
-    c.font = `700 ${px}px "Space Grotesk", system-ui, sans-serif`;
+    c.font = font(700, px);
     c.textBaseline = 'bottom';
     c.fillStyle = 'rgba(11, 29, 56, 0.55)';
     const text = `BRIDGE BUILDER · ${this.caption}`;

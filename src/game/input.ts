@@ -150,6 +150,10 @@ export class Input {
    * screen, and on the first-run profile screen, where back leaves the app.
    */
   back(): boolean {
+    if (this.game.settings.from) {
+      this.game.settings.close();
+      return true;
+    }
     if (this.game.unlockFrom) {
       this.game.closeOffer();
       return true;
@@ -429,10 +433,11 @@ export class Input {
   private keyDown(e: KeyboardEvent): void {
     const target = e.target as HTMLElement;
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
-      // Typing goes to the field; Escape leaves it, and closes the share dialog.
+      // Typing goes to the field; Escape leaves it, and closes the share dialog and Settings.
       if (e.key === 'Escape') {
         target.blur();
         if (this.game.ui.current === 'share') this.game.act('share-close');
+        if (this.game.settings.from) this.game.settings.close();
       }
       return;
     }
@@ -454,6 +459,10 @@ export class Input {
       else if (k === 'Enter') this.game.act('buy');
       return;
     }
+    if (this.game.settings.from) {
+      if (k === 'Escape' || k === 'Backspace') this.game.settings.close();
+      return;
+    }
 
     switch (this.game.state) {
       case 'title':
@@ -463,6 +472,7 @@ export class Input {
         } else if (lower === 'c') this.game.act('chapters');
         else if (lower === 'h') this.game.act('scores');
         else if (lower === 'l') this.game.act('workshop');
+        else if (lower === 's') this.game.act('settings');
         return;
       case 'workshop':
       case 'maker':
@@ -543,6 +553,7 @@ export class Input {
         this.game.setPaused(false);
         this.game.backToBuild();
       } else if (lower === 'q') this.game.act('quit');
+      else if (lower === 's') this.game.act('settings');
       return;
     }
     if (lower === 'p') {

@@ -1,4 +1,5 @@
 import type { StressLog } from '../physics/stresslog';
+import { font } from '../render/fonts';
 import { PAL, stressColor } from '../render/palette';
 import { SAFE_STRESS } from '../scoring';
 
@@ -82,7 +83,7 @@ export class StressGraph {
     });
 
     // Grid: every 25%, with the safety line (the third star) and the breaking point marked.
-    ctx.font = '10px "JetBrains Mono", monospace';
+    ctx.font = font(400, 10, 'mono');
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     for (const v of [0, 0.25, 0.5, 0.75, 1]) {
