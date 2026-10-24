@@ -240,7 +240,6 @@ export class Ui {
   setTesting(testing: boolean): void {
     this.testBtn.classList.toggle('stop', testing);
     this.testBtn.querySelector('.go-label')!.textContent = t(testing ? 'tool.edit' : 'tool.test');
-    this.testBtn.querySelector('.go-icon')!.textContent = testing ? '✎' : '▶';
     for (const b of this.matBtns.values()) b.disabled = testing;
     this.undoBtn.disabled = this.redoBtn.disabled = this.clearBtn.disabled = testing;
     $<HTMLButtonElement>('btn-brief').disabled = testing;

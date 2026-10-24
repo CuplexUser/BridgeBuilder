@@ -14,6 +14,7 @@
     "test": "vitest run",
     "lint": "oxlint",
     "smoke": "node --import tsx tools/smoke.ts",
+    "screens": "node --import tsx tools/screens.ts",
     "tune": "node --import tsx --import ./tools/tune/res-register.mjs tools/tune/tune.ts",
     "verify": "node --import tsx --import ./tools/tune/res-register.mjs tools/verify/verify.ts",
     "i18n": "node --import tsx --import ./tools/tune/res-register.mjs tools/i18n.ts",
