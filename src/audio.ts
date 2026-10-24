@@ -1,6 +1,9 @@
 import type { MaterialId } from './physics/materials';
 import type { VolumeBus } from './storage';
 
+/** The result stars' notes: C, E and G, then the bonus on the octave. */
+const STAR_NOTES = [523.25, 659.25, 783.99, 1046.5];
+
 /** Every sound is synthesized on the fly with WebAudio, so there are no asset files. */
 export class Sfx {
   private ctx: AudioContext | null = null;
@@ -169,9 +172,32 @@ export class Sfx {
     this.tone(1568, 0.6, 'sine', 0.06, undefined, 0.36);
   }
 
+  /** Star i of a result lighting up: the three stars climb a major chord, the bonus tops it. */
   star(i: number): void {
-    this.tone(660 * Math.pow(1.26, i), 0.28, 'triangle', 0.18, 660 * Math.pow(1.26, i) * 1.5);
+    const f = STAR_NOTES[Math.min(i, STAR_NOTES.length - 1)];
+    this.tone(f, 0.32, 'triangle', 0.18, f * 1.5);
+    this.tone(f * 2, 0.22, 'sine', 0.04, undefined, 0.03);
     this.burst(0.15, 0.12, 'highpass', 6000, 0.5);
+  }
+
+  /** All three stars: the chord rings out together, with a sparkle on top. */
+  perfect(): void {
+    STAR_NOTES.forEach((f) => this.tone(f, 1.1, 'sine', 0.06, undefined, 0.05));
+    [1568, 2093, 2637].forEach((f, i) => this.tone(f, 0.25, 'triangle', 0.05, undefined, 0.18 + i * 0.07));
+    this.burst(0.5, 0.06, 'highpass', 7000, 0.6, undefined, 0.1);
+  }
+
+  /** A new personal best on the result card. */
+  record(): void {
+    this.tone(1319, 0.14, 'square', 0.05);
+    this.tone(1760, 0.3, 'square', 0.05, undefined, 0.11);
+  }
+
+  /** A chapter finished: a longer climb than a level's, landing on a held chord. */
+  fanfare(): void {
+    [392, 523, 659, 784].forEach((f, i) => this.tone(f, 0.3, 'triangle', 0.15, undefined, i * 0.11));
+    [523, 659, 784, 1047].forEach((f) => this.tone(f, 1.4, 'sine', 0.06, undefined, 0.5));
+    this.tone(2093, 0.8, 'sine', 0.03, undefined, 0.62);
   }
 
   tick(): void {

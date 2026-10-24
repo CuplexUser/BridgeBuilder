@@ -10,8 +10,9 @@ import type { BoardRow, HighScore, LevelRecord, Profile, Progress } from '../sto
 import { fmt, t, tn } from '../i18n';
 import { chapterText, levelName, matName, matShort } from '../i18n/data';
 import { escapeHtml } from '../i18n/dom';
+import { motion } from '../motion';
 
-export type ScreenId = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'workshop' | 'share' | 'mkhelp' | 'pause' | 'settings' | 'confirm' | 'unlock' | 'brief' | 'result' | 'collapse' | 'over';
+export type ScreenId = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'workshop' | 'share' | 'mkhelp' | 'pause' | 'settings' | 'done' | 'confirm' | 'unlock' | 'brief' | 'result' | 'collapse' | 'over';
 type BoardTab = 'career' | 'chapter' | 'levels' | 'challenge';
 /** How the chapters screen shows them: a road of level nodes, or pages of chapter cards. */
 export type ChaptersView = 'map' | 'book';
@@ -20,6 +21,9 @@ export type ChaptersView = 'map' | 'book';
 export const BOOK_PAGE = 6;
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
+
+/** How long a screen takes to fade out as the next comes in, ms (style.css .leaving). */
+const LEAVE_MS = 160;
 
 /** Thin layer over the static DOM in index.html: no game logic lives here. */
 export class Ui {
@@ -50,6 +54,7 @@ export class Ui {
     mkhelp: $('scr-mkhelp'),
     pause: $('scr-pause'),
     settings: $('scr-settings'),
+    done: $('scr-done'),
     confirm: $('scr-confirm'),
     unlock: $('scr-unlock'),
     brief: $('scr-brief'),
@@ -58,6 +63,8 @@ export class Ui {
     over: $('scr-over'),
   };
   private toastTimer = 0;
+  /** Screens fading out, and when each goes. */
+  private leaving = new Map<ScreenId, number>();
   current: ScreenId | null = 'title';
   /** Chapters behind the full-game unlock, marked as such wherever chapters are shown. */
   forSale: (c: ChapterDef) => boolean = () => false;
@@ -102,8 +109,27 @@ export class Ui {
     });
   }
 
+  /**
+   * Shows one screen, or none. The one being left fades out for a moment, deaf to clicks, while
+   * the new one comes in (at once, with reduced motion).
+   */
   show(id: ScreenId | null): void {
-    for (const [k, el] of Object.entries(this.screens)) el.classList.toggle('hidden', k !== id);
+    for (const [k, el] of Object.entries(this.screens) as [ScreenId, HTMLElement][]) {
+      clearTimeout(this.leaving.get(k));
+      if (k === id || el.classList.contains('hidden') || motion.reduced) {
+        el.classList.remove('leaving');
+        el.classList.toggle('hidden', k !== id);
+        continue;
+      }
+      el.classList.add('leaving');
+      this.leaving.set(
+        k,
+        window.setTimeout(() => {
+          el.classList.remove('leaving');
+          el.classList.add('hidden');
+        }, LEAVE_MS),
+      );
+    }
     this.current = id;
     if (id) {
       const primary = this.screens[id].querySelector<HTMLButtonElement>('.btn.primary:not(.hidden)');
@@ -304,8 +330,11 @@ export class Ui {
     $('profile-error').textContent = msg;
   }
 
-  /** The chapters screen, as the progression map or as one page of the chapter book. */
-  chapters(best: BestMap, view: ChaptersView, page: number): void {
+  /**
+   * The chapters screen, as the progression map or as one page of the chapter book. `opened`: a
+   * chapter just opened by finishing the one before, whose road is laid in as the screen shows.
+   */
+  chapters(best: BestMap, view: ChaptersView, page: number, opened?: ChapterDef): void {
     for (const v of ['map', 'book'] as const) {
       $(`view-${v}`).classList.toggle('on', v === view);
       $(`view-${v}`).setAttribute('aria-pressed', String(v === view));
@@ -313,12 +342,12 @@ export class Ui {
     $('chapter-map').classList.toggle('hidden', view !== 'map');
     $('chapter-book').classList.toggle('hidden', view !== 'book');
     $('chapters-note').textContent = t(view === 'map' ? 'chapters.noteMap' : 'chapters.noteBook');
-    if (view === 'map') this.chapterMap(best);
-    else this.chapterBook(best, page);
+    if (view === 'map') this.chapterMap(best, opened);
+    else this.chapterBook(best, page, opened);
   }
 
   /** Every level as a node on one winding road, with each chapter's heading, the next level lit and the rest locked. */
-  private chapterMap(best: BestMap): void {
+  private chapterMap(best: BestMap, opened?: ChapterDef): void {
     const box = $('chapter-map');
     const layout = mapLayout(CHAPTERS, box.clientWidth || 360);
     const next = continueLevel(best);
@@ -326,8 +355,14 @@ export class Ui {
     // The road is paved up to the furthest level crossed, and dashed beyond.
     const reached = Math.max(0, ...order.map((id, i) => (crossed(best, id) ? i : 0)));
     const legs = (from: number, to: number) => layout.legs.slice(from, to).join('');
+    // The leg into a chapter just opened is drawn in, unless the road is already paved past it.
+    const fresh = opened && !this.forSale(opened) ? order.indexOf(opened.levels[0]) - 1 : -1;
+    const opening = fresh >= reached ? layout.legs[fresh] : '';
+    const ahead = opening ? legs(reached, fresh) + legs(fresh + 1, layout.legs.length) : legs(reached, layout.legs.length);
     let html = `<svg class="map-road" width="${layout.width}" height="${layout.height}" aria-hidden="true">
-      <path class="ahead" d="${legs(reached, layout.legs.length)}"/>
+      ${opening ? `<defs><mask id="map-reveal"><path class="reveal" pathLength="1" d="${opening}"/></mask></defs>` : ''}
+      <path class="ahead" d="${ahead}"/>
+      ${opening ? `<path class="ahead opening" mask="url(#map-reveal)" d="${opening}"/>` : ''}
       <path class="paved" d="${legs(0, reached)}"/>
     </svg>`;
     for (const h of layout.heads) {
@@ -335,7 +370,7 @@ export class Ui {
       const sum = totals(best, c.levels);
       const sale = this.forSale(c);
       const open = chapterUnlocked(c, best) && !sale;
-      html += `<div class="map-head${open ? '' : sale ? ' for-sale' : ' locked'}" style="top:${h.y}px">
+      html += `<div class="map-head${open ? '' : sale ? ' for-sale' : ' locked'}${opening && c === opened ? ' fresh' : ''}" style="top:${h.y}px">
         <button class="map-title" data-act="chapter" data-chapter="${c.id}" ${open ? '' : 'aria-disabled="true"'}><span class="ch-no">${t('map.ch', { n: chapterNumber(c) })}</span> ${escapeHtml(chapterText(c, 'name'))}</button>
         ${sale ? `<button class="full-tag" data-act="unlock" title="${t('map.fullTitle')}">${t('map.fullGame')}</button>` : `<span class="map-stars">★ ${sum.stars}/${c.levels.length * 3}</span>`}
         ${chapterComplete(c, best) && !sale ? challengeButton(c) : ''}
@@ -365,7 +400,7 @@ export class Ui {
   }
 
   /** One page of chapter cards, with progress, difficulty and lock state, and the arrows and dots to turn pages. */
-  private chapterBook(best: BestMap, page: number): void {
+  private chapterBook(best: BestMap, page: number, opened?: ChapterDef): void {
     const pages = Math.ceil(CHAPTERS.length / BOOK_PAGE);
     const grid = $('chapter-grid');
     grid.innerHTML = '';
@@ -375,7 +410,7 @@ export class Ui {
       const done = chapterComplete(c, best);
       const sum = totals(best, c.levels);
       const card = document.createElement('div');
-      card.className = `ch-card${open ? '' : ' locked'}${done ? ' done' : ''}`;
+      card.className = `ch-card${open ? '' : ' locked'}${done ? ' done' : ''}${c === opened && open ? ' fresh' : ''}`;
       const prev = CHAPTERS[CHAPTERS.indexOf(c) - 1];
       card.innerHTML = `
         <button class="ch-open" data-act="chapter" data-chapter="${c.id}" ${open ? '' : 'aria-disabled="true"'}>
@@ -539,6 +574,8 @@ export class Ui {
     $('res-total').textContent = '0';
     $('res-run').textContent = runLine;
     for (const star of $('res-stars').querySelectorAll('i')) star.classList.remove('on');
+    $('scr-result').querySelector('.panel')!.classList.remove('perfect');
+    $('res-ribbon').classList.remove('show');
     $('res-notes').innerHTML =
       `<span class="yes">${t('result.crossed')}</span><span class="${s.underTarget ? 'yes' : ''}">${escapeHtml(t('result.underTarget', { target: money(level.target), spent: money(s.spent) }))}</span>` +
       `<span class="${s.safe ? 'yes' : ''}">${escapeHtml(t('result.safe', { pct: fmt.pct(SAFE_STRESS) }))}</span>` +
@@ -550,6 +587,60 @@ export class Ui {
 
   lightStar(i: number): void {
     $('res-stars').querySelectorAll('i:not(.bonus)')[i]?.classList.add('on');
+  }
+
+  /** All three stars: a gold sweep over the card and confetti from its top. */
+  perfect(): void {
+    const panel = $('scr-result').querySelector<HTMLElement>('.panel')!;
+    panel.classList.add('perfect');
+    this.confetti($('scr-result'), panel, 46);
+  }
+
+  /** The score beat the player's best on this level. */
+  showRibbon(): void {
+    $('res-ribbon').classList.add('show');
+  }
+
+  /** Paper confetti bursting from the top of `from`, drawn over `host` (the canvas's sits under the dim). */
+  confetti(host: HTMLElement, from: HTMLElement, n: number): void {
+    if (motion.reduced) return;
+    const box = from.getBoundingClientRect();
+    const colors = ['var(--gold)', 'var(--bolt)', 'var(--ok)', 'var(--cyan)', 'var(--chalk)'];
+    for (let i = 0; i < n; i++) {
+      const bit = document.createElement('i');
+      bit.className = 'confetti';
+      const spread = (Math.random() - 0.5) * box.width * 1.2;
+      bit.style.left = `${box.left + box.width / 2 + (Math.random() - 0.5) * box.width * 0.5}px`;
+      bit.style.top = `${box.top + 10}px`;
+      bit.style.background = colors[i % colors.length];
+      bit.style.setProperty('--dx', `${spread}px`);
+      bit.style.setProperty('--dy', `${-90 - Math.random() * 160}px`);
+      bit.style.setProperty('--spin', `${(Math.random() - 0.5) * 1440}deg`);
+      bit.style.animationDelay = `${Math.random() * 0.12}s`;
+      bit.addEventListener('animationend', () => bit.remove());
+      host.appendChild(bit);
+    }
+  }
+
+  /** The card for a chapter just finished: its stars, bonus goals and score, and each level's best. */
+  chapterDone(c: ChapterDef, best: BestMap, next: ChapterDef | undefined): void {
+    const sum = totals(best, c.levels);
+    $('done-kicker').textContent = t('chapter.kicker', { n: chapterNumber(c) });
+    $('done-name').textContent = chapterText(c, 'name');
+    $('done-stats').innerHTML =
+      `<span class="gold">★ ${sum.stars}/${c.levels.length * 3}</span>` +
+      `<span class="bonus">${BONUS_MARK} ${sum.bonus}/${c.levels.length}</span>` +
+      `<span>${t('done.score', { score: fmt.num(sum.score) })}</span>`;
+    $('done-rows').innerHTML = c.levels
+      .map((id, i) => {
+        const b = best[id];
+        return `<tr style="animation-delay:${i * 0.06}s"><td class="code">${levelCode(id)}</td><td>${escapeHtml(levelName(levelById(id)))}</td><td class="st">${starText(b?.stars ?? 0)}${b?.bonus ? `<em>${BONUS_MARK}</em>` : ''}</td><td class="pts">${fmt.num(b?.score ?? 0)}</td></tr>`;
+      })
+      .join('');
+    $('done-next').innerHTML = !next ? t('done.last') : t(this.forSale(next) ? 'done.nextSale' : 'done.next', { name: escapeHtml(chapterText(next, 'name')) });
+    this.show('done');
+    const panel = $('scr-done').querySelector<HTMLElement>('.panel')!;
+    this.confetti($('scr-done'), panel, 70);
   }
 
   lightBonus(): void {

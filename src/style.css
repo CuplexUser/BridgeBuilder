@@ -1159,6 +1159,29 @@ kbd {
   }
 }
 
+/* A screen on its way out (UI.show): it fades and sinks as the next one comes in, and can't be clicked. */
+.screen.leaving {
+  z-index: 9;
+  pointer-events: none;
+  animation: fadeout 0.16s ease-in forwards;
+}
+
+.screen.leaving > * {
+  animation: sink 0.16s ease-in forwards;
+}
+
+@keyframes fadeout {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes sink {
+  to {
+    transform: scale(0.96);
+  }
+}
+
 .panel {
   width: min(440px, 100%);
   max-height: 100%;
@@ -1396,6 +1419,47 @@ kbd {
   stroke: var(--gold);
   stroke-width: 5;
   opacity: 0.85;
+}
+
+/* The road into a chapter just opened: its dashes are laid in gold, start to end, as the map shows,
+   then the chapter's name (or its card in the book) lights up. */
+.map-road .opening {
+  stroke: var(--gold);
+}
+
+.map-road .reveal {
+  stroke: #fff;
+  stroke-width: 14;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: pave 1.3s 0.35s ease-in-out forwards;
+}
+
+@keyframes pave {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.map-head.fresh .map-title {
+  animation: opened-name 1.6s 1.2s ease-out both;
+}
+
+.ch-card.fresh {
+  animation: opened-card 1.6s 0.3s ease-out both;
+}
+
+@keyframes opened-name {
+  30% {
+    color: var(--gold);
+    text-shadow: 0 0 18px color-mix(in srgb, var(--gold) 70%, transparent);
+  }
+}
+
+@keyframes opened-card {
+  30% {
+    box-shadow: 0 0 0 2px var(--gold), 0 0 28px color-mix(in srgb, var(--gold) 45%, transparent);
+  }
 }
 
 .map-head {
@@ -2415,6 +2479,119 @@ h2 {
   }
 }
 
+/* The bonus star comes in with its own twinkle. */
+.stars i.bonus.on {
+  animation: sparkle 0.8s cubic-bezier(0.2, 1.8, 0.4, 1);
+}
+
+@keyframes sparkle {
+  0% {
+    transform: scale(0) rotate(-180deg);
+    filter: brightness(3) drop-shadow(0 0 0 transparent);
+  }
+  45% {
+    transform: scale(1.5) rotate(20deg);
+    filter: brightness(2) drop-shadow(0 0 22px var(--bonus));
+  }
+}
+
+/* Three stars: a band of gold light crosses the card. */
+.panel.result {
+  position: relative;
+}
+
+.panel.result.perfect::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, color-mix(in srgb, var(--gold) 28%, transparent) 50%, transparent 65%) no-repeat;
+  background-size: 250% 100%;
+  background-position: 100% 0;
+  animation: sweep 1.1s ease-in-out forwards;
+}
+
+.panel.result.perfect {
+  border-color: color-mix(in srgb, var(--gold) 60%, transparent);
+  transition: border-color 0.6s;
+}
+
+@keyframes sweep {
+  to {
+    background-position: 0 0;
+  }
+}
+
+/* The new-record ribbon across the card's corner. */
+.ribbon-corner {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 110px;
+  height: 110px;
+  overflow: hidden;
+  border-top-right-radius: var(--r-xl);
+  pointer-events: none;
+}
+
+.ribbon {
+  position: absolute;
+  top: 24px;
+  right: -38px;
+  width: 160px;
+  padding: 5px 0;
+  background: var(--bolt);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 3px 10px var(--shade);
+  transform: rotate(45deg);
+  visibility: hidden;
+}
+
+.ribbon.show {
+  visibility: visible;
+  animation: ribbon-in 0.45s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+@keyframes ribbon-in {
+  from {
+    opacity: 0;
+    transform: rotate(45deg) translateY(-36px);
+  }
+}
+
+/* Paper confetti (UI.confetti): thrown up from the card, then falling and fading. */
+.confetti {
+  position: fixed;
+  z-index: 20;
+  width: 7px;
+  height: 11px;
+  border-radius: 1px;
+  pointer-events: none;
+  animation: confetti-fly 1.6s cubic-bezier(0.25, 0.6, 0.5, 1) forwards;
+}
+
+@keyframes confetti-fly {
+  0% {
+    transform: translate(0, 0) rotate(0);
+    opacity: 1;
+  }
+  35% {
+    transform: translate(calc(var(--dx) * 0.7), var(--dy)) rotate(calc(var(--spin) * 0.4));
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--dx), calc(var(--dy) + 320px)) rotate(var(--spin));
+    opacity: 0;
+  }
+}
+
 .star-notes {
   font-size: 12px;
   color: var(--muted);
@@ -2538,6 +2715,89 @@ h2 {
     transform: rotate(-6deg) scale(3);
     opacity: 0;
   }
+}
+
+/* Chapter complete */
+
+.chapter-done {
+  border-color: color-mix(in srgb, var(--gold) 50%, transparent);
+}
+
+.chapter-done .stamp {
+  margin-top: 10px;
+  font-size: 26px;
+}
+
+.chapter-done h2 {
+  margin: 0 0 8px;
+}
+
+.done-stats {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.done-stats .gold {
+  color: var(--gold);
+}
+
+.done-stats .bonus {
+  color: var(--bonus);
+}
+
+.done-levels {
+  width: 100%;
+  margin-top: 14px;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+
+.done-levels td {
+  padding: 4px 3px;
+  border-bottom: 1px dashed var(--line-faint);
+}
+
+.done-levels tr {
+  opacity: 0;
+  animation: slidein 0.3s ease-out forwards;
+}
+
+.done-levels .code,
+.done-levels .pts {
+  font-family: var(--mono);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.done-levels .st {
+  color: var(--gold);
+  white-space: nowrap;
+  letter-spacing: 0.05em;
+}
+
+.done-levels .st em {
+  margin-left: 4px;
+  font-style: normal;
+  color: var(--bonus);
+}
+
+.done-levels .pts {
+  text-align: right;
+}
+
+.done-next {
+  margin: 14px 0 0;
+  color: var(--muted);
+}
+
+.done-next b {
+  color: var(--chalk);
 }
 
 .reason {

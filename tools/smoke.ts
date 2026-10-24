@@ -31,11 +31,11 @@ async function main(): Promise<void> {
     await page.locator('#profile-name').waitFor({ state: 'visible' });
     await page.fill('#profile-name', 'Smoke Tester');
     await page.press('#profile-name', 'Enter');
-    await page.locator('#scr-title:not(.hidden)').waitFor();
+    await page.locator('#scr-title:not(.hidden, .leaving)').waitFor();
 
     log('Continue opens 1-1 and its briefing');
     await press(page, 'Enter');
-    await page.locator('#scr-brief:not(.hidden)').waitFor();
+    await page.locator('#scr-brief:not(.hidden, .leaving)').waitFor();
     if ((await page.textContent('#brief-code'))?.trim() !== '1-1') throw new Error('Continue did not open 1-1');
     await press(page, 'Enter');
     await page.locator('#scr-brief').waitFor({ state: 'hidden' });
@@ -47,7 +47,7 @@ async function main(): Promise<void> {
 
     log(`tests the bridge (${spent})`);
     await press(page, 't');
-    await page.locator('#scr-result:not(.hidden)').waitFor({ timeout: 60000 });
+    await page.locator('#scr-result:not(.hidden, .leaving)').waitFor({ timeout: 60000 });
     await page.waitForTimeout(2500);
     const total = Number((await page.textContent('#res-total'))?.replace(/,/g, ''));
     if (!(total > 0)) throw new Error(`The result shows no score (${total})`);
@@ -58,13 +58,13 @@ async function main(): Promise<void> {
 
     log('the leaderboards list the crossing');
     await press(page, 'Escape');
-    await page.locator('#scr-chapter:not(.hidden)').waitFor();
+    await page.locator('#scr-chapter:not(.hidden, .leaving)').waitFor();
     await press(page, 'Escape');
-    await page.locator('#scr-chapters:not(.hidden)').waitFor();
+    await page.locator('#scr-chapters:not(.hidden, .leaving)').waitFor();
     await press(page, 'Escape');
-    await page.locator('#scr-title:not(.hidden)').waitFor();
+    await page.locator('#scr-title:not(.hidden, .leaving)').waitFor();
     await press(page, 'h');
-    await page.locator('#scr-scores:not(.hidden)').waitFor();
+    await page.locator('#scr-scores:not(.hidden, .leaving)').waitFor();
     const career = page.locator('#score-rows tr', { hasText: 'Smoke Tester' });
     await career.waitFor({ timeout: 10000 });
     if (!(await career.textContent())?.includes(total.toLocaleString('en-US'))) throw new Error('The career board has the wrong score');

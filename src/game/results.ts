@@ -1,5 +1,5 @@
 import { sfx } from '../audio';
-import { challengeBoard, chapterById, chapterComplete, CHAPTERS, highestUnlocked, levelById, nextInChapter, totals } from '../chapters';
+import { challengeBoard, chapterById, chapterComplete, CHAPTERS, highestUnlocked, levelById, nextInChapter, totals, type ChapterDef } from '../chapters';
 import { LEVELS } from '../levels';
 import { scoreLevel, type LevelScore } from '../scoring';
 import { bestPerLevel, rankProfiles } from '../storage';
@@ -15,7 +15,18 @@ export class Results {
   board: Board = 'career';
   /** The leaderboard's chapter, by id. */
   private boardChapter = 1;
-  resultAnim: { t: number; score: LevelScore; shown: number; stars: number; bonusShown: boolean } | null = null;
+  /**
+   * The result card counting up: stars lit so far, the score shown, and whether the three-star
+   * moment and the new-record ribbon have played. `record`: the score beat an earlier best.
+   */
+  resultAnim: { t: number; score: LevelScore; shown: number; stars: number; bonusShown: boolean; record: boolean; perfect: boolean; ribbon: boolean } | null = null;
+  /**
+   * A chapter this result finished for the first time: its card comes next, even after another
+   * go at the level. Leaving the level drops it.
+   */
+  pendingDone: ChapterDef | null = null;
+  /** The chapter card showing, over the result. */
+  doneOpen: ChapterDef | null = null;
 
   constructor(private game: Game) {}
 
@@ -30,7 +41,7 @@ export class Results {
       this.game.state = 'result';
       this.game.drive.stopEngine();
       this.game.ui.result(level, s, run.peakStress, t('res.playtest'), true, t('res.editLevel'), this.game.review(level, run, true));
-      this.resultAnim = { t: 0, score: s, shown: 0, stars: 0, bonusShown: false };
+      this.resultAnim = this.startAnim(s, false);
       return;
     }
     const ch = this.game.chapter;
@@ -76,6 +87,7 @@ export class Results {
     if (!wasComplete && chapterComplete(ch, best)) {
       const next = CHAPTERS[CHAPTERS.indexOf(ch) + 1];
       lines.push(next ? t('res.chapterDone', { name: fmt.upper(chapterText(next, 'name')) }) : t('res.allDone'));
+      this.pendingDone = ch;
     }
 
     this.game.state = 'result';
@@ -83,7 +95,31 @@ export class Results {
     const next = nextInChapter(level.id);
     const nextLabel = t(next ? 'res.next' : this.game.mode === 'challenge' ? 'res.finish' : 'res.chapters');
     this.game.ui.result(level, score, run.peakStress, lines.join(' · '), this.game.mode === 'play', nextLabel, this.game.review(level, run, this.game.mode === 'play'));
-    this.resultAnim = { t: 0, score, shown: 0, stars: 0, bonusShown: false };
+    this.resultAnim = this.startAnim(score, this.game.mode === 'play' && !!prev && score.total > prev.score);
+  }
+
+  private startAnim(score: LevelScore, record: boolean): NonNullable<Results['resultAnim']> {
+    return { t: 0, score, shown: 0, stars: 0, bonusShown: false, record, perfect: false, ribbon: false };
+  }
+
+  /** The card for the chapter this result finished. */
+  showDone(): void {
+    const ch = this.pendingDone;
+    if (!ch) return;
+    this.pendingDone = null;
+    this.doneOpen = ch;
+    sfx.fanfare();
+    this.game.haptics.celebrate();
+    this.game.ui.chapterDone(ch, this.game.data.best, CHAPTERS[CHAPTERS.indexOf(ch) + 1]);
+  }
+
+  /** On to the map, where the road into the next chapter is laid. */
+  closeDone(): void {
+    const ch = this.doneOpen;
+    if (!ch) return;
+    this.doneOpen = null;
+    sfx.select();
+    this.game.enterChapters(CHAPTERS[CHAPTERS.indexOf(ch) + 1]);
   }
 
   finishCollapse(): void {
@@ -108,6 +144,10 @@ export class Results {
   }
 
   nextLevel(): void {
+    if (this.pendingDone) {
+      this.showDone();
+      return;
+    }
     if (this.game.mode === 'custom') {
       this.game.maker.enterMaker(this.game.level);
       return;
@@ -211,7 +251,15 @@ export class Results {
       sfx.star(a.stars);
       a.stars++;
     }
-    if (a.score.bonus && !a.bonusShown && a.t > 1.15) {
+    const perfect = a.score.stars === 3;
+    if (perfect && !a.perfect && a.t > 1.05) {
+      a.perfect = true;
+      this.game.ui.perfect();
+      sfx.perfect();
+      this.game.haptics.celebrate();
+    }
+    // After a three-star chord, the bonus star waits for it to ring out.
+    if (a.score.bonus && !a.bonusShown && a.t > (perfect ? 1.6 : 1.15)) {
       a.bonusShown = true;
       this.game.ui.lightBonus();
       sfx.star(3);
@@ -223,6 +271,11 @@ export class Results {
       a.shown = shown;
       this.game.ui.setResultTotal(shown);
     }
-    if (countT >= 1 && (a.bonusShown || !a.score.bonus)) this.resultAnim = null;
+    if (countT >= 1 && a.record && !a.ribbon && a.t > 1.7) {
+      a.ribbon = true;
+      this.game.ui.showRibbon();
+      sfx.record();
+    }
+    if (countT >= 1 && (a.bonusShown || !a.score.bonus) && (a.perfect || !perfect) && (a.ribbon || !a.record)) this.resultAnim = null;
   }
 }

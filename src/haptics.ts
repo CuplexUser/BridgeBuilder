@@ -40,6 +40,13 @@ export class HapticFeel {
     this.pulse('heavy');
   }
 
+  /** A three-star result. */
+  celebrate(): void {
+    if (!this.enabled) return;
+    this.lastHeavy = this.now();
+    this.pulse('heavy');
+  }
+
   /** The run failed: the bridge is down. */
   collapse(): void {
     if (!this.enabled) return;

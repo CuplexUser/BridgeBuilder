@@ -277,6 +277,7 @@ export class Game {
 
   /** Stops whatever was being built or driven and brings the demo back behind the menus. */
   leavePlay(): void {
+    this.results.pendingDone = null;
     this.paused = false;
     this.briefing = false;
     this.stress.hideGraph();
@@ -309,14 +310,15 @@ export class Game {
     this.fitCamera(true);
   }
 
-  enterChapters(): void {
+  /** The chapters screen. `opened`: a chapter just opened, whose road is laid in as it shows. */
+  enterChapters(opened?: ChapterDef): void {
     this.leavePlay();
     this.state = 'chapters';
     // The book opens on the page with the chapter being played.
     this.bookPage = Math.floor(CHAPTERS.indexOf(chapterOf(continueLevel(this.data.best))) / BOOK_PAGE);
     this.ui.show('chapters');
-    this.showChapters();
-    if (this.chaptersView === 'map') this.ui.showNextOnMap(this.data.best);
+    this.showChapters(opened);
+    if (this.chaptersView === 'map') this.ui.showNextOnMap(this.data.best, !!opened);
   }
 
   get chaptersView(): ChaptersView {
@@ -324,8 +326,8 @@ export class Game {
   }
 
   /** Draws the chapters screen as it stands: the map, or the book at its page. */
-  private showChapters(): void {
-    this.ui.chapters(this.data.best, this.chaptersView, this.bookPage);
+  private showChapters(opened?: ChapterDef): void {
+    this.ui.chapters(this.data.best, this.chaptersView, this.bookPage, opened);
   }
 
   setChaptersView(view: ChaptersView): void {
@@ -829,8 +831,16 @@ export class Game {
         sfx.select();
         this.results.nextLevel();
         break;
+      case 'done-close':
+        this.results.closeDone();
+        break;
       case 'quit':
         sfx.ui();
+        // Leaving a result that finished a chapter shows the chapter's card first.
+        if (this.state === 'result' && this.results.pendingDone) {
+          this.results.showDone();
+          break;
+        }
         // Leaving a challenge part-way ends the run, so ask first.
         if (this.mode === 'challenge' && this.state !== 'over') {
           this.askQuit();

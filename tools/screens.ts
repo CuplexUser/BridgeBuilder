@@ -22,7 +22,15 @@ const opt = (name: string) => {
 const narrow = args.includes('--narrow');
 const out = resolve(opt('--out') ?? join(tmpdir(), 'bridge-screens', narrow ? 'narrow' : 'wide'));
 
-type GameHandle = { act(a: string): void; setPaused(p: boolean): void; offerFullGame(): void; askQuit(): void };
+type GameHandle = {
+  act(a: string): void;
+  setPaused(p: boolean): void;
+  offerFullGame(): void;
+  askQuit(): void;
+  setChaptersView(v: string): void;
+  chapter: unknown;
+  results: { pendingDone: unknown; showDone(): void };
+};
 
 /** Runs a method on the game the page exposes with ?debug. */
 async function game(page: Page, call: (g: GameHandle) => void): Promise<void> {
@@ -42,7 +50,7 @@ async function shot(page: Page, name: string): Promise<void> {
 }
 
 async function visible(page: Page, id: string): Promise<void> {
-  await page.locator(`#${id}:not(.hidden)`).waitFor({ timeout: 15000 });
+  await page.locator(`#${id}:not(.hidden, .leaving)`).waitFor({ timeout: 15000 });
 }
 
 async function main(): Promise<void> {
@@ -110,13 +118,30 @@ async function main(): Promise<void> {
     await page.waitForTimeout(2500);
     await shot(page, 'collapse');
 
+    // The chapter card, as if this run had finished chapter 1, then the map laying the road on.
+    await game(page, (g) => {
+      g.setChaptersView('map');
+      g.results.pendingDone = g.chapter;
+      g.results.showDone();
+    });
+    await visible(page, 'scr-done');
+    await page.waitForTimeout(800);
+    await shot(page, 'done');
+    await press(page, 'Enter');
+    await visible(page, 'scr-chapters');
+    await page.waitForTimeout(1000);
+    await shot(page, 'map-opening');
+    await page.waitForTimeout(1600);
+    await shot(page, 'map-opened');
+    await game(page, (g) => g.act('back'));
+
     await game(page, (g) => g.offerFullGame());
-    if (await page.locator('#scr-unlock:not(.hidden)').count()) {
+    if (await page.locator('#scr-unlock:not(.hidden, .leaving)').count()) {
       await shot(page, 'unlock');
       await game(page, (g) => g.act('unlock-close'));
     }
 
-    for (let i = 0; i < 4 && !(await page.locator('#scr-title:not(.hidden)').count()); i++) {
+    for (let i = 0; i < 4 && !(await page.locator('#scr-title:not(.hidden, .leaving)').count()); i++) {
       await press(page, 'Escape');
       await page.waitForTimeout(300);
     }

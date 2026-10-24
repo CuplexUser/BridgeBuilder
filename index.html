@@ -339,6 +339,21 @@
       </form>
     </aside>
 
+    <!-- A chapter finished for the first time, after its result card -->
+    <section id="scr-done" class="screen dim hidden">
+      <div class="panel chapter-done">
+        <div class="ch-kicker" id="done-kicker"></div>
+        <div class="stamp win" data-i18n="done.stamp">COMPLETE</div>
+        <h2 id="done-name"></h2>
+        <div class="done-stats" id="done-stats"></div>
+        <table class="done-levels"><tbody id="done-rows"></tbody></table>
+        <p class="done-next" id="done-next"></p>
+        <div class="row">
+          <button class="btn primary" data-act="done-close" data-i18n="done.go">TO THE MAP <kbd>Enter</kbd></button>
+        </div>
+      </div>
+    </section>
+
     <!-- Pause -->
     <section id="scr-pause" class="screen dim hidden">
       <div class="panel">
@@ -459,6 +474,7 @@
     <!-- Success -->
     <section id="scr-result" class="screen dim hidden">
       <div class="panel result">
+        <div class="ribbon-corner" aria-hidden="true"><div class="ribbon" id="res-ribbon" data-i18n="result.record">NEW RECORD</div></div>
         <div class="res-main">
           <div class="banner good" data-i18n="result.banner">BRIDGE HOLDS!</div>
           <div class="stars" id="res-stars"><i></i><i></i><i></i><i class="bonus" title="Bonus goal" data-i18n-title="result.bonusTitle"></i></div>

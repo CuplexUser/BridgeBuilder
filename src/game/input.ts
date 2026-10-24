@@ -154,6 +154,10 @@ export class Input {
       this.game.settings.close();
       return true;
     }
+    if (this.game.results.doneOpen) {
+      this.game.act('done-close');
+      return true;
+    }
     if (this.game.unlockFrom) {
       this.game.closeOffer();
       return true;
@@ -461,6 +465,13 @@ export class Input {
     }
     if (this.game.settings.from) {
       if (k === 'Escape' || k === 'Backspace') this.game.settings.close();
+      return;
+    }
+    if (this.game.results.doneOpen) {
+      if (k === 'Enter' || k === ' ' || k === 'Escape' || k === 'Backspace') {
+        e.preventDefault();
+        this.game.act('done-close');
+      }
       return;
     }
 
