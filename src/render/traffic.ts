@@ -35,11 +35,12 @@ export class Traffic extends ScenePart {
   private shadows = new WeakMap<VehicleHandle, number>();
 
   drawVehicleParked(level: LevelDef): void {
-    for (const { def, x, y } of convoyLayout(level)) {
+    for (const { def, x, y, dir } of convoyLayout(level)) {
       const r = y + def.wheelR;
       const top = r + def.height * 0.6;
-      const mids = (def.midAxles ?? []).map((ax): [number, number] => [x + ax, r]);
-      this.vehicle(def, x, r, x + def.wheelbase, r, x, top, x + def.wheelbase, top, mids, [0, 0], true);
+      const fx = x + dir * def.wheelbase;
+      const mids = (def.midAxles ?? []).map((ax): [number, number] => [x + dir * ax, r]);
+      this.vehicle(def, x, r, fx, r, x, top, fx, top, mids, [0, 0], true, 1, dir);
     }
   }
 
@@ -52,30 +53,45 @@ export class Traffic extends ScenePart {
     ctx.lineCap = 'butt';
     for (let i = 1; i < run.vehicles.length; i++) {
       const [a, b] = [run.vehicles[i - 1], run.vehicles[i]];
-      if (!a.def.rail || !b.def.rail) continue;
+      if (!a.def.rail || !b.def.rail || a.lane !== b.lane) continue;
       const up = (p: number) => w.y[p] + 0.35;
       ctx.beginPath();
       ctx.moveTo(cam.sx(w.x[b.frontWheel]), cam.sy(up(b.frontWheel)));
       ctx.lineTo(cam.sx(w.x[a.rearWheel]), cam.sy(up(a.rearWheel)));
       ctx.stroke();
     }
-    run.vehicles.forEach((v, i) => {
-      const mids = v.midWheels.map((p): [number, number] => [w.x[p], w.y[p]]);
-      // The contact shadow is there only while wheels touch something, fading as they leave it.
-      const touching = v.wheels.filter((p) => w.contact[p]).length / v.wheels.length;
-      const was = this.shadows.get(v) ?? touching;
-      const shadow = was + (touching - was) * 0.25;
-      this.shadows.set(v, shadow);
-      if (v.def.marches) return this.squad(run, v, (angles[i]?.[0] ?? 0) * 0.6, shadow);
-      this.vehicle(v.def, w.x[v.rearWheel], w.y[v.rearWheel], w.x[v.frontWheel], w.y[v.frontWheel], w.x[v.rearTop], w.y[v.rearTop], w.x[v.frontTop], w.y[v.frontTop], mids, angles[i] ?? [0, 0], false, shadow);
-    });
+    // Oncoming traffic runs on the far track or lane: drawn first, behind the rest, and a shade darker.
+    const order = run.vehicles.map((_, i) => i).toSorted((a, b) => run.vehicles[a].dir - run.vehicles[b].dir);
+    for (const i of order) {
+      const v = run.vehicles[i];
+      const far = v.dir < 0;
+      if (far) {
+        ctx.save();
+        ctx.filter = 'brightness(0.72) saturate(0.85)';
+      }
+      this.runVehicle(run, v, i, angles);
+      if (far) ctx.restore();
+    }
   }
 
-  private vehicle(def: VehicleDef, rwx: number, rwy: number, fwx: number, fwy: number, rtx: number, rty: number, ftx: number, fty: number, mids: [number, number][], angles: [number, number], chalk: boolean, shadow = 1): void {
+  private runVehicle(run: TestRun, v: VehicleHandle, i: number, angles: [number, number][]): void {
+    const w = run.world;
+    const mids = v.midWheels.map((p): [number, number] => [w.x[p], w.y[p]]);
+    // The contact shadow is there only while wheels touch something, fading as they leave it.
+    const touching = v.wheels.filter((p) => w.contact[p]).length / v.wheels.length;
+    const was = this.shadows.get(v) ?? touching;
+    const shadow = was + (touching - was) * 0.25;
+    this.shadows.set(v, shadow);
+    if (v.def.marches) return this.squad(run, v, (angles[i]?.[0] ?? 0) * 0.6, shadow);
+    this.vehicle(v.def, w.x[v.rearWheel], w.y[v.rearWheel], w.x[v.frontWheel], w.y[v.frontWheel], w.x[v.rearTop], w.y[v.rearTop], w.x[v.frontTop], w.y[v.frontTop], mids, angles[i] ?? [0, 0], false, shadow, v.dir);
+  }
+
+  /** `dir` -1: oncoming, driving left, so the body is drawn mirrored, nose to the left. */
+  private vehicle(def: VehicleDef, rwx: number, rwy: number, fwx: number, fwy: number, rtx: number, rty: number, ftx: number, fty: number, mids: [number, number][], angles: [number, number], chalk: boolean, shadow = 1, dir: 1 | -1 = 1): void {
     const { ctx, cam } = this;
     const s = cam.scale;
     // Body frame from the chassis top points, dropped to the wheel-center line.
-    const ang = Math.atan2(fty - rty, ftx - rtx);
+    const ang = Math.atan2(dir * (fty - rty), dir * (ftx - rtx));
     const drop = def.wheelR + def.height * 0.6 - def.wheelR;
     const ox = rtx + Math.sin(ang) * drop;
     const oy = rty - Math.cos(ang) * drop;
@@ -83,7 +99,7 @@ export class Traffic extends ScenePart {
     ctx.save();
     ctx.translate(cam.sx(ox), cam.sy(oy));
     ctx.rotate(-ang);
-    ctx.scale(s, -s);
+    ctx.scale(dir * s, -s);
     ctx.lineJoin = 'round';
     drawBody(ctx, def, 1 / s, chalk, angles[0] * 0.6, shadow);
     ctx.restore();

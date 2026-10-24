@@ -166,7 +166,7 @@ export function grammarFor(level: LevelDef, opts: GrammarOptions = {}): Grammar 
   const betweenGene = lowerY !== undefined ? add('between the decks', ['none', 'posts', 'warren', 'posts and warren'], 2) : -1;
   const betweenMat = lowerY !== undefined ? add('between the decks material', beamOpts) : -1;
   // Prestressed girders: a beam of blocks under the deck from the first rock to the last, on block piers, with tendons through it.
-  const girderOk = brick && offered('tendon') && rocks.length >= 2;
+  const girderOk = brick && offered('tendon') && rocks.length >= 1;
   const girderGene = girderOk ? add('block girder under the deck', ['none', '1 row', '2 rows', '3 rows'], 2) : -1;
   const tendonGene = girderOk ? add('tendons through the girder', TENDON_LAYOUTS, 1) : -1;
   // An arch over the road from one bank's bolt to the other's, the deck hung under it.

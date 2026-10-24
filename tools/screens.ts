@@ -1,12 +1,16 @@
 /**
  * Screenshots every screen of the game, for checking a style or layout change by eye or by diff.
  *
- *   npm run screens -- [--out dir] [--narrow]
+ *   npm run screens -- [--out dir] [--narrow] [--lang code]
  *
  * It walks a new engineer through the game as the smoke test does (see tools/browser.ts) and saves
  * two pictures of each screen: `<name>.png` as a player sees it, and `<name>.dom.png` with the
  * canvas hidden and CSS animations finished, which stays the same from run to run. --narrow uses
- * a 360×740 touch phone instead of a 1280×760 desktop window.
+ * a 360×740 touch phone instead of a 1280×760 desktop window. --lang runs the browser in that
+ * language (de, ja, pt-BR…), so the game picks it up as a player's device would; without it, English.
+ *
+ * Text that runs out of its box is listed as it is first seen and again at the end, and fails the
+ * run: a translation the layout cannot hold. Boxes that end in an ellipsis are only listed.
  */
 import { mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -20,7 +24,8 @@ const opt = (name: string) => {
   return i >= 0 ? args[i + 1] : undefined;
 };
 const narrow = args.includes('--narrow');
-const out = resolve(opt('--out') ?? join(tmpdir(), 'bridge-screens', narrow ? 'narrow' : 'wide'));
+const lang = opt('--lang');
+const out = resolve(opt('--out') ?? join(tmpdir(), 'bridge-screens', `${narrow ? 'narrow' : 'wide'}${lang ? `-${lang}` : ''}`));
 
 type GameHandle = {
   act(a: string): void;
@@ -37,6 +42,31 @@ async function game(page: Page, call: (g: GameHandle) => void): Promise<void> {
   await page.evaluate(`(${call.toString()})(window.__game)`);
 }
 
+/**
+ * Shown elements whose own text is wider than their box, unless the box scrolls, and the page
+ * itself if it scrolls sideways. A box that ends its text in an ellipsis is marked (~) as cut
+ * short: those are laid out to give way. A string, so the bundler adds no helpers the page lacks.
+ */
+const OVERFLOWS = `(() => {
+  const found = [];
+  for (const el of document.querySelectorAll('body *')) {
+    if (!el.getClientRects().length || el.closest('.hidden')) continue;
+    const s = getComputedStyle(el);
+    if (s.visibility === 'hidden' || s.overflowX === 'auto' || s.overflowX === 'scroll') continue;
+    if (!el.clientWidth || el.scrollWidth <= el.clientWidth + 1) continue;
+    if (![...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
+    const name = el.id ? '#' + el.id : [el.tagName.toLowerCase(), ...el.classList].join('.');
+    found.push((s.textOverflow === 'ellipsis' ? '~' : '') + name + ' "' + el.textContent.trim().replace(/\\s+/g, ' ').slice(0, 48) + '" ' + el.scrollWidth + '>' + el.clientWidth);
+  }
+  const page = document.documentElement;
+  if (page.scrollWidth > innerWidth + 1) found.push('the page scrolls sideways ' + page.scrollWidth + '>' + innerWidth);
+  return found;
+})()`;
+
+/** What ran out of its box, once each, with the first screen it was seen on. */
+const overflowed = new Map<string, string>();
+const truncated = new Map<string, string>();
+const list = (m: Map<string, string>) => [...m].map(([o, at]) => `${at}: ${o.replace(/^~/, '')}`).join('\n  ');
 let shots = 0;
 async function shot(page: Page, name: string): Promise<void> {
   await page.waitForTimeout(450);
@@ -47,6 +77,12 @@ async function shot(page: Page, name: string): Promise<void> {
   });
   shots++;
   console.log(`· ${name}`);
+  for (const o of (await page.evaluate(OVERFLOWS)) as string[]) {
+    const seen = o.startsWith('~') ? truncated : overflowed;
+    if (seen.has(o)) continue;
+    seen.set(o, name);
+    console.log(`  ${seen === truncated ? 'cut short' : 'overflows'}: ${o.replace(/^~/, '')}`);
+  }
 }
 
 async function visible(page: Page, id: string): Promise<void> {
@@ -58,7 +94,8 @@ async function main(): Promise<void> {
   const { url, close } = await startServer();
   const browser = await launch();
   try {
-    const page = await browser.newPage(narrow ? { viewport: { width: 360, height: 740 }, hasTouch: true, isMobile: true } : { viewport: { width: 1280, height: 760 } });
+    const device = narrow ? { viewport: { width: 360, height: 740 }, hasTouch: true, isMobile: true } : { viewport: { width: 1280, height: 760 } };
+    const page = await browser.newPage({ ...device, locale: lang ?? 'en-US' });
     page.on('pageerror', (e) => console.error(`  page error: ${e.message}`));
 
     await page.goto(`${url}?debug`);
@@ -169,6 +206,11 @@ async function main(): Promise<void> {
     await shot(page, 'share');
 
     console.log(`${shots} screens saved to ${out}`);
+    if (truncated.size) console.log(`${truncated.size} cut short with an ellipsis:\n  ${list(truncated)}`);
+    if (overflowed.size) {
+      console.error(`${overflowed.size} overflowing:\n  ${list(overflowed)}`);
+      process.exitCode = 1;
+    }
   } finally {
     await browser.close();
     await close();

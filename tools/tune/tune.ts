@@ -7,6 +7,8 @@
  *   --estimate           print the time each preset is expected to take, then stop
  *   --fresh              re-tune levels even when their inputs haven't changed
  *   --workers <n>        test drives at once (default: one per core but one)
+ *   --reseed             drive the hand-made designs again and re-derive the levels' numbers
+ *                        from the stored results, with no new search (after a cheaper hand design)
  *
  * Levels whose last result failed a check are always tuned again. The tuner page
  * (`npm run tuner`) picks these options visually and runs this script for you.
@@ -23,7 +25,7 @@ import { Design } from '../../src/design';
 import { applyTuning, BASE_LEVELS, UNTUNED, type BonusGoal, type LevelBase, type LevelDef, type Tuned } from '../../src/levels';
 import { MATERIALS, type MaterialId } from '../../src/physics/materials';
 import { bonusMet, SAFE_STRESS } from '../../src/scoring';
-import { deriveNumbers, PEAK_CAP } from './difficulty';
+import { deriveNumbers, PEAK_CAP, recheck } from './difficulty';
 import { DEFAULT_EFFORT, EFFORTS, type Effort } from './efforts';
 import { bonusText, pct, usd, writeReadable } from './exports';
 import { levelFingerprint } from './fingerprint';
@@ -57,6 +59,12 @@ const todo = levels.filter((l) => flag('fresh') || !state[l.id]?.ok || state[l.i
 
 const pool = new Pool(arg('workers') ? Number(arg('workers')) : undefined);
 const progress = new Progress();
+
+if (flag('reseed')) {
+  await reseed();
+  await pool.close();
+  process.exit(0);
+}
 
 let effortName = arg('effort') ?? DEFAULT_EFFORT;
 if (!EFFORTS[effortName]) throw new Error(`Unknown effort "${effortName}". Use ${Object.keys(EFFORTS).join(', ')}.`);
@@ -112,6 +120,33 @@ console.log(`Done in ${clock((Date.now() - t0) / 1000)}: ${pool.runs} simulation
 await pool.close();
 
 // ───────────────────────────── Tuning ─────────────────────────────
+
+/**
+ * Drives each selected level's hand-made design on its tuned numbers and re-derives the budget
+ * and star target from it and the stored reference. A cheaper hand design lowers a target it
+ * had held up; the stored checks are rechecked against the new budget rather than run again.
+ */
+async function reseed(): Promise<void> {
+  for (const base of levels) {
+    const r = state[base.id];
+    if (!r?.reference.design || !resource.levels[base.id]) continue;
+    const level = applyTuning(base, resource.levels[base.id]);
+    const seedDesign = handSeed(level);
+    if (!seedDesign) continue;
+    const seed = summary(await pool.run(level, seedDesign));
+    const { money, target } = deriveNumbers(difficulty, chapterOf(base.id).id - 1, base.id, r.reference.cost, seed);
+    const was = `target ${usd(r.target)}, budget ${usd(r.money)}`;
+    r.seed = seed;
+    r.checkedMoney ??= r.money;
+    r.money = money;
+    r.target = target;
+    r.notes = recheck(r, money, target, INTENTS[base.id]?.minRoom);
+    r.ok = r.notes.length === 0;
+    const cheaper = seed.crossed && seed.peak <= PEAK_CAP && seed.cost < r.reference.cost ? '; the hand-made design undercuts the reference: tune again' : '';
+    console.log(`Level ${base.id} (${levelCode(base.id)}): hand-made ${usd(seed.cost)} at ${pct(seed.peak)}; ${was} → target ${usd(target)}, budget ${usd(money)}${r.notes.map((n) => `; ${n}`).join('')}${cheaper}`);
+  }
+  writeOutputs();
+}
 
 /** Simulations a level is expected to need at an effort level, for progress and estimates. */
 function plannedUnits(base: LevelBase, e: Effort): number {

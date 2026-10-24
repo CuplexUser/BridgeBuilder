@@ -73,6 +73,12 @@ export interface LevelDef {
    */
   lower?: { y: number; vehicle: VehicleId; convoy?: VehicleId[] };
   /**
+   * Traffic the other way: it sets off from the right bank as the rest set off from the left and
+   * drives left over the same deck, on a second track or lane beside the first, so the two meet
+   * out on the bridge, its whole weight on it at once.
+   */
+  oncoming?: { vehicle: VehicleId; convoy?: VehicleId[] };
+  /**
    * A tall ship sails through the first channel before traffic may go, with its mast up to
    * this height: the bridge has to open for it, on hydraulic rams, and close again. With `after`,
    * the ship waits for the traffic instead: it crosses first, then the bridge opens and the ship
@@ -1513,6 +1519,188 @@ export const BASE_LEVELS: LevelBase[] = [
     convoy: ['wagon', 'wagon'],
     waterY: -6,
   },
+  // Both ways: traffic meeting on the bridge, balanced cantilevers, and floods that reach it.
+  {
+    id: 78,
+    name: 'Passing Loop',
+    tip: 'A train comes the other way and the two meet out on the span: both their weights on it at once. Steel chords over the track and struts to the low bolts carry them.',
+    width: 12,
+    anchors: [
+      [0, 0],
+      [12, 0],
+      [0, -3],
+      [12, -3],
+    ],
+    piers: [],
+    materials: ['track', 'wood', 'steel'],
+    vehicle: 'loco',
+    convoy: ['wagon'],
+    oncoming: { vehicle: 'loco', convoy: ['wagon'] },
+    waterY: -6,
+    hint: [
+      [[0, 0], [12, 0], 'track'],
+      [[0, 0], [2, 2], 'steel'],
+      [[0, -3], [2, 0], 'steel'],
+      [[2, 2], [4, 2], 'steel'],
+      [[2, 2], [4, 0], 'steel'],
+      [[4, 2], [6, 2], 'steel'],
+      [[6, 2], [8, 2], 'steel'],
+      [[8, 2], [10, 2], 'steel'],
+      [[10, 2], [8, 0], 'steel'],
+      [[10, 2], [12, 0], 'steel'],
+      [[12, -3], [10, 0], 'steel'],
+      [[2, 0], [2, 2], 'wood'],
+      [[4, 0], [4, 2], 'wood'],
+      [[4, 2], [6, 0], 'wood'],
+      [[6, 0], [6, 2], 'wood'],
+      [[8, 2], [6, 0], 'wood'],
+      [[8, 0], [8, 2], 'wood'],
+      [[10, 0], [10, 2], 'wood'],
+    ],
+    hintSolves: true,
+  },
+  {
+    id: 79,
+    name: 'Meeting Point',
+    tip: 'Two trucks meet in the middle. A truss deep enough for one gives way under both: go deeper, so its chords pull less for the same load.',
+    width: 16,
+    anchors: [
+      [0, 0],
+      [16, 0],
+      [0, -3],
+      [16, -3],
+    ],
+    piers: [],
+    materials: ['road', 'wood', 'steel'],
+    vehicle: 'truck',
+    oncoming: { vehicle: 'truck' },
+    waterY: -6,
+  },
+  {
+    id: 80,
+    name: 'Freight Both Ways',
+    tip: 'Two long freight trains pass on the viaduct, nearly two hundred tonnes at once. A truss on each span, and the piers braced out under both ends of it.',
+    width: 30,
+    anchors: [
+      [0, 0],
+      [30, 0],
+      [0, -3],
+      [30, -3],
+      [10, -2],
+      [20, -2],
+    ],
+    piers: [
+      [10, -2],
+      [20, -2],
+    ],
+    materials: ['track', 'wood', 'steel'],
+    vehicle: 'loco',
+    convoy: ['wagon', 'wagon'],
+    oncoming: { vehicle: 'loco', convoy: ['wagon', 'wagon'] },
+    waterY: -7,
+  },
+  {
+    id: 81,
+    name: 'Cantilever',
+    tip: 'No room under the arms for a support: they reach out from the pier on their own, and their tops crack open over it. Drape a tendon high over the pier and low at the tips.',
+    width: 20,
+    anchors: [
+      [0, 0],
+      [20, 0],
+    ],
+    piers: [],
+    rocks: [[8, 12, -6]],
+    channels: [
+      [1, 8, -2],
+      [12, 19, -2],
+    ],
+    // On sliding bearings: the arms balance on the pier, and the banks only hold them up.
+    sliding: true,
+    materials: ['road', 'masonry', 'tendon'],
+    vehicle: 'truck',
+    waterY: -8,
+    // A tower on the island, an arm out each way from it, then the tendon from tip to tip over the pier.
+    hint: [
+      [[8, -6], [12, -2], 'masonry'],
+      [[8, -2], [19, 0], 'masonry'],
+      [[1, -2], [8, 0], 'masonry'],
+      [[0, 0], [20, 0], 'road'],
+      [[1, -1], [10, 0], 'tendon'],
+      [[10, 0], [19, -1], 'tendon'],
+    ],
+    hintSolves: true,
+  },
+  {
+    id: 82,
+    name: 'Free Arms',
+    tip: 'Two piers, and arms out from each to meet over the channel. Drape the tendon high over each pier and low where the arms meet.',
+    width: 32,
+    anchors: [
+      [0, 0],
+      [32, 0],
+    ],
+    piers: [],
+    rocks: [
+      [6, 10, -6],
+      [22, 26, -6],
+    ],
+    channels: [
+      [1, 6, -2],
+      [10, 22, -2],
+      [26, 31, -2],
+    ],
+    sliding: true,
+    materials: ['road', 'masonry', 'tendon'],
+    vehicle: 'truck',
+    waterY: -8,
+  },
+  {
+    id: 83,
+    name: 'Driftwood',
+    tip: 'This flood rises a meter short of the road, with logs riding its surface. Whatever stands under the deck is in it: build over the road and leave the river little to push.',
+    width: 24,
+    anchors: [
+      [0, 0],
+      [24, 0],
+      [0, -3],
+      [24, -3],
+      [8, -4],
+      [16, -4],
+    ],
+    piers: [
+      [8, -4],
+      [16, -4],
+    ],
+    materials: ['road', 'wood', 'steel'],
+    vehicle: 'truck',
+    flood: { at: 4, rise: 6, current: 2000 },
+    waterY: -7,
+  },
+  {
+    id: 84,
+    name: 'Both Ways in Flood',
+    tip: 'A truck each way over four spans, and the river rising toward the road with logs on it. Keep the trusses up over the road, out of its reach.',
+    width: 32,
+    anchors: [
+      [0, 0],
+      [32, 0],
+      [0, -3],
+      [32, -3],
+      [8, -4],
+      [16, -4],
+      [24, -4],
+    ],
+    piers: [
+      [8, -4],
+      [16, -4],
+      [24, -4],
+    ],
+    materials: ['road', 'wood', 'steel'],
+    vehicle: 'truck',
+    oncoming: { vehicle: 'truck' },
+    flood: { at: 4, rise: 6, current: 2000 },
+    waterY: -7,
+  },
 ];
 
 /** Stand-in numbers for a level the tuner hasn't run on yet: playable, but with no real target. */
@@ -1537,6 +1725,7 @@ export function bankY(level: LevelDef): number {
   return level.rightY ?? 0;
 }
 
-export function goalX(level: LevelDef): number {
-  return level.width + 4;
+/** Where traffic has made it across: past the right bank, or for oncoming traffic (`dir` -1), past the left. */
+export function goalX(level: LevelDef, dir: 1 | -1 = 1): number {
+  return dir > 0 ? level.width + 4 : -4;
 }

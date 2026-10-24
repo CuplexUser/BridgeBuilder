@@ -1,3 +1,4 @@
+import { ambience } from '../ambience';
 import { sfx } from '../audio';
 import { bonusStatus } from '../brief';
 import { chapterById, chapterComplete, chapterOf, CHAPTERS, chapterUnlocked, continueLevel, crossed, inFullGame, levelById, levelCode, levelUnlocked, sceneOf, type ChapterDef } from '../chapters';
@@ -12,6 +13,7 @@ import { chapterText, levelName, matInline } from '../i18n/data';
 import { bankY, goalX, LEVELS, START_X, type LevelDef } from '../levels';
 import { isCustom, loadCustom, saveCustom, type CustomSave } from '../maker';
 import { motion } from '../motion';
+import { music, type MusicState } from '../music';
 import { type MaterialId } from '../physics/materials';
 import { TestRun } from '../physics/testrun';
 import { billing, games, hasPaywall, shareVideo, vibrate, type BillingStatus } from '../platform';
@@ -1042,6 +1044,19 @@ export class Game {
 
   // ───────────────────────────── Update ─────────────────────────────
 
+  /**
+   * Keeps the music and the scene's ambience in step with what's on screen: calm in the menus,
+   * building, a pulse that rises with the stress in a test run, muffled under a collapse.
+   */
+  private soundtrack(): void {
+    const s = this.state;
+    const inLevel = s === 'build' || s === 'maker' || s === 'test' || s === 'result' || s === 'collapse' || s === 'over';
+    const state: MusicState = this.paused ? 'pause' : s === 'test' ? 'test' : s === 'result' ? 'result' : s === 'collapse' || s === 'over' ? 'collapse' : inLevel ? 'build' : 'menu';
+    const theme = this.renderer.theme;
+    music.update(state, theme.id, this.run?.peakStress ?? 0);
+    ambience.update(theme, this.paused ? 0.35 : !inLevel ? 0.5 : s === 'build' || s === 'maker' ? 0.75 : 1);
+  }
+
   update(dtReal: number): void {
     const dt = Math.min(dtReal, 1 / 20);
     this.time += dt;
@@ -1055,6 +1070,8 @@ export class Game {
         this.fpsTime = 0;
       }
     }
+
+    this.soundtrack();
 
     const devSpeed = this.developTarget > this.develop ? 2.4 : 4;
     this.develop += Math.sign(this.developTarget - this.develop) * Math.min(Math.abs(this.developTarget - this.develop), dt * devSpeed);
@@ -1118,7 +1135,9 @@ export class Game {
     // Tall towers the player raised count too, so their peaks stay in view.
     const built = this.editor?.design.nodes.map((n) => n.y + 1.5) ?? [];
     const top = Math.max(4, bankY(L) + 4, ...L.anchors.map((a) => a[1] + 2.5), ...(L.masts ?? []).map((m) => m[2] + 2.5), ...built);
-    return [Math.min(START_X - 2, -sideRoom(L)), Math.max(goalX(L) + 2.5, L.width + sideRoom(L)), L.waterY - 1, top];
+    // Oncoming traffic waits out on the right bank as far as the rest wait on the left.
+    const right = L.oncoming ? L.width - START_X + 2 : goalX(L) + 2.5;
+    return [Math.min(START_X - 2, -sideRoom(L)), Math.max(right, L.width + sideRoom(L)), L.waterY - 1, top];
   }
 
   fitCamera(snap: boolean): void {

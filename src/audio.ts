@@ -4,13 +4,25 @@ import type { VolumeBus } from './storage';
 /** The result stars' notes: C, E and G, then the bonus on the octave. */
 const STAR_NOTES = [523.25, 659.25, 783.99, 1046.5];
 
-/** Every sound is synthesized on the fly with WebAudio, so there are no asset files. */
+/** A bus the music and ambience players feed, with the context and the noise they make sounds from. */
+export interface Bed {
+  ctx: AudioContext;
+  out: GainNode;
+  noise: AudioBuffer;
+}
+
+/**
+ * Every sound is synthesized on the fly with WebAudio, so there are no asset files. Effects,
+ * music (music.ts) and ambience (ambience.ts) each have a bus with its own volume, mixed into
+ * the master.
+ */
 export class Sfx {
   private ctx: AudioContext | null = null;
   /** Master volume, or silence when muted, ahead of the compressor. */
   private main: GainNode | null = null;
   /** What every sound effect plays into: the effects volume. */
   private fx: GainNode | null = null;
+  private buses: Partial<Record<VolumeBus, GainNode>> = {};
   /** The mix after the compressor, as heard: what a recording taps. */
   private out: AudioNode | null = null;
   private tap: MediaStreamAudioDestinationNode | null = null;
@@ -19,7 +31,7 @@ export class Sfx {
   private lastCreak = 0;
   muted = false;
   /** Where each volume slider sits, 0 to 1 (Settings). */
-  volume: Record<VolumeBus, number> = { master: 1, sfx: 1 };
+  volume: Record<VolumeBus, number> = { master: 1, sfx: 1, music: 0.6, ambience: 0.7 };
 
   /** Must be called from a user gesture before audio can start. */
   unlock(): void {
@@ -32,15 +44,35 @@ export class Sfx {
     this.ctx = new AC();
     this.main = this.ctx.createGain();
     this.main.gain.value = this.mainGain();
-    this.fx = this.ctx.createGain();
-    this.fx.gain.value = this.volume.sfx ** 2;
+    for (const bus of ['sfx', 'music', 'ambience'] as const) {
+      const g = this.ctx.createGain();
+      g.gain.value = this.volume[bus] ** 2;
+      g.connect(this.main);
+      this.buses[bus] = g;
+    }
+    this.fx = this.buses.sfx!;
     const comp = this.ctx.createDynamicsCompressor();
-    this.fx.connect(this.main).connect(comp).connect(this.ctx.destination);
+    this.main.connect(comp).connect(this.ctx.destination);
     this.out = comp;
-    const len = this.ctx.sampleRate;
+    // Two seconds, so a looped bed of it doesn't audibly repeat.
+    const len = this.ctx.sampleRate * 2;
     this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
     const d = this.noise.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    // Nothing plays in the background: the music and beds would only drain the battery.
+    const ctx = this.ctx;
+    document.addEventListener('visibilitychange', () => void (document.hidden ? ctx.suspend() : ctx.resume()));
+  }
+
+  /** The music or ambience bus, once audio has started. */
+  bed(bus: 'music' | 'ambience'): Bed | null {
+    const out = this.buses[bus];
+    return this.ctx && out && this.noise && this.ctx.state === 'running' ? { ctx: this.ctx, out, noise: this.noise } : null;
+  }
+
+  /** Whether anything on this bus can be heard: not muted, and neither it nor the master turned down. */
+  audible(bus: VolumeBus): boolean {
+    return !this.muted && this.volume.master > 0 && this.volume[bus] > 0;
   }
 
   /** The game's sound as a stream, for a recording to carry. Null until audio has started. */
@@ -62,7 +94,7 @@ export class Sfx {
   setVolume(bus: VolumeBus, v: number): void {
     this.volume[bus] = v;
     if (bus === 'master') this.fade(this.main, this.mainGain());
-    else this.fade(this.fx, v ** 2);
+    else this.fade(this.buses[bus] ?? null, v ** 2);
   }
 
   private mainGain(): number {

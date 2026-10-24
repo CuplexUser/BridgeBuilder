@@ -152,6 +152,8 @@ export const en = {
   'settings.language': 'Language',
   'settings.volume': 'Volume',
   'settings.effects': 'Sound effects',
+  'settings.music': 'Music',
+  'settings.ambience': 'Ambience',
   'settings.vibration': 'Vibration',
   'settings.motion': 'Reduce motion',
   'settings.motionNote': 'No camera shake, flashes or wipes',
@@ -310,8 +312,11 @@ export const en = {
 
   // ── Briefing: traffic, goals and rules ──
   'unit.m': '{v} m',
+  'unit.t': '{v} t',
   'traffic.drawbridge': 'drawbridge',
   'goal.crossAll': 'Get all {n} vehicles to the flag',
+  'goal.crossWays': 'Get all {n} vehicles across, each to the far bank',
+  'goal.crossTwoWays': 'Get both vehicles across, each to the far bank',
   'goal.crossBoth': 'Get both vehicles to the flag',
   'goal.crossOne': 'Get the {name} to the flag',
   'goal.crossNote': '{width} m across, on a budget of {money}.',
@@ -339,6 +344,7 @@ export const en = {
   'rule.lowerItem': 'a {name}',
   'rule.lower':
     'Two decks: {who} comes out of a tunnel in each bank and crosses {depth} m under the road, at the same time as the road traffic. Brace the decks to each other and together they make one deep truss.',
+  'rule.oncoming': 'Traffic both ways: {who} from the far bank, setting off as yours does. They meet out on the span, and it carries both at once.',
   'rule.seat': 'A pier with no bolt is a seat: a deck laid on or across it rests there. It carries the deck but holds nothing down, so a leaf can lift off it.',
   'rule.train': 'A train: a {t} t locomotive, all of it on the bridge at once. It runs on track only.',
   'rule.trainWagons': {

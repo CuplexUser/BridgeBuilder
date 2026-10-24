@@ -35,6 +35,8 @@
     <string name="achievement_chapter_master_works" translatable="false">CgkIur-apMQTEAIQDQ</string>
     <!-- Chapter Modern Works: Cross every level in Modern Works. -->
     <string name="achievement_chapter_modern_works" translatable="false">CgkIur-apMQTEAIQFA</string>
+    <!-- Chapter Both Ways: Cross every level in Both Ways. -->
+    <string name="achievement_chapter_both_ways" translatable="false"></string>
     <!-- Chapter Grand Finale: Cross every level in Grand Finale. -->
     <string name="achievement_chapter_grand_finale" translatable="false">CgkIur-apMQTEAIQCA</string>
     <!-- Chief Engineer: Cross every level. -->
@@ -76,6 +78,8 @@
     <string name="leaderboard_challenge_master_works" translatable="false">CgkIur-apMQTEAIQIA</string>
     <!-- Challenge Modern Works: Modern Works in a row, from scratch, with three lives. -->
     <string name="leaderboard_challenge_modern_works" translatable="false">CgkIur-apMQTEAIQIQ</string>
+    <!-- Challenge Both Ways: Both Ways in a row, from scratch, with three lives. -->
+    <string name="leaderboard_challenge_both_ways" translatable="false"></string>
     <!-- Challenge Grand Finale: Grand Finale in a row, from scratch, with three lives. -->
     <string name="leaderboard_challenge_grand_finale" translatable="false">CgkIur-apMQTEAIQIg</string>
 </resources>

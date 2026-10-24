@@ -325,16 +325,19 @@ describe('Design.covers', () => {
 });
 
 /**
- * Builds one ghost with the real editor, as a player would: a block painted in its middle,
- * anything else dragged from the end already built. Returns what went wrong, or ''.
+ * Builds one ghost with the real editor, as a player would: blocks painted in one stroke from
+ * the side they can rest on, anything else dragged from the end already built. Returns what went
+ * wrong, or ''.
  */
 function buildGhost(ed: Editor, [a, b, mat]: [GridPt, GridPt, MaterialId]): string {
   if (!ed.setMaterial(mat)) return `${mat} not offered`;
   if (MATERIALS[mat].cell === 'brush') {
     // One drag across the rectangle, through the middle of each block.
     const [x0, x1, y0, y1] = [Math.min(a[0], b[0]), Math.max(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[1], b[1])];
-    ed.beginPaint(x0 + 0.5, y0 + 0.5);
-    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) ed.paintAt(x + 0.5, y + 0.5);
+    const xs = Array.from({ length: x1 - x0 }, (_, i) => x0 + i);
+    if (ed.blockProblem(x0, y0)) xs.reverse();
+    ed.beginPaint(xs[0] + 0.5, y0 + 0.5);
+    for (let y = y0; y < y1; y++) for (const x of xs) ed.paintAt(x + 0.5, y + 0.5);
     ed.endPaint();
   } else {
     const from = ed.design.findNode(a[0], a[1]) >= 0 ? a : b;

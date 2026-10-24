@@ -25,25 +25,40 @@ export interface Brief {
 }
 
 /**
- * Who crosses a level, e.g. "Semi truck · 40 t", "Compact car + school bus · 30 t" for a convoy,
- * or "Delivery van ×3 · 15 t". A drawbridge level says so.
+ * Who crosses a level, e.g. "Semi truck · 40 t", "Compact car + School bus · 30 t" for a convoy,
+ * "Delivery van ×3 · 15 t", or "Dump truck ⇄ Dump truck · 22 t" with oncoming traffic. A
+ * drawbridge level says so.
  */
 export function traffic(l: LevelDef): string {
   const ids = [l.vehicle, ...(l.convoy ?? [])];
+  const back = l.oncoming ? [l.oncoming.vehicle, ...(l.oncoming.convoy ?? [])] : [];
+  const names = [lane(ids), ...(back.length ? [lane(back)] : [])].join(' ⇄ ');
+  return `${names} · ${t('unit.t', { v: Math.max(...[...ids, ...back].map((v) => VEHICLES[v].tonnes)) })}${l.ship ? ` · ${t('traffic.drawbridge')}` : ''}`;
+}
+
+/** One lane's vehicles, a run of the same one counted, e.g. "Compact car + Delivery van ×2". */
+function lane(ids: VehicleId[]): string {
   const groups: { id: VehicleId; n: number }[] = [];
   for (const id of ids) {
     const last = groups.at(-1);
     if (last?.id === id) last.n++;
     else groups.push({ id, n: 1 });
   }
-  const names = groups.map((g, i) => `${i ? vehicleInline(g.id) : vehicleName(g.id)}${g.n > 1 ? ` ×${g.n}` : ''}`).join(' + ');
-  return `${names} · ${Math.max(...ids.map((v) => VEHICLES[v].tonnes))} t${l.ship ? ` · ${t('traffic.drawbridge')}` : ''}`;
+  return groups.map((g) => `${vehicleName(g.id)}${g.n > 1 ? ` ×${g.n}` : ''}`).join(' + ');
 }
 
 export function levelBrief(l: LevelDef): Brief {
   const vehicles = [l.vehicle, ...(l.convoy ?? [])];
-  const cross =
-    vehicles.length > 2 ? t('goal.crossAll', { n: vehicles.length }) : vehicles.length === 2 ? t('goal.crossBoth') : t('goal.crossOne', { name: vehicleInline(l.vehicle) });
+  const both = l.oncoming ? 2 + (l.convoy?.length ?? 0) + (l.oncoming.convoy?.length ?? 0) : 0;
+  const cross = both
+    ? both > 2
+      ? t('goal.crossWays', { n: both })
+      : t('goal.crossTwoWays')
+    : vehicles.length > 2
+      ? t('goal.crossAll', { n: vehicles.length })
+      : vehicles.length === 2
+        ? t('goal.crossBoth')
+        : t('goal.crossOne', { name: vehicleInline(l.vehicle) });
   const goals: BriefGoal[] = [
     { mark: '★', text: cross, note: t('goal.crossNote', { width: l.width, money: money(l.money) }) },
     { mark: '★', text: t('goal.target', { money: money(l.target) }), note: t('goal.targetNote') },
@@ -89,6 +104,10 @@ function rules(l: LevelDef): string[] {
   if (l.lower) {
     const low = [l.lower.vehicle, ...(l.lower.convoy ?? [])].map((v) => t('rule.lowerItem', { name: vehicleInline(v) }));
     out.push(t('rule.lower', { who: fmt.list(low), depth: -l.lower.y }));
+  }
+  if (l.oncoming) {
+    const back = [l.oncoming.vehicle, ...(l.oncoming.convoy ?? [])].map((v) => t('rule.lowerItem', { name: vehicleInline(v) }));
+    out.push(t('rule.oncoming', { who: fmt.list(back) }));
   }
   if (seatPiers(l).length) out.push(t('rule.seat'));
   if (defs[0].rail) {

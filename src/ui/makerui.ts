@@ -65,7 +65,7 @@ export class MakerUi {
       el.innerHTML = html;
       if (v) el.value = v;
     };
-    const vehicles = (Object.keys(VEHICLES) as VehicleId[]).map((v) => `<option value="${v}">${escapeHtml(vehicleName(v))} · ${VEHICLES[v].tonnes} t</option>`).join('');
+    const vehicles = (Object.keys(VEHICLES) as VehicleId[]).map((v) => `<option value="${v}">${escapeHtml(vehicleName(v))} · ${t('unit.t', { v: VEHICLES[v].tonnes })}</option>`).join('');
     keep('mk-vehicle', vehicles);
     for (const i of FOLLOWERS) keep(`mk-convoy-${i}`, `<option value="">—</option>${vehicles}`);
     keep('mk-theme', THEMES.map((th) => `<option value="${th.id}">${escapeHtml(themeName(th.id, th.name))}</option>`).join(''));

@@ -1024,7 +1024,8 @@ export class World {
       if (this.braking && this.rail[p]) {
         const maxDv = BRAKE_DECEL * h;
         dv = Math.max(-maxDv, Math.min(maxDv, -vt));
-      } else if (target > 0) {
+      } else if (target !== 0) {
+        // Driven toward its speed, rightward or (oncoming traffic) leftward.
         const maxDv = accel[p] * h;
         dv = Math.max(-maxDv, Math.min(maxDv, target - vt));
       } else {

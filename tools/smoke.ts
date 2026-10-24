@@ -22,7 +22,8 @@ async function main(): Promise<void> {
   const { url, close } = await startServer();
   const browser = await launch();
   try {
-    const page = await browser.newPage({ viewport: { width: 1280, height: 760 } });
+    // In English whatever the machine's language, since the checks below read English text and numbers.
+    const page = await browser.newPage({ viewport: { width: 1280, height: 760 }, locale: 'en-US' });
     page.on('pageerror', (e) => errors.push(e.message));
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 

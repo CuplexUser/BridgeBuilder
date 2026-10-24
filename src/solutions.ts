@@ -65,6 +65,8 @@ export function prattAbove(d: Design, x0: number, x1: number, h: number, m: Trus
 const WOOD: TrussMats = { chord: 'wood', web: 'wood', vert: 'wood' };
 const HEAVY: TrussMats = { chord: 'steel', web: 'wood', vert: 'wood', end: 'steel', endWeb: 'steel' };
 const STEELY: TrussMats = { chord: 'steel', web: 'steel', vert: 'steel', end: 'steel', endWeb: 'steel' };
+const LIGHT: TrussMats = { chord: 'steel', web: 'wood', vert: 'wood', end: 'steel' };
+const WOOD_ENDS: TrussMats = { chord: 'wood', web: 'wood', vert: 'wood', end: 'steel' };
 
 /**
  * Hand-made designs, one per level: the tuner (tools/tune) polishes them as a starting point,
@@ -141,14 +143,16 @@ export const TENDON_LAYOUTS: TendonLayout[] = ['none', 'low', 'middle', 'draped'
 
 /**
  * A prestressed girder under a flat deck at y = 0: a beam of blocks `rows` deep from the first rock
- * to the last, block piers from each rock up to it, and tendons threaded through it, each piece
- * from block corner to block corner.
+ * to the last, or out over the channels beyond them, block piers from each rock up to it, and
+ * tendons threaded through it, each piece from block corner to block corner.
  */
 export function blockGirder(d: Design, l: LevelDef, rows: number, tendon: TendonLayout): Design {
   const rocks = (l.rocks ?? []).toSorted((p, r) => p[0] - r[0]);
-  if (rocks.length < 2 || rows < 1) return d;
-  const x0 = Math.ceil(rocks[0][0]);
-  const x1 = Math.floor(rocks[rocks.length - 1][1]);
+  if (!rocks.length || rows < 1) return d;
+  // Over the channels too: a girder may reach out past its piers toward the banks, as arms.
+  const ends = [...rocks, ...(l.channels ?? [])];
+  const x0 = Math.ceil(Math.min(...ends.map((r) => r[0])));
+  const x1 = Math.floor(Math.max(...ends.map((r) => r[1])));
   const put = (x: number, y: number) => {
     if (!cellProblem(l, d, blockPoly(x, y))) addBlock(d, x, y);
   };
@@ -162,11 +166,14 @@ export function blockGirder(d: Design, l: LevelDef, rows: number, tendon: Tendon
     const n = Math.ceil((x1 - x0) / MATERIALS.tendon.maxLen);
     pts = Array.from({ length: n + 1 }, (_, i): GridPt => [i === n ? x1 : x0 + Math.round(((x1 - x0) * i) / n), y]);
   } else if (tendon === 'draped') {
+    // High over each pier the girder runs on past, low halfway between piers: a pier at a
+    // girder's end has nothing beyond it to balance, while arms reaching out past one do.
     const centers = rocks.map(([a, b]) => Math.round((a + b) / 2));
+    const atEnd = (i: number) => (i === 0 && rocks[0][0] <= x0 + 0.5) || (i === centers.length - 1 && rocks[i][1] >= x1 - 0.5);
     pts = [[x0, mid]];
     centers.forEach((c, i) => {
       if (i > 0) pts.push([Math.round((centers[i - 1] + c) / 2), -rows]);
-      if (i > 0 && i < centers.length - 1) pts.push([c, 0]);
+      if (!atEnd(i)) pts.push([c, 0]);
     });
     pts.push([x1, mid]);
   }
@@ -573,8 +580,19 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
     d.add([0, -3], [2, 0], 'steel').add([28, -3], [26, 0], 'steel');
     return kingPost(kingPost(d, 2, 6, -2, 'wood', 'steel'), 22, 26, -2, 'wood', 'steel');
   },
-  // 9-2's bridge, its towers braced to the deck and the banks against the quake.
-  58: (l) => SOLUTIONS[42](l).add([0, 0], [2, 3], 'steel').add([8, 0], [6, 3], 'steel').add([40, 0], [42, 3], 'steel').add([48, 0], [46, 3], 'steel'),
+  // 9-2's bridge on towers only 8 m tall, which sway less, braced to the deck and the banks against the quake.
+  58: (l) =>
+    steelSuspension(l, {
+      deck: [[0, 0], [2, 0], [6, 0], [42, 0], [46, 0], [48, 0]],
+      deckMat: 'heavy',
+      towers: [[2, 0, 8, 4], [42, 0, 8, 4]],
+      legs: 'concrete',
+      cables: [[[4, 8], [44, 8], 6.67], [[-6, 0], [4, 8]], [[44, 8], [54, 0]]],
+    })
+      .add([0, 0], [2, 3], 'steel')
+      .add([8, 0], [6, 3], 'steel')
+      .add([40, 0], [42, 3], 'steel')
+      .add([48, 0], [46, 3], 'steel'),
   // A suspension bridge on concrete pylons as low as the level allows, and dampers from each
   // drowned rock's bolts to the deck joints over it.
   59: (l) => {
@@ -597,7 +615,8 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
   // Foundations: trusses from support to support, standing on piles driven into the mud.
   61: (l) => pileBridge(l, [0, 10, 20], [10]),
   62: (l) => pileBridge(l, [0, 12, 24], [12]),
-  63: (l) => pileBridge(l, [0, 10, 14, 24], [10, 14]),
+  // One wood truss bank to bank on a pile at mid-span, propped on the mud bolts until the flood scours them out.
+  63: (l) => pileBridge(l, [0, 24], [12], 'road', () => [2, WOOD]).add([8, -3], [8, 0], 'wood').add([16, -3], [16, 0], 'wood'),
   64: (l) => pileBridge(l, [0, 12, 24, 36], [12, 24]),
   65: (l) => pileBridge(l, [0, 10, 16, 24, 30, 40], [10, 16, 24, 30]),
   // The finale.
@@ -677,7 +696,39 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
   76: (l) => swingBridge(l, true),
   // Track carries the train from strut to ram on its own; trusses over it would set the target too high.
   77: (l) => liftBridge(l, 'track', null),
+  // Both ways. 78 is 51's bridge, which carries two trains as well as one at this length.
+  78: (l) => SOLUTIONS[51](l),
+  // Three meters deep, where two would carry one truck but not two.
+  79: (l) => {
+    const d = new Design(l);
+    trussOver(d, roadRun(d, [0, 0], [l.width, 0]), 3, STEELY);
+    return d.add([0, -3], [2, 0], 'steel').add([l.width, -3], [l.width - 2, 0], 'steel');
+  },
+  // A wood truss on each span, steel only at its ends and in the struts bracing the piers.
+  80: (l) => {
+    const d = new Design(l);
+    const run = roadRun(d, [0, 0], [l.width, 0], 'track');
+    for (const [a, b] of [[0, 10], [10, 20], [20, 30]]) trussOver(d, run.filter(([x]) => x >= a && x <= b), 2, WOOD_ENDS);
+    d.add([0, -3], [2, 0], 'steel').add([30, -3], [28, 0], 'steel');
+    for (const x of [10, 20]) d.add([x, -2], [x, 0], 'steel').add([x, -2], [x - 2, 0], 'steel').add([x, -2], [x + 2, 0], 'steel');
+    return d;
+  },
+  // Balanced cantilevers: the girder reaches out from its piers, its tendon draped high over each.
+  81: (l) => blockGirder(deck(new Design(l), 0, l.width), l, 2, 'draped'),
+  82: (l) => blockGirder(deck(new Design(l), 0, l.width), l, 2, 'draped'),
+  83: (l) => floodTrusses(l, LIGHT),
+  84: (l) => floodTrusses(l),
 };
+
+/** Out of a flood's way: a truss over the road on each span, on bare posts up from the piers. */
+function floodTrusses(l: LevelDef, m: TrussMats = HEAVY): Design {
+  const d = new Design(l);
+  const run = roadRun(d, [0, 0], [l.width, 0]);
+  const stops = [0, ...l.piers.map(([x]) => x).toSorted((a, b) => a - b), l.width];
+  for (let i = 0; i < stops.length - 1; i++) trussOver(d, run.filter(([x]) => x >= stops[i] && x <= stops[i + 1]), 2, m);
+  for (const [x, y] of l.piers) d.add([x, y], [x, 0], 'steel');
+  return d.add([0, -3], [2, 0], 'steel').add([l.width, -3], [l.width - 2, 0], 'steel');
+}
 
 /** Level 27: a road deck on a braced trestle up from each deep pier, with a truss over each span. */
 function gauntlet(l: LevelDef, m: TrussMats): Design {

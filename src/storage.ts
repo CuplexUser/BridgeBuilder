@@ -442,7 +442,7 @@ export interface Prefs {
   stressPalette?: StressPalette;
 }
 
-export type VolumeBus = 'master' | 'sfx';
+export type VolumeBus = 'master' | 'sfx' | 'music' | 'ambience';
 export type StressPalette = 'classic' | 'colorblind';
 
 export function loadPrefs(): Prefs {

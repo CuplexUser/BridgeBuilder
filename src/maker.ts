@@ -540,6 +540,11 @@ export function parseLevel(json: string, id: number): LevelDef {
     const train = (Array.isArray(r.lower.convoy) ? r.lower.convoy.filter(isVehicle) : []).slice(0, LIMITS.maxConvoy - 1);
     level.lower = train.length ? { y: r.lower.y as number, vehicle: r.lower.vehicle, convoy: train } : { y: r.lower.y as number, vehicle: r.lower.vehicle };
   }
+  // Oncoming traffic, from the right bank.
+  if (isObj(r.oncoming) && isVehicle(r.oncoming.vehicle)) {
+    const train = (Array.isArray(r.oncoming.convoy) ? r.oncoming.convoy.filter(isVehicle) : []).slice(0, LIMITS.maxConvoy - 1);
+    level.oncoming = train.length ? { vehicle: r.oncoming.vehicle, convoy: train } : { vehicle: r.oncoming.vehicle };
+  }
   // A train's brake stop, the weather and the ground: each kept when it reads as one.
   if (isObj(r.brake) && within(r.brake.at, 0, width)) level.brake = within(r.brake.hold, 0, 30) ? { at: r.brake.at, hold: r.brake.hold as number } : { at: r.brake.at };
   if (r.sliding === true) level.sliding = true;

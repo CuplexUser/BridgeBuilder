@@ -465,7 +465,66 @@ export const INTENTS: Record<number, Intent> = {
       { name: 'bare track on the rams', build: (l) => bareLift(l, 'track') },
     ],
   },
+  // Both ways.
+  78: { requires: ['steel'] },
+  // A truss deep enough for one truck gives way under two.
+  79: {
+    shortcuts: [
+      {
+        name: 'a truss two meters deep',
+        build: (l) => {
+          const d = new Design(l);
+          return struts(trussOver(d, roadRun(d, [0, 0], [l.width, 0]), 2, STEELY), l);
+        },
+      },
+    ],
+  },
+  80: { requires: ['steel'] },
+  // The arms crack open on top over the pier unless a tendon there keeps them shut.
+  81: { requires: ['tendon'], shortcuts: girderShortcuts('road', 2) },
+  82: { requires: ['tendon'], shortcuts: girderShortcuts('road', 2) },
+  // A deck truss under the road stands in the flood.
+  83: { shortcuts: [{ name: 'a deck truss under the road', build: deckTrussUnder }] },
+  84: { shortcuts: [{ name: 'a deck truss under the road', build: deckTrussUnder }] },
 };
+
+/** Struts from the low bolts at each bank up to the deck's first joints. */
+function struts(d: Design, l: LevelDef): Design {
+  return d.add([0, -3], [2, 0], 'steel').add([l.width, -3], [l.width - 2, 0], 'steel');
+}
+
+/** A cantilever girder with no tendon, and with one low through it, as over a single span. */
+function girderShortcuts(deckMat: MaterialId, rows: number): { name: string; build: (l: LevelDef) => Design }[] {
+  const girder = (l: LevelDef, t: 'none' | 'low') => {
+    const d = new Design(l);
+    roadRun(d, [0, 0], [l.width, 0], deckMat);
+    return blockGirder(d, l, rows, t);
+  };
+  return [
+    { name: 'no tendon', build: (l) => girder(l, 'none') },
+    { name: 'a tendon low through the girder', build: (l) => girder(l, 'low') },
+  ];
+}
+
+const fitsWood = (a: GridPt, b: GridPt) => Math.hypot(b[0] - a[0], b[1] - a[1]) <= MATERIALS.wood.maxLen;
+
+/** A Warren deck truss under the road, its bottom chord 2 m down and on the pier bolts: in the flood's way. */
+function deckTrussUnder(l: LevelDef): Design {
+  const d = new Design(l);
+  roadRun(d, [0, 0], [l.width, 0]);
+  const pier = (x: number) => l.piers.find(([px]) => px === x);
+  const low = (x: number): GridPt => (x === 0 || x === l.width ? [x, -3] : (pier(x) ?? [x, -2]));
+  for (let x = 0; x < l.width; x += 2) d.add(low(x), low(x + 2), 'steel');
+  for (let x = 2; x < l.width; x += 2) d.add(low(x), [x, 0], pier(x) ? 'steel' : 'wood');
+  // A diagonal in each panel, from whichever bottom joint it reaches in wood, leaning toward mid-span.
+  for (let x = 0; x < l.width; x += 2) {
+    const toMid: [GridPt, GridPt] = x < l.width / 2 ? [low(x + 2), [x, 0]] : [low(x), [x + 2, 0]];
+    const away: [GridPt, GridPt] = x < l.width / 2 ? [low(x), [x + 2, 0]] : [low(x + 2), [x, 0]];
+    const pick = fitsWood(...toMid) ? toMid : fitsWood(...away) ? away : null;
+    if (pick) d.add(pick[0], pick[1], 'wood');
+  }
+  return d;
+}
 
 /** The hand-made reference for a level, if it still fits the level's (possibly tuned) geometry. */
 export function handSeed(l: LevelDef): Design | null {

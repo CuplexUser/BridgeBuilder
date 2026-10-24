@@ -15,6 +15,10 @@ export interface VehicleHandle {
   frontTop: number;
   /** Extra wheels between the rear and front ones, rear to front. */
   midWheels: number[];
+  /** Which way it drives: right, or left for oncoming traffic. Its front is the end it drives toward. */
+  dir: 1 | -1;
+  /** Its lane: the vehicles in one lane follow one another, and rail ones couple up. */
+  lane: number;
 }
 
 /** Builds the physical bridge from a design; world particle i === design node i. */
@@ -140,11 +144,11 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
   // A convoy keeps to its slowest vehicle's speed, so the gaps hold.
   const speed = Math.min(...defs.map((d) => d.speed));
   const layout = convoyLayout(level);
-  const vehicles = layout.map(({ def, x, y }) => addVehicle(world, def, x, speed, y));
+  const vehicles = layout.map(({ def, x, y, dir, lane }) => addVehicle(world, def, x, speed, y, dir, lane));
   // Couplers: each rail vehicle to the one ahead in its lane, at the buffers and at the axles.
   for (let i = 1; i < vehicles.length; i++) {
     const [ahead, behind] = [vehicles[i - 1], vehicles[i]];
-    if (!ahead.def.rail || !behind.def.rail || layout[i - 1].y !== layout[i].y) continue;
+    if (!ahead.def.rail || !behind.def.rail || ahead.lane !== behind.lane) continue;
     world.addLink(behind.frontTop, ahead.rearTop, COUPLER);
     world.addLink(behind.frontWheel, ahead.rearWheel, COUPLER);
   }
@@ -166,23 +170,37 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
   return { world, vehicles };
 }
 
-/** Where each vehicle waits at the start: its rear wheel's x, lead vehicle first. */
-export function convoyLayout(level: LevelDef): { def: VehicleDef; x: number; y: number }[] {
-  const out: { def: VehicleDef; x: number; y: number }[] = [];
-  const lanes: [VehicleId[], number][] = [[[level.vehicle, ...(level.convoy ?? [])], 0]];
-  if (level.lower) lanes.push([[level.lower.vehicle, ...(level.lower.convoy ?? [])], level.lower.y]);
-  for (const [ids, y] of lanes) {
-    let x = START_X;
+/** A vehicle waiting at the start: its rear wheel's x and its lane's height, which way it drives, and its lane. */
+export interface StartPlace {
+  def: VehicleDef;
+  x: number;
+  y: number;
+  dir: 1 | -1;
+  lane: number;
+}
+
+/**
+ * Where each vehicle waits at the start, lane by lane, each lane's lead vehicle first. Oncoming
+ * traffic waits on the right bank as far out as the rest wait on the left, so at one speed the
+ * two meet in the middle.
+ */
+export function convoyLayout(level: LevelDef): StartPlace[] {
+  const out: StartPlace[] = [];
+  const lanes: [VehicleId[], number, 1 | -1][] = [[[level.vehicle, ...(level.convoy ?? [])], 0, 1]];
+  if (level.lower) lanes.push([[level.lower.vehicle, ...(level.lower.convoy ?? [])], level.lower.y, 1]);
+  if (level.oncoming) lanes.push([[level.oncoming.vehicle, ...(level.oncoming.convoy ?? [])], bankY(level), -1]);
+  lanes.forEach(([ids, y, dir], lane) => {
+    let x = dir > 0 ? START_X : level.width - START_X;
     ids.forEach((id, i) => {
       const def = VEHICLES[id];
       // Rail vehicles couple up close behind the one ahead.
       if (i > 0) {
         const ahead = out[out.length - 1].def;
-        x -= def.rail && ahead.rail ? RAIL_GAP + def.wheelbase : CONVOY_GAP + def.wheelbase + def.wheelR;
+        x -= dir * (def.rail && ahead.rail ? RAIL_GAP + def.wheelbase : CONVOY_GAP + def.wheelbase + def.wheelR);
       }
-      out.push({ def, x, y });
+      out.push({ def, x, y, dir, lane });
     });
-  }
+  });
   return out;
 }
 
@@ -402,7 +420,7 @@ function addDeckBends(world: World): void {
   });
 }
 
-function addVehicle(world: World, def: VehicleDef, x0: number, speed: number, y0 = 0): VehicleHandle {
+function addVehicle(world: World, def: VehicleDef, x0: number, speed: number, y0: number, dir: 1 | -1, lane: number): VehicleHandle {
   const r = def.wheelR;
   const axles = def.midAxles ?? [];
   // Wheels share 60% of the weight and the body the rest.
@@ -410,13 +428,13 @@ function addVehicle(world: World, def: VehicleDef, x0: number, speed: number, y0
   const bodyMass = def.mass * 0.2;
   const topY = y0 + r + def.height * 0.6;
   const rearWheel = world.addParticle(x0, y0 + r, wheelMass, r);
-  const frontWheel = world.addParticle(x0 + def.wheelbase, y0 + r, wheelMass, r);
+  const frontWheel = world.addParticle(x0 + dir * def.wheelbase, y0 + r, wheelMass, r);
   const rearTop = world.addParticle(x0, topY, bodyMass, 0.22);
-  const frontTop = world.addParticle(x0 + def.wheelbase, topY, bodyMass, 0.22);
-  const midWheels = axles.map((ax) => world.addParticle(x0 + ax, y0 + r, wheelMass, r));
+  const frontTop = world.addParticle(x0 + dir * def.wheelbase, topY, bodyMass, 0.22);
+  const midWheels = axles.map((ax) => world.addParticle(x0 + dir * ax, y0 + r, wheelMass, r));
   const wheels = [rearWheel, ...midWheels, frontWheel];
   for (const w of wheels) {
-    world.drive[w] = speed;
+    world.drive[w] = dir * speed;
     world.accel[w] = def.accel;
   }
   for (const p of [...wheels, rearTop, frontTop]) world.tonnes[p] = def.tonnes;
@@ -431,5 +449,5 @@ function addVehicle(world: World, def: VehicleDef, x0: number, speed: number, y0
   world.addLink(frontWheel, rearTop, spring);
   // A middle axle rides on its own springs, so it takes a share of the load wherever the deck dips.
   for (const w of midWheels) for (const p of [rearWheel, frontWheel, rearTop, frontTop]) world.addLink(w, p, spring);
-  return { def, wheels, rearWheel, frontWheel, rearTop, frontTop, midWheels };
+  return { def, wheels, rearWheel, frontWheel, rearTop, frontTop, midWheels, dir, lane };
 }

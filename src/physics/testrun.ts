@@ -15,7 +15,8 @@ import { CLOSE_TIME, OPEN_TIME, SETTLE_TIME, SHIP_HALF, SHIP_TIME, SHIP_WAIT, ST
 export function testSeconds(level: LevelDef): number {
   const lay = convoyLayout(level);
   const speed = Math.min(...lay.map((c) => c.def.speed));
-  const tail = Math.min(...lay.map((c) => c.x));
+  // How far back the last vehicle waits, from its own lane's side.
+  const tail = Math.min(...lay.map((c) => (c.dir > 0 ? c.x : level.width - c.x)));
   const waits = SETTLE_TIME + (level.ship ? OPEN_TIME + SHIP_TIME + CLOSE_TIME : 0) + (level.brake ? (level.brake.hold ?? 1.5) + 4 : 0);
   // A third more than a steady drive takes, for starting off, braking and climbing.
   return Math.max(30, Math.ceil(waits + ((goalX(level) - tail) / speed) * 4 / 3));
@@ -90,7 +91,7 @@ export class TestRun {
     this.vehicles = built.vehicles;
     this.done = this.vehicles.map(() => false);
     // Progress is the tail's, so it starts where the last vehicle in line waits, not at the start line.
-    this.lastProgressX = Math.min(...this.vehicles.map((v) => this.xOf(v)));
+    this.lastProgressX = Math.min(...this.vehicles.map((v) => this.progressOf(v)));
     this.log = new StressLog(design.members.length);
     this.peakPull = new Float32Array(design.members.length);
     this.peakPush = new Float32Array(design.members.length);
@@ -121,6 +122,11 @@ export class TestRun {
   private xOf(v: VehicleHandle): number {
     const w = this.world;
     return (w.x[v.rearWheel] + w.x[v.frontWheel]) / 2;
+  }
+
+  /** How far a vehicle has come from its own side: its x, or for oncoming traffic, its distance from the right bank. */
+  private progressOf(v: VehicleHandle): number {
+    return v.dir > 0 ? this.xOf(v) : this.level.width - this.xOf(v);
   }
 
   /** The ship's channel: [x0, x1]. */
@@ -254,7 +260,7 @@ export class TestRun {
         this.fail(msg('fail.swim'));
         return;
       }
-      const upX = w.x[v.frontTop] - w.x[v.rearTop];
+      const upX = (w.x[v.frontTop] - w.x[v.rearTop]) * v.dir;
       const upY = w.y[v.frontTop] - w.y[v.rearTop];
       const bodyAboveWheels = (w.y[v.rearTop] + w.y[v.frontTop]) / 2 - (w.y[v.rearWheel] + w.y[v.frontWheel]) / 2;
       if (bodyAboveWheels < -0.1 || upX < -0.2 * Math.abs(upY)) {
@@ -264,7 +270,8 @@ export class TestRun {
     }
     this.vehicles.forEach((v, i) => {
       if (this.lost.has(v)) this.done[i] = true;
-      else if (Math.min(w.x[v.rearWheel], w.x[v.frontWheel]) > goalX(this.level)) this.done[i] = true;
+      // Its hindmost wheel is past the goal on the far side.
+      else if (Math.min(v.dir * w.x[v.rearWheel], v.dir * w.x[v.frontWheel]) > v.dir * goalX(this.level, v.dir)) this.done[i] = true;
     });
     if (this.done.every(Boolean)) {
       // Where the ship waits for the traffic, the run ends once it has sailed through too.
@@ -274,7 +281,7 @@ export class TestRun {
     }
     if (this.time < this.releaseAt) return;
     // Progress of the last vehicle still on its way.
-    const x = Math.min(...this.vehicles.filter((_, i) => !this.done[i]).map((v) => this.xOf(v)));
+    const x = Math.min(...this.vehicles.filter((_, i) => !this.done[i]).map((v) => this.progressOf(v)));
     if (x > this.lastProgressX + 0.3) {
       this.lastProgressX = x;
       this.lastProgressT = this.time;

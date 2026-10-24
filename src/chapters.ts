@@ -113,11 +113,20 @@ export const CHAPTERS: ChapterDef[] = [
     effort: 'Big builds · 10–85 parts',
     levels: [71, 72, 74, 75, 73, 76, 77],
   },
+  // Also played before the finale: id 12, number 11.
+  {
+    id: 12,
+    name: 'Both Ways',
+    blurb: 'Trains and trucks meeting out on the span, girders that reach out from their piers in balance, and a flood that rises to the bridge.',
+    difficulty: 11,
+    effort: 'Big builds · 20–110 parts',
+    levels: [78, 79, 80, 81, 82, 83, 84],
+  },
   {
     id: 10,
     name: 'Grand Finale',
     blurb: 'Everything at once: the greatest arch, parades in a storm, and trains and semis over a delta in flood.',
-    difficulty: 11,
+    difficulty: 12,
     effort: 'Grand builds · 20–90 parts',
     levels: [69, 59, 66, 60, 68, 67, 70],
   },
@@ -141,6 +150,7 @@ const SCENES: number[][] = [
   [51, 52, 53, 54, 55, 66, 73, 77],
   [56, 57, 58, 59, 60, 68],
   [61, 62, 63, 64, 65, 70],
+  [78, 79, 80, 81, 82, 83, 84],
 ];
 
 export function sceneOf(levelId: number): number {
