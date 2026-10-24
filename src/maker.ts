@@ -1,4 +1,6 @@
 import { money as usd } from './editor';
+import { fmt, t as tr } from './i18n';
+import { matInline } from './i18n/data';
 import { q as fine } from './design';
 import { seatPiers, type BonusGoal, type LevelDef, type Overhang, type Pt, type Tower } from './levels';
 import { MATERIAL_ORDER, MATERIALS, type MaterialId } from './physics/materials';
@@ -25,8 +27,8 @@ export const MAX_BLOCK_REACH = 12;
 export function blankLevel(id: number): LevelDef {
   return {
     id,
-    name: 'My level',
-    tip: 'Build a bridge from bank to bank.',
+    name: tr('mkr.defaultName'),
+    tip: tr('mkr.defaultTip'),
     width: 12,
     anchors: [
       [0, 0],
@@ -65,10 +67,10 @@ function anchorIndex(l: LevelDef, x: number, y: number): number {
 
 /** Where a bolt may go: over the gap or on a bank wall, above the water, and not inside a pier. */
 export function boltAllowed(l: LevelDef, x: number, y: number): string | null {
-  if (x < 0 || x > l.width) return 'Bolts go between the banks';
-  if (y < l.waterY) return 'Too low: that is under water';
-  if (y > LIMITS.maxHeight) return 'Too high';
-  if (x > 0 && x < l.width && y < 0 && l.piers.some(([px, py]) => Math.abs(px - x) < 0.6 && y < py)) return 'Inside a pier';
+  if (x < 0 || x > l.width) return tr('mkr.boltBanks');
+  if (y < l.waterY) return tr('mkr.underWater');
+  if (y > LIMITS.maxHeight) return tr('edit.tooHigh');
+  if (x > 0 && x < l.width && y < 0 && l.piers.some(([px, py]) => Math.abs(px - x) < 0.6 && y < py)) return tr('mkr.insidePier');
   return null;
 }
 
@@ -77,19 +79,19 @@ export function boltAllowed(l: LevelDef, x: number, y: number): string | null {
  * seat makes it an ordinary pier again. Returns what happened, for the player.
  */
 export function toggleBolt(l: LevelDef, x: number, y: number): { ok: boolean; msg: string } {
-  if (isFixedBolt(x, y)) return { ok: false, msg: 'The near road end always has a bolt' };
+  if (isFixedBolt(x, y)) return { ok: false, msg: tr('mkr.nearEnd') };
   const i = anchorIndex(l, x, y);
   if (i >= 0) {
     const pier = l.piers.some((p) => same(p, x, y));
     removeBolt(l, i, pier);
-    if (pier) return { ok: true, msg: 'Bolt removed: the pier is now a seat a deck rests on' };
+    if (pier) return { ok: true, msg: tr('mkr.boltToSeat') };
     const far = same(rightEnd(l), x, y);
-    return { ok: true, msg: far ? 'Far road end left free: a drawbridge leaf can lift there' : 'Bolt removed' };
+    return { ok: true, msg: far ? tr('mkr.farFree') : tr('mkr.boltRemoved') };
   }
   const why = boltAllowed(l, x, y);
   if (why) return { ok: false, msg: why };
   l.anchors.push([x, y]);
-  return { ok: true, msg: 'Bolt added' };
+  return { ok: true, msg: tr('mkr.boltAdded') };
 }
 
 /** Removes a bolt, and the pylon it tops. The pier under it goes too, unless kept as a seat. */
@@ -110,17 +112,17 @@ export function togglePier(l: LevelDef, x: number, y: number): { ok: boolean; ms
   const i = l.piers.findIndex((p) => same(p, x, y));
   if (i >= 0) {
     l.piers.splice(i, 1);
-    return { ok: true, msg: bolted ? 'Pier removed' : 'Seat removed' };
+    return { ok: true, msg: bolted ? tr('mkr.pierRemoved') : tr('mkr.seatRemoved') };
   }
-  if (x <= 0 || x >= l.width) return { ok: false, msg: 'Piers stand in the gap, not on the banks' };
+  if (x <= 0 || x >= l.width) return { ok: false, msg: tr('mkr.pierGap') };
   if (!bolted) {
     const why = boltAllowed(l, x, y);
     if (why) return { ok: false, msg: why };
-    if (l.towers?.some((t) => Math.abs(t[0] - x) < 1.5)) return { ok: false, msg: 'Too close to a pylon' };
+    if (l.towers?.some((t) => Math.abs(t[0] - x) < 1.5)) return { ok: false, msg: tr('mkr.nearPylon') };
   }
-  if (l.piers.some(([px]) => Math.abs(px - x) < 1.5)) return { ok: false, msg: 'Too close to another pier' };
+  if (l.piers.some(([px]) => Math.abs(px - x) < 1.5)) return { ok: false, msg: tr('mkr.nearPier') };
   l.piers.push([x, y]);
-  return { ok: true, msg: bolted ? 'Pier added' : 'Seat added' };
+  return { ok: true, msg: bolted ? tr('mkr.pierAdded') : tr('mkr.seatAdded') };
 }
 
 /** Raises a pylon from the water to (x, y), bolted at the top, or removes the one topped there. */
@@ -132,15 +134,15 @@ export function togglePylon(l: LevelDef, x: number, y: number): { ok: boolean; m
     const a = anchorIndex(l, x, y);
     if (a >= 0) l.anchors.splice(a, 1);
     if (!towers.length) delete l.towers;
-    return { ok: true, msg: 'Pylon removed' };
+    return { ok: true, msg: tr('mkr.pylonRemoved') };
   }
-  if (x < 0 || x > l.width) return { ok: false, msg: 'Pylons stand between the banks' };
-  if (y < 2) return { ok: false, msg: 'Pylon tops go at least 2 m up' };
-  if (y > LIMITS.maxHeight) return { ok: false, msg: 'Too high' };
-  if (towers.some((t) => Math.abs(t[0] - x) < 1.5)) return { ok: false, msg: 'Too close to another pylon' };
+  if (x < 0 || x > l.width) return { ok: false, msg: tr('mkr.pylonBanks') };
+  if (y < 2) return { ok: false, msg: tr('mkr.pylonLow') };
+  if (y > LIMITS.maxHeight) return { ok: false, msg: tr('edit.tooHigh') };
+  if (towers.some((t) => Math.abs(t[0] - x) < 1.5)) return { ok: false, msg: tr('mkr.nearOtherPylon') };
   towers.push([x, l.waterY, y]);
   if (anchorIndex(l, x, y) < 0) l.anchors.push([x, y]);
-  return { ok: true, msg: 'Pylon added' };
+  return { ok: true, msg: tr('mkr.pylonAdded') };
 }
 
 /** Raises a hinged mast from the water to a free top at (x, y), or removes the one topped there. */
@@ -150,20 +152,20 @@ export function toggleMast(l: LevelDef, x: number, y: number): { ok: boolean; ms
   if (i >= 0) {
     masts.splice(i, 1);
     if (!masts.length) delete l.masts;
-    return { ok: true, msg: 'Mast removed' };
+    return { ok: true, msg: tr('mkr.mastRemoved') };
   }
   const fail = (msg: string) => {
     if (!masts.length) delete l.masts;
     return { ok: false, msg };
   };
-  if (x <= 0 || x >= l.width) return fail('Masts stand in the gap');
-  if (y < 2) return fail('Mast tops go at least 2 m up');
-  if (y > LIMITS.maxHeight) return fail('Too high');
-  if (anchorIndex(l, x, y) >= 0) return fail('A bolt is already there');
+  if (x <= 0 || x >= l.width) return fail(tr('mkr.mastGap'));
+  if (y < 2) return fail(tr('mkr.mastLow'));
+  if (y > LIMITS.maxHeight) return fail(tr('edit.tooHigh'));
+  if (anchorIndex(l, x, y) >= 0) return fail(tr('mkr.boltThere'));
   const near = [...masts, ...(l.towers ?? [])].some((t) => Math.abs(t[0] - x) < 1.5) || l.piers.some(([px]) => Math.abs(px - x) < 1.5);
-  if (near) return fail('Too close to a pier, pylon or mast');
+  if (near) return fail(tr('mkr.nearSupport'));
   masts.push([x, l.waterY, y]);
-  return { ok: true, msg: l.blocks ? 'Mast added: it tips freely, so backstay it' : 'Mast added: offer concrete anchors in Settings so it can be backstayed' };
+  return { ok: true, msg: l.blocks ? tr('mkr.mastAdded') : tr('mkr.mastAddedAnchors') };
 }
 
 /**
@@ -176,26 +178,26 @@ export function toggleRock(l: LevelDef, x: number, y: number): { ok: boolean; ms
   if (i >= 0) {
     rocks.splice(i, 1);
     if (!rocks.length) delete l.rocks;
-    return { ok: true, msg: 'Rock removed' };
+    return { ok: true, msg: tr('mkr.rockRemoved') };
   }
   const fail = (msg: string) => {
     if (!rocks.length) delete l.rocks;
     return { ok: false, msg };
   };
-  if (x < 0 || x > l.width) return fail('Rocks rise in the gap');
-  if (y <= l.waterY) return fail('Rock tops go above the water');
-  if (y > Math.min(0, l.rightY ?? 0) - 1) return fail('Keep rock tops a meter under the road');
+  if (x < 0 || x > l.width) return fail(tr('mkr.rockGap'));
+  if (y <= l.waterY) return fail(tr('mkr.rockLow'));
+  if (y > Math.min(0, l.rightY ?? 0) - 1) return fail(tr('mkr.rockHigh'));
   const a = Math.max(0, x - 1);
   const b = Math.min(l.width, a + 2);
-  if (b - a < 2) return fail('Too narrow here for a rock');
+  if (b - a < 2) return fail(tr('mkr.rockNarrow'));
   const near = (px: number) => px > a - 0.6 && px < b + 0.6;
-  if ([...l.piers.map((p) => p[0]), ...[...(l.towers ?? []), ...(l.masts ?? [])].map((t) => t[0])].some(near)) return fail('Too close to a pier, pylon or mast');
-  if (rocks.some(([c, d]) => c < b && d > a)) return fail('Overlaps another rock');
-  if (l.channels?.some(([c0, c1]) => c0 < b && c1 > a)) return fail('In the ship channel');
+  if ([...l.piers.map((p) => p[0]), ...[...(l.towers ?? []), ...(l.masts ?? [])].map((t) => t[0])].some(near)) return fail(tr('mkr.nearSupport'));
+  if (rocks.some(([c, d]) => c < b && d > a)) return fail(tr('mkr.rockOverlap'));
+  if (l.channels?.some(([c0, c1]) => c0 < b && c1 > a)) return fail(tr('mkr.inChannel'));
   rocks.push([a, b, y]);
   rocks.sort((p, q) => p[0] - q[0]);
   if (!l.materials.includes('masonry')) l.materials = MATERIAL_ORDER.filter((m) => m === 'masonry' || m === 'arch' || l.materials.includes(m));
-  return { ok: true, msg: 'Rock added: concrete blocks and block arches stand on it' };
+  return { ok: true, msg: tr('mkr.rockAdded') };
 }
 
 /** Most a level's flood may raise the river, m, and the current it brings, N per m under water. */
@@ -220,21 +222,21 @@ export function addMud(l: LevelDef, x0: number, x1: number, top: number): { ok: 
         delete l.mud;
         delete l.piles;
       }
-      return { ok: true, msg: 'Mud removed' };
+      return { ok: true, msg: tr('mkr.mudRemoved') };
     }
   }
-  if (top <= l.waterY) return { ok: false, msg: 'Mud tops go above the water' };
-  if (top > deckTop(l) - 1) return { ok: false, msg: 'Keep mud a meter under the road' };
+  if (top <= l.waterY) return { ok: false, msg: tr('mkr.mudLow') };
+  if (top > deckTop(l) - 1) return { ok: false, msg: tr('mkr.mudHigh') };
   const a = Math.max(0, x0 === x1 ? x0 - 2 : Math.min(x0, x1));
   const b = Math.min(l.width, x0 === x1 ? x0 + 2 : Math.max(x0, x1));
-  if (b - a < 2) return { ok: false, msg: x0 === x1 ? 'Too narrow here for mud' : 'Drag across at least 2 m of mud' };
+  if (b - a < 2) return { ok: false, msg: x0 === x1 ? tr('mkr.mudNarrow') : tr('mkr.mudDrag') };
   const near = (px: number) => px > a - 0.6 && px < b + 0.6;
-  if ([...l.piers.map((p) => p[0]), ...[...(l.towers ?? []), ...(l.masts ?? [])].map((t) => t[0])].some(near)) return { ok: false, msg: 'Too close to a pier, pylon or mast' };
-  if ([...(l.rocks ?? []), ...mud].some(([c, d]) => c < b && d > a)) return { ok: false, msg: 'Overlaps a rock or other mud' };
-  if (l.channels?.some(([c0, c1]) => c0 < b && c1 > a)) return { ok: false, msg: 'In the ship channel' };
+  if ([...l.piers.map((p) => p[0]), ...[...(l.towers ?? []), ...(l.masts ?? [])].map((t) => t[0])].some(near)) return { ok: false, msg: tr('mkr.nearSupport') };
+  if ([...(l.rocks ?? []), ...mud].some(([c, d]) => c < b && d > a)) return { ok: false, msg: tr('mkr.mudOverlap') };
+  if (l.channels?.some(([c0, c1]) => c0 < b && c1 > a)) return { ok: false, msg: tr('mkr.inChannel') };
   l.mud = [...mud, [a, b, top] as [number, number, number]].toSorted((p, q) => p[0] - q[0]);
   l.piles ??= { price: DEFAULT_PILE_PRICE };
-  return { ok: true, msg: `Mud ${b - a} m wide added: bolts on it sink, piles hold` };
+  return { ok: true, msg: tr('mkr.mudAdded', { w: b - a }) };
 }
 
 /** Mast height a new drawbridge's ship gets: 3 m over the channel, as on the built-in levels. */
@@ -266,10 +268,10 @@ export function deckTop(l: LevelDef): number {
  */
 export function channelSpan(l: LevelDef, x0: number, x1: number): { ok: true; a: number; b: number } | { ok: false; msg: string } {
   const gap = openWaterAt(l, x0);
-  if (!gap) return { ok: false, msg: 'Start the channel in open water, clear of piers' };
+  if (!gap) return { ok: false, msg: tr('mkr.channelStart') };
   const a = x0 === x1 ? gap[0] : Math.max(gap[0], Math.min(x0, x1));
   const b = x0 === x1 ? gap[1] : Math.min(gap[1], Math.max(x0, x1));
-  if (b - a < 2) return { ok: false, msg: x0 === x1 ? 'Too little open water here for a channel' : 'Drag across at least 2 m for a channel' };
+  if (b - a < 2) return { ok: false, msg: x0 === x1 ? tr('mkr.channelNarrow') : tr('mkr.channelDrag') };
   return { ok: true, a, b };
 }
 
@@ -287,11 +289,11 @@ export function addChannel(l: LevelDef, x0: number, x1: number, top: number): { 
   const kept = (l.channels ?? []).filter(([c0, c1]) => c1 <= a || c0 >= b);
   const added: [number, number, number] = [a, b, t];
   l.channels = [...kept, added].toSorted((p, q) => p[0] - q[0]);
-  let msg = `Channel ${b - a} m wide, clear to ${t >= 0 ? '+' : ''}${t} m`;
+  let msg = tr('mkr.channelAdded', { w: b - a, top: `${t >= 0 ? '+' : ''}${fmt.dec(t)}` });
   if (first && !l.ship) {
     l.ship = { mast: Math.min(20, Math.max(DEFAULT_MAST, Math.ceil(t) + DEFAULT_MAST)) };
     if (!l.materials.includes('ram')) l.materials = MATERIAL_ORDER.filter((m) => m === 'ram' || l.materials.includes(m));
-    msg += ` · tall ship, ${l.ship.mast} m mast`;
+    msg += ` · ${tr('mkr.tallShip', { mast: l.ship.mast })}`;
   }
   return { ok: true, msg };
 }
@@ -300,16 +302,16 @@ export function addChannel(l: LevelDef, x0: number, x1: number, top: number): { 
 export function eraseAt(l: LevelDef, x: number, y: number): { ok: boolean; msg: string } {
   const i = anchorIndex(l, x, y);
   if (i >= 0) {
-    if (isFixedBolt(x, y)) return { ok: false, msg: 'The near road end always has a bolt' };
+    if (isFixedBolt(x, y)) return { ok: false, msg: tr('mkr.nearEnd') };
     const pylon = l.towers?.some((t) => same([t[0], t[2]], x, y));
     removeBolt(l, i);
     if (l.towers && !l.towers.length) delete l.towers;
-    return { ok: true, msg: pylon ? 'Pylon removed' : 'Bolt removed' };
+    return { ok: true, msg: pylon ? tr('mkr.pylonRemoved') : tr('mkr.boltRemoved') };
   }
   const seat = seatPiers(l).find(([px, py]) => Math.abs(px - x) < 0.6 && y <= py && y >= l.waterY);
   if (seat) {
     l.piers = l.piers.filter((p) => p !== seat);
-    return { ok: true, msg: 'Seat removed' };
+    return { ok: true, msg: tr('mkr.seatRemoved') };
   }
   const t = l.towers?.findIndex((tw) => Math.abs(tw[0] - x) < 0.6 && y >= tw[1] && y <= tw[2]) ?? -1;
   if (t >= 0) {
@@ -327,9 +329,9 @@ export function eraseAt(l: LevelDef, x: number, y: number): { ok: boolean; msg: 
       delete l.channels;
       delete l.ship;
     }
-    return { ok: true, msg: 'Channel removed' };
+    return { ok: true, msg: tr('mkr.channelRemoved') };
   }
-  return { ok: false, msg: 'Nothing to erase here' };
+  return { ok: false, msg: tr('mkr.nothing') };
 }
 
 /**
@@ -386,12 +388,12 @@ export function setSize(l: LevelDef, width: number, rightY: number, waterY: numb
 /** What stops a level from being played, worst first. Empty when it can be played. */
 export function makerIssues(l: LevelDef): string[] {
   const out: string[] = [];
-  if (!l.materials.some((m) => MATERIALS[m].drivable)) out.push('Offer road or heavy deck, or nothing can be driven on.');
-  if (l.target > l.money) out.push('The star target is more than the budget.');
-  if (l.ship && !l.channels?.length) out.push('A drawbridge needs a ship channel for the ship.');
-  if (l.ship && !l.materials.includes('ram')) out.push('Offer rams, or the drawbridge cannot open.');
-  if (l.bonus.kind === 'without' && !l.materials.includes(l.bonus.mat)) out.push(`The bonus goal bans ${MATERIALS[l.bonus.mat].name.toLowerCase()}, which the level does not offer.`);
-  if (l.bonus.kind === 'cost' && l.bonus.max > l.money) out.push('The bonus cost cap is more than the budget.');
+  if (!l.materials.some((m) => MATERIALS[m].drivable)) out.push(tr('mkr.issueDeck'));
+  if (l.target > l.money) out.push(tr('mkr.issueTarget'));
+  if (l.ship && !l.channels?.length) out.push(tr('mkr.issueChannel'));
+  if (l.ship && !l.materials.includes('ram')) out.push(tr('mkr.issueRams'));
+  if (l.bonus.kind === 'without' && !l.materials.includes(l.bonus.mat)) out.push(tr('mkr.issueBans', { mat: matInline(l.bonus.mat) }));
+  if (l.bonus.kind === 'cost' && l.bonus.max > l.money) out.push(tr('mkr.issueBonusCost'));
   return out;
 }
 
@@ -401,15 +403,15 @@ export function makerIssues(l: LevelDef): string[] {
  */
 export function makerWarnings(l: LevelDef, found?: { cost: number; load: number }): string[] {
   const out: string[] = [];
-  if (found && l.money < found.cost) out.push(`The budget is under the cheapest bridge the tune found (${usd(found.cost)}), so the level may be impossible.`);
-  else if (found && l.target < found.cost) out.push(`The star target is under the cheapest bridge the tune found (${usd(found.cost)}), so the star may be out of reach.`);
-  if (found && l.bonus.kind === 'stress' && l.bonus.max < found.load) out.push(`The tune found no bridge with peak stress under ${Math.round(found.load * 100)}%, so the bonus may be out of reach.`);
+  if (found && l.money < found.cost) out.push(tr('mkr.warnBudget', { money: usd(found.cost) }));
+  else if (found && l.target < found.cost) out.push(tr('mkr.warnTarget', { money: usd(found.cost) }));
+  if (found && l.bonus.kind === 'stress' && l.bonus.max < found.load) out.push(tr('mkr.warnStress', { pct: fmt.pct(found.load) }));
   if (l.ship && l.channels?.length && spanLocked(l, l.channels[0])) {
-    out.push('The deck over the ship channel is bolted at both ends, so it can’t lift. Tap one end’s bolt with the Bolt tool: on a pier, that makes a seat.');
+    out.push(tr('mkr.warnLocked'));
   }
-  if (!l.ship && l.materials.includes('ram')) out.push('Rams only move for a tall ship: set its mast height in Settings.');
-  if (l.masts?.length && !l.blocks) out.push('Masts tip over unless they are backstayed: offer concrete anchors in Settings.');
-  if (l.masts?.length && !l.materials.includes('cable')) out.push('Offer cable, or nothing can hold the masts up.');
+  if (!l.ship && l.materials.includes('ram')) out.push(tr('mkr.warnRams'));
+  if (l.masts?.length && !l.blocks) out.push(tr('mkr.warnMastAnchors'));
+  if (l.masts?.length && !l.materials.includes('cable')) out.push(tr('mkr.warnMastCable'));
   return out;
 }
 
@@ -442,12 +444,12 @@ export function parseLevel(json: string, id: number): LevelDef {
   try {
     raw = JSON.parse(json);
   } catch {
-    throw new Error('That is not valid JSON.');
+    throw new Error(tr('mkr.badJson'));
   }
   if (isObj(raw) && raw.format === FORMAT) raw = raw.level;
-  if (!isObj(raw)) throw new Error('No level found in that JSON.');
+  if (!isObj(raw)) throw new Error(tr('mkr.noLevel'));
   const r = raw;
-  if (typeof r.width !== 'number' || !Array.isArray(r.anchors)) throw new Error('A level needs at least a width and anchors.');
+  if (typeof r.width !== 'number' || !Array.isArray(r.anchors)) throw new Error(tr('mkr.needWidth'));
 
   const width = clampInt(r.width, LIMITS.minWidth, LIMITS.maxWidth);
   // A tenth of a meter, as built-in levels may set it: 11-3's far bank sits at a 3% grade.
@@ -498,7 +500,7 @@ export function parseLevel(json: string, id: number): LevelDef {
 
   const level: LevelDef = {
     id,
-    name: str(r.name, 'Imported level', 40),
+    name: str(r.name, tr('mkr.importedName'), 40),
     tip: str(r.tip, '', 200),
     width,
     anchors,

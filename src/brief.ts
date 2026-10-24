@@ -1,9 +1,11 @@
 import { money } from './editor';
 import { seatPiers, type LevelDef } from './levels';
 import { blockOf, MATERIALS, type MaterialId } from './physics/materials';
-import { VEHICLES } from './physics/vehicles';
+import { VEHICLES, type VehicleId } from './physics/vehicles';
 import { bonusLabel, SAFE_STRESS } from './scoring';
 import type { Design } from './design';
+import { fmt, t, tn } from './i18n';
+import { levelTip, matInline, vehicleInline, vehicleName } from './i18n/data';
 
 /** One line of a level's goals: a star (★) or the bonus star (✦). */
 export interface BriefGoal {
@@ -27,27 +29,28 @@ export interface Brief {
  * or "Delivery van ×3 · 15 t". A drawbridge level says so.
  */
 export function traffic(l: LevelDef): string {
-  const defs = [l.vehicle, ...(l.convoy ?? [])].map((v) => VEHICLES[v]);
-  const groups: { name: string; n: number }[] = [];
-  for (const d of defs) {
+  const ids = [l.vehicle, ...(l.convoy ?? [])];
+  const groups: { id: VehicleId; n: number }[] = [];
+  for (const id of ids) {
     const last = groups.at(-1);
-    if (last?.name === d.name) last.n++;
-    else groups.push({ name: d.name, n: 1 });
+    if (last?.id === id) last.n++;
+    else groups.push({ id, n: 1 });
   }
-  const names = groups.map((g, i) => `${i ? g.name.toLowerCase() : g.name}${g.n > 1 ? ` ×${g.n}` : ''}`).join(' + ');
-  return `${names} · ${Math.max(...defs.map((d) => d.tonnes))} t${l.ship ? ' · drawbridge' : ''}`;
+  const names = groups.map((g, i) => `${i ? vehicleInline(g.id) : vehicleName(g.id)}${g.n > 1 ? ` ×${g.n}` : ''}`).join(' + ');
+  return `${names} · ${Math.max(...ids.map((v) => VEHICLES[v].tonnes))} t${l.ship ? ` · ${t('traffic.drawbridge')}` : ''}`;
 }
 
 export function levelBrief(l: LevelDef): Brief {
   const vehicles = [l.vehicle, ...(l.convoy ?? [])];
-  const who = vehicles.length > 2 ? `all ${vehicles.length} vehicles` : vehicles.length === 2 ? 'both vehicles' : `the ${VEHICLES[l.vehicle].name.toLowerCase()}`;
+  const cross =
+    vehicles.length > 2 ? t('goal.crossAll', { n: vehicles.length }) : vehicles.length === 2 ? t('goal.crossBoth') : t('goal.crossOne', { name: vehicleInline(l.vehicle) });
   const goals: BriefGoal[] = [
-    { mark: '★', text: `Get ${who} to the flag`, note: `${l.width} m across, on a budget of ${money(l.money)}.` },
-    { mark: '★', text: `Build for ${money(l.target)} or less`, note: 'The tick on the budget meter.' },
-    { mark: '★', text: `Peak stress below ${Math.round(SAFE_STRESS * 100)}%`, note: 'Measured on the test drive: no member or joint may work harder than that.' },
+    { mark: '★', text: cross, note: t('goal.crossNote', { width: l.width, money: money(l.money) }) },
+    { mark: '★', text: t('goal.target', { money: money(l.target) }), note: t('goal.targetNote') },
+    { mark: '★', text: t('goal.safe', { pct: fmt.pct(SAFE_STRESS) }), note: t('goal.safeNote') },
     { mark: '✦', text: bonusLabel(l.bonus), note: bonusNote(l) },
   ];
-  return { traffic: `${traffic(l)} · ${l.width} m`, tip: l.tip, goals, rules: rules(l) };
+  return { traffic: `${traffic(l)} · ${l.width} m`, tip: levelTip(l), goals, rules: rules(l) };
 }
 
 /** What the bonus goal means in practice. */
@@ -55,92 +58,86 @@ function bonusNote(l: LevelDef): string {
   const g = l.bonus;
   switch (g.kind) {
     case 'cost':
-      return 'Tighter than the star target. The budget meter shows what you have spent.';
+      return t('bonusNote.cost');
     case 'stress':
-      return 'Checked on the test drive. Stiffer, better-braced bridges stay calmer.';
+      return t('bonusNote.stress');
     case 'parts':
-      return 'The count shows next to the goal while you build. A beam split by a joint still counts once.';
+      return t('bonusNote.parts');
     case 'without':
-      return `Cross without a single ${MATERIALS[g.mat].name.toLowerCase()} part.`;
+      return t('bonusNote.without', { mat: matInline(g.mat) });
   }
 }
+
+/** A length as players read it, e.g. "12 m". */
+const meters = (v: number) => t('unit.m', { v });
 
 function rules(l: LevelDef): string[] {
   const out: string[] = [];
   const defs = [l.vehicle, ...(l.convoy ?? [])].map((v) => VEHICLES[v]);
   if (l.swing) {
-    out.push(`A swing bridge: for a tall ship with a ${l.ship?.mast ?? 0} m mast, the whole bridge turns aside on the bolt at ${l.swing.pivot} m. Its road ends lift off the banks as it swings, so while it is open it hangs from the pivot alone, each half holding up the other. Jacks set the ends back down when it shuts.${l.ship?.after ? ' The traffic crosses first, then it swings open.' : ' Then traffic goes.'}`);
+    out.push(`${t('rule.swing', { mast: l.ship?.mast ?? 0, pivot: l.swing.pivot })} ${t(l.ship?.after ? 'rule.swingAfter' : 'rule.swingThen')}`);
   } else if (l.ship?.after) {
-    out.push(`Traffic first: once it is across, the bridge opens for a tall ship with a ${l.ship.mast} m mast, and the ship must get through untouched. Hinge the road and lift it on hydraulic rams that hold it firm while the traffic crosses.`);
+    out.push(t('rule.shipAfter', { mast: l.ship.mast }));
   } else if (l.ship) {
-    out.push(`A tall ship with a ${l.ship.mast} m mast sails through first. Hinge the road and lift it on hydraulic rams: the bridge opens, the ship passes, it closes, then traffic goes.`);
+    out.push(t('rule.ship', { mast: l.ship.mast }));
   } else if (l.channels?.length) {
     const top = Math.max(...l.channels.map((c) => c[2]));
-    out.push(`Keep the ship channel clear: nothing may be built in it, up to ${top >= 0 ? '+' : ''}${top} m.`);
+    out.push(t('rule.channel', { top: `${top >= 0 ? '+' : ''}${fmt.dec(top)}` }));
   }
-  if (l.lock !== undefined) out.push(`A center lock at ${l.lock} m: build both leaves to meet at one joint there. The lock splits it into a joint for each leaf, holds the two level while the bridge is shut, so each leaf helps carry what is on the other, and lets go as they open. A gap between the tips catches the wheels.`);
-  if (l.lift?.length) out.push(`Lift towers at ${l.lift.join(' m and ')} m: whatever rests on the seats there runs straight up and down in their rails. Lay the span from seat to seat on its own and lift it on rams; the approaches stay put.`);
+  if (l.lock !== undefined) out.push(t('rule.lock', { at: l.lock }));
+  if (l.lift?.length) out.push(t('rule.lift', { where: fmt.list(l.lift.map(meters)) }));
   if (l.lower) {
-    const low = [l.lower.vehicle, ...(l.lower.convoy ?? [])].map((v) => VEHICLES[v].name.toLowerCase());
-    out.push(`Two decks: a ${low.join(' and a ')} comes out of a tunnel in each bank and crosses ${-l.lower.y} m under the road, at the same time as the road traffic. Brace the decks to each other and together they make one deep truss.`);
+    const low = [l.lower.vehicle, ...(l.lower.convoy ?? [])].map((v) => t('rule.lowerItem', { name: vehicleInline(v) }));
+    out.push(t('rule.lower', { who: fmt.list(low), depth: -l.lower.y }));
   }
-  if (seatPiers(l).length) out.push('A pier with no bolt is a seat: a deck laid on or across it rests there. It carries the deck but holds nothing down, so a leaf can lift off it.');
+  if (seatPiers(l).length) out.push(t('rule.seat'));
   if (defs[0].rail) {
-    out.push(`A train: a ${defs[0].tonnes} t locomotive${defs.length > 1 ? ` and ${defs.length - 1} wagon${defs.length > 2 ? 's' : ''} of ${defs[1].tonnes} t, coupled` : ''}, all of it on the bridge at once. It runs on track only.`);
-    out.push(`Track: lay it in runs like road, no steeper than ${Math.round((MATERIALS.track.maxGrade ?? 0) * 100)}%, since a train can't climb more. It carries ${MATERIALS.track.rating} t a vehicle.`);
-    if (l.brake) out.push(`The train brakes to a stop on the bridge at ${l.brake.at} m, waits, and goes on: braking, its wheels shove the deck forward. ${l.sliding ? 'Brace the bridge down to the low bolts both ways, or it rides along with the train.' : 'Tie the deck back to the banks.'}`);
+    out.push(defs.length > 1 ? tn('rule.trainWagons', defs.length - 1, { t: defs[0].tonnes, wt: defs[1].tonnes }) : t('rule.train', { t: defs[0].tonnes }));
+    out.push(t('rule.track', { grade: fmt.pct(MATERIALS.track.maxGrade ?? 0), t: MATERIALS.track.rating }));
+    if (l.brake) out.push(`${t('rule.brake', { at: l.brake.at })} ${t(l.sliding ? 'rule.brakeSliding' : 'rule.brakeTie')}`);
   } else if (l.march) {
     const squads = defs.filter((d) => d.marches).length;
-    out.push(`${squads} squad${squads === 1 ? '' : 's'} of soldiers march across in step, ${l.march.pace} pace${l.march.pace === 1 ? '' : 's'} a second: every boot lands at once, and a bridge that swings at that pace swings harder with every step.`);
-  } else if (l.convoy?.length) out.push(`A convoy: ${defs.length} vehicles cross nose to tail, so the bridge carries them all at once.`);
-  if (l.sliding) out.push('Both road ends rest on sliding bearings: they hold the bridge up and down but let it slide along its length, so anything that shoves it along has to be braced down to the low bolts.');
-  if (l.wind) {
-    out.push(`A gale: gusts every ${l.wind.period} s push on everything tall and lift the deck. Hangers only pull, so a light deck lifts and slams back down.${l.wind.flutter ? ' A deck that bounces catches the wind and bounces harder each time: damp it, or it flutters itself apart.' : ''}`);
-  }
+    out.push(t('rule.march', { squads: tn('rule.squads', squads), pace: tn('rule.pace', l.march.pace) }));
+  } else if (l.convoy?.length) out.push(t('rule.convoy', { n: defs.length }));
+  if (l.sliding) out.push(t('rule.sliding'));
+  if (l.wind) out.push(l.wind.flutter ? `${t('rule.wind', { period: l.wind.period })} ${t('rule.flutter')}` : t('rule.wind', { period: l.wind.period }));
+  const lead = vehicleInline(l.vehicle);
   if (l.quake) {
-    const how = l.quake.sweep ? `, faster and faster from ${l.quake.freq} to ${l.quake.sweep} shakes a second, so at some moment it matches the way your bridge sways` : '';
-    out.push(`An earthquake strikes once the ${defs[0].name.toLowerCase()} reaches ${l.quake.at} m: the ground shakes side to side for ${l.quake.dur} s${how}. Tall, heavy towers swing hardest.`);
+    const q = l.quake;
+    out.push(q.sweep ? t('rule.quakeSweep', { name: lead, at: q.at, dur: q.dur, from: q.freq, to: q.sweep }) : t('rule.quake', { name: lead, at: q.at, dur: q.dur }));
   }
-  if (l.mud?.length) out.push('Mud banks: a bolt on mud sinks once it carries more than the mud holds, and the deck sinks with it.');
-  if (l.piles) out.push(`Piles: drag a member onto a mud bank to drive a pile there for ${money(l.piles.price)}. It reaches rock, so it never sinks.`);
-  if (l.flood) out.push(`A flood: once the ${defs[0].name.toLowerCase()} reaches ${l.flood.at} m the river rises ${l.flood.rise} m, pushing on everything in it, driving logs into whatever stands in the stream and washing bolts out of the mud. Piles stay.`);
-  if (l.masts?.length) out.push('The masts stand on hinges: they carry a load straight down but tip over if pulled sideways. Balance every cable on a mast top with a backstay pulling the other way.');
-  if (l.blocks) {
-    out.push(`Concrete anchors: drag a member onto the bank, up to ${l.blocks.reach} m back, to set a ${blockOf(l).mass / 1000} t block there for ${money(blockOf(l).price)}. Backstays need them: the bolts hold no cables here. A steep pull lifts a block out and a flat one slides it; past either it tears loose.`);
-  }
-  if (l.materials.includes('main')) {
-    out.push('Main cable: drag it from peak to peak, or down to an anchor, and it hangs in a curve with a joint above each deck joint. Drag the ring on it up or down to set the sag: deeper pulls less on the anchors. It counts as one part.');
-  }
-  if (l.materials.includes('masonry')) {
-    out.push('Concrete blocks: drag across the grid to paint them a square meter at a time, and drag from a block to erase. They are almost impossible to crush but crack apart when pulled, so stack them where they are pushed: on rock, against the canyon walls, under an arch.');
-  }
-  if (l.materials.includes('arch')) {
-    out.push('Block arch: drag it from one springing to the other and it rises in a ring of wedge blocks, a joint under each deck joint. Drag the ring at its crown to set the rise: lower pushes harder on the ends, and it must rise at least a fifth of its span. Its ends push outward, so they need rock or blocks behind them, or they slide.');
-  }
-  if (l.rocks?.length) out.push('Rock shelves and islands rise from the riverbed: blocks stand on them and push against them, but nothing is bolted there.');
-  if (l.materials.includes('tendon')) {
-    out.push('Tendon: a steel strand you thread straight through concrete blocks, from corner to corner. It is pulled tight before traffic comes and squeezes the blocks between its ends together, so a beam of blocks can bend without cracking. Run it low along a span, where the blocks pull apart, and high over a pier.');
-  }
-  if (l.materials.includes('damper')) out.push('Damper: a soft spring that carries little, but pushes back hard on anything moving it quickly. It lets a slow load settle and fights a swing.');
-  if (l.materials.includes('concrete')) out.push('Concrete crushes only under five times what steel takes, but it is heavy and cracks under a modest pull: stand it upright and brace it.');
-  if (l.anchorCost) out.push(`Toll bolts: building from any bolt off the road costs ${money(l.anchorCost)}, once per bolt.`);
+  if (l.mud?.length) out.push(t('rule.mud'));
+  if (l.piles) out.push(t('rule.piles', { money: money(l.piles.price) }));
+  if (l.flood) out.push(t('rule.flood', { name: lead, at: l.flood.at, rise: l.flood.rise }));
+  if (l.masts?.length) out.push(t('rule.masts'));
+  if (l.blocks) out.push(t('rule.blocks', { reach: l.blocks.reach, t: blockOf(l).mass / 1000, money: money(blockOf(l).price) }));
+  if (l.materials.includes('main')) out.push(t('rule.main'));
+  if (l.materials.includes('masonry')) out.push(t('rule.masonry'));
+  if (l.materials.includes('arch')) out.push(t('rule.arch'));
+  if (l.rocks?.length) out.push(t('rule.rocks'));
+  if (l.materials.includes('tendon')) out.push(t('rule.tendon'));
+  if (l.materials.includes('damper')) out.push(t('rule.damper'));
+  if (l.materials.includes('concrete')) out.push(t('rule.concrete'));
+  if (l.anchorCost) out.push(t('rule.toll', { money: money(l.anchorCost) }));
   for (const [mat, max] of Object.entries(l.limits ?? {})) {
-    out.push(`At most ${max} ${MATERIALS[mat as MaterialId].name.toLowerCase()} part${max === 1 ? '' : 's'}.`);
+    out.push(tn('rule.limit', max, { mat: matInline(mat as MaterialId) }));
   }
   // A vehicle heavier than a deck's rating crushes it: say which deck to use.
-  const heaviest = defs.reduce((a, b) => (b.tonnes > a.tonnes ? b : a));
+  const ids = [l.vehicle, ...(l.convoy ?? [])];
+  const heaviest = ids.reduce((a, b) => (VEHICLES[b].tonnes > VEHICLES[a].tonnes ? b : a));
+  const tonnes = VEHICLES[heaviest].tonnes;
   const decks = l.materials.filter((m) => MATERIALS[m].drivable);
-  const weak = decks.filter((m) => MATERIALS[m].rating < heaviest.tonnes);
-  const strong = decks.filter((m) => MATERIALS[m].rating >= heaviest.tonnes);
+  const weak = decks.filter((m) => MATERIALS[m].rating < tonnes);
+  const strong = decks.filter((m) => MATERIALS[m].rating >= tonnes);
   if (weak.length && strong.length) {
-    out.push(`The ${heaviest.name.toLowerCase()} weighs ${heaviest.tonnes} t: ${matNames(weak)} carries only ${MATERIALS[weak[0]].rating} t. Drive it on ${matNames(strong)}.`);
+    out.push(t('rule.weight', { name: vehicleInline(heaviest), t: tonnes, weak: matNames(weak), rating: MATERIALS[weak[0]].rating, strong: matNames(strong) }));
   }
   return out;
 }
 
 /** Material names for a sentence, e.g. "road or heavy deck". */
 function matNames(ms: MaterialId[]): string {
-  return ms.map((m) => MATERIALS[m].name.toLowerCase()).join(' or ');
+  return fmt.list(ms.map(matInline), 'disjunction');
 }
 
 /**

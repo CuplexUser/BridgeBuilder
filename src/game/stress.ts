@@ -1,10 +1,16 @@
-import { MATERIALS } from '../physics/materials';
+import { fmt, t } from '../i18n';
+import { matName } from '../i18n/data';
 import { StressGraph, type GraphPick } from '../ui/graph';
 import type { Game } from './game';
 
 /** A load ratio as a whole percentage. */
 function pct(v: number): string {
-  return `${Math.round(v * 100)}%`;
+  return fmt.pct(v);
+}
+
+/** A length or a time to one decimal. */
+function tenths(v: number): string {
+  return fmt.fixed(v, 1);
 }
 
 /** The stress graph docked over a finished run, and the member or joint it picks out on the bridge. */
@@ -63,8 +69,8 @@ export class StressView {
   pickMember(member: number): void {
     const log = this.game.run?.log;
     if (!log) return;
-    const { t } = log.memberPeak(member);
-    this.pick = { sample: log.sampleAt(t), member, node: -1 };
+    const { t: at } = log.memberPeak(member);
+    this.pick = { sample: log.sampleAt(at), member, node: -1 };
     this.showPick();
   }
 
@@ -73,8 +79,8 @@ export class StressView {
     const p = this.pick;
     if (!run || !p) return;
     const log = run.log;
-    const t = log.t[p.sample];
-    let info = 'Nothing was loaded yet.';
+    const time = log.t[p.sample];
+    let info = t('stress.nothing');
     if (p.member >= 0) {
       const d = this.game.editor!.design;
       const m = d.members[p.member];
@@ -82,12 +88,12 @@ export class StressView {
       const now = log.members[p.sample][p.member];
       const peak = log.memberPeak(p.member);
       const broke = log.breaks.find((b) => b.member === p.member);
-      info =
-        `${MATERIALS[m.mat].name} ${len.toFixed(1)} m: ${Number.isNaN(now) ? 'broken' : pct(now)} at ${t.toFixed(1)} s` +
-        ` · its peak ${pct(broke ? 1 : peak.value)}${broke ? `, broke at ${broke.t.toFixed(1)} s` : ` at ${peak.t.toFixed(1)} s`}`;
+      const head = t('stress.member', { mat: matName(m.mat), len: tenths(len), load: Number.isNaN(now) ? t('stress.broken') : pct(now), t: tenths(time) });
+      const tail = broke ? t('stress.peakBroke', { pct: pct(1), t: tenths(broke.t) }) : t('stress.peak', { pct: pct(peak.value), t: tenths(peak.t) });
+      info = `${head} · ${tail}`;
     } else if (p.node >= 0) {
       const n = this.game.editor!.design.nodes[p.node];
-      info = `Joint at ${n.x}, ${n.y}: ${pct(log.peak[p.sample])} at ${t.toFixed(1)} s · too many loaded members meet here`;
+      info = t('stress.joint', { at: t('unit.point', { x: fmt.dec(n.x), y: fmt.dec(n.y) }), load: pct(log.peak[p.sample]), t: fmt.fixed(time, 1) });
     }
     this.game.ui.setStressInfo(info);
     this.graph.draw(log, p);

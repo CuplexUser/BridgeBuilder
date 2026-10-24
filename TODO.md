@@ -32,6 +32,8 @@ Features and improvements, by priority. Finished items stay checked for a releas
 
 ### Next
 
+- [ ] **Design sharing** through a short code or URL that loads a design. Custom levels could share the same way. Moved up from P3: a shared design or collapse clip is how players find the game, and paying players are the ones who share. A code carries the level id, the save format version and the members, so an old code still loads into a changed level the way a saved design does.
+- [ ] **Translation.** First the Play Store listing (title, short and full description, screenshot captions) in German, Swedish, Russian, Polish and Japanese, which costs little and opens those stores. Then the game itself: every UI string, level name, tip, briefing and collapse message moved into a string table keyed by id, with English as the fallback, and a language picker in the pause menu that follows the phone's language by default. Check longer German and Russian strings against the touch toolbar and level cards on a narrow phone.
 - [ ] **Cheaper hand-made designs where they set a lenient star target.** A star target never goes under the hand-made design, so where that design costs far more than the best one, three stars come easy. `npm run verify` flags the levels whose target sits over 60% above the reference: *Parade* (10-2, 187%: $109,308 against $38,141), *Down the Gorge* (2-4, 79%), *Signal Stop* (6-4, 78%), *The Long Way* (9-2, 67%), *Aftershock* (9-7, 64%) and *Flash Flood* (7-1, 61%). A cheaper hand design for each, then a re-derive (no new search), brings their targets down.
 
 ## P2: Gameplay depth
@@ -89,7 +91,6 @@ Features and improvements, by priority. Finished items stay checked for a releas
 ### Next
 
 - [ ] **Replay and ghost** of your best run, plus a slow-motion replay of the moment of collapse. The stress graph could scrub through it.
-- [ ] **Design sharing** through a short code or URL that loads a design. Custom levels could share the same way.
 - [ ] **Level editor extras:** rock overhangs and raised road ends as tools, a solvability check that runs the optimizer on a custom level, and saving custom levels to the server profile.
 
 Let the optimizer teach:

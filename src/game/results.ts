@@ -4,6 +4,8 @@ import { LEVELS } from '../levels';
 import { scoreLevel, type LevelScore } from '../scoring';
 import { bestPerLevel, rankProfiles } from '../storage';
 import { MAX_LIVES, type Board, type Game } from './game';
+import { fmt, t } from '../i18n';
+import { chapterText } from '../i18n/data';
 
 /** A collapse clip runs on this long after the collapse card comes up, ms. */
 const CLIP_TAIL = 1200;
@@ -27,7 +29,7 @@ export class Results {
       this.game.playGames.moment('playtest');
       this.game.state = 'result';
       this.game.drive.stopEngine();
-      this.game.ui.result(level, s, run.peakStress, 'PLAYTEST · NOT ON YOUR CAREER', true, 'EDIT LEVEL', this.game.review(level, run, true));
+      this.game.ui.result(level, s, run.peakStress, t('res.playtest'), true, t('res.editLevel'), this.game.review(level, run, true));
       this.resultAnim = { t: 0, score: s, shown: 0, stars: 0, bonusShown: false };
       return;
     }
@@ -58,28 +60,28 @@ export class Results {
     if (this.game.mode === 'challenge') {
       this.game.runScore += score.total;
       this.game.levelsCleared++;
-      lines.push(`CHALLENGE ${this.game.runScore.toLocaleString('en-US')}`);
+      lines.push(t('hud.challenge', { score: this.game.runScore }));
       if (score.stars === 3 && this.game.lives < MAX_LIVES) {
         this.game.lives++;
         this.game.ui.setLives(this.game.lives, MAX_LIVES, 'gained');
-        lines.push('PERFECT: +1 LIFE');
+        lines.push(t('res.perfect'));
       }
-      this.game.ui.setScore(`CHALLENGE ${this.game.runScore.toLocaleString('en-US')}`, true);
-    } else if (!prev) lines.push('FIRST CROSSING');
-    else if (score.total > prev.score) lines.push('NEW PERSONAL BEST');
-    else lines.push(`BEST ${prev.score.toLocaleString('en-US')}`);
-    if (score.bonus && !prev?.bonus) lines.push('BONUS GOAL MET');
+      this.game.ui.setScore(t('hud.challenge', { score: this.game.runScore }), true);
+    } else if (!prev) lines.push(t('res.first'));
+    else if (score.total > prev.score) lines.push(t('res.personalBest'));
+    else lines.push(t('res.best', { score: prev.score }));
+    if (score.bonus && !prev?.bonus) lines.push(t('res.bonusMet'));
     const gain = totals(best).score - careerBefore;
-    if (gain > 0) lines.push(`CAREER +${gain.toLocaleString('en-US')}`);
+    if (gain > 0) lines.push(t('res.career', { gain }));
     if (!wasComplete && chapterComplete(ch, best)) {
       const next = CHAPTERS[CHAPTERS.indexOf(ch) + 1];
-      lines.push(next ? `CHAPTER COMPLETE · ${next.name.toUpperCase()} UNLOCKED` : 'EVERY CHAPTER COMPLETE');
+      lines.push(next ? t('res.chapterDone', { name: fmt.upper(chapterText(next, 'name')) }) : t('res.allDone'));
     }
 
     this.game.state = 'result';
     this.game.drive.stopEngine();
     const next = nextInChapter(level.id);
-    const nextLabel = next ? 'NEXT' : this.game.mode === 'challenge' ? 'FINISH' : 'CHAPTERS';
+    const nextLabel = t(next ? 'res.next' : this.game.mode === 'challenge' ? 'res.finish' : 'res.chapters');
     this.game.ui.result(level, score, run.peakStress, lines.join(' · '), this.game.mode === 'play', nextLabel, this.game.review(level, run, this.game.mode === 'play'));
     this.resultAnim = { t: 0, score, shown: 0, stars: 0, bonusShown: false };
   }
@@ -146,7 +148,7 @@ export class Results {
       this.game.ui.overRank(rank);
       if (rank >= 0) sfx.star(2);
     } catch {
-      this.game.ui.showToast('Could not save the score.');
+      this.game.ui.showToast(t('toast.scoreFail'));
     }
   }
 
@@ -193,10 +195,10 @@ export class Results {
     this.game.playGames.challenge(this.game.chapter, score);
     try {
       const rank = await this.game.store.submitScore(this.game.profile.id, score, this.game.levelsCleared, challengeBoard(this.game.chapter.id));
-      this.game.ui.showToast(rank >= 0 ? `Challenge banked: ${score.toLocaleString('en-US')} points, #${rank + 1} on the board.` : `Challenge banked: ${score.toLocaleString('en-US')} points.`, 3200);
+      this.game.ui.showToast(rank >= 0 ? t('toast.bankedRank', { score, rank: rank + 1 }) : t('toast.banked', { score }), 3200);
       if (rank >= 0) sfx.star(2);
     } catch {
-      this.game.ui.showToast('Could not save the score.');
+      this.game.ui.showToast(t('toast.scoreFail'));
     }
   }
 

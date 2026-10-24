@@ -7,6 +7,7 @@ import { TestRun } from '../physics/testrun';
 import { STEP } from '../physics/world';
 import { PAL } from '../render/palette';
 import type { Game } from './game';
+import { t } from '../i18n';
 
 /** How long a finished test drive plays on before its card comes up, s: after a crossing, and after a collapse. */
 const RESULT_DELAY = 1.5;
@@ -121,7 +122,19 @@ export class Drive {
         this.game.clip?.markBreak();
         this.game.shake.add(0.45);
         this.game.flash = Math.max(this.game.flash, 0.25);
-        const word = b.link.crushed ? 'TOO HEAVY!' : mat === 'steel' || mat === 'ram' || mat === 'damper' ? 'CLANG!' : mat === 'cable' || mat === 'tendon' ? 'PING!' : mat === 'main' ? 'TWANG!' : mat === 'heavy' || mat === 'concrete' || mat === 'masonry' || mat === 'arch' ? 'CRACK!' : 'SNAP!';
+        const word = t(
+          b.link.crushed
+            ? 'fx.tooHeavy'
+            : mat === 'steel' || mat === 'ram' || mat === 'damper'
+              ? 'fx.clang'
+              : mat === 'cable' || mat === 'tendon'
+                ? 'fx.ping'
+                : mat === 'main'
+                  ? 'fx.twang'
+                  : mat === 'heavy' || mat === 'concrete' || mat === 'masonry' || mat === 'arch'
+                    ? 'fx.crack'
+                    : 'fx.snap',
+        );
         this.game.float(b.x, b.y + 0.8, word, PAL.bad, 24, 0.9);
         if (!this.game.anyBreak) this.game.slowmo = 0.7;
       }
@@ -144,7 +157,7 @@ export class Drive {
         this.game.haptics.snap();
         this.game.clip?.markBreak();
         this.game.shake.add(0.5);
-        this.game.float(x, y + 1.2, 'PULLED OUT!', PAL.bad, 24, 0.9);
+        this.game.float(x, y + 1.2, t('fx.pulledOut'), PAL.bad, 24, 0.9);
         if (!this.game.anyBreak) this.game.slowmo = 0.7;
       }
       this.game.anyBreak = true;
@@ -163,7 +176,7 @@ export class Drive {
     const L = this.game.level;
     if (L.ship && run.phase !== this.lastPhase && run.status === 'running') {
       this.lastPhase = run.phase;
-      const words: Record<string, string> = { opening: 'OPENING!', ship: 'SHIP PASSING', closing: 'CLOSING', driving: 'GO!' };
+      const words: Record<string, string> = { opening: t('fx.opening'), ship: t('fx.shipPassing'), closing: t('fx.closing'), driving: t('fx.go') };
       const c = L.channels?.[0];
       const x = c ? (c[0] + c[1]) / 2 : L.width / 2;
       if (words[run.phase]) this.game.float(x, L.ship.mast + 1, words[run.phase], run.phase === 'driving' ? PAL.ok : PAL.gold, 26, 1.4);
@@ -172,7 +185,7 @@ export class Drive {
     // A brake stop calls out the signal, the stop and the restart, with sparks off the rails while it brakes.
     if (L.brake && run.brakeState !== this.lastBrake && run.status === 'running') {
       this.lastBrake = run.brakeState;
-      const words: Record<string, [string, string]> = { braking: ['RED SIGNAL!', PAL.bad], held: ['STOPPED', PAL.gold], done: ['GREEN: GO!', PAL.ok] };
+      const words: Record<string, [string, string]> = { braking: [t('fx.redSignal'), PAL.bad], held: [t('fx.stopped'), PAL.gold], done: [t('fx.greenGo'), PAL.ok] };
       const said = words[run.brakeState];
       if (said) this.game.float(w.x[v.frontWheel], w.y[v.frontWheel] + 4, said[0], said[1], 24, 1.4);
     }
@@ -192,8 +205,8 @@ export class Drive {
       if (s > 0.7 && Math.random() < dt * 6 * s) {
         sfx.creak(s);
         this.game.haptics.creak(s);
-        const t = Math.random();
-        this.game.particles.spawn(PK.Dust, w.x[l.a] + (w.x[l.b] - w.x[l.a]) * t, w.y[l.a] + (w.y[l.b] - w.y[l.a]) * t, (Math.random() - 0.5) * 0.4, -0.5, 0.8, 0.08, '#e8dcc8');
+        const f = Math.random();
+        this.game.particles.spawn(PK.Dust, w.x[l.a] + (w.x[l.b] - w.x[l.a]) * f, w.y[l.a] + (w.y[l.b] - w.y[l.a]) * f, (Math.random() - 0.5) * 0.4, -0.5, 0.8, 0.08, '#e8dcc8');
       }
     }
 
@@ -209,7 +222,7 @@ export class Drive {
           const x = goalX(this.game.level);
           const y = bankY(this.game.level);
           this.game.confetti(x, y + 3, 90);
-          this.game.float(x - 2, y + 3.5, 'BRIDGE HOLDS!', PAL.ok, 30, 1.6);
+          this.game.float(x - 2, y + 3.5, t('result.banner'), PAL.ok, 30, 1.6);
           this.game.shake.add(0.2);
           this.game.clip?.cancel();
         } else {
@@ -243,7 +256,7 @@ export class Drive {
       for (const m of run.lost) {
         if (this.overboard.has(m)) continue;
         this.overboard.add(m);
-        this.game.float(w.x[m.frontWheel], w.y[m.frontWheel] + 3.5, 'SQUAD OVERBOARD!', PAL.bad, 24, 1.6);
+        this.game.float(w.x[m.frontWheel], w.y[m.frontWheel] + 3.5, t('fx.overboard'), PAL.bad, 24, 1.6);
         sfx.splash(false);
       }
       const marching = run.vehicles.filter((m) => m.def.marches && !run.lost.has(m) && w.x[m.frontWheel] > -2 && w.x[m.rearWheel] < L.width + 2);
@@ -251,7 +264,7 @@ export class Drive {
         sfx.tramp(Math.min(1, marching.length / 3));
         if (!this.stepSaid) {
           this.stepSaid = true;
-          this.game.float(w.x[marching[0].frontWheel], w.y[marching[0].frontWheel] + 3.5, 'IN STEP!', PAL.gold, 24, 1.4);
+          this.game.float(w.x[marching[0].frontWheel], w.y[marching[0].frontWheel] + 3.5, t('fx.inStep'), PAL.gold, 24, 1.4);
         }
       }
       this.lastStep = a;
@@ -260,18 +273,18 @@ export class Drive {
       const g = windGust(L.wind, w.time);
       if (g > 0.9 && !this.gustSaid) {
         this.gustSaid = true;
-        this.game.float(L.width / 2, 6, 'GUST!', PAL.chalk, 24, 1.1);
+        this.game.float(L.width / 2, 6, t('fx.gust'), PAL.chalk, 24, 1.1);
       } else if (g < 0.5) this.gustSaid = false;
     }
     // The river rises, and bolts on the mud wash out from under the bridge.
     if (L.flood && w.floodStart < Infinity && !this.floodSaid) {
       this.floodSaid = true;
       sfx.rumble(3);
-      this.game.float(L.width / 2, w.water0 + L.flood.rise + 2, 'FLOOD!', PAL.cyan, 28, 1.6);
+      this.game.float(L.width / 2, w.water0 + L.flood.rise + 2, t('fx.flood'), PAL.cyan, 28, 1.6);
     }
     for (const p of w.washed) {
       this.game.particles.burst(PK.Water, w.x[p], w.y[p], 40, 6, 1.2, 0.1, [this.game.renderer.theme.foam, '#ffffff', this.game.renderer.theme.waterTop], 5);
-      this.game.float(w.x[p], w.y[p] + 2, 'WASHED OUT!', PAL.bad, 24, 1.2);
+      this.game.float(w.x[p], w.y[p] + 2, t('fx.washedOut'), PAL.bad, 24, 1.2);
       sfx.crack('heavy');
     }
     w.washed.length = 0;
@@ -280,7 +293,7 @@ export class Drive {
       if (!this.quakeSaid) {
         this.quakeSaid = true;
         sfx.rumble(L.quake.dur);
-        this.game.float(w.x[v.frontWheel], w.y[v.frontWheel] + 4, 'EARTHQUAKE!', PAL.bad, 28, 1.6);
+        this.game.float(w.x[v.frontWheel], w.y[v.frontWheel] + 4, t('fx.quake'), PAL.bad, 28, 1.6);
       }
       const k = Math.abs(ax) / 9.81;
       this.game.shake.add(k * dt * 2);

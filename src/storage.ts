@@ -432,6 +432,8 @@ export interface Prefs {
   chaptersView?: 'map' | 'book';
   /** Haptics on devices that can buzz; on unless turned off. */
   haptics?: boolean;
+  /** The language picked in Settings, e.g. "de"; unset follows the device. */
+  lang?: string;
 }
 
 export function loadPrefs(): Prefs {

@@ -1,5 +1,5 @@
 import { sfx } from '../audio';
-import { quickTune, TUNE_DIFFICULTIES, TUNE_SECONDS, tuneKey, type TuneResult } from '../autotune';
+import { quickTune, TUNE_SECONDS, tuneKey, type TuneResult } from '../autotune';
 import { Design } from '../design';
 import { Editor, money } from '../editor';
 import type { LevelDef } from '../levels';
@@ -11,6 +11,23 @@ import { bonusLabel } from '../scoring';
 import { TunePool } from '../tunepool';
 import { MAKER_TOOLS, MakerUi } from '../ui/makerui';
 import { sideRoom, type Game } from './game';
+import { t, type Key } from '../i18n';
+
+/** What a tool did, and how its preview says it beforehand: "Bolt added" reads as "Add bolt". */
+const PREVIEWS: [Key, Key][] = [
+  ['mkr.boltAdded', 'mkr.addBolt'],
+  ['mkr.boltRemoved', 'mkr.removeBolt'],
+  ['mkr.pierAdded', 'mkr.addPier'],
+  ['mkr.pierRemoved', 'mkr.removePier'],
+  ['mkr.seatAdded', 'mkr.addSeat'],
+  ['mkr.seatRemoved', 'mkr.removeSeat'],
+  ['mkr.pylonAdded', 'mkr.addPylon'],
+  ['mkr.pylonRemoved', 'mkr.removePylon'],
+  ['mkr.mastRemoved', 'mkr.removeMast'],
+  ['mkr.rockRemoved', 'mkr.removeRock'],
+  ['mkr.mudRemoved', 'mkr.removeMud'],
+  ['mkr.channelRemoved', 'mkr.removeChannel'],
+];
 
 /** The level editor's bolt preview never places members, so it ignores editor events. */
 const NO_EVENTS = { place() {}, remove() {}, invalid() {} };
@@ -100,13 +117,13 @@ export class Maker {
     const i = this.game.custom.levels.findIndex((c) => c.id === l.id);
     if (i >= 0) this.game.custom.levels[i] = l;
     else this.game.custom.levels.push(l);
-    if (!saveCustom(this.game.custom)) this.game.ui.showToast('Could not save: this browser has no storage. Export the level to keep it.');
+    if (!saveCustom(this.game.custom)) this.game.ui.showToast(t('mkr.noStorage'));
   }
 
   /** What the last quick tune found, if the level still has the shape it was tuned with. */
   tuneFound(l: LevelDef): TuneResult | undefined {
-    const t = this.tuned.get(l.id);
-    return t && t.key === tuneKey(l) ? t.result : undefined;
+    const hit = this.tuned.get(l.id);
+    return hit && hit.key === tuneKey(l) ? hit.result : undefined;
   }
 
   /**
@@ -142,12 +159,12 @@ export class Maker {
     this.tuning = null;
     if (this.game.state !== 'maker' || this.game.customLevel !== l) return;
     if (tuneKey(l) !== key) {
-      this.makerUi.tuneDone('The level changed while tuning. Tune again.');
+      this.makerUi.tuneDone(t('mkr.tuneChanged'));
       return;
     }
     if (!result) {
       sfx.invalid();
-      this.makerUi.tuneDone(`No bridge found that crosses in ${maxSeconds} s. Build one and playtest it, then tune again: the tune starts from your bridge.`);
+      this.makerUi.tuneDone(t('mkr.tuneNone', { s: maxSeconds }));
       return;
     }
     const found = result;
@@ -160,7 +177,7 @@ export class Maker {
     });
     this.makerUi.setStatus(l, found);
     sfx.select();
-    this.game.ui.showToast(`Tuned for ${TUNE_DIFFICULTIES[difficulty].name}: budget ${money(found.money)}, star target ${money(found.target)}, bonus “${bonusLabel(found.bonus)}”.`, 3600);
+    this.game.ui.showToast(t('mkr.tuned', { level: t(`tune.${difficulty}`), budget: money(found.money), target: money(found.target), bonus: bonusLabel(found.bonus) }), 3600);
   }
 
   /** Dev builds: drives one of the quick tune's bridges over the level, from a playtest. */
@@ -204,7 +221,7 @@ export class Maker {
     if (this.tool === 'channel') {
       const [x0, top] = this.channelFrom ?? [x, deckTop(copy)];
       const res = addChannel(copy, x0, x, top);
-      return this.channelFrom || !res.ok ? res : { ok: true, msg: 'Tap to fill the open water, or drag' };
+      return this.channelFrom || !res.ok ? res : { ok: true, msg: t('mkr.channelTap') };
     }
     if (this.tool === 'mud') {
       const [x0, top] = this.channelFrom ?? [x, y];
@@ -228,7 +245,7 @@ export class Maker {
       case 'erase':
         return eraseAt(l, x, y);
       case 'channel':
-        return { ok: false, msg: 'Drag across for a ship channel' };
+        return { ok: false, msg: t('mkr.channelDragAcross') };
       case 'mud':
         return addMud(l, x, x, y);
     }
@@ -337,10 +354,10 @@ export class Maker {
       saveCustom(this.game.custom);
       sfx.select();
       this.enterWorkshop();
-      this.game.ui.showToast(`Imported “${level.name}”.`);
+      this.game.ui.showToast(t('mkr.imported', { name: level.name }));
     } catch (err) {
       sfx.invalid();
-      this.makerUi.shareError(err instanceof Error ? err.message : 'Could not read that level.');
+      this.makerUi.shareError(err instanceof Error ? err.message : t('mkr.readFail'));
     }
   }
 
@@ -403,13 +420,13 @@ export class Maker {
         break;
       case 'share-copy':
         copyText(this.makerUi.shareText()).then(
-          () => this.game.ui.showToast('Copied to the clipboard.'),
-          () => this.game.ui.showToast('Could not copy. Select the text and copy it yourself.'),
+          () => this.game.ui.showToast(t('mkr.copied')),
+          () => this.game.ui.showToast(t('mkr.copyFail')),
         );
         break;
       case 'share-download': {
         const name = (this.shareFor?.name ?? 'level').replace(/[^\w-]+/g, '-').toLowerCase();
-        exportFile(`${name}.json`, this.makerUi.shareText()).catch(() => this.game.ui.showToast('Could not save the file. Copy the text instead.'));
+        exportFile(`${name}.json`, this.makerUi.shareText()).catch(() => this.game.ui.showToast(t('mkr.fileFail')));
         break;
       }
       case 'share-import':
@@ -487,7 +504,7 @@ export class Maker {
       this.makerHistory(e.shiftKey ? 1 : -1);
       return;
     }
-    if (k >= '1' && k <= String(MAKER_TOOLS.length) && k.length === 1) this.setTool(MAKER_TOOLS[Number(k) - 1].id);
+    if (k >= '1' && k <= String(MAKER_TOOLS.length) && k.length === 1) this.setTool(MAKER_TOOLS[Number(k) - 1]);
     else if (lower === 'z') this.makerHistory(-1);
     else if (lower === 'y') this.makerHistory(1);
     else if (lower === 'h' || k === '?') this.game.act('mk-help');
@@ -503,7 +520,8 @@ export class Maker {
     if (this.game.state !== 'maker' || !p || !this.game.customLevel || this.game.ui.current) return null;
     const res = this.toolPreview(p[0], p[1]);
     // The preview says what a tap will do: "Bolt added" reads as "Add bolt".
-    const label = res.msg.replace(/^(.+) added$/, (_, w: string) => `Add ${w.toLowerCase()}`).replace(/^(.+) removed$/, (_, w: string) => `Remove ${w.toLowerCase()}`);
+    const done = PREVIEWS.find(([after]) => res.msg === t(after));
+    const label = done ? t(done[1]) : res.msg;
     return { x: p[0], y: p[1], label, ok: res.ok, channel: this.tool === 'channel' ? this.channelPreview(p) : null };
   }
 

@@ -6,6 +6,7 @@ import type { SceneView } from './renderer';
 import { PILE_DEPTH, TAU } from './shapes';
 import { ScenePart } from './stage';
 import { SWING_ROAD } from './swing';
+import { fmt, t as msg } from '../i18n';
 
 /** What stands in and around the river: piers, masts, towers, piles, blocks, tunnels, ships and logs. */
 export class Structures extends ScenePart {
@@ -37,7 +38,7 @@ export class Structures extends ScenePart {
     ctx.strokeRect(l, t, r - l, b - t);
     ctx.setLineDash([]);
     // Near the water, where it can't hide under a deck laid along the top of the zone.
-    this.label(`SHIP CHANNEL · KEEP CLEAR TO +${top} m`, (l + r) / 2, b - 16, PAL.invalid);
+    this.label(msg('scene.channel', { top: fmt.dec(top) }), (l + r) / 2, b - 16, PAL.invalid);
     if (mast !== undefined) {
       // The tall ship passes through here: the open bridge has to clear this outline.
       const cx = (x0 + x1) / 2;
@@ -49,7 +50,7 @@ export class Structures extends ScenePart {
       ctx.setLineDash([4, 4]);
       ctx.strokeRect(sl, mt, sr - sl, b - mt);
       ctx.setLineDash([]);
-      this.label(`TALL SHIP · MAST +${mast} m · OPEN THE BRIDGE FOR IT`, (sl + sr) / 2, mt - 14, PAL.gold);
+      this.label(msg('scene.ship', { mast: fmt.dec(mast) }), (sl + sr) / 2, mt - 14, PAL.gold);
     }
   }
 

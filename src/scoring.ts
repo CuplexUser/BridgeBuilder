@@ -1,7 +1,8 @@
 import type { Design } from './design';
 import { money } from './editor';
 import type { BonusGoal, LevelDef } from './levels';
-import { MATERIALS } from './physics/materials';
+import { fmt, t, tn } from './i18n';
+import { matInline } from './i18n/data';
 
 export interface LevelScore {
   /** Dollars spent on the bridge. */
@@ -52,13 +53,13 @@ export function bonusMet(goal: BonusGoal, design: Design, peakStress: number): b
 export function bonusLabel(goal: BonusGoal): string {
   switch (goal.kind) {
     case 'cost':
-      return `Build for ${money(goal.max)} or less`;
+      return t('goal.target', { money: money(goal.max) });
     case 'stress':
-      return `Peak stress below ${Math.round(goal.max * 100)}%`;
+      return t('goal.safe', { pct: fmt.pct(goal.max) });
     case 'parts':
-      return `${goal.max} parts or fewer`;
+      return tn('bonus.parts', goal.max);
     case 'without':
-      return `No ${MATERIALS[goal.mat].name.toLowerCase()}`;
+      return t('bonus.without', { mat: matInline(goal.mat) });
   }
 }
 

@@ -3,6 +3,8 @@ import { segmentHitsRect, type Design } from '../design';
 import { goalX, type LevelDef } from '../levels';
 import { buildWorld, convoyLayout, type VehicleHandle } from './build';
 import { MATERIALS } from './materials';
+import { t as msg } from '../i18n';
+import { matInline, matName, vehicleInline } from '../i18n/data';
 import { StressLog } from './stresslog';
 import { CLOSE_TIME, OPEN_TIME, SETTLE_TIME, SHIP_HALF, SHIP_TIME, SHIP_WAIT, STEP, World } from './world';
 
@@ -188,7 +190,7 @@ export class TestRun {
       const top = this.level.ship!.mast;
       const x = this.shipX;
       const hit = w.links.some((l) => l.bridge && !l.broken && segmentHitsRect(w.x[l.a], w.y[l.a], w.x[l.b], w.y[l.b], x - SHIP_HALF, this.level.waterY - 1, x + SHIP_HALF, top));
-      if (hit) this.fail('The ship hit your bridge.');
+      if (hit) this.fail(msg('fail.ship'));
     }
   }
 
@@ -233,7 +235,7 @@ export class TestRun {
     // The bridge has to hold: once its deck gives way, the run is lost even if the traffic could
     // still scramble across. A part that breaks off without bringing the deck down is no collapse.
     if (deckBroke) {
-      this.fail(`The ${MATERIALS[deckBroke.mat!].name.toLowerCase()} gave way.`);
+      this.fail(msg('fail.deck', { mat: matInline(deckBroke.mat!) }));
       return;
     }
     for (const v of this.vehicles) {
@@ -241,7 +243,7 @@ export class TestRun {
       if (v.def.marches && squadThrown(w, v)) {
         this.lose(v);
         if (this.lost.size > SQUADS_SPARED) {
-          this.fail('The deck threw a second squad off its feet.');
+          this.fail(msg('fail.squad'));
           return;
         }
         continue;
@@ -249,14 +251,14 @@ export class TestRun {
       const lowest = Math.min(w.y[v.rearWheel], w.y[v.frontWheel], w.y[v.rearTop], w.y[v.frontTop]);
       if (lowest < w.waterY) {
         this.splashed = true;
-        this.fail('Your cargo went for a swim.');
+        this.fail(msg('fail.swim'));
         return;
       }
       const upX = w.x[v.frontTop] - w.x[v.rearTop];
       const upY = w.y[v.frontTop] - w.y[v.rearTop];
       const bodyAboveWheels = (w.y[v.rearTop] + w.y[v.frontTop]) / 2 - (w.y[v.rearWheel] + w.y[v.frontWheel]) / 2;
       if (bodyAboveWheels < -0.1 || upX < -0.2 * Math.abs(upY)) {
-        this.fail('The vehicle flipped over.');
+        this.fail(msg('fail.flipped'));
         return;
       }
     }
@@ -277,7 +279,7 @@ export class TestRun {
       this.lastProgressX = x;
       this.lastProgressT = this.time;
     } else if (this.time - this.lastProgressT > 3.5) {
-      this.fail('The vehicle got stuck.');
+      this.fail(msg('fail.stuck'));
     }
   }
 
@@ -302,11 +304,10 @@ export class TestRun {
     this.status = 'fail';
     const crushed = this.world.links.find((l) => l.crushed && l.broken);
     if (crushed) {
-      const mat = MATERIALS[crushed.mat!];
       const def = this.vehicles.map((v) => v.def).find((d) => d.tonnes === crushed.crushedBy) ?? this.vehicle.def;
-      reason = `The ${def.name.toLowerCase()} weighs ${def.tonnes} t. ${mat.name} carries only ${mat.rating} t.`;
+      reason = msg('fail.crushed', { name: vehicleInline(def.id), t: def.tonnes, mat: matName(crushed.mat!), rating: MATERIALS[crushed.mat!].rating });
     } else if (this.world.blocks.some((b) => b.loose)) {
-      reason = 'A concrete anchor tore loose. Too steep a pull lifts it, too flat a pull slides it; or share it between two.';
+      reason = msg('fail.anchor');
     }
     this.reason = reason;
   }

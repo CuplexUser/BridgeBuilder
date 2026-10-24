@@ -6,6 +6,7 @@ import { mainRuns } from './maincable';
 import { rings } from './masonry';
 import { MATERIALS, type MaterialId } from './physics/materials';
 import { SOLUTIONS } from './solutions';
+import { fmt, t } from './i18n';
 
 /** One member of a design shown as a ghost to trace: from, to and material. A run counts as one. */
 export type Ghost = [GridPt, GridPt, MaterialId];
@@ -39,9 +40,9 @@ export function bestKnown(level: LevelDef): Design | null {
 /** How a cost compares with the best known design: "14% above the best known design ($8,204)" and so on. */
 export function costReview(cost: number, best: number, money: (v: number) => string): string {
   const pct = Math.round(((cost - best) / best) * 100);
-  if (cost < best) return `${pct === 0 ? 'Just' : `${-pct}%`} under the best known design (${money(best)}). Remarkable.`;
-  if (pct === 0) return `Within 1% of the best known design (${money(best)}).`;
-  return `${pct}% above the best known design (${money(best)}).`;
+  if (cost < best) return pct === 0 ? t('review.justUnder', { best: money(best) }) : t('review.under', { pct: fmt.pct(-pct / 100), best: money(best) });
+  if (pct === 0) return t('review.within', { best: money(best) });
+  return t('review.above', { pct: fmt.pct(pct / 100), best: money(best) });
 }
 
 /**

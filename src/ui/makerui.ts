@@ -3,28 +3,22 @@ import { traffic } from '../brief';
 import { money } from '../editor';
 import type { BonusGoal, LevelDef } from '../levels';
 import { FLOOD_CURRENT, LIMITS, makerIssues, makerWarnings, MAX_BLOCK_REACH, MAX_FLOOD, setSize, type MakerTool } from '../maker';
-import { MATERIAL_ORDER, MATERIALS, type MaterialId } from '../physics/materials';
+import { MATERIAL_ORDER, type MaterialId } from '../physics/materials';
 import { VEHICLES, type VehicleId } from '../physics/vehicles';
 import { levelCaps } from '../platform';
 import { THEMES } from '../render/themes';
 import { bonusLabel } from '../scoring';
+import { fmt, t, type Key } from '../i18n';
+import { matName, themeName, vehicleName } from '../i18n/data';
+import { escapeHtml } from '../i18n/dom';
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string): T => document.getElementById(id) as T;
 
 /** The convoy's places behind the lead vehicle, numbered as in the form. */
 const FOLLOWERS = Array.from({ length: LIMITS.maxConvoy - 1 }, (_, i) => i + 1);
 
-/** The editing tools, in toolbar order, with what each does. */
-export const MAKER_TOOLS: { id: MakerTool; name: string; help: string }[] = [
-  { id: 'bolt', name: 'Bolt', help: 'Tap to add a bolt, or tap one to remove it.' },
-  { id: 'pier', name: 'Pier', help: 'Tap a bolt in the gap to stand a pier under it, or tap anywhere else in the gap for a seat: a pier with no bolt that a deck rests on and can lift off.' },
-  { id: 'pylon', name: 'Pylon', help: 'Tap where a pylon top should go: it rises from the water with a bolt on top.' },
-  { id: 'mast', name: 'Mast', help: 'Tap where a mast top should go: it rises from the water on a hinge, so players have to backstay it to concrete anchors.' },
-  { id: 'rock', name: 'Rock', help: 'Tap where the top of a rock should go: a shelf or island 2 m wide, rising from the riverbed, for concrete blocks and arches to stand on. Tap one to remove it.' },
-  { id: 'mud', name: 'Mud', help: 'Drag across the gap for a mud bank, its top where you start: soft riverbed where bolts sink under a load and players drive piles. Tap for one 4 m wide, or tap one to remove it.' },
-  { id: 'channel', name: 'Channel', help: 'Tap open water to fill it between the piers and banks, up to the road. Or drag for your own span, clear up to the height you start at.' },
-  { id: 'erase', name: 'Erase', help: 'Tap a bolt, seat, pylon, mast, rock, mud or channel to remove it.' },
-];
+/** The editing tools, in toolbar order. Each has a name and help message, `tool.<id>` and `tool.<id>.help`. */
+export const MAKER_TOOLS: MakerTool[] = ['bolt', 'pier', 'pylon', 'mast', 'rock', 'mud', 'channel', 'erase'];
 
 /** The level editor's DOM: tools, the settings form, the custom level list and the share dialog. */
 export class MakerUi {
@@ -36,27 +30,21 @@ export class MakerUi {
 
   constructor() {
     const set = $('mk-toolset');
-    MAKER_TOOLS.forEach((t, i) => {
+    MAKER_TOOLS.forEach((id, i) => {
       const b = document.createElement('button');
       b.className = 'mat mk-tool';
       b.dataset.act = 'mk-tool';
-      b.dataset.tool = t.id;
-      b.title = t.help;
-      b.innerHTML = `<kbd>${i + 1}</kbd><i></i><span>${t.name}</span>`;
+      b.dataset.tool = id;
+      b.innerHTML = `<kbd>${i + 1}</kbd><i></i><span></span>`;
       set.appendChild(b);
-      this.toolBtns.set(t.id, b);
+      this.toolBtns.set(id, b);
     });
-    const vehicles = (Object.keys(VEHICLES) as VehicleId[]).map((v) => `<option value="${v}">${VEHICLES[v].name} · ${VEHICLES[v].tonnes} t</option>`).join('');
-    $('mk-vehicle').innerHTML = vehicles;
-    for (const i of FOLLOWERS) $(`mk-convoy-${i}`).innerHTML = `<option value="">—</option>${vehicles}`;
-    $('mk-theme').innerHTML = THEMES.map((t) => `<option value="${t.id}">${t.name}</option>`).join('');
     $('mk-mats').innerHTML = MATERIAL_ORDER.map(
       (m) =>
-        `<div class="mk-mat" data-mat="${m}"><label><input type="checkbox" id="mk-mat-${m}" /> ${MATERIALS[m].name}</label>` +
-        `<label class="mk-limit" title="Most parts allowed; blank for no limit">max <input type="number" id="mk-limit-${m}" min="0" step="1" placeholder="∞" /></label></div>`,
+        `<div class="mk-mat" data-mat="${m}"><label><input type="checkbox" id="mk-mat-${m}" /> <span class="mk-mat-name"></span></label>` +
+        `<label class="mk-limit"><span class="mk-max"></span> <input type="number" id="mk-limit-${m}" min="0" step="1" placeholder="∞" /></label></div>`,
     ).join('');
-    $('mk-bonus-mat').innerHTML = MATERIAL_ORDER.map((m) => `<option value="${m}">${MATERIALS[m].name}</option>`).join('');
-    $('mk-tune-level').innerHTML = (Object.keys(TUNE_DIFFICULTIES) as TuneDifficulty[]).map((d) => `<option value="${d}">${TUNE_DIFFICULTIES[d].name}</option>`).join('');
+    this.relabel();
     $<HTMLSelectElement>('mk-tune-level').value = 'medium';
     if (import.meta.env.DEV) {
       $('mk-tune-dev').classList.remove('hidden');
@@ -65,13 +53,39 @@ export class MakerUi {
     $('mk-form').addEventListener('submit', (e) => e.preventDefault());
   }
 
+  /** Writes the tools, options and labels in the current language, keeping what each select had picked. */
+  relabel(): void {
+    for (const [id, b] of this.toolBtns) {
+      b.title = t(`tool.${id}.help` as Key);
+      b.querySelector('span')!.textContent = t(`tool.${id}` as Key);
+    }
+    const keep = (id: string, html: string) => {
+      const el = $<HTMLSelectElement>(id);
+      const v = el.value;
+      el.innerHTML = html;
+      if (v) el.value = v;
+    };
+    const vehicles = (Object.keys(VEHICLES) as VehicleId[]).map((v) => `<option value="${v}">${escapeHtml(vehicleName(v))} · ${VEHICLES[v].tonnes} t</option>`).join('');
+    keep('mk-vehicle', vehicles);
+    for (const i of FOLLOWERS) keep(`mk-convoy-${i}`, `<option value="">—</option>${vehicles}`);
+    keep('mk-theme', THEMES.map((th) => `<option value="${th.id}">${escapeHtml(themeName(th.id, th.name))}</option>`).join(''));
+    for (const el of document.querySelectorAll<HTMLElement>('.mk-mat')) {
+      el.querySelector('.mk-mat-name')!.textContent = matName(el.dataset.mat as MaterialId);
+      el.querySelector<HTMLElement>('.mk-limit')!.title = t('mkr.limitTitle');
+      el.querySelector('.mk-max')!.textContent = t('mkr.max');
+    }
+    keep('mk-bonus-mat', MATERIAL_ORDER.map((m) => `<option value="${m}">${escapeHtml(matName(m))}</option>`).join(''));
+    keep('mk-tune-level', (Object.keys(TUNE_DIFFICULTIES) as TuneDifficulty[]).map((d) => `<option value="${d}">${t(`tune.${d}` as Key)}</option>`).join(''));
+    if (!this.tuneTimer) $('mk-tune-btn').textContent = t('mkr.autoTune');
+  }
+
   /** Calls back when a setting changes; `live` is true while typing in a text field. */
   onChange(cb: (live: boolean) => void): void {
     const form = $('mk-form');
     form.addEventListener('change', () => cb(false));
     form.addEventListener('input', (e) => {
-      const t = e.target as HTMLElement;
-      if (t.id === 'mk-name' || t.id === 'mk-tip') cb(true);
+      const el = e.target as HTMLElement;
+      if (el.id === 'mk-name' || el.id === 'mk-tip') cb(true);
     });
   }
 
@@ -107,8 +121,8 @@ export class MakerUi {
     if (!this.tuneTimer) {
       this.tuneNote(
         found
-          ? `Bridges cross from about ${money(found.cost)}, with peak stress down to ${Math.round(found.load * 100)}%. Adjust the numbers from here.`
-          : `Searches for ${TUNE_SECONDS} s, then sets the budget, star target and bonus goal. Adjust them after.`,
+          ? t('mkr.tuneFound', { money: money(found.cost), pct: fmt.pct(found.load) })
+          : t('mkr.tuneIntro', { s: TUNE_SECONDS }),
         found ? 'found' : '',
       );
     }
@@ -137,17 +151,17 @@ export class MakerUi {
     const end = Date.now() + seconds * 1000;
     const tick = () => {
       const left = Math.ceil((end - Date.now()) / 1000);
-      if (left > 0) btn.textContent = `TUNING… ${left}`;
-      else if (btn.textContent !== 'SEARCHING…') {
-        btn.textContent = 'SEARCHING…';
-        this.tuneNote('Nothing holds yet: searching longer…', '');
+      if (left > 0) btn.textContent = t('mkr.tuning', { s: left });
+      else if (btn.textContent !== t('mkr.searching')) {
+        btn.textContent = t('mkr.searching');
+        this.tuneNote(t('mkr.searchingLonger'), '');
       }
     };
     btn.disabled = true;
     tick();
     clearInterval(this.tuneTimer);
     this.tuneTimer = window.setInterval(tick, 200);
-    this.tuneNote('Searching for bridges…', '');
+    this.tuneNote(t('mkr.searchingNote'), '');
   }
 
   /** The tune finished; `failure` explains why it set nothing. */
@@ -156,7 +170,7 @@ export class MakerUi {
     this.tuneTimer = 0;
     const btn = $<HTMLButtonElement>('mk-tune-btn');
     btn.disabled = false;
-    btn.textContent = 'AUTO-TUNE';
+    btn.textContent = t('mkr.autoTune');
     if (failure) this.tuneNote(failure, 'bad');
   }
 
@@ -169,7 +183,7 @@ export class MakerUi {
     $('mk-tune-cheapest').textContent = `▶ CHEAPEST · ${money(f.cost)}`;
     const bonus = $<HTMLButtonElement>('mk-tune-bonus');
     bonus.disabled = !f.proof.bonus;
-    bonus.title = f.proof.bonus ? `A bridge meeting “${bonusLabel(f.bonus)}”` : 'The tune kept the bonus goal without finding a bridge that meets it';
+    bonus.title = f.proof.bonus ? `A bridge meeting “${bonusLabel(f.bonus)}” (dev only)` : 'The tune kept the bonus goal without finding a bridge that meets it (dev only)';
   }
 
   private tuneNote(text: string, kind: '' | 'found' | 'bad'): void {
@@ -220,7 +234,7 @@ export class MakerUi {
 
   /** Copies the form into the level. */
   read(l: LevelDef): void {
-    l.name = val('mk-name').trim().slice(0, 40) || 'My level';
+    l.name = val('mk-name').trim().slice(0, 40) || t('mkr.defaultName');
     l.tip = val('mk-tip').trim().slice(0, 200);
     setSize(l, n('mk-width', l.width), n('mk-right', l.rightY ?? 0), n('mk-water', l.waterY), levelCaps.maxWidth);
     l.vehicle = val('mk-vehicle') as VehicleId;
@@ -264,7 +278,7 @@ export class MakerUi {
   workshop(levels: LevelDef[]): void {
     const box = $('ws-list');
     if (!levels.length) {
-      box.innerHTML = '<p class="ws-empty">No levels yet. Start a new one, or import one someone shared.</p>';
+      box.innerHTML = `<p class="ws-empty">${t('mkr.wsEmpty')}</p>`;
       return;
     }
     box.innerHTML = levels
@@ -277,10 +291,10 @@ export class MakerUi {
             <span class="${issues.length ? 'bad' : 'goal'}">${issues.length ? escapeHtml(issues[0]) : `✦ ${escapeHtml(bonusLabel(l.bonus))}`}</span>
           </div>
           <div class="ws-btns">
-            <button class="btn small primary" data-act="ws-play" data-id="${l.id}" ${issues.length ? 'disabled' : ''}>PLAY</button>
-            <button class="btn small" data-act="ws-edit" data-id="${l.id}">EDIT</button>
-            <button class="btn small" data-act="ws-export" data-id="${l.id}">EXPORT</button>
-            <button class="btn small danger" data-act="ws-delete" data-id="${l.id}">DELETE</button>
+            <button class="btn small primary" data-act="ws-play" data-id="${l.id}" ${issues.length ? 'disabled' : ''}>${t('mkr.play')}</button>
+            <button class="btn small" data-act="ws-edit" data-id="${l.id}">${t('mkr.edit')}</button>
+            <button class="btn small" data-act="ws-export" data-id="${l.id}">${t('mkr.export')}</button>
+            <button class="btn small danger" data-act="ws-delete" data-id="${l.id}">${t('mkr.delete')}</button>
           </div>
         </div>`;
       })
@@ -291,21 +305,18 @@ export class MakerUi {
   confirmDelete(el: HTMLElement): boolean {
     if (el.dataset.armed) return true;
     el.dataset.armed = '1';
-    el.textContent = 'SURE?';
+    el.textContent = t('mkr.sure');
     setTimeout(() => {
       delete el.dataset.armed;
-      el.textContent = 'DELETE';
+      el.textContent = t('mkr.delete');
     }, 3000);
     return false;
   }
 
   /** The share dialog, for exporting a level's JSON or pasting one in. */
   share(mode: 'export' | 'import', text = '', name = ''): void {
-    $('share-title').textContent = mode === 'export' ? `Export “${name}”` : 'Import a level';
-    $('share-note').textContent =
-      mode === 'export'
-        ? 'This is the whole level as JSON. Copy it or download it, and anyone can import it in their level editor.'
-        : 'Paste a level’s JSON here, or open a .json file. Levels copied from src/levels.ts work too.';
+    $('share-title').textContent = mode === 'export' ? t('mkr.exportTitle', { name }) : t('mkr.importTitle');
+    $('share-note').textContent = t(mode === 'export' ? 'mkr.exportNote' : 'mkr.importNote');
     const ta = $<HTMLTextAreaElement>('share-text');
     ta.value = text;
     ta.readOnly = mode === 'export';
@@ -354,6 +365,3 @@ function readBonus(kind: string, value: number, mat: MaterialId, l: LevelDef): B
   }
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-}

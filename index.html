@@ -20,6 +20,12 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
+    <!--
+      Static text carries its message key: data-i18n sets the element's contents, and
+      data-i18n-title, -aria and -ph set its title, aria-label and placeholder. The English here
+      must match src/i18n/en.ts (a test checks), so the page reads right before the script runs.
+      Text the script writes itself has no key.
+    -->
     <canvas id="game"></canvas>
 
     <!-- In-game HUD -->
@@ -28,22 +34,22 @@
         <div class="hud-level"><span id="hud-num">01</span><span id="hud-name">First Crossing</span></div>
         <div class="hud-sub">
           <span id="hud-lives" class="lives"></span><span id="hud-score" class="hud-score"></span
-          ><button class="hud-goal" id="hud-goal" data-act="brief" title="Bonus goal: meet it for the bonus star. Tap for the level's goals (I)"></button>
+          ><button class="hud-goal" id="hud-goal" data-act="brief" title="Bonus goal: meet it for the bonus star. Tap for the level's goals (I)" data-i18n-title="hud.goalTitle"></button>
         </div>
       </div>
       <div class="hud-block center">
-        <div class="hud-label">BUDGET</div>
+        <div class="hud-label" data-i18n="hud.budget">BUDGET</div>
         <div class="budget"><b id="hud-spent">$0</b><span id="hud-money">/ $0</span></div>
-        <div class="meter" id="hud-meter"><i id="hud-bar"></i><em id="hud-target" title="Target"></em></div>
+        <div class="meter" id="hud-meter"><i id="hud-bar"></i><em id="hud-target" title="Target" data-i18n-title="hud.target"></em></div>
       </div>
       <div class="hud-block right">
-        <button id="btn-brief" class="icon-btn" data-act="brief" aria-label="Level goals" title="Goals and rules (I)">
+        <button id="btn-brief" class="icon-btn" data-act="brief" aria-label="Level goals" title="Goals and rules (I)" data-i18n-aria="hud.briefAria" data-i18n-title="hud.briefTitle">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5v.5" /></svg>
         </button>
-        <button id="btn-mute" class="icon-btn" aria-label="Toggle sound" title="Sound (M)">
+        <button id="btn-mute" class="icon-btn" aria-label="Toggle sound" title="Sound (M)" data-i18n-aria="hud.muteAria" data-i18n-title="hud.muteTitle">
           <svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z" /><path class="wave" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11" /></svg>
         </button>
-        <button id="btn-pause" class="icon-btn" aria-label="Pause" title="Pause (P / Esc)">
+        <button id="btn-pause" class="icon-btn" aria-label="Pause" title="Pause (P / Esc)" data-i18n-aria="hud.pauseAria" data-i18n-title="hud.pauseTitle">
           <svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" /></svg>
         </button>
       </div>
@@ -52,13 +58,13 @@
     <footer id="toolbar" class="hidden">
       <div class="mats" id="mats"></div>
       <div class="tools">
-        <button id="btn-undo" class="icon-btn" aria-label="Undo" title="Undo (Z)">
+        <button id="btn-undo" class="icon-btn" aria-label="Undo" title="Undo (Z)" data-i18n-aria="tool.undoAria" data-i18n-title="tool.undoTitle">
           <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-3" /></svg>
         </button>
-        <button id="btn-redo" class="icon-btn" aria-label="Redo" title="Redo (Y)">
+        <button id="btn-redo" class="icon-btn" aria-label="Redo" title="Redo (Y)" data-i18n-aria="tool.redoAria" data-i18n-title="tool.redoTitle">
           <svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5" /><path d="M20 9H10a6 6 0 0 0 0 12h3" /></svg>
         </button>
-        <button id="btn-clear" class="icon-btn" aria-label="Clear all" title="Clear (Shift+C)">
+        <button id="btn-clear" class="icon-btn" aria-label="Clear all" title="Clear (Shift+C)" data-i18n-aria="tool.clearAria" data-i18n-title="tool.clearTitle">
           <svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>
         </button>
       </div>
@@ -70,24 +76,24 @@
     <!-- Title -->
     <section id="scr-title" class="screen">
       <div class="title-card">
-        <div class="title-tag">PROJECT № 01 · STRUCTURAL DIVISION</div>
+        <div class="title-tag" data-i18n="title.tag">PROJECT № 01 · STRUCTURAL DIVISION</div>
         <h1 class="logo"><span>BRIDGE</span><span class="logo-b">BUILDER</span></h1>
-        <p class="subtitle">Draw the truss. Send the truck. Pray.</p>
+        <p class="subtitle" data-i18n="title.subtitle">Draw the truss. Send the truck. Pray.</p>
         <div class="career-card" id="title-career"></div>
         <div class="menu">
-          <button class="btn primary continue" data-act="continue"><span>CONTINUE <kbd>Enter</kbd></span><small id="continue-sub"></small></button>
-          <button class="btn" data-act="chapters">CHAPTERS <kbd>C</kbd></button>
-          <button class="btn" data-act="scores">LEADERBOARDS <kbd>H</kbd></button>
-          <button class="btn" data-act="workshop">LEVEL EDITOR <kbd>L</kbd></button>
+          <button class="btn primary continue" data-act="continue"><span data-i18n="title.continue">CONTINUE <kbd>Enter</kbd></span><small id="continue-sub"></small></button>
+          <button class="btn" data-act="chapters" data-i18n="title.chapters">CHAPTERS <kbd>C</kbd></button>
+          <button class="btn" data-act="scores" data-i18n="title.scores">LEADERBOARDS <kbd>H</kbd></button>
+          <button class="btn" data-act="workshop" data-i18n="title.workshop">LEVEL EDITOR <kbd>L</kbd></button>
         </div>
         <div class="engineer">
           <span id="title-engineer"></span>
-          <button class="link-btn" data-act="profiles">Switch engineer</button>
+          <button class="link-btn" data-act="profiles" data-i18n="title.switch">Switch engineer</button>
         </div>
-        <button class="link-btn title-unlock hidden" id="title-unlock" data-act="unlock">Unlock the full game</button>
+        <button class="link-btn title-unlock hidden" id="title-unlock" data-act="unlock" data-i18n="title.unlock">Unlock the full game</button>
       </div>
       <div class="controls-hint">
-        <span><b>Drag</b> from a bolt to build</span><span><b>Tap</b> a beam to remove</span><span class="key-only"><b>T</b> test</span><span class="key-only"><b>Arrows + Space</b> build by keyboard</span>
+        <span data-i18n="title.hintDrag"><b>Drag</b> from a bolt to build</span><span data-i18n="title.hintTap"><b>Tap</b> a beam to remove</span><span class="key-only" data-i18n="title.hintTest"><b>T</b> test</span><span class="key-only" data-i18n="title.hintKeys"><b>Arrows + Space</b> build by keyboard</span>
       </div>
       <p class="app-version" id="app-version"></p>
     </section>
@@ -95,11 +101,11 @@
     <!-- Profile picker -->
     <section id="scr-profile" class="screen hidden">
       <div class="panel">
-        <h2>Who's building?</h2>
-        <p class="muted">Your name keeps your unlocked levels, stars, designs and high scores.</p>
+        <h2 data-i18n="profile.title">Who's building?</h2>
+        <p class="muted" data-i18n="profile.note">Your name keeps your unlocked levels, stars, designs and high scores.</p>
         <form id="profile-form" class="name-form" autocomplete="off">
-          <input id="profile-name" maxlength="16" placeholder="Your name" spellcheck="false" enterkeyhint="go" />
-          <button class="btn primary" type="submit">GO</button>
+          <input id="profile-name" maxlength="16" placeholder="Your name" data-i18n-ph="profile.placeholder" spellcheck="false" enterkeyhint="go" />
+          <button class="btn primary" type="submit" data-i18n="profile.go">GO</button>
         </form>
         <p id="profile-error" class="form-error"></p>
         <div id="profile-list" class="profile-list"></div>
@@ -111,23 +117,23 @@
     <section id="scr-chapters" class="screen hidden">
       <div class="panel xwide">
         <div class="chs-head">
-          <h2>Chapters</h2>
-          <div class="seg" role="group" aria-label="View">
-            <button class="seg-btn" id="view-map" data-act="chapters-view" data-view="map" title="Every level on one road (V)">MAP</button>
-            <button class="seg-btn" id="view-book" data-act="chapters-view" data-view="book" title="Chapter cards, a page at a time (V)">BOOK</button>
+          <h2 data-i18n="chapters.title">Chapters</h2>
+          <div class="seg" role="group" aria-label="View" data-i18n-aria="chapters.viewAria">
+            <button class="seg-btn" id="view-map" data-act="chapters-view" data-view="map" title="Every level on one road (V)" data-i18n-title="chapters.mapTitle" data-i18n="chapters.map">MAP</button>
+            <button class="seg-btn" id="view-book" data-act="chapters-view" data-view="book" title="Chapter cards, a page at a time (V)" data-i18n-title="chapters.bookTitle" data-i18n="chapters.book">BOOK</button>
           </div>
         </div>
         <p class="muted" id="chapters-note"></p>
         <div id="chapter-map" class="chapter-map"></div>
         <div id="chapter-book" class="chapter-book hidden">
           <div class="book-page">
-            <button class="book-arrow" id="book-prev" data-act="book-page" data-dir="-1" aria-label="Previous page">‹</button>
+            <button class="book-arrow" id="book-prev" data-act="book-page" data-dir="-1" aria-label="Previous page" data-i18n-aria="chapters.prev">‹</button>
             <div id="chapter-grid" class="chapter-grid"></div>
-            <button class="book-arrow" id="book-next" data-act="book-page" data-dir="1" aria-label="Next page">›</button>
+            <button class="book-arrow" id="book-next" data-act="book-page" data-dir="1" aria-label="Next page" data-i18n-aria="chapters.next">›</button>
           </div>
           <div id="book-dots" class="book-dots"></div>
         </div>
-        <div class="row"><button class="btn" data-act="back">BACK <kbd>Esc</kbd></button></div>
+        <div class="row"><button class="btn" data-act="back" data-i18n="common.back">BACK <kbd>Esc</kbd></button></div>
       </div>
     </section>
 
@@ -141,8 +147,8 @@
         </div>
         <div id="level-grid" class="level-grid"></div>
         <div class="row">
-          <button class="btn" data-act="back">CHAPTERS <kbd>Esc</kbd></button>
-          <button class="btn" data-act="challenge" id="ch-challenge">CHALLENGE</button>
+          <button class="btn" data-act="back" data-i18n="chapter.back">CHAPTERS <kbd>Esc</kbd></button>
+          <button class="btn" data-act="challenge" id="ch-challenge" data-i18n="chapter.challenge">CHALLENGE</button>
         </div>
       </div>
     </section>
@@ -150,36 +156,36 @@
     <!-- Leaderboards -->
     <section id="scr-scores" class="screen hidden">
       <div class="panel wide">
-        <h2>Leaderboards</h2>
+        <h2 data-i18n="scores.title">Leaderboards</h2>
         <div class="tabs" role="tablist">
-          <button class="tab on" role="tab" data-act="board" data-board="career" id="tab-career">CAREER</button>
-          <button class="tab" role="tab" data-act="board" data-board="chapter" id="tab-chapter">CHAPTER</button>
-          <button class="tab" role="tab" data-act="board" data-board="levels" id="tab-levels">LEVELS</button>
-          <button class="tab" role="tab" data-act="board" data-board="challenge" id="tab-challenge">CHALLENGES</button>
+          <button class="tab on" role="tab" data-act="board" data-board="career" id="tab-career" data-i18n="scores.career">CAREER</button>
+          <button class="tab" role="tab" data-act="board" data-board="chapter" id="tab-chapter" data-i18n="scores.chapter">CHAPTER</button>
+          <button class="tab" role="tab" data-act="board" data-board="levels" id="tab-levels" data-i18n="scores.levels">LEVELS</button>
+          <button class="tab" role="tab" data-act="board" data-board="challenge" id="tab-challenge" data-i18n="scores.challenges">CHALLENGES</button>
         </div>
         <div class="pgs-bar hidden" id="pgs-bar">
           <span id="pgs-who">Google Play Games</span>
-          <button class="btn small" id="pgs-signin" data-act="pgs-signin">SIGN IN</button>
-          <button class="btn small hidden" id="pgs-boards" data-act="pgs-boards">LEADERBOARDS</button>
-          <button class="btn small hidden" id="pgs-achievements" data-act="pgs-achievements">ACHIEVEMENTS</button>
+          <button class="btn small" id="pgs-signin" data-act="pgs-signin" data-i18n="scores.signIn">SIGN IN</button>
+          <button class="btn small hidden" id="pgs-boards" data-act="pgs-boards" data-i18n="scores.boards">LEADERBOARDS</button>
+          <button class="btn small hidden" id="pgs-achievements" data-act="pgs-achievements" data-i18n="scores.achievements">ACHIEVEMENTS</button>
         </div>
         <div class="chapter-pills" id="board-chapters"></div>
         <p class="board-note" id="board-note"></p>
         <div class="board-scroll"><table class="scores"><tbody id="score-rows"></tbody></table></div>
-        <div class="row"><button class="btn" data-act="back">BACK <kbd>Esc</kbd></button></div>
+        <div class="row"><button class="btn" data-act="back" data-i18n="common.back">BACK <kbd>Esc</kbd></button></div>
       </div>
     </section>
 
     <!-- Level editor: your custom levels -->
     <section id="scr-workshop" class="screen hidden">
       <div class="panel wide">
-        <h2>Level editor</h2>
-        <p class="muted">Make your own levels: banks, bolts, piers, pylons, masts, concrete anchors, ship channels, vehicles, budget and goals. They're kept in this browser. Export one to share it, and import levels others made.</p>
+        <h2 data-i18n="workshop.title">Level editor</h2>
+        <p class="muted" data-i18n="workshop.note">Make your own levels: banks, bolts, piers, pylons, masts, concrete anchors, ship channels, vehicles, budget and goals. They're kept in this browser. Export one to share it, and import levels others made.</p>
         <div id="ws-list" class="ws-list"></div>
         <div class="row">
-          <button class="btn" data-act="back">BACK <kbd>Esc</kbd></button>
-          <button class="btn" data-act="ws-import">IMPORT <kbd>I</kbd></button>
-          <button class="btn primary" data-act="ws-new">NEW LEVEL <kbd>N</kbd></button>
+          <button class="btn" data-act="back" data-i18n="common.back">BACK <kbd>Esc</kbd></button>
+          <button class="btn" data-act="ws-import" data-i18n="workshop.import">IMPORT <kbd>I</kbd></button>
+          <button class="btn primary" data-act="ws-new" data-i18n="workshop.new">NEW LEVEL <kbd>N</kbd></button>
         </div>
       </div>
     </section>
@@ -187,32 +193,32 @@
     <!-- Level editor help: the tools, and how a drawbridge works -->
     <section id="scr-mkhelp" class="screen dim hidden">
       <div class="panel brief mk-help">
-        <h2>Level editor help</h2>
-        <h3>Tools</h3>
+        <h2 data-i18n="mkhelp.title">Level editor help</h2>
+        <h3 data-i18n="mkhelp.tools">Tools</h3>
         <ul class="brief-rules">
-          <li><b>Bolt <kbd>1</kbd></b> Tap to add an anchor the player can build from, or tap one to remove it. Taking the bolt off a pier leaves a seat. The near road end always stays.</li>
-          <li><b>Pier <kbd>2</kbd></b> Tap a bolt over the gap to stand a pier under it. Tap anywhere else in the gap for a <i>seat</i>: a pier with no bolt. A deck laid on it or across it rests there, carried without being held down.</li>
-          <li><b>Pylon <kbd>3</kbd></b> Tap where a pylon top should go: it rises from the water with a bolt on top.</li>
-          <li><b>Mast <kbd>4</kbd></b> Tap where a mast top should go: it rises from the water on a hinge, so its top tips freely. Players hold it up with backstays to concrete anchors, which you offer in Settings.</li>
-          <li><b>Channel <kbd>5</kbd></b> Tap open water to fill the stretch between the piers and banks either side, up to the road. Or drag to mark your own span, kept clear up to the height you start at. A dashed outline shows where it lands before you let go.</li>
-          <li><b>Erase <kbd>6</kbd></b> Tap a bolt, seat, pylon, mast or channel to remove it.</li>
+          <li data-i18n="mkhelp.bolt"><b>Bolt <kbd>1</kbd></b> Tap to add an anchor the player can build from, or tap one to remove it. Taking the bolt off a pier leaves a seat. The near road end always stays.</li>
+          <li data-i18n="mkhelp.pier"><b>Pier <kbd>2</kbd></b> Tap a bolt over the gap to stand a pier under it. Tap anywhere else in the gap for a <i>seat</i>: a pier with no bolt. A deck laid on it or across it rests there, carried without being held down.</li>
+          <li data-i18n="mkhelp.pylon"><b>Pylon <kbd>3</kbd></b> Tap where a pylon top should go: it rises from the water with a bolt on top.</li>
+          <li data-i18n="mkhelp.mast"><b>Mast <kbd>4</kbd></b> Tap where a mast top should go: it rises from the water on a hinge, so its top tips freely. Players hold it up with backstays to concrete anchors, which you offer in Settings.</li>
+          <li data-i18n="mkhelp.channel"><b>Channel <kbd>5</kbd></b> Tap open water to fill the stretch between the piers and banks either side, up to the road. Or drag to mark your own span, kept clear up to the height you start at. A dashed outline shows where it lands before you let go.</li>
+          <li data-i18n="mkhelp.erase"><b>Erase <kbd>6</kbd></b> Tap a bolt, seat, pylon, mast or channel to remove it.</li>
         </ul>
-        <p class="dock-note">A tap acts where your finger lifts, so you can slide it into place first, watching the magnifier. Two fingers pan and zoom without placing anything.</p>
-        <h3>Drawbridges and rams</h3>
+        <p class="dock-note" data-i18n="mkhelp.touch">A tap acts where your finger lifts, so you can slide it into place first, watching the magnifier. Two fingers pan and zoom without placing anything.</p>
+        <h3 data-i18n="mkhelp.drawbridges">Drawbridges and rams</h3>
         <ol class="mk-steps">
-          <li><b>Mark the channel.</b> The first channel brings a tall ship with a 3 m mast and offers rams. Change the mast under <i>Settings › Traffic</i>; a mast of 0 means no ship, just water to keep clear.</li>
-          <li><b>Give the ram something to push from.</b> Stand a pier beside the channel with its bolt below the road, say 3 m down.</li>
-          <li><b>Give the leaf somewhere to lift from.</b> One side of the channel is the hinge, a bolt at road height. The other side must let go: put a <i>seat</i> there, so the channel can sit anywhere in the gap, or free the far road end when the channel reaches the far bank. The header warns you while both sides are bolted.</li>
-          <li><b>Playtest it.</b> Run the road from the hinge over the channel to the seat, put a ram from the pier bolt straight up to the road, and stiffen the leaf with a truss. Build the span beyond the seat as its own piece: it shares the seat but stays put while the leaf lifts.</li>
+          <li data-i18n="mkhelp.step1"><b>Mark the channel.</b> The first channel brings a tall ship with a 3 m mast and offers rams. Change the mast under <i>Settings › Traffic</i>; a mast of 0 means no ship, just water to keep clear.</li>
+          <li data-i18n="mkhelp.step2"><b>Give the ram something to push from.</b> Stand a pier beside the channel with its bolt below the road, say 3 m down.</li>
+          <li data-i18n="mkhelp.step3"><b>Give the leaf somewhere to lift from.</b> One side of the channel is the hinge, a bolt at road height. The other side must let go: put a <i>seat</i> there, so the channel can sit anywhere in the gap, or free the far road end when the channel reaches the far bank. The header warns you while both sides are bolted.</li>
+          <li data-i18n="mkhelp.step4"><b>Playtest it.</b> Run the road from the hinge over the channel to the seat, put a ram from the pier bolt straight up to the road, and stiffen the leaf with a truss. Build the span beyond the seat as its own piece: it shares the seat but stays put while the leaf lifts.</li>
         </ol>
-        <p class="brief-tip">Rams extend by 75% while the bridge opens, hold while the ship passes, then pull it shut before traffic goes. Stand the ram square under the leaf, a few meters from the hinge: right under the hinge it runs out of reach and breaks something.</p>
-        <h3>Playtesting</h3>
+        <p class="brief-tip" data-i18n="mkhelp.rams">Rams extend by 75% while the bridge opens, hold while the ship passes, then pull it shut before traffic goes. Stand the ram square under the leaf, a few meters from the hinge: right under the hinge it runs out of reach and breaks something.</p>
+        <h3 data-i18n="mkhelp.playtesting">Playtesting</h3>
         <ul class="brief-rules">
-          <li><kbd>P</kbd> playtests the level. Playtests never count toward your career.</li>
-          <li>Pause, a collapse and a finished run each have <b>EDIT LEVEL</b> to bring you back here.</li>
+          <li data-i18n="mkhelp.play1"><kbd>P</kbd> playtests the level. Playtests never count toward your career.</li>
+          <li data-i18n="mkhelp.play2">Pause, a collapse and a finished run each have <b>EDIT LEVEL</b> to bring you back here.</li>
         </ul>
         <div class="row">
-          <button class="btn primary" data-act="mk-help-close">GOT IT <kbd>Esc</kbd></button>
+          <button class="btn primary" data-act="mk-help-close" data-i18n="mkhelp.close">GOT IT <kbd>Esc</kbd></button>
         </div>
       </div>
     </section>
@@ -225,12 +231,12 @@
         <textarea id="share-text" class="share-text" spellcheck="false" autocomplete="off"></textarea>
         <p id="share-error" class="form-error"></p>
         <div class="row">
-          <button class="btn" data-act="share-close">CLOSE <kbd>Esc</kbd></button>
-          <button class="btn share-export" data-act="share-download">DOWNLOAD .JSON</button>
-          <button class="btn primary share-export" data-act="share-copy">COPY</button>
-          <label class="btn share-import" for="share-file">OPEN FILE</label>
+          <button class="btn" data-act="share-close" data-i18n="share.close">CLOSE <kbd>Esc</kbd></button>
+          <button class="btn share-export" data-act="share-download" data-i18n="share.download">DOWNLOAD .JSON</button>
+          <button class="btn primary share-export" data-act="share-copy" data-i18n="share.copy">COPY</button>
+          <label class="btn share-import" for="share-file" data-i18n="share.open">OPEN FILE</label>
           <input type="file" id="share-file" accept=".json,application/json" class="hidden" />
-          <button class="btn primary share-import" data-act="share-import">IMPORT</button>
+          <button class="btn primary share-import" data-act="share-import" data-i18n="share.import">IMPORT</button>
         </div>
       </div>
     </section>
@@ -238,66 +244,66 @@
     <!-- Level editor: top bar, tools and settings while editing -->
     <header id="maker-bar" class="maker-bar hidden">
       <div class="mk-title">
-        <span class="mk-tag">LEVEL EDITOR</span>
+        <span class="mk-tag" data-i18n="mk.tag">LEVEL EDITOR</span>
         <b id="mk-title-name"></b>
         <span id="mk-issues" class="mk-issues"></span>
       </div>
       <div class="mk-actions">
-        <button class="btn small" data-act="mk-help" title="How the editor works, and how to build a drawbridge (H)">HELP <kbd>H</kbd></button>
-        <button class="btn small" data-act="mk-settings" id="mk-settings-btn">SETTINGS <kbd>S</kbd></button>
-        <button class="btn small" data-act="mk-export">EXPORT</button>
-        <button class="btn small" data-act="mk-done">DONE <kbd>Esc</kbd></button>
+        <button class="btn small" data-act="mk-help" title="How the editor works, and how to build a drawbridge (H)" data-i18n-title="mk.helpTitle" data-i18n="mk.help">HELP <kbd>H</kbd></button>
+        <button class="btn small" data-act="mk-settings" id="mk-settings-btn" data-i18n="mk.settings">SETTINGS <kbd>S</kbd></button>
+        <button class="btn small" data-act="mk-export" data-i18n="mk.export">EXPORT</button>
+        <button class="btn small" data-act="mk-done" data-i18n="mk.done">DONE <kbd>Esc</kbd></button>
       </div>
     </header>
 
     <footer id="maker-tools" class="maker-tools hidden">
       <div class="mk-toolset" id="mk-toolset"></div>
       <div class="tools">
-        <button class="icon-btn" data-act="mk-undo" aria-label="Undo" title="Undo (Z)">
+        <button class="icon-btn" data-act="mk-undo" aria-label="Undo" title="Undo (Z)" data-i18n-aria="tool.undoAria" data-i18n-title="tool.undoTitle">
           <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5" /><path d="M4 9h10a6 6 0 0 1 0 12h-3" /></svg>
         </button>
-        <button class="icon-btn" data-act="mk-redo" aria-label="Redo" title="Redo (Y)">
+        <button class="icon-btn" data-act="mk-redo" aria-label="Redo" title="Redo (Y)" data-i18n-aria="tool.redoAria" data-i18n-title="tool.redoTitle">
           <svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5" /><path d="M20 9H10a6 6 0 0 0 0 12h3" /></svg>
         </button>
       </div>
-      <button class="go-btn" data-act="mk-play"><span class="go-icon">▶</span><span class="go-label">PLAYTEST</span><kbd>P</kbd></button>
+      <button class="go-btn" data-act="mk-play"><span class="go-icon">▶</span><span class="go-label" data-i18n="mk.playtest">PLAYTEST</span><kbd>P</kbd></button>
     </footer>
 
-    <aside id="maker-panel" class="maker-panel hidden" aria-label="Level settings">
+    <aside id="maker-panel" class="maker-panel hidden" aria-label="Level settings" data-i18n-aria="mk.panelAria">
       <form id="mk-form" autocomplete="off">
-        <label>Name <input id="mk-name" maxlength="40" /></label>
-        <label>Tip shown to players <textarea id="mk-tip" rows="2" maxlength="200"></textarea></label>
+        <label><span data-i18n="mk.name">Name</span> <input id="mk-name" maxlength="40" /></label>
+        <label><span data-i18n="mk.tip">Tip shown to players</span> <textarea id="mk-tip" rows="2" maxlength="200"></textarea></label>
         <fieldset>
-          <legend>Gap</legend>
+          <legend data-i18n="mk.gap">Gap</legend>
           <div class="mk-row">
-            <label>Width, m <input id="mk-width" type="number" min="4" max="64" step="1" /></label>
-            <label>Far bank, m <input id="mk-right" type="number" min="-8" max="8" step="1" /></label>
-            <label>Water, m <input id="mk-water" type="number" min="-14" max="-1" step="0.5" /></label>
+            <label><span data-i18n="mk.width">Width, m</span> <input id="mk-width" type="number" min="4" max="64" step="1" /></label>
+            <label><span data-i18n="mk.right">Far bank, m</span> <input id="mk-right" type="number" min="-8" max="8" step="1" /></label>
+            <label><span data-i18n="mk.water">Water, m</span> <input id="mk-water" type="number" min="-14" max="-1" step="0.5" /></label>
           </div>
         </fieldset>
         <fieldset>
-          <legend>Traffic</legend>
+          <legend data-i18n="mk.traffic">Traffic</legend>
           <div class="mk-row">
-            <label>Vehicle <select id="mk-vehicle"></select></label>
-            <label>Then <select id="mk-convoy-1"></select></label>
-            <label>Then <select id="mk-convoy-2"></select></label>
-            <label>Then <select id="mk-convoy-3"></select></label>
-            <label>Then <select id="mk-convoy-4"></select></label>
+            <label><span data-i18n="mk.vehicle">Vehicle</span> <select id="mk-vehicle"></select></label>
+            <label><span data-i18n="mk.then">Then</span> <select id="mk-convoy-1"></select></label>
+            <label><span data-i18n="mk.then">Then</span> <select id="mk-convoy-2"></select></label>
+            <label><span data-i18n="mk.then">Then</span> <select id="mk-convoy-3"></select></label>
+            <label><span data-i18n="mk.then">Then</span> <select id="mk-convoy-4"></select></label>
           </div>
-          <label>Tall ship mast, m (0 for none; needs a channel) <input id="mk-mast" type="number" min="0" max="20" step="1" /></label>
+          <label><span data-i18n="mk.mast">Tall ship mast, m (0 for none; needs a channel)</span> <input id="mk-mast" type="number" min="0" max="20" step="1" /></label>
         </fieldset>
         <fieldset>
-          <legend>Materials</legend>
+          <legend data-i18n="mk.materials">Materials</legend>
           <div id="mk-mats" class="mk-mats"></div>
-          <label>Concrete anchors: how far back on each bank, m (0 for none) <input id="mk-blocks" type="number" min="0" max="12" step="1" /></label>
-          <label>Pile price, $ (0 for none; needs mud) <input id="mk-piles" type="number" min="0" max="100000" step="100" /></label>
-          <label>Flood: how far the river rises, m (0 for none) <input id="mk-flood" type="number" min="0" max="10" step="0.5" /></label>
+          <label><span data-i18n="mk.blocks">Concrete anchors: how far back on each bank, m (0 for none)</span> <input id="mk-blocks" type="number" min="0" max="12" step="1" /></label>
+          <label><span data-i18n="mk.piles">Pile price, $ (0 for none; needs mud)</span> <input id="mk-piles" type="number" min="0" max="100000" step="100" /></label>
+          <label><span data-i18n="mk.flood">Flood: how far the river rises, m (0 for none)</span> <input id="mk-flood" type="number" min="0" max="10" step="0.5" /></label>
         </fieldset>
         <fieldset>
-          <legend>Money and goals</legend>
+          <legend data-i18n="mk.money">Money and goals</legend>
           <div class="mk-tune">
-            <label>Difficulty <select id="mk-tune-level"></select></label>
-            <button type="button" class="btn small" id="mk-tune-btn" data-act="mk-tune" title="Search the level for a few seconds, then set the budget, star target and bonus goal for the difficulty">AUTO-TUNE</button>
+            <label><span data-i18n="mk.difficulty">Difficulty</span> <select id="mk-tune-level"></select></label>
+            <button type="button" class="btn small" id="mk-tune-btn" data-act="mk-tune" title="Search the level for a few seconds, then set the budget, star target and bonus goal for the difficulty" data-i18n-title="mk.tuneTitle">AUTO-TUNE</button>
           </div>
           <p id="mk-tune-note" class="mk-tune-note"></p>
           <div id="mk-tune-dev" class="mk-tune-dev hidden">
@@ -309,26 +315,26 @@
             </div>
           </div>
           <div class="mk-row">
-            <label>Budget, $ <input id="mk-money" type="number" min="100" step="100" /></label>
-            <label>Star target, $ <input id="mk-target" type="number" min="0" step="100" /></label>
-            <label>Toll per bolt, $ <input id="mk-toll" type="number" min="0" step="100" /></label>
+            <label><span data-i18n="mk.budget">Budget, $</span> <input id="mk-money" type="number" min="100" step="100" /></label>
+            <label><span data-i18n="mk.target">Star target, $</span> <input id="mk-target" type="number" min="0" step="100" /></label>
+            <label><span data-i18n="mk.toll">Toll per bolt, $</span> <input id="mk-toll" type="number" min="0" step="100" /></label>
           </div>
           <div class="mk-row">
-            <label>Bonus goal
+            <label><span data-i18n="mk.bonus">Bonus goal</span>
               <select id="mk-bonus-kind">
-                <option value="stress">Peak stress below %</option>
-                <option value="cost">Build for $ or less</option>
-                <option value="parts">Parts or fewer</option>
-                <option value="without">Build without</option>
+                <option value="stress" data-i18n="mk.bonusStress">Peak stress below %</option>
+                <option value="cost" data-i18n="mk.bonusCost">Build for $ or less</option>
+                <option value="parts" data-i18n="mk.bonusParts">Parts or fewer</option>
+                <option value="without" data-i18n="mk.bonusWithout">Build without</option>
               </select>
             </label>
-            <label id="mk-bonus-val-box">Value <input id="mk-bonus-val" type="number" min="1" step="1" /></label>
-            <label id="mk-bonus-mat-box">Material <select id="mk-bonus-mat"></select></label>
+            <label id="mk-bonus-val-box"><span data-i18n="mk.value">Value</span> <input id="mk-bonus-val" type="number" min="1" step="1" /></label>
+            <label id="mk-bonus-mat-box"><span data-i18n="mk.material">Material</span> <select id="mk-bonus-mat"></select></label>
           </div>
         </fieldset>
         <fieldset>
-          <legend>Scene</legend>
-          <label>Test-drive scene <select id="mk-theme"></select></label>
+          <legend data-i18n="mk.scene">Scene</legend>
+          <label><span data-i18n="mk.theme">Test-drive scene</span> <select id="mk-theme"></select></label>
         </fieldset>
       </form>
     </aside>
@@ -336,23 +342,23 @@
     <!-- Pause -->
     <section id="scr-pause" class="screen dim hidden">
       <div class="panel">
-        <h2>Paused</h2>
+        <h2 data-i18n="pause.title">Paused</h2>
         <div class="menu">
-          <button class="btn primary" data-act="resume">RESUME <kbd>Esc</kbd></button>
-          <button class="btn" data-act="retry" id="pause-retry">BACK TO DRAWING BOARD <kbd>R</kbd></button>
+          <button class="btn primary" data-act="resume" data-i18n="pause.resume">RESUME <kbd>Esc</kbd></button>
+          <button class="btn" data-act="retry" id="pause-retry" data-i18n="pause.retry">BACK TO DRAWING BOARD <kbd>R</kbd></button>
           <button class="btn" data-act="quit" id="pause-quit">QUIT TO MENU <kbd>Q</kbd></button>
           <button class="btn hidden" data-act="haptics" id="pause-haptics" aria-pressed="true">VIBRATION: ON</button>
         </div>
         <div class="keys">
-          <div><kbd>Drag</kbd> build from a node</div>
-          <div><kbd>Tap</kbd>/<kbd>Right-click</kbd> remove beam</div>
-          <div><kbd>1</kbd>–<kbd>9</kbd> material · <kbd>Q</kbd>/<kbd>E</kbd> cycle</div>
-          <div><kbd>Arrows</kbd> move cursor · <kbd>Space</kbd> place</div>
-          <div><kbd>X</kbd> delete at cursor</div>
-          <div><kbd>Z</kbd>/<kbd>Y</kbd> undo / redo</div>
-          <div><kbd>Wheel</kbd>/<kbd>Pinch</kbd> zoom · <kbd>F</kbd> refit</div>
-          <div><kbd>T</kbd> test · <kbd>M</kbd> mute</div>
-          <div><kbd>I</kbd> goals and rules</div>
+          <div data-i18n="keys.drag"><kbd>Drag</kbd> build from a node</div>
+          <div data-i18n="keys.remove"><kbd>Tap</kbd>/<kbd>Right-click</kbd> remove beam</div>
+          <div data-i18n="keys.material"><kbd>1</kbd>–<kbd>9</kbd> material · <kbd>Q</kbd>/<kbd>E</kbd> cycle</div>
+          <div data-i18n="keys.cursor"><kbd>Arrows</kbd> move cursor · <kbd>Space</kbd> place</div>
+          <div data-i18n="keys.delete"><kbd>X</kbd> delete at cursor</div>
+          <div data-i18n="keys.undo"><kbd>Z</kbd>/<kbd>Y</kbd> undo / redo</div>
+          <div data-i18n="keys.zoom"><kbd>Wheel</kbd>/<kbd>Pinch</kbd> zoom · <kbd>F</kbd> refit</div>
+          <div data-i18n="keys.test"><kbd>T</kbd> test · <kbd>M</kbd> mute</div>
+          <div data-i18n="keys.brief"><kbd>I</kbd> goals and rules</div>
         </div>
       </div>
     </section>
@@ -360,27 +366,27 @@
     <!-- The full game: the chapters past the free ones, bought once (Android app) -->
     <section id="scr-unlock" class="screen dim hidden">
       <div class="panel confirm unlock">
-        <div class="unlock-kicker">FULL GAME</div>
-        <h2>Keep building</h2>
+        <div class="unlock-kicker" data-i18n="unlock.kicker">FULL GAME</div>
+        <h2 data-i18n="unlock.title">Keep building</h2>
         <p class="unlock-what" id="unlock-what"></p>
         <p class="muted" id="unlock-note"></p>
         <div class="row">
-          <button class="btn" data-act="unlock-close">NOT NOW <kbd>Esc</kbd></button>
+          <button class="btn" data-act="unlock-close" data-i18n="unlock.later">NOT NOW <kbd>Esc</kbd></button>
           <button class="btn primary" data-act="buy" id="unlock-buy">UNLOCK <kbd>Enter</kbd></button>
         </div>
-        <button class="link-btn" data-act="restore" id="unlock-restore">Bought it already? Restore the purchase</button>
+        <button class="link-btn" data-act="restore" id="unlock-restore" data-i18n="unlock.restore">Bought it already? Restore the purchase</button>
       </div>
     </section>
 
     <!-- Leaving a chapter challenge part-way -->
     <section id="scr-confirm" class="screen dim hidden">
       <div class="panel confirm">
-        <h2>Quit the challenge?</h2>
+        <h2 data-i18n="confirm.title">Quit the challenge?</h2>
         <p class="confirm-bank" id="confirm-bank"></p>
         <p class="muted" id="confirm-note"></p>
         <div class="row">
-          <button class="btn" data-act="quit-confirm">QUIT <kbd>Q</kbd></button>
-          <button class="btn primary" data-act="quit-cancel">KEEP GOING <kbd>Esc</kbd></button>
+          <button class="btn" data-act="quit-confirm" data-i18n="confirm.quit">QUIT <kbd>Q</kbd></button>
+          <button class="btn primary" data-act="quit-cancel" data-i18n="confirm.keep">KEEP GOING <kbd>Esc</kbd></button>
         </div>
       </div>
     </section>
@@ -392,18 +398,18 @@
         <h2 id="brief-name"></h2>
         <p class="brief-traffic" id="brief-traffic"></p>
         <p class="brief-tip" id="brief-tip"></p>
-        <h3>Goals</h3>
+        <h3 data-i18n="brief.goals">Goals</h3>
         <ul class="brief-goals" id="brief-goals"></ul>
         <div id="brief-rules-box">
-          <h3>Rules</h3>
+          <h3 data-i18n="brief.rules">Rules</h3>
           <ul class="brief-rules" id="brief-rules"></ul>
         </div>
         <p class="brief-best" id="brief-best"></p>
         <p class="brief-hints" id="brief-hints"></p>
         <div class="row">
-          <button class="btn hidden" data-act="brief-example" id="brief-example">WATCH AN EXAMPLE <kbd>W</kbd></button>
+          <button class="btn hidden" data-act="brief-example" id="brief-example" data-i18n="brief.example">WATCH AN EXAMPLE <kbd>W</kbd></button>
           <button class="btn hidden" data-act="review-hint" id="brief-hint">HINT</button>
-          <button class="btn primary" data-act="brief-close">BUILD <kbd>Enter</kbd></button>
+          <button class="btn primary" data-act="brief-close" data-i18n="brief.build">BUILD <kbd>Enter</kbd></button>
         </div>
       </div>
     </section>
@@ -412,18 +418,18 @@
     <section id="scr-result" class="screen dim hidden">
       <div class="panel result">
         <div class="res-main">
-          <div class="banner good">BRIDGE HOLDS!</div>
-          <div class="stars" id="res-stars"><i></i><i></i><i></i><i class="bonus" title="Bonus goal"></i></div>
+          <div class="banner good" data-i18n="result.banner">BRIDGE HOLDS!</div>
+          <div class="stars" id="res-stars"><i></i><i></i><i></i><i class="bonus" title="Bonus goal" data-i18n-title="result.bonusTitle"></i></div>
           <div class="star-notes" id="res-notes"></div>
           <table class="breakdown"><tbody id="res-rows"></tbody></table>
         </div>
         <div class="res-side">
-          <div class="total"><span>LEVEL SCORE</span><b id="res-total">0</b></div>
+          <div class="total"><span data-i18n="result.total">LEVEL SCORE</span><b id="res-total">0</b></div>
           <div class="run-total" id="res-run"></div>
           <div class="res-review" id="res-review"></div>
-          <button class="link-btn stress-link" data-act="stress">See the stress graph <kbd>G</kbd></button>
+          <button class="link-btn stress-link" data-act="stress" data-i18n="result.stress">See the stress graph <kbd>G</kbd></button>
           <div class="row">
-            <button class="btn" data-act="retry" id="res-retry">IMPROVE <kbd>R</kbd></button>
+            <button class="btn" data-act="retry" id="res-retry" data-i18n="result.improve">IMPROVE <kbd>R</kbd></button>
             <button class="btn primary" data-act="next" id="res-next">NEXT <kbd>Enter</kbd></button>
           </div>
         </div>
@@ -437,11 +443,11 @@
         <p id="col-reason" class="reason"></p>
         <div id="col-lives" class="lives big"></div>
         <p id="col-note" class="muted"></p>
-        <button class="link-btn stress-link" data-act="stress">Where did it fail? Stress graph <kbd>G</kbd></button>
-        <button class="btn small clip-share hidden" data-act="share-clip" title="A video of the collapse, to share">SHARE THE CLIP <kbd>S</kbd></button>
+        <button class="link-btn stress-link" data-act="stress" data-i18n="collapse.stress">Where did it fail? Stress graph <kbd>G</kbd></button>
+        <button class="btn small clip-share hidden" data-act="share-clip" title="A video of the collapse, to share" data-i18n-title="collapse.clipTitle" data-i18n="collapse.clip">SHARE THE CLIP <kbd>S</kbd></button>
         <div class="row">
           <button class="btn" data-act="quit" id="col-quit">MENU <kbd>Esc</kbd></button>
-          <button class="btn primary" data-act="retry">RETRY <kbd>R</kbd></button>
+          <button class="btn primary" data-act="retry" data-i18n="collapse.retry">RETRY <kbd>R</kbd></button>
         </div>
       </div>
     </section>
@@ -450,27 +456,27 @@
     <section id="scr-over" class="screen dim hidden">
       <div class="panel">
         <div class="stamp" id="over-title">GAME OVER</div>
-        <div class="over-score"><span>CHALLENGE SCORE</span><b id="over-score">0</b></div>
+        <div class="over-score"><span data-i18n="over.score">CHALLENGE SCORE</span><b id="over-score">0</b></div>
         <p class="muted" id="over-sub"></p>
         <p id="over-rank" class="over-rank"></p>
         <table class="scores small"><tbody id="over-rows"></tbody></table>
-        <button class="btn small clip-share hidden" data-act="share-clip" title="A video of the collapse, to share">SHARE THE CLIP <kbd>S</kbd></button>
+        <button class="btn small clip-share hidden" data-act="share-clip" title="A video of the collapse, to share" data-i18n-title="collapse.clipTitle" data-i18n="collapse.clip">SHARE THE CLIP <kbd>S</kbd></button>
         <div class="row">
-          <button class="btn" data-act="quit" id="col-quit">MENU <kbd>Esc</kbd></button>
-          <button class="btn primary" data-act="restart">TRY AGAIN <kbd>R</kbd></button>
+          <button class="btn" data-act="quit" data-i18n="over.menu">MENU <kbd>Esc</kbd></button>
+          <button class="btn primary" data-act="restart" data-i18n="over.again">TRY AGAIN <kbd>R</kbd></button>
         </div>
       </div>
     </section>
 
     <!-- Stress graph after a test drive, docked under the frozen bridge -->
-    <section id="stress-dock" class="stress-dock hidden" aria-label="Stress graph">
+    <section id="stress-dock" class="stress-dock hidden" aria-label="Stress graph" data-i18n-aria="stress.aria">
       <div class="dock-head">
-        <b>STRESS OVER TIME</b>
+        <b data-i18n="stress.title">STRESS OVER TIME</b>
         <span id="stress-info" class="stress-info"></span>
-        <button class="btn small" data-act="stress-close">BACK <kbd>Esc</kbd></button>
+        <button class="btn small" data-act="stress-close" data-i18n="common.back">BACK <kbd>Esc</kbd></button>
       </div>
       <canvas id="stress-canvas"></canvas>
-      <p class="dock-note">The line is the busiest member at each moment. Tap the graph to find it on the bridge, or tap a member to follow its own load. Dashed lines: <span class="gold">75% for the safety star</span>, <span class="red">100% breaks</span>.</p>
+      <p class="dock-note" data-i18n="stress.note">The line is the busiest member at each moment. Tap the graph to find it on the bridge, or tap a member to follow its own load. Dashed lines: <span class="gold">75% for the safety star</span>, <span class="red">100% breaks</span>.</p>
     </section>
 
     <div id="fps" class="fps hidden"></div>

@@ -1,8 +1,14 @@
 import { Game } from './game/game';
+import { detectLocale, registerLocales, setLocale } from './i18n';
+import { applyStatic } from './i18n/dom';
 import { appVersion, bindApp, initPlatform, platform } from './platform';
-import { LocalStore, pickStore } from './storage';
+import { loadPrefs, LocalStore, pickStore } from './storage';
 
 await initPlatform();
+// The language the player picked, or the device's; its table loads before anything is shown.
+registerLocales(import.meta.glob('./i18n/locales/*.ts'));
+await setLocale(loadPrefs().lang ?? detectLocale());
+applyStatic();
 // Shows which build is installed, so testers can tell a Play update has arrived.
 const version = appVersion();
 if (version) document.getElementById('app-version')!.textContent = `v${version}`;

@@ -3,13 +3,13 @@ import { bonusStatus } from '../brief';
 import { chapterById, chapterComplete, chapterOf, CHAPTERS, chapterUnlocked, continueLevel, crossed, inFullGame, levelById, levelCode, levelUnlocked, sceneOf, type ChapterDef } from '../chapters';
 import { ClipRecorder } from '../clip';
 import { Design } from '../design';
-import { Editor, fitDesign, money, type AttachPick } from '../editor';
+import { Editor, fitDesign, isOverBudget, money, type AttachPick } from '../editor';
 import { efficiency, IDLE_LOAD } from '../efficiency';
 import { DebrisField, Particles, PK, Shake } from '../fx/particles';
 import { HapticFeel } from '../haptics';
 import { bankY, goalX, LEVELS, START_X, type LevelDef } from '../levels';
 import { isCustom, loadCustom, saveCustom, type CustomSave } from '../maker';
-import { MATERIALS, type MaterialId } from '../physics/materials';
+import { type MaterialId } from '../physics/materials';
 import { TestRun } from '../physics/testrun';
 import { billing, canVibrate, games, hasPaywall, shareVideo, vibrate, type BillingStatus } from '../platform';
 import { PlayGamesLink } from '../playgames';
@@ -22,6 +22,8 @@ import { bonusLabel, HINT_PENALTY } from '../scoring';
 import { SOLUTIONS } from '../solutions';
 import { blankProgress, loadPrefs, LocalStore, safeLocalStorage, savePrefs, type Prefs, type Profile, type Progress, type Store } from '../storage';
 import { BOOK_PAGE, recordDetail, Ui, type ChaptersView, type ScreenId } from '../ui/ui';
+import { fmt, t, tn } from '../i18n';
+import { chapterText, levelName, matInline } from '../i18n/data';
 import { Drive } from './drive';
 import { Input } from './input';
 import { Maker } from './maker';
@@ -38,12 +40,7 @@ const OWNED_KEY = 'bridgebuilder.fullgame';
 
 /** A grid point as players read it, e.g. "4, 2.5". */
 function gridText(p: [number, number]): string {
-  return `${+p[0].toFixed(2)}, ${+p[1].toFixed(2)}`;
-}
-
-/** A count and its noun, e.g. "1 part" or "3 parts". */
-function plural(k: number, what: string): string {
-  return `${k} ${what}${k === 1 ? '' : 's'}`;
+  return t('unit.point', { x: fmt.dec(p[0]), y: fmt.dec(p[1]) });
 }
 
 /** How far past each bank edge to frame the build view: a little ground, or the whole anchor strip. */
@@ -195,7 +192,7 @@ export class Game {
       this.data = await this.store.loadProgress(this.profile.id);
       if (this.state === 'title') this.enterTitle();
       else if (this.state === 'chapters') this.showChapters();
-      this.ui.showToast('Progress from Google Play Games is here.');
+      this.ui.showToast(t('toast.cloudLoaded'));
     } else await this.adoptPlayer();
   }
 
@@ -232,7 +229,7 @@ export class Game {
       this.enterTitle();
     } catch (e) {
       sfx.invalid();
-      this.ui.profileError(e instanceof Error ? e.message : 'Could not open that profile');
+      this.ui.profileError(e instanceof Error && e.message === 'Enter a name' ? t('toast.enterName') : t('toast.profileFail'));
     }
   }
 
@@ -245,7 +242,7 @@ export class Game {
   flushSave(): void {
     clearTimeout(this.saveTimer);
     if (!this.profile) return;
-    this.store.saveProgress(this.profile.id, this.data).catch(() => this.ui.showToast('Could not save progress.'));
+    this.store.saveProgress(this.profile.id, this.data).catch(() => this.ui.showToast(t('toast.saveFail')));
     this.playGames.progress(this.data.best);
     this.playGames.saveSoon();
   }
@@ -261,7 +258,7 @@ export class Game {
 
   /** Built-in levels take their topic's scene; custom levels pick one. */
   themeOf(level: LevelDef): Theme {
-    return isCustom(level.id) ? (THEMES.find((t) => t.id === level.theme) ?? THEMES[0]) : THEMES[sceneOf(level.id)];
+    return isCustom(level.id) ? (THEMES.find((th) => th.id === level.theme) ?? THEMES[0]) : THEMES[sceneOf(level.id)];
   }
 
   // ───────────────────────────── Flow ─────────────────────────────
@@ -376,7 +373,7 @@ export class Game {
     }
     if (!chapterComplete(ch, this.data.best)) {
       sfx.invalid();
-      this.ui.showToast(`Finish every level in ${ch.name} to unlock its challenge.`);
+      this.ui.showToast(t('toast.challengeLocked', { name: chapterText(ch, 'name') }));
       return;
     }
     this.mode = 'challenge';
@@ -419,9 +416,9 @@ export class Game {
     sfx.whoosh();
     const fit = this.editor.fitted;
     if (fit) {
-      const parts = fit.removed ? `${fit.removed} part${fit.removed === 1 ? '' : 's'} of your saved bridge no longer fit this level and came off.` : '';
-      const over = fit.over ? `Your saved bridge is ${money(fit.over)} over the budget now: trim it before testing.` : '';
-      this.ui.showToast(`${fit.removed ? 'This level has changed. ' : ''}${[parts, over].filter(Boolean).join(' ')}`, 7000);
+      const parts = fit.removed ? `${t('toast.levelChanged')} ${tn('toast.fitRemoved', fit.removed)}` : '';
+      const over = fit.over ? t('toast.fitOver', { money: money(fit.over) }) : '';
+      this.ui.showToast([parts, over].filter(Boolean).join(' '), 7000);
     }
   }
 
@@ -462,7 +459,7 @@ export class Game {
     const i = nextHint(all, this.editor.design, shown);
     if (i < 0) {
       sfx.invalid();
-      this.ui.showToast('Your bridge already has every member a hint could show.');
+      this.ui.showToast(t('toast.hintNone'));
       return;
     }
     (this.data.hints ??= {})[this.level.id] = [...shown, i];
@@ -470,7 +467,7 @@ export class Game {
     this.closeBrief();
     sfx.select();
     const [a, b, mat] = all[i];
-    this.ui.showToast(`Hint ${shown.length + 1}: ${MATERIALS[mat].name.toLowerCase()} from (${gridText(a)}) to (${gridText(b)}), dashed on the blueprint. −${HINT_PENALTY} points on scores here.`, 5000);
+    this.ui.showToast(t('toast.hint', { n: shown.length + 1, mat: matInline(mat), a: gridText(a), b: gridText(b), penalty: HINT_PENALTY }), 5000);
   }
 
   /** The engineer's notes on a bridge that crossed: its cost against the best known design, and material it barely used. */
@@ -481,12 +478,15 @@ export class Game {
     if (best) out.push(costReview(d.cost(), best.cost(), money));
     const broke = new Set(run.world.links.filter((l) => l.bridge && l.broken && l.member >= 0).map((l) => l.member)).size;
     const tore = run.world.blocks.filter((b) => b.loose).length;
-    if (broke || tore) out.push(`${[broke && `${plural(broke, 'part')} broke`, tore && `${plural(tore, 'concrete anchor')} tore loose`].filter(Boolean).join(' and ')} on the way, but the deck held.`);
+    if (broke || tore) {
+      const what = [broke ? tn('review.broke', broke) : '', tore ? tn('review.tore', tore) : ''].filter(Boolean);
+      out.push(t('review.brokeHeld', { what: fmt.list(what) }));
+    }
     const e = efficiency(level, d, run.peakPull, run.peakPush);
-    if (e.idleParts) out.push(`${plural(e.idleParts, 'part')} never carried over ${Math.round(IDLE_LOAD * 100)}% of ${e.idleParts === 1 ? 'its' : 'their'} strength (${money(e.idleCost)}). Some may only brace others.`);
-    if (e.woodParts) out.push(`${plural(e.woodParts, 'steel part')} could be wood and save ${money(e.woodSaving)}.`);
-    if (!e.idleParts && !e.woodParts) out.push('Every part pulls its weight.');
-    else if (canRetry) out.push('IMPROVE marks them on the blueprint.');
+    if (e.idleParts) out.push(tn('review.idle', e.idleParts, { pct: fmt.pct(IDLE_LOAD), money: money(e.idleCost) }));
+    if (e.woodParts) out.push(tn('review.wood', e.woodParts, { money: money(e.woodSaving) }));
+    if (!e.idleParts && !e.woodParts) out.push(t('review.allWork'));
+    else if (canRetry) out.push(t('review.marks'));
     this.marks = e.idle.length || e.toWood.length ? { idle: e.idle, wood: e.toWood, revision: this.editor!.revision, told: false } : null;
     return out;
   }
@@ -521,7 +521,7 @@ export class Game {
     this.debris.clear();
     this.drive.resetWheels(this.run);
     this.ui.setTesting(true);
-    this.ui.showToast(shown?.note ?? 'EXAMPLE: one way across. Your own blueprint is kept. Press T to go back.', 120000);
+    this.ui.showToast(shown?.note ?? t('toast.example'), 120000);
     this.fitCamera(false);
     sfx.whoosh();
     sfx.engineStart(this.drive.engineBase());
@@ -539,7 +539,7 @@ export class Game {
     this.editor.cancel();
     if (this.editor.left() < 0) {
       sfx.invalid();
-      this.ui.showToast(`Over budget by ${money(-this.editor.left())}. Remove some parts, then test.`, 3200);
+      this.ui.showToast(t('toast.overBudget', { money: money(-this.editor.left()) }), 3200);
       return;
     }
     this.persistDesign();
@@ -563,7 +563,7 @@ export class Game {
     this.hoverMember = this.hoverNode = -1;
     this.fitCamera(false);
     // Recorded in case it comes down: the collapse card offers the clip.
-    this.clip?.start(this.canvas, `${this.codeOf(this.level)} ${this.level.name.toUpperCase()}`);
+    this.clip?.start(this.canvas, `${this.codeOf(this.level)} ${fmt.upper(levelName(this.level))}`);
     this.ui.setClip(false);
     sfx.whoosh();
     sfx.engineStart(this.drive.engineBase());
@@ -573,7 +573,7 @@ export class Game {
     if (!this.editor) return;
     if (this.example) {
       this.example = false;
-      this.ui.showToast(this.level.hintSolves ? 'Your turn. The ghost shows that bridge: trace it, then TEST.' : 'Your turn.', 4000);
+      this.ui.showToast(t(this.level.hintSolves ? 'toast.yourTurnGhost' : 'toast.yourTurn'), 4000);
     }
     this.stress.hideGraph();
     this.drive.stopEngine();
@@ -591,8 +591,8 @@ export class Game {
     this.fitCamera(false);
     if (this.marks && !this.marks.told && this.marks.revision === this.editor.revision) {
       this.marks.told = true;
-      const what = [this.marks.idle.length ? 'white: barely loaded' : '', this.marks.wood.length ? 'wood-colored: steel that wood could carry' : ''].filter(Boolean).join(' · ');
-      this.ui.showToast(`Marked on the blueprint (${what}). The marks go when you change the bridge.`, 4500);
+      const what = [this.marks.idle.length ? t('marks.idle') : '', this.marks.wood.length ? t('marks.wood') : ''].filter(Boolean).join(' · ');
+      this.ui.showToast(t('toast.marks', { what }), 4500);
     }
   }
 
@@ -630,7 +630,7 @@ export class Game {
     try {
       await shareVideo(name, clip);
     } catch {
-      this.ui.showToast('Could not share the clip.');
+      this.ui.showToast(t('toast.clipFail'));
     }
   }
 
@@ -639,7 +639,7 @@ export class Game {
     if (await this.playGames.signIn()) await this.afterCloudSave();
     if (this.state === 'scores') this.ui.playGames(this.playGames.status);
     if (this.playGames.signedIn) this.playGames.progress(this.data.best);
-    else this.ui.showToast('Not signed in to Google Play Games.');
+    else this.ui.showToast(t('toast.notSignedIn'));
   }
 
   toggleMute(): void {
@@ -683,7 +683,7 @@ export class Game {
       }
       if (s.owned && announce) {
         sfx.star(2);
-        this.ui.showToast('Full game unlocked. Every chapter is open.', 3200);
+        this.ui.showToast(t('toast.unlocked'), 3200);
       }
       if (this.state === 'chapters') this.showChapters();
       else if (this.state === 'title') this.enterTitle();
@@ -715,11 +715,11 @@ export class Game {
       const s = await (restore ? billing.restore() : billing.buy());
       this.setBilling(s, true);
       if (s.owned) this.closeOffer();
-      else if (s.pending) this.ui.showToast('The purchase is waiting on payment. Every chapter opens as soon as it goes through.', 4500);
-      else if (restore) this.ui.showToast('No purchase of the full game on this Google account.', 3200);
+      else if (s.pending) this.ui.showToast(t('toast.pending'), 4500);
+      else if (restore) this.ui.showToast(t('toast.noPurchase'), 3200);
     } catch (e) {
       sfx.invalid();
-      this.ui.showToast(e instanceof Error && e.message ? e.message : 'Google Play could not be reached.', 3200);
+      this.ui.showToast(e instanceof Error && e.message ? e.message : t('toast.playUnreachable'), 3200);
     }
   }
 
@@ -733,7 +733,7 @@ export class Game {
       this.enterChapter(ch);
     } else {
       sfx.invalid();
-      this.ui.showToast(`Finish ${CHAPTERS[CHAPTERS.indexOf(ch) - 1].name} to open ${ch.name}.`);
+      this.ui.showToast(t('toast.chapterLocked', { prev: chapterText(CHAPTERS[CHAPTERS.indexOf(ch) - 1], 'name'), name: chapterText(ch, 'name') }));
     }
   }
 
@@ -880,11 +880,11 @@ export class Game {
         break;
       case 'pgs-boards':
         sfx.ui();
-        void games.showLeaderboards().catch(() => this.ui.showToast('Google Play Games could not be reached.'));
+        void games.showLeaderboards().catch(() => this.ui.showToast(t('toast.gamesUnreachable')));
         break;
       case 'pgs-achievements':
         sfx.ui();
-        void games.showAchievements().catch(() => this.ui.showToast('Google Play Games could not be reached.'));
+        void games.showAchievements().catch(() => this.ui.showToast(t('toast.gamesUnreachable')));
         break;
       default:
         this.maker.makerAct(a, el);
@@ -904,14 +904,14 @@ export class Game {
       // Fitted to the level as it is now, in case it changed since the record was set.
       design = fitDesign(levelById(id), Design.deserialize(saved)).design;
     } catch {
-      this.ui.showToast('That record bridge is not available.');
+      this.ui.showToast(t('toast.recordMissing'));
       return;
     }
     if (this.state !== 'scores') return;
     const r = (await this.store.levelScores().catch(() => [])).find((x) => x.level === id && x.name === name);
     this.playLevel(id);
     const detail = r ? recordDetail(r) : '';
-    this.startExample({ design, note: `RECORD: ${name}’s bridge${detail ? `, ${detail}` : ''}. Your own blueprint is kept. Press T to go back.` });
+    this.startExample({ design, note: detail ? t('toast.recordDetail', { name, detail }) : t('toast.record', { name }) });
   }
 
   /** Asks before ending a challenge run, over whichever screen asked to quit. */
@@ -964,21 +964,21 @@ export class Game {
         if (index < count - 1) return;
         if (count > 1) sfx.place(mat);
         const left = this.editor!.left();
-        if (left < this.level.money * 0.15) this.float((ax + bx) / 2, (ay + by) / 2 + 0.6, `${money(left)} left`, left < this.level.money * 0.05 ? PAL.bolt : PAL.gold, 15);
+        if (left < this.level.money * 0.15) this.float((ax + bx) / 2, (ay + by) / 2 + 0.6, t('float.left', { money: money(left) }), left < this.level.money * 0.05 ? PAL.bolt : PAL.gold, 15);
         this.refreshHud();
       },
       remove: (ax: number, ay: number, bx: number, by: number, mat: MaterialId) => {
         sfx.remove();
         for (let i = 0; i <= 6; i++) {
-          const t = i / 6;
-          this.particles.burst(PK.Chalk, ax + (bx - ax) * t, ay + (by - ay) * t, 2, 1.5, 0.4, 0.06, [MATERIAL_CHALK[mat]]);
+          const f = i / 6;
+          this.particles.burst(PK.Chalk, ax + (bx - ax) * f, ay + (by - ay) * f, 2, 1.5, 0.4, 0.06, [MATERIAL_CHALK[mat]]);
         }
         this.refreshHud();
       },
       invalid: (reason: string, x: number, y: number) => {
         sfx.invalid();
         this.float(x, y + 0.5, reason, PAL.bolt, 15);
-        if (reason.startsWith('Over budget') && this.editor) this.ui.shakeMat(this.editor.mat);
+        if (isOverBudget(reason) && this.editor) this.ui.shakeMat(this.editor.mat);
       },
     };
   }
@@ -990,14 +990,14 @@ export class Game {
     this.ui.setBudget(ed.spent(), this.level.money, this.level.target);
     if (this.mode === 'challenge') {
       this.ui.setLives(this.lives, MAX_LIVES);
-      this.ui.setScore(`CHALLENGE ${this.runScore.toLocaleString('en-US')}`);
+      this.ui.setScore(t('hud.challenge', { score: this.runScore }));
     } else {
       this.ui.hudLives.innerHTML = '';
       const best = this.data.best[this.level.id];
-      this.ui.setScore(best ? `BEST ${best.score.toLocaleString('en-US')} ${'★'.repeat(best.stars)}${'☆'.repeat(3 - best.stars)}` : 'NOT YET CROSSED');
+      this.ui.setScore(best ? t('hud.best', { score: best.score, stars: `${'★'.repeat(best.stars)}${'☆'.repeat(3 - best.stars)}` }) : t('hud.notCrossed'));
     }
     const bonus = this.level.bonus;
-    this.ui.setGoal(bonusLabel(bonus), !!this.data.best[this.level.id]?.bonus && this.mode === 'play', bonusStatus(this.level, ed.design), bonus.kind === 'parts' && ed.design.members.length ? `${ed.design.parts()} now` : '');
+    this.ui.setGoal(bonusLabel(bonus), !!this.data.best[this.level.id]?.bonus && this.mode === 'play', bonusStatus(this.level, ed.design), bonus.kind === 'parts' && ed.design.members.length ? t('hud.partsNow', { n: ed.design.parts() }) : '');
     // Nudge first-timers toward the test button once the hint is built, on levels whose ghost
     // is a whole bridge; other ghosts just show off a new mechanic.
     const hint = this.level.hintSolves ? this.level.hint : undefined;

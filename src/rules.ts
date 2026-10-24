@@ -2,13 +2,14 @@ import { segmentHitsRect, segmentsOverlap, type Design } from './design';
 import { bankY, mudAt, type LevelDef } from './levels';
 import { BLOCK, MATERIALS, type MaterialId } from './physics/materials';
 import { cellPoly, cellProblem, flatProblem, hitsCells, rings } from './masonry';
+import { t } from './i18n';
 
 /** A new joint this close to an existing one is refused as too fiddly. */
 export const MIN_JOINT_GAP = 0.2;
 
 /** Highest point anyone may build to on a level. */
 export function topY(level: LevelDef): number {
-  const towers = [...(level.towers ?? []), ...(level.masts ?? [])].map((t) => t[2] + 1.5);
+  const towers = [...(level.towers ?? []), ...(level.masts ?? [])].map((tw) => tw[2] + 1.5);
   // Anchored levels leave room to raise a tower a cable's reach above the banks.
   const blocks = level.blocks ? [Math.max(0, bankY(level)) + MATERIALS.cable.maxLen] : [];
   return Math.max(4, ...level.anchors.map((a) => a[1] + 3), ...towers, ...blocks, level.ceiling ?? 0);
@@ -69,7 +70,7 @@ export function blockSpots(level: LevelDef): [number, number][] {
 export function cableBolt(level: LevelDef, x: number, y: number): boolean {
   if (!level.blocks) return false;
   const at = (p: readonly number[]) => Math.abs(p[0] - x) < 1e-6 && Math.abs(p[1] - y) < 1e-6;
-  return level.anchors.some(at) && !(level.towers ?? []).some((t) => at([t[0], t[2]]));
+  return level.anchors.some(at) && !(level.towers ?? []).some((tw) => at([tw[0], tw[2]]));
 }
 
 /**
@@ -160,7 +161,7 @@ export function designProblems(level: LevelDef, d: Design, opts: { budget?: bool
     // Against the level, the members, and the blocks after it, so each pair is checked once.
     const earlier = new Set(d.cells.flatMap((_, j) => (j <= k ? [j] : [])));
     const why = cellProblem(level, d, cellPoly(d, c), earlier);
-    if (why && why !== 'Too close to a joint') out.push(`${tag}: ${why.toLowerCase()}`);
+    if (why && why !== t('edit.tooClose')) out.push(`${tag}: ${why.toLowerCase()}`);
   });
   for (const r of rings(d)) {
     const intra = r.intra.map((i): [number, number] => [nodes[i].x, nodes[i].y]);

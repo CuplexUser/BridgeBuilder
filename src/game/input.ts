@@ -5,6 +5,7 @@ import type { SagHandle } from '../editor';
 import { PAL } from '../render/palette';
 import { offeredInOrder } from '../ui/ui';
 import { sideRoom, type Board, type Game } from './game';
+import { t } from '../i18n';
 
 interface PointerInfo {
   x: number;
@@ -74,14 +75,14 @@ export class Input {
     // Level editor settings: text fields update live, everything else on change.
     this.game.maker.makerUi.onChange((live) => {
       if (live && this.game.customLevel) {
-        this.game.customLevel.name = (document.getElementById('mk-name') as HTMLInputElement).value.trim().slice(0, 40) || 'My level';
+        this.game.customLevel.name = (document.getElementById('mk-name') as HTMLInputElement).value.trim().slice(0, 40) || t('mkr.defaultName');
         this.game.maker.makerUi.setStatus(this.game.customLevel, this.game.maker.tuneFound(this.game.customLevel));
       }
       this.game.maker.makerChange((l) => this.game.maker.makerUi.read(l));
     });
     document.getElementById('share-file')!.addEventListener('change', (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) void file.text().then((t) => this.game.maker.makerUi.setShareText(t));
+      if (file) void file.text().then((text) => this.game.maker.makerUi.setShareText(text));
       (e.target as HTMLInputElement).value = '';
     });
     // Scrubbing the stress graph picks the busiest member at that moment.
@@ -644,7 +645,7 @@ export class Input {
           sfx.tick();
         } else {
           sfx.invalid();
-          this.game.float(ed.cursorX, ed.cursorY + 0.5, 'Start on a node', PAL.bolt, 14);
+          this.game.float(ed.cursorX, ed.cursorY + 0.5, t('edit.startOnNode'), PAL.bolt, 14);
         }
       }
       return;

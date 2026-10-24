@@ -8,6 +8,7 @@ import { Preferences } from '@capacitor/preferences';
 import { Share } from '@capacitor/share';
 import type { AppHooks, Pulse } from './platform';
 import type { KeyValue } from './storage';
+import { t } from './i18n';
 
 export interface GamesStatus {
   /** The build carries a Play Games project id and the device has Play services. */
@@ -138,9 +139,9 @@ export async function createNative(): Promise<Native> {
       });
       void App.addListener('pause', () => game.suspend());
     },
-    exportFile: (name, text) => shareCached(name, text, Encoding.UTF8, 'Save or send the level'),
+    exportFile: (name, text) => shareCached(name, text, Encoding.UTF8, t('share.levelTitle')),
     async shareVideo(name, video) {
-      await shareCached(name, await base64(video), undefined, 'Share the collapse');
+      await shareCached(name, await base64(video), undefined, t('share.clipTitle'));
     },
     copyText: (text) => Clipboard.write({ string: text }),
     vibrate(pulse) {

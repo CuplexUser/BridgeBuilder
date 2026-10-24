@@ -3,6 +3,7 @@ import type { LevelDef } from './levels';
 import { curveY, mainPathIn } from './maincable';
 import { MATERIALS, type MaterialId } from './physics/materials';
 import { crossesChannel, MIN_JOINT_GAP, pointAllowed, topY } from './rules';
+import { t } from './i18n';
 
 /** How thick an arch ring is, m: its top (the extrados) runs this far above its underside (the intrados). */
 export const RING = 1;
@@ -58,9 +59,9 @@ export function segmentHitsPoly(a: GridPt, b: GridPt, poly: GridPt[]): boolean {
       if (num < 0) return false;
       continue;
     }
-    const t = -num / den;
-    if (den > 0) t0 = Math.max(t0, t);
-    else t1 = Math.min(t1, t);
+    const at = -num / den;
+    if (den > 0) t0 = Math.max(t0, at);
+    else t1 = Math.min(t1, at);
     if (t0 >= t1) return false;
   }
   return t1 - t0 > 1e-6;
@@ -110,16 +111,16 @@ export function inRock(level: LevelDef, x: number, y: number, e = 1e-6): boolean
 function polyProblem(level: LevelDef, poly: GridPt[]): string {
   const xs = poly.map((p) => p[0]);
   const ys = poly.map((p) => p[1]);
-  if (Math.max(...ys) > topY(level) + 1e-9) return 'Out of bounds';
-  if (Math.min(...ys) < level.waterY + 0.5 - 1e-9) return 'Out of bounds';
+  if (Math.max(...ys) > topY(level) + 1e-9) return t('edit.outOfBounds');
+  if (Math.min(...ys) < level.waterY + 0.5 - 1e-9) return t('edit.outOfBounds');
   // Sample the inside: the middle and points near each corner.
   const cx = xs.reduce((a, b) => a + b, 0) / xs.length;
   const cy = ys.reduce((a, b) => a + b, 0) / ys.length;
   const probes: GridPt[] = [[cx, cy], ...poly.map(([x, y]): GridPt => [x + (cx - x) * 0.1, y + (cy - y) * 0.1])];
-  if (probes.some(([x, y]) => inRock(level, x, y))) return 'Into the rock';
+  if (probes.some(([x, y]) => inRock(level, x, y))) return t('edit.intoRock');
   for (let i = 0; i < poly.length; i++) {
     const [a, b] = [poly[i], poly[(i + 1) % poly.length]];
-    if (crossesChannel(level, a[0], a[1], b[0], b[1])) return 'Keep the channel clear';
+    if (crossesChannel(level, a[0], a[1], b[0], b[1])) return t('edit.channel');
   }
   // Rock edges crossing the inside: a bank corner poking into it.
   const W = level.width;
@@ -131,8 +132,8 @@ function polyProblem(level: LevelDef, poly: GridPt[]): string {
   ];
   for (const [px, py] of level.piers) rocks.push([[px - 0.45, py], [px + 0.45, py]], [[px - 0.45, py], [px - 0.45, level.waterY]], [[px + 0.45, py], [px + 0.45, level.waterY]]);
   for (const [x0, x1, top] of level.rocks ?? []) rocks.push([[x0, top], [x1, top]], [[x0, top], [x0, level.waterY - 30]], [[x1, top], [x1, level.waterY - 30]]);
-  if (rocks.some(([a, b]) => segmentHitsPoly(a, b, poly))) return 'Into the rock';
-  for (const [x0, x1, top] of level.channels ?? []) if (polysOverlap(poly, [[x0, level.waterY - 10], [x1, level.waterY - 10], [x1, top], [x0, top]])) return 'Keep the channel clear';
+  if (rocks.some(([a, b]) => segmentHitsPoly(a, b, poly))) return t('edit.intoRock');
+  for (const [x0, x1, top] of level.channels ?? []) if (polysOverlap(poly, [[x0, level.waterY - 10], [x1, level.waterY - 10], [x1, top], [x0, top]])) return t('edit.channel');
   return '';
 }
 
@@ -144,18 +145,18 @@ export function cellProblem(level: LevelDef, d: Design, poly: GridPt[], ignore: 
   const where = polyProblem(level, poly);
   if (where) return where;
   for (const [k, c] of d.cells.entries()) {
-    if (!ignore.has(k) && polysOverlap(poly, cellPoly(d, c))) return 'Overlaps a block';
+    if (!ignore.has(k) && polysOverlap(poly, cellPoly(d, c))) return t('edit.overlapsBlock');
   }
   for (const m of d.members) {
     // A tendon threads through blocks.
     if (MATERIALS[m.mat].prestress) continue;
     const a = d.nodes[m.a];
     const b = d.nodes[m.b];
-    if (segmentHitsPoly([a.x, a.y], [b.x, b.y], poly)) return MATERIALS[m.mat].drivable ? 'On the road' : 'A beam runs through it';
+    if (segmentHitsPoly([a.x, a.y], [b.x, b.y], poly)) return MATERIALS[m.mat].drivable ? t('edit.onRoad') : t('edit.beamThrough');
   }
   for (const [x, y] of poly) {
     if (d.findNode(x, y) >= 0) continue;
-    if (d.nodes.some((n) => Math.hypot(n.x - x, n.y - y) < MIN_JOINT_GAP)) return 'Too close to a joint';
+    if (d.nodes.some((n) => Math.hypot(n.x - x, n.y - y) < MIN_JOINT_GAP)) return t('edit.tooClose');
   }
   return '';
 }
@@ -168,11 +169,11 @@ export function cellProblem(level: LevelDef, d: Design, poly: GridPt[], ignore: 
 export function blockSupported(level: LevelDef, d: Design, x: number, y: number): boolean {
   const e = 0.02;
   // Points just outside each side, near both ends and in the middle.
-  const probes: GridPt[] = [0.1, 0.5, 0.9].flatMap((t): GridPt[] => [
-    [x + t, y - e],
-    [x + t, y + 1 + e],
-    [x - e, y + t],
-    [x + 1 + e, y + t],
+  const probes: GridPt[] = [0.1, 0.5, 0.9].flatMap((f): GridPt[] => [
+    [x + f, y - e],
+    [x + f, y + 1 + e],
+    [x - e, y + f],
+    [x + 1 + e, y + f],
   ]);
   return probes.some(([px, py]) => inRock(level, px, py) || cellUnder(d, px, py) >= 0);
 }
@@ -226,10 +227,10 @@ export function ringRise(d: Design, a: GridPt, b: GridPt, level?: LevelDef): num
   const deck = new Set(d.members.flatMap((m) => (MATERIALS[m.mat].drivable ? [m.a, m.b] : [])));
   for (const i of deck) {
     const n = d.nodes[i];
-    const t = (n.x - p[0]) / span;
-    const chord = p[1] + (r[1] - p[1]) * t;
+    const f = (n.x - p[0]) / span;
+    const chord = p[1] + (r[1] - p[1]) * f;
     // The ring's underside rises 4t(1 - t) of its rise above the chord at t.
-    if (t >= 0.25 && t <= 0.75 && n.y > chord) rise = Math.min(rise, (n.y - chord - RING - 0.5) / (4 * t * (1 - t)));
+    if (f >= 0.25 && f <= 0.75 && n.y > chord) rise = Math.min(rise, (n.y - chord - RING - 0.5) / (4 * f * (1 - f)));
   }
   if (level) rise = Math.min(rise, topY(level) - (p[1] + r[1]) / 2 - RING);
   return Math.max(0.5, Math.round(rise * 10) / 10);
@@ -260,7 +261,7 @@ export function riseOf(intra: GridPt[]): number {
 export function flatProblem(intra: GridPt[]): string {
   const least = Math.ceil(MIN_RISE * Math.abs(intra[intra.length - 1][0] - intra[0][0]) * 10 - 1e-6) / 10;
   // The ring's joints sit on the grid, so its rise may come out a hair under the one asked for.
-  return riseOf(intra) < least - 0.05 ? `Too flat: rise ${least} m at least` : '';
+  return riseOf(intra) < least - 0.05 ? t('edit.tooFlat', { v: least }) : '';
 }
 
 /** What stops a ring going into the design along this path, or ''. */
@@ -269,7 +270,7 @@ export function ringProblem(level: LevelDef, d: Design, path: RingPath): string 
   if (flat) return flat;
   for (const [x, y] of [...path.intra.slice(1, -1), ...path.extra]) {
     if (d.findNode(x, y) >= 0) continue;
-    if (!pointAllowed(level, x, y)) return 'Out of bounds';
+    if (!pointAllowed(level, x, y)) return t('edit.outOfBounds');
   }
   for (const poly of ringPolys(path)) {
     const why = cellProblem(level, d, poly);

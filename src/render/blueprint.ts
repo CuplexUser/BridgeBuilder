@@ -12,6 +12,8 @@ import type { SceneView } from './renderer';
 import { curveControls, footings, inside, MEMBER_WIDTH, mudPoly, overhangPoly, PILE_DEPTH, rockPoly, runControls, TAU, type Ctl, type Pt2 } from './shapes';
 import { ScenePart, type Stage } from './stage';
 import type { Structures } from './structures';
+import { fmt, t } from '../i18n';
+import { matInline, matName } from '../i18n/data';
 
 /** Traces a smooth curve through screen points. */
 function smoothPath(ctx: CanvasRenderingContext2D, pts: Pt2[]): void {
@@ -22,9 +24,9 @@ function smoothPath(ctx: CanvasRenderingContext2D, pts: Pt2[]): void {
   }
 }
 
-function easeOutBack(t: number): number {
+function easeOutBack(x: number): number {
   const c = 1.9;
-  const u = t - 1;
+  const u = x - 1;
   return 1 + (c + 1) * u * u * u + c * u * u;
 }
 
@@ -152,7 +154,7 @@ export class Blueprint extends ScenePart {
         ctx.stroke();
       }
     }
-    for (const t of L.towers ?? []) this.structures.tower(t[0], t[1], t[2], true);
+    for (const tw of L.towers ?? []) this.structures.tower(tw[0], tw[1], tw[2], true);
     for (const [x, base, top] of L.masts ?? []) this.structures.mast(x, base, x, top, true);
     // Where concrete anchors may go: a dashed strip in each bank, with a tick at every free spot.
     if (L.blocks) {
@@ -216,7 +218,7 @@ export class Blueprint extends ScenePart {
       ctx.lineTo(x + dir * 8, dimY + 3.5);
       ctx.fill();
     }
-    const label = `${W.toFixed(1)} m`;
+    const label = t('unit.m', { v: fmt.fixed(W, 1) });
     ctx.font = '600 12px "JetBrains Mono", monospace';
     const tw = ctx.measureText(label).width + 12;
     ctx.fillStyle = PAL.paper;
@@ -318,13 +320,19 @@ export class Blueprint extends ScenePart {
         ctx.stroke();
         const segs = drag.path.length - 1;
         const len = Math.hypot(drag.tx - f.x, drag.ty - f.y);
-        const grade = MATERIALS[ed.mat].drivable && drag.tx !== f.x && drag.ty !== f.y ? ` · ${Math.round((Math.abs(drag.ty - f.y) / Math.abs(drag.tx - f.x)) * 100)}% grade` : '';
+        const grade =
+          MATERIALS[ed.mat].drivable && drag.tx !== f.x && drag.ty !== f.y ? ` · ${t('drag.grade', { pct: fmt.pct(Math.abs(drag.ty - f.y) / Math.abs(drag.tx - f.x)) })}` : '';
         const span = Math.abs(drag.tx - f.x);
+        const arch = MATERIALS[ed.mat].arch;
         const what = curvedDrag
-          ? `${MATERIALS[ed.mat].name} · ${span.toFixed(1)} m across · ${(MATERIALS[ed.mat].arch ? ringRise(ed.design, [f.x, f.y], [drag.tx, drag.ty], ed.level) : defaultSag([f.x, f.y], [drag.tx, drag.ty], ed.mat)).toFixed(1)} m ${MATERIALS[ed.mat].arch ? 'rise' : 'sag'}`
+          ? t(arch ? 'drag.rise' : 'drag.sag', {
+              mat: matName(ed.mat),
+              span: fmt.fixed(span, 1),
+              v: fmt.fixed(arch ? ringRise(ed.design, [f.x, f.y], [drag.tx, drag.ty], ed.level) : defaultSag([f.x, f.y], [drag.tx, drag.ty], ed.mat), 1),
+            })
           : segs > 1
-            ? `${segs} × ${MATERIALS[ed.mat].name.toLowerCase()} · ${len.toFixed(1)} m`
-            : `${len.toFixed(1)} m`;
+            ? `${segs} × ${matInline(ed.mat)} · ${t('unit.m', { v: fmt.fixed(len, 1) })}`
+            : t('unit.m', { v: fmt.fixed(len, 1) });
         const reason = drag.valid ? '' : ` · ${drag.reason}`;
         this.label(what + grade + reason, (fx + tx) / 2, (fy + ty) / 2 - 16, drag.valid ? PAL.chalk : PAL.invalid);
         if (drag.toSplit >= 0) this.splitMark(tx, ty, col);
@@ -367,7 +375,7 @@ export class Blueprint extends ScenePart {
         if (n.block) this.structures.block(n.x, n.y, n.y, 0, true);
         this.bolt(x, y, hover ? 1.25 : 1, v.time, !drag && v.showHint);
         // Paid anchors show their price until they're in use.
-        if (n.price && !ed.design.members.some((m) => m.a === i || m.b === i)) this.label(`$${n.price.toLocaleString('en-US')}`, x, y - 16, PAL.gold);
+        if (n.price && !ed.design.members.some((m) => m.a === i || m.b === i)) this.label(fmt.money(n.price), x, y - 16, PAL.gold);
       } else {
         const r = Math.max(3.5, 0.13 * cam.scale) * (hover ? 1.5 : 1);
         ctx.fillStyle = PAL.paper;
@@ -584,7 +592,7 @@ export class Blueprint extends ScenePart {
         ctx.globalAlpha = 1;
         const reason = active!.valid ? '' : ` · ${active!.reason}`;
         const arch = MATERIALS[h.mat].arch;
-        this.label(`${arch ? 'Rise' : 'Sag'} ${Math.abs(chord - h.y).toFixed(1)} m${reason}`, x, y + (arch ? -30 : 30), col);
+        this.label(`${t(arch ? 'drag.riseHandle' : 'drag.sagHandle', { v: fmt.fixed(Math.abs(chord - h.y), 1) })}${reason}`, x, y + (arch ? -30 : 30), col);
       }
       const r = (on ? 10 : 8) + (on ? 0 : Math.sin(time * 3) * 0.8);
       ctx.fillStyle = 'rgba(16,24,40,0.75)';
@@ -681,12 +689,12 @@ export class Blueprint extends ScenePart {
     if (firstTodo >= 0 && !ed.drag) {
       let [a, b] = hint[firstTodo];
       if (d.findNode(a[0], a[1]) < 0) [a, b] = [b, a];
-      const t = (v.time * 0.8) % 1.4;
-      const u = Math.min(1, t);
+      const phase = (v.time * 0.8) % 1.4;
+      const u = Math.min(1, phase);
       const e = u * u * (3 - 2 * u);
       const x = cam.sx(a[0] + (b[0] - a[0]) * e);
       const y = cam.sy(a[1] + (b[1] - a[1]) * e);
-      ctx.fillStyle = `rgba(255,255,255,${t > 1 ? 1.4 - t : 0.9})`;
+      ctx.fillStyle = `rgba(255,255,255,${phase > 1 ? 1.4 - phase : 0.9})`;
       ctx.beginPath();
       ctx.arc(x, y, 9, 0, TAU);
       ctx.fill();

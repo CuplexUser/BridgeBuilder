@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Design, type GridPt } from '../src/design';
-import { Editor, fitDesign, UNSUPPORTED } from '../src/editor';
+import { Editor, fitDesign } from '../src/editor';
+import { t } from '../src/i18n';
 import type { LevelDef } from '../src/levels';
 import { addBlock, blockPoly, cellProblem, flatProblem, layRing, RING, ringPath, ringPolys, ringRise, rings, riseOf } from '../src/masonry';
 import { buildWorld } from '../src/physics/build';
@@ -262,14 +263,14 @@ describe('concrete blocks', () => {
     const ed = new Editor(SHELVES, noop);
     ed.setMaterial('masonry');
     // Out in the open, on a shelf, against the canyon wall above it, and on a pier of blocks.
-    expect(ed.blockProblem(8, -3)).toBe(UNSUPPORTED);
+    expect(ed.blockProblem(8, -3)).toBe(t('edit.unsupported'));
     expect(ed.blockProblem(1, -5)).toBe('');
     expect(ed.blockProblem(0, -3)).toBe('');
     addBlock(ed.design, 1, -5);
     expect(ed.blockProblem(1, -4)).toBe('');
     expect(ed.blockProblem(2, -5)).toBe('');
     // Touching only at a corner isn't enough.
-    expect(ed.blockProblem(2, -4)).toBe(UNSUPPORTED);
+    expect(ed.blockProblem(2, -4)).toBe(t('edit.unsupported'));
     // A stroke from out in the open doesn't start, so it can pan.
     expect(ed.beginPaint(8.5, -2.5, true)).toBe(false);
     expect(ed.paint).toBe(null);

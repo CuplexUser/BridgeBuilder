@@ -4,9 +4,12 @@ import { money } from '../editor';
 import type { LevelDef } from '../levels';
 import { MATERIAL_ORDER, MATERIALS, type MaterialId } from '../physics/materials';
 import { levelBrief, traffic } from '../brief';
-import { bonusLabel, GOAL_SCORE, type LevelScore } from '../scoring';
+import { bonusLabel, GOAL_SCORE, SAFE_STRESS, type LevelScore } from '../scoring';
 import { platform, uiProfile, type BillingStatus, type GamesStatus } from '../platform';
 import type { BoardRow, HighScore, LevelRecord, Profile, Progress } from '../storage';
+import { fmt, t, tn } from '../i18n';
+import { chapterText, levelName, matName, matShort } from '../i18n/data';
+import { escapeHtml } from '../i18n/dom';
 
 export type ScreenId = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'workshop' | 'share' | 'mkhelp' | 'pause' | 'confirm' | 'unlock' | 'brief' | 'result' | 'collapse' | 'over';
 type BoardTab = 'career' | 'chapter' | 'levels' | 'challenge';
@@ -64,9 +67,7 @@ export class Ui {
       const b = document.createElement('button');
       b.className = 'mat';
       b.dataset.mat = id;
-      b.innerHTML = `<kbd>${(i + 1) % 10}</kbd><i></i><span class="full">${MATERIALS[id].name}</span><span class="short">${MATERIALS[id].short}</span><b>0</b><em hidden></em>`;
-      if (MATERIALS[id].drivable) b.title = `${MATERIALS[id].name}: carries up to ${MATERIALS[id].rating} t`;
-      else if (MATERIALS[id].stroke) b.title = `Hydraulic ram: extends by ${Math.round(MATERIALS[id].stroke * 100)}% to open a drawbridge`;
+      b.innerHTML = `<kbd>${(i + 1) % 10}</kbd><i></i><span class="full"></span><span class="short"></span><b>0</b><em hidden></em>`;
       mats.appendChild(b);
       this.matBtns.set(id, b);
     });
@@ -77,9 +78,20 @@ export class Ui {
       b.dataset.act = 'board-chapter';
       b.dataset.chapter = String(c.id);
       b.textContent = String(chapterNumber(c));
-      b.title = c.name;
       pills.appendChild(b);
     }
+    this.relabel();
+  }
+
+  /** Text this class wrote once at start, written again in the current language. */
+  relabel(): void {
+    for (const [id, b] of this.matBtns) {
+      b.querySelector('.full')!.textContent = matName(id);
+      b.querySelector('.short')!.textContent = matShort(id);
+      if (MATERIALS[id].drivable) b.title = t('mat.deckTitle', { name: matName(id), t: MATERIALS[id].rating ?? 0 });
+      else if (MATERIALS[id].stroke) b.title = t('mat.ramTitle', { pct: fmt.pct(MATERIALS[id].stroke) });
+    }
+    for (const p of $('board-chapters').querySelectorAll<HTMLElement>('.pill')) p.title = chapterText(chapterById(Number(p.dataset.chapter))!, 'name');
   }
 
   onAction(handler: (act: string, el: HTMLElement) => void): void {
@@ -106,7 +118,7 @@ export class Ui {
 
   setLevel(level: LevelDef, code: string): void {
     this.hudNum.textContent = code;
-    this.hudName.textContent = level.name;
+    this.hudName.textContent = levelName(level);
   }
 
   setLives(lives: number, max: number, anim: 'none' | 'lost' | 'gained' = 'none', el = this.hudLives): void {
@@ -161,7 +173,7 @@ export class Ui {
   brief(level: LevelDef, code: string, best: Best | undefined, example: boolean, hints: { shown: number; penalty: number; left: boolean } | null = null): void {
     const b = levelBrief(level);
     $('brief-code').textContent = code;
-    $('brief-name').textContent = level.name;
+    $('brief-name').textContent = levelName(level);
     $('brief-traffic').textContent = b.traffic;
     $('brief-tip').textContent = b.tip;
     $('brief-goals').innerHTML = b.goals
@@ -173,13 +185,15 @@ export class Ui {
     $('brief-rules').innerHTML = b.rules.map((r) => `<li>${escapeHtml(r)}</li>`).join('');
     $('brief-rules-box').classList.toggle('hidden', b.rules.length === 0);
     $('brief-example').classList.toggle('hidden', !example);
-    $('brief-best').textContent = best ? `Your best: ${best.score.toLocaleString('en-US')} · ${starText(best.stars)}${best.bonus ? ` ${BONUS_MARK}` : ''}${best.cost === undefined ? '' : ` · ${money(best.cost)}`}` : '';
+    $('brief-best').textContent = best
+      ? t('brief.best', { details: [fmt.num(best.score), `${starText(best.stars)}${best.bonus ? ` ${BONUS_MARK}` : ''}`, ...(best.cost === undefined ? [] : [money(best.cost)])].join(' · ') })
+      : '';
     // The engineer's hints: each shows one member of the best known design, for points off every score here.
     const hint = $('brief-hint');
     hint.classList.toggle('hidden', !hints?.left);
-    hint.innerHTML = `HINT <small>−${hints?.penalty ?? 0}</small>`;
-    hint.title = `Shows one member of the best known design. Every score on this level loses ${hints?.penalty ?? 0} points per hint.`;
-    $('brief-hints').textContent = hints?.shown ? `Hints taken here: ${hints.shown} (−${(hints.shown * hints.penalty).toLocaleString('en-US')} points on each score).` : '';
+    hint.innerHTML = `${t('brief.hint')} <small>−${fmt.num(hints?.penalty ?? 0)}</small>`;
+    hint.title = tn('brief.hintTitle', hints?.penalty ?? 0);
+    $('brief-hints').textContent = hints?.shown ? t('brief.hintsTaken', { n: hints.shown, points: hints.shown * hints.penalty }) : '';
     this.show('brief');
   }
 
@@ -188,11 +202,11 @@ export class Ui {
     for (const [id, b] of this.matBtns) {
       const price = MATERIALS[id].price;
       const parts = partsLeft(id);
-      b.querySelector('b')!.textContent = `$${price}/m`;
+      b.querySelector('b')!.textContent = t('mat.price', { price: money(price) });
       // Parts left on a level with a limit, as a badge opposite the key.
       const badge = b.querySelector('em')!;
       badge.hidden = parts === null;
-      badge.textContent = `${parts ?? ''} left`;
+      badge.textContent = parts === null ? '' : tn('mat.left', parts);
       b.classList.toggle('active', id === active);
       // Materials a level doesn't offer are hidden so the toolbar stays compact on phones. The
       // keys number the ones it does, in toolbar order.
@@ -225,7 +239,7 @@ export class Ui {
 
   setTesting(testing: boolean): void {
     this.testBtn.classList.toggle('stop', testing);
-    this.testBtn.querySelector('.go-label')!.textContent = testing ? 'EDIT' : 'TEST';
+    this.testBtn.querySelector('.go-label')!.textContent = t(testing ? 'tool.edit' : 'tool.test');
     this.testBtn.querySelector('.go-icon')!.textContent = testing ? '✎' : '▶';
     for (const b of this.matBtns.values()) b.disabled = testing;
     this.undoBtn.disabled = this.redoBtn.disabled = this.clearBtn.disabled = testing;
@@ -251,18 +265,19 @@ export class Ui {
 
   /** Title screen: who is playing, their career so far, and where Continue will go. */
   title(profile: Profile | null, save: Progress, next: number): void {
-    const t = totals(save.best);
+    const sum = totals(save.best);
     const allStars = CHAPTERS.reduce((n, c) => n + c.levels.length * 3, 0);
     const open = CHAPTERS.filter((c) => chapterUnlocked(c, save.best)).length;
     $('title-career').innerHTML = profile
-      ? `<div><span>CAREER</span><b>${t.score.toLocaleString('en-US')}</b></div>` +
-        `<div><span>STARS</span><b>★ ${t.stars}<small>/${allStars}</small></b></div>` +
-        `<div><span>BONUS</span><b class="bonus">${BONUS_MARK} ${t.bonus}<small>/${allStars / 3}</small></b></div>` +
-        `<div><span>CHAPTERS</span><b>${open}<small>/${CHAPTERS.length}</small></b></div>`
+      ? `<div><span>${t('title.career')}</span><b>${fmt.num(sum.score)}</b></div>` +
+        `<div><span>${t('title.stars')}</span><b>★ ${sum.stars}<small>/${allStars}</small></b></div>` +
+        `<div><span>${t('title.bonus')}</span><b class="bonus">${BONUS_MARK} ${sum.bonus}<small>/${allStars / 3}</small></b></div>` +
+        `<div><span>${t('title.chapterCount')}</span><b>${open}<small>/${CHAPTERS.length}</small></b></div>`
       : '';
     const level = levelById(next);
-    $('continue-sub').textContent = crossed(save.best, next) ? `Replay ${levelCode(next)} · ${level.name}` : `${levelCode(next)} · ${level.name}`;
-    $('title-engineer').innerHTML = profile ? `Engineer: <b>${escapeHtml(profile.name)}</b>` : '';
+    const name = levelName(level);
+    $('continue-sub').textContent = crossed(save.best, next) ? t('title.replay', { code: levelCode(next), name }) : `${levelCode(next)} · ${name}`;
+    $('title-engineer').innerHTML = profile ? t('title.engineer', { name: escapeHtml(profile.name) }) : '';
     $('title-unlock').classList.toggle('hidden', !CHAPTERS.some((c) => this.forSale(c)));
   }
 
@@ -274,18 +289,11 @@ export class Ui {
       b.className = 'profile-card';
       b.dataset.act = 'profile';
       b.dataset.name = p.name;
-      b.innerHTML = `<b>${escapeHtml(p.name)}</b><span>★ ${p.stars} · ${p.score.toLocaleString('en-US')}</span>`;
+      b.innerHTML = `<b>${escapeHtml(p.name)}</b><span>★ ${p.stars} · ${fmt.num(p.score)}</span>`;
       box.appendChild(b);
     }
     $('profile-error').textContent = error;
-    $('storage-note').textContent =
-      storage === 'server'
-        ? 'Saved to the SQLite database on the server.'
-        : platform === 'android'
-          ? 'Saved on this phone, and to Google Play Games when you are signed in.'
-          : platform === 'desktop'
-            ? 'Saved on this computer.'
-            : 'Saved in this browser (local storage).';
+    $('storage-note').textContent = t(storage === 'server' ? 'storage.server' : platform === 'android' ? 'storage.android' : platform === 'desktop' ? 'storage.desktop' : 'storage.web');
     this.show('profile');
     const input = $<HTMLInputElement>('profile-name');
     input.value = '';
@@ -304,10 +312,7 @@ export class Ui {
     }
     $('chapter-map').classList.toggle('hidden', view !== 'map');
     $('chapter-book').classList.toggle('hidden', view !== 'book');
-    $('chapters-note').textContent =
-      view === 'map'
-        ? 'Every level on one road. Cross each to open the next; a finished chapter unlocks its challenge (⚑).'
-        : `Cross every level in a chapter to open the next. A finished chapter unlocks its challenge: all its levels in a row, from scratch, with three lives.`;
+    $('chapters-note').textContent = t(view === 'map' ? 'chapters.noteMap' : 'chapters.noteBook');
     if (view === 'map') this.chapterMap(best);
     else this.chapterBook(best, page);
   }
@@ -327,13 +332,13 @@ export class Ui {
     </svg>`;
     for (const h of layout.heads) {
       const c = chapterById(h.chapter)!;
-      const t = totals(best, c.levels);
+      const sum = totals(best, c.levels);
       const sale = this.forSale(c);
       const open = chapterUnlocked(c, best) && !sale;
       html += `<div class="map-head${open ? '' : sale ? ' for-sale' : ' locked'}" style="top:${h.y}px">
-        <button class="map-title" data-act="chapter" data-chapter="${c.id}" ${open ? '' : 'aria-disabled="true"'}><span class="ch-no">CH ${chapterNumber(c)}</span> ${c.name}</button>
-        ${sale ? '<button class="full-tag" data-act="unlock" title="Part of the full game">FULL GAME</button>' : `<span class="map-stars">★ ${t.stars}/${c.levels.length * 3}</span>`}
-        ${chapterComplete(c, best) && !sale ? `<button class="btn small ch-challenge" data-act="challenge" data-chapter="${c.id}" aria-label="Challenge" title="Challenge: all ${c.levels.length} levels in a row, three lives">⚑</button>` : ''}
+        <button class="map-title" data-act="chapter" data-chapter="${c.id}" ${open ? '' : 'aria-disabled="true"'}><span class="ch-no">${t('map.ch', { n: chapterNumber(c) })}</span> ${escapeHtml(chapterText(c, 'name'))}</button>
+        ${sale ? `<button class="full-tag" data-act="unlock" title="${t('map.fullTitle')}">${t('map.fullGame')}</button>` : `<span class="map-stars">★ ${sum.stars}/${c.levels.length * 3}</span>`}
+        ${chapterComplete(c, best) && !sale ? challengeButton(c) : ''}
       </div>`;
     }
     for (const n of layout.nodes) {
@@ -342,9 +347,10 @@ export class Ui {
       const sale = this.forSale(chapterById(n.chapter)!);
       const open = levelUnlocked(n.id, best) && !sale;
       const state = sale ? 'locked' : b && b.stars > 0 ? 'done' : n.id === next ? 'next' : open ? 'open' : 'locked';
-      html += `<button class="map-node ${state}" style="left:${n.x}px;top:${n.y}px" data-act="pick" data-level="${n.id}" title="${levelCode(n.id)} · ${open ? escapeHtml(l.name) : sale ? 'Full game' : 'Locked'}" ${open ? '' : 'aria-disabled="true"'}>
+      const name = escapeHtml(levelName(l));
+      html += `<button class="map-node ${state}" style="left:${n.x}px;top:${n.y}px" data-act="pick" data-level="${n.id}" title="${levelCode(n.id)} · ${open ? name : t(sale ? 'map.full' : 'map.locked')}" ${open ? '' : 'aria-disabled="true"'}>
         <span class="dot">${state === 'locked' ? '🔒' : levelCode(n.id)}</span>
-        <span class="name">${open ? escapeHtml(l.name) : ''}</span>
+        <span class="name">${open ? name : ''}</span>
         <span class="stars">${open ? starText(b?.stars ?? 0) : ''}${b?.bonus ? `<em>${BONUS_MARK}</em>` : ''}</span>
       </button>`;
     }
@@ -367,36 +373,42 @@ export class Ui {
       const sale = this.forSale(c);
       const open = chapterUnlocked(c, best) && !sale;
       const done = chapterComplete(c, best);
-      const t = totals(best, c.levels);
+      const sum = totals(best, c.levels);
       const card = document.createElement('div');
       card.className = `ch-card${open ? '' : ' locked'}${done ? ' done' : ''}`;
       const prev = CHAPTERS[CHAPTERS.indexOf(c) - 1];
       card.innerHTML = `
         <button class="ch-open" data-act="chapter" data-chapter="${c.id}" ${open ? '' : 'aria-disabled="true"'}>
-          <span class="ch-no"><span class="long">CHAPTER</span><span class="short">CH</span> ${chapterNumber(c)}</span>
-          <span class="ch-name">${c.name}</span>
+          <span class="ch-no"><span class="long">${t('book.chapter')}</span><span class="short">${t('book.ch')}</span> ${chapterNumber(c)}</span>
+          <span class="ch-name">${escapeHtml(chapterText(c, 'name'))}</span>
           ${pips(c.difficulty)}
-          <span class="ch-blurb">${c.blurb}</span>
-          <span class="ch-effort">${c.effort}</span>
-          <span class="ch-progress"><span class="bar"><i style="width:${(t.crossed / c.levels.length) * 100}%"></i></span><span class="long">★ ${t.stars}/${c.levels.length * 3} · ${BONUS_MARK} ${t.bonus}/${c.levels.length}</span><span class="short">★ ${t.stars}/${c.levels.length * 3}</span></span>
-          ${open ? '' : sale ? '<span class="ch-lock sale"><span class="long">🔒 Full game: tap to unlock</span><span class="short">🔒 Full game</span></span>' : `<span class="ch-lock"><span class="long">🔒 Finish ${prev.name} to unlock</span><span class="short">🔒 Locked</span></span>`}
+          <span class="ch-blurb">${escapeHtml(chapterText(c, 'blurb'))}</span>
+          <span class="ch-effort">${escapeHtml(chapterText(c, 'effort'))}</span>
+          <span class="ch-progress"><span class="bar"><i style="width:${(sum.crossed / c.levels.length) * 100}%"></i></span><span class="long">★ ${sum.stars}/${c.levels.length * 3} · ${BONUS_MARK} ${sum.bonus}/${c.levels.length}</span><span class="short">★ ${sum.stars}/${c.levels.length * 3}</span></span>
+          ${
+            open
+              ? ''
+              : sale
+                ? `<span class="ch-lock sale"><span class="long">${t('book.saleLong')}</span><span class="short">${t('book.saleShort')}</span></span>`
+                : `<span class="ch-lock"><span class="long">${t('book.lockLong', { name: escapeHtml(chapterText(prev, 'name')) })}</span><span class="short">${t('book.lockShort')}</span></span>`
+          }
         </button>
-        ${done && !sale ? `<button class="btn small ch-challenge" data-act="challenge" data-chapter="${c.id}" aria-label="Challenge" title="Challenge: all ${c.levels.length} levels in a row, three lives">⚑</button>` : ''}`;
+        ${done && !sale ? challengeButton(c) : ''}`;
       grid.appendChild(card);
     }
     $<HTMLButtonElement>('book-prev').disabled = page <= 0;
     $<HTMLButtonElement>('book-next').disabled = page >= pages - 1;
     $('book-dots').innerHTML = Array.from(
       { length: pages },
-      (_, i) => `<button class="book-dot${i === page ? ' on' : ''}" data-act="book-page" data-page="${i}" aria-label="Page ${i + 1} of ${pages}"></button>`,
+      (_, i) => `<button class="book-dot${i === page ? ' on' : ''}" data-act="book-page" data-page="${i}" aria-label="${t('book.page', { n: i + 1, of: pages })}"></button>`,
     ).join('');
   }
 
   /** One chapter's levels, in play order. */
   chapter(c: ChapterDef, best: BestMap): void {
-    $('ch-kicker').innerHTML = `CHAPTER ${chapterNumber(c)} ${pips(c.difficulty)}`;
-    $('ch-title').textContent = c.name;
-    $('ch-blurb').textContent = `${c.blurb} ${c.effort}.`;
+    $('ch-kicker').innerHTML = `${t('chapter.kicker', { n: chapterNumber(c) })} ${pips(c.difficulty)}`;
+    $('ch-title').textContent = chapterText(c, 'name');
+    $('ch-blurb').textContent = t('chapter.blurb', { blurb: chapterText(c, 'blurb'), effort: chapterText(c, 'effort') });
     const grid = $('level-grid');
     grid.innerHTML = '';
     c.levels.forEach((id, i) => {
@@ -409,11 +421,11 @@ export class Ui {
       card.dataset.level = String(id);
       card.innerHTML = `
         <span class="n">${levelCode(id)}<kbd>${i + 1}</kbd></span>
-        <span class="t">${open ? l.name : 'Locked'}</span>
-        <span class="meta">${open ? `${traffic(l)} · ${l.width} m · ${money(l.money)}` : 'Cross the level before'}</span>
-        ${open ? `<span class="goal${b?.bonus ? ' met' : ''}">${BONUS_MARK} ${bonusLabel(l.bonus)}</span>` : ''}
+        <span class="t">${open ? escapeHtml(levelName(l)) : t('level.locked')}</span>
+        <span class="meta">${open ? `${escapeHtml(traffic(l))} · ${l.width} m · ${money(l.money)}` : t('level.lockedMeta')}</span>
+        ${open ? `<span class="goal${b?.bonus ? ' met' : ''}">${BONUS_MARK} ${escapeHtml(bonusLabel(l.bonus))}</span>` : ''}
         <span class="s">${starText(b?.stars ?? 0)}${b?.bonus ? `<em>${BONUS_MARK}</em>` : ''}</span>
-        <span class="b">${b ? b.score.toLocaleString('en-US') : '—'}</span>`;
+        <span class="b">${b ? fmt.num(b.score) : '—'}</span>`;
       grid.appendChild(card);
     });
     const ch = $<HTMLButtonElement>('ch-challenge');
@@ -425,23 +437,23 @@ export class Ui {
 
   /** Marks the tab and the chapter (by id) a leaderboard shows. */
   boardTabs(tab: BoardTab, chapter: number): void {
-    for (const t of ['career', 'chapter', 'levels', 'challenge'] as const) {
-      const el = $(`tab-${t}`);
-      el.classList.toggle('on', t === tab);
-      el.setAttribute('aria-selected', String(t === tab));
+    for (const name of ['career', 'chapter', 'levels', 'challenge'] as const) {
+      const el = $(`tab-${name}`);
+      el.classList.toggle('on', name === tab);
+      el.setAttribute('aria-selected', String(name === tab));
     }
     const pills = $('board-chapters');
     pills.classList.toggle('hidden', tab === 'career');
     for (const p of pills.querySelectorAll<HTMLElement>('.pill')) p.classList.toggle('on', Number(p.dataset.chapter) === chapter);
     const ch = chapterById(chapter) ?? CHAPTERS[0];
-    const name = ch.name;
+    const name = chapterText(ch, 'name');
     $('board-note').textContent = {
-      career: 'Every engineer, ranked by the sum of their best score on every level.',
-      chapter: `Ranked by best scores on the ${ch.levels.length} levels of ${name}.`,
-      levels: `The best single-level score on each level of ${name}.`,
-      challenge: `${name} played in a row, from scratch, with three lives.`,
-    }[tab];
-    $('score-rows').innerHTML = '<tr><td class="empty" colspan="4">Loading…</td></tr>';
+      career: () => t('board.career'),
+      chapter: () => tn('board.chapter', ch.levels.length, { name }),
+      levels: () => t('board.levels', { name }),
+      challenge: () => t('board.challenge', { name }),
+    }[tab]();
+    $('score-rows').innerHTML = `<tr><td class="empty" colspan="4">${t('board.loading')}</td></tr>`;
   }
 
   /** Career or chapter ranking. */
@@ -449,13 +461,13 @@ export class Ui {
     const body = $('score-rows');
     body.innerHTML = '';
     if (rows.length === 0) {
-      body.innerHTML = `<tr><td class="empty" colspan="4">No one has crossed ${kind === 'career' ? 'a level' : 'this chapter'} yet.</td></tr>`;
+      body.innerHTML = `<tr><td class="empty" colspan="4">${t(kind === 'career' ? 'board.emptyCareer' : 'board.emptyChapter')}</td></tr>`;
       return;
     }
     rows.slice(0, 50).forEach((r, i) => {
       const tr = document.createElement('tr');
       if (r.name.toLowerCase() === me.toLowerCase()) tr.className = 'mine';
-      tr.innerHTML = `<td>${i + 1}.</td><td>${escapeHtml(r.name)}<small>${r.levels} level${r.levels === 1 ? '' : 's'}</small></td><td class="st">★ ${r.stars}</td><td>${r.score.toLocaleString('en-US')}</td>`;
+      tr.innerHTML = `<td>${i + 1}.</td><td>${escapeHtml(r.name)}<small>${tn('board.levelCount', r.levels)}</small></td><td class="st">★ ${r.stars}</td><td>${fmt.num(r.score)}</td>`;
       body.appendChild(tr);
     });
   }
@@ -465,14 +477,14 @@ export class Ui {
     const body = $(tbodyId);
     body.innerHTML = '';
     if (highs.length === 0) {
-      body.innerHTML = '<tr><td class="empty" colspan="4">No challenge runs yet. Finish the chapter, then take it on.</td></tr>';
+      body.innerHTML = `<tr><td class="empty" colspan="4">${t('board.emptyChallenge')}</td></tr>`;
       return;
     }
     highs.forEach((h, i) => {
       const tr = document.createElement('tr');
       if (i === highlight) tr.className = 'me';
       else if (me && h.name.toLowerCase() === me.toLowerCase()) tr.className = 'mine';
-      tr.innerHTML = `<td>${i + 1}.</td><td>${escapeHtml(h.name)}<small>${h.date}</small></td><td>${h.levels}/5</td><td>${h.score.toLocaleString('en-US')}</td>`;
+      tr.innerHTML = `<td>${i + 1}.</td><td>${escapeHtml(h.name)}<small>${h.date}</small></td><td>${h.levels}/5</td><td>${fmt.num(h.score)}</td>`;
       body.appendChild(tr);
     });
   }
@@ -491,17 +503,17 @@ export class Ui {
       const tr = document.createElement('tr');
       const holder = !!r && r.name.toLowerCase() === me.toLowerCase();
       if (holder) tr.className = 'mine';
-      const you = own && !holder ? `<small>you ${own.score.toLocaleString('en-US')}</small>` : '';
+      const you = own && !holder ? `<small>${t('board.you', { score: own.score })}</small>` : '';
       const detail = r ? recordDetail(r) : '';
       const crossedIt = (own?.stars ?? 0) > 0;
       const view = r?.hasDesign
         ? crossedIt
-          ? `<button class="link-btn rec-view" data-act="record-view" data-level="${l.id}" data-name="${escapeHtml(r.name)}">Watch it ▶</button>`
-          : '<small class="rec-locked">Cross it yourself to watch the record</small>'
+          ? `<button class="link-btn rec-view" data-act="record-view" data-level="${l.id}" data-name="${escapeHtml(r.name)}">${t('board.watch')}</button>`
+          : `<small class="rec-locked">${t('board.crossToWatch')}</small>`
         : '';
       tr.innerHTML = r
-        ? `<td>${levelCode(l.id)}</td><td>${escapeHtml(r.name)}${detail ? `<small>${detail}</small>` : ''}${you}${view}</td><td class="st">${starText(r.stars)}</td><td>${r.score.toLocaleString('en-US')}</td>`
-        : `<td>${levelCode(l.id)}</td><td class="open">${escapeHtml(l.name)}: open</td><td></td><td>—</td>`;
+        ? `<td>${levelCode(l.id)}</td><td>${escapeHtml(r.name)}${detail ? `<small>${detail}</small>` : ''}${you}${view}</td><td class="st">${starText(r.stars)}</td><td>${fmt.num(r.score)}</td>`
+        : `<td>${levelCode(l.id)}</td><td class="open">${escapeHtml(t('board.open', { name: levelName(l) }))}</td><td></td><td>—</td>`;
       body.appendChild(tr);
     }
   }
@@ -515,21 +527,22 @@ export class Ui {
   result(level: LevelDef, s: LevelScore, peak: number, runLine: string, canRetry: boolean, nextLabel: string, review: string[] = []): void {
     const rows = $('res-rows');
     const lines: [string, string][] = [
-      ['Bridge held', `${s.base}`],
-      [`Budget left ${money(level.money - s.spent)}`, `+${s.savingsBonus}`],
-      [`Safety (peak ${Math.round(peak * 100)}%)`, `+${s.safetyBonus}`],
-      [`Bonus goal: ${bonusLabel(level.bonus)}`, s.bonus ? `+${GOAL_SCORE}` : 'missed'],
+      [t('result.held'), fmt.num(s.base)],
+      [t('result.budgetLeft', { money: money(level.money - s.spent) }), `+${fmt.num(s.savingsBonus)}`],
+      [t('result.safety', { pct: fmt.pct(peak) }), `+${fmt.num(s.safetyBonus)}`],
+      [t('result.bonusGoal', { label: bonusLabel(level.bonus) }), s.bonus ? `+${fmt.num(GOAL_SCORE)}` : t('result.missed')],
     ];
-    if (s.lost) lines.splice(1, 0, ['A squad went into the river', 'one star only']);
-    if (s.hintPenalty) lines.push(["Engineer's hints", `−${s.hintPenalty}`]);
-    $('res-review').innerHTML = review.length ? `<b>Engineer's review</b><ul>${review.map((r) => `<li>${escapeHtml(r)}</li>`).join('')}</ul>` : '';
-    rows.innerHTML = lines.map(([a, b], i) => `<tr style="animation-delay:${0.25 + i * 0.18}s"><td>${a}</td><td>${b}</td></tr>`).join('');
+    if (s.lost) lines.splice(1, 0, [t('result.squadLost'), t('result.oneStar')]);
+    if (s.hintPenalty) lines.push([t('result.hints'), `−${fmt.num(s.hintPenalty)}`]);
+    $('res-review').innerHTML = review.length ? `<b>${t('result.review')}</b><ul>${review.map((r) => `<li>${escapeHtml(r)}</li>`).join('')}</ul>` : '';
+    rows.innerHTML = lines.map(([a, b], i) => `<tr style="animation-delay:${0.25 + i * 0.18}s"><td>${escapeHtml(a)}</td><td>${escapeHtml(b)}</td></tr>`).join('');
     $('res-total').textContent = '0';
     $('res-run').textContent = runLine;
     for (const star of $('res-stars').querySelectorAll('i')) star.classList.remove('on');
     $('res-notes').innerHTML =
-      `<span class="yes">★ Crossed</span><span class="${s.underTarget ? 'yes' : ''}">★ Built for ≤ ${money(level.target)} (${money(s.spent)})</span><span class="${s.safe ? 'yes' : ''}">★ Peak stress &lt; 75%</span>` +
-      `<span class="bonus${s.bonus ? ' yes' : ''}">${BONUS_MARK} ${bonusLabel(level.bonus)}</span>`;
+      `<span class="yes">${t('result.crossed')}</span><span class="${s.underTarget ? 'yes' : ''}">${escapeHtml(t('result.underTarget', { target: money(level.target), spent: money(s.spent) }))}</span>` +
+      `<span class="${s.safe ? 'yes' : ''}">${escapeHtml(t('result.safe', { pct: fmt.pct(SAFE_STRESS) }))}</span>` +
+      `<span class="bonus${s.bonus ? ' yes' : ''}">${BONUS_MARK} ${escapeHtml(bonusLabel(level.bonus))}</span>`;
     $('res-retry').classList.toggle('hidden', !canRetry);
     $('res-next').innerHTML = `${nextLabel} <kbd>Enter</kbd>`;
     this.show('result');
@@ -544,7 +557,7 @@ export class Ui {
   }
 
   setResultTotal(v: number): void {
-    $('res-total').textContent = v.toLocaleString('en-US');
+    $('res-total').textContent = fmt.num(v);
   }
 
   /**
@@ -553,16 +566,13 @@ export class Ui {
    */
   pauseMenu(testing: boolean, playtest: boolean): void {
     $('pause-retry').classList.toggle('hidden', !testing);
-    $('pause-quit').innerHTML = playtest ? 'EDIT LEVEL <kbd>Q</kbd>' : 'QUIT TO MENU <kbd>Q</kbd>';
+    $('pause-quit').innerHTML = t(playtest ? 'pause.edit' : 'pause.quit');
   }
 
   /** Asks before leaving a chapter challenge part-way, saying what goes on the board. */
   confirmQuit(score: number, cleared: number, chapter: ChapterDef): void {
-    $('confirm-bank').innerHTML =
-      score > 0
-        ? `<b>${score.toLocaleString('en-US')}</b> points for ${cleared} of ${chapter.levels.length} level${chapter.levels.length === 1 ? '' : 's'} go on the ${escapeHtml(chapter.name)} board.`
-        : 'Nothing goes on the board: no level cleared yet.';
-    $('confirm-note').textContent = 'The run ends here. A new challenge starts again from the first level.';
+    $('confirm-bank').innerHTML = score > 0 ? tn('confirm.bank', chapter.levels.length, { score, cleared, name: escapeHtml(chapterText(chapter, 'name')) }) : t('confirm.nothing');
+    $('confirm-note').textContent = t('confirm.note');
     this.show('confirm');
   }
 
@@ -570,20 +580,15 @@ export class Ui {
   unlockOffer(b: BillingStatus, owned: boolean): void {
     const paid = CHAPTERS.filter((c) => this.forSale(c));
     const levels = paid.reduce((n, c) => n + c.levels.length, 0);
+    const last = paid[paid.length - 1];
     $('unlock-what').textContent = paid.length
-      ? `Chapters ${chapterNumber(paid[0])}–${chapterNumber(paid[paid.length - 1])}: ${levels} more levels, from ${paid[0].name} to ${paid[paid.length - 1].name}, and every chapter still to come.`
-      : 'Every chapter is open.';
+      ? t('unlock.what', { from: chapterNumber(paid[0]), to: chapterNumber(last), n: levels, first: chapterText(paid[0], 'name'), last: chapterText(last, 'name') })
+      : t('unlock.allOpen');
     const buy = $<HTMLButtonElement>('unlock-buy');
     buy.disabled = owned || !b.available;
-    buy.innerHTML = owned ? 'UNLOCKED' : `UNLOCK${b.price ? ` · ${escapeHtml(b.price)}` : ''} <kbd>Enter</kbd>`;
+    buy.innerHTML = owned ? t('unlock.unlocked') : `${t('unlock.buy')}${b.price ? ` · ${escapeHtml(b.price)}` : ''} <kbd>Enter</kbd>`;
     $<HTMLButtonElement>('unlock-restore').disabled = owned || !b.available;
-    $('unlock-note').textContent = owned
-      ? 'Thank you! Every chapter is open.'
-      : b.pending
-        ? 'Your purchase is waiting on payment. Every chapter opens as soon as it goes through.'
-        : b.available
-          ? 'One payment through Google Play. No ads, ever.'
-          : 'Google Play is not reachable right now. Check the connection and try again.';
+    $('unlock-note').textContent = t(owned ? 'unlock.thanks' : b.pending ? 'unlock.pending' : b.available ? 'unlock.oneTime' : 'unlock.offline');
     this.show('unlock');
   }
 
@@ -596,7 +601,7 @@ export class Ui {
   setHaptics(can: boolean, on: boolean): void {
     const b = $('pause-haptics');
     b.classList.toggle('hidden', !can);
-    b.textContent = `VIBRATION: ${on ? 'ON' : 'OFF'}`;
+    b.textContent = t('pause.vibration', { state: t(on ? 'common.on' : 'common.off') });
     b.setAttribute('aria-pressed', String(on));
   }
 
@@ -610,34 +615,33 @@ export class Ui {
 
   /** The card after a failed run: COLLAPSED if the bridge itself gave way, else just FAILED. */
   collapse(reason: string, collapsed: boolean, lives: number | null, maxLives: number, playtest = false): void {
-    $('col-stamp').textContent = collapsed ? 'COLLAPSED' : 'FAILED';
-    $('col-quit').innerHTML = playtest ? 'EDIT LEVEL <kbd>Esc</kbd>' : 'MENU <kbd>Esc</kbd>';
+    $('col-stamp').textContent = t(collapsed ? 'collapse.collapsed' : 'collapse.failed');
+    $('col-quit').innerHTML = t(playtest ? 'collapse.edit' : 'collapse.menu');
     $('col-reason').textContent = reason;
     const livesEl = $('col-lives');
     if (lives === null) {
       livesEl.innerHTML = '';
-      $('col-note').textContent = playtest ? 'Just a playtest. Retry the bridge, or edit the level.' : 'No penalty in free play. Tweak the design and try again.';
+      $('col-note').textContent = t(playtest ? 'collapse.playtest' : 'collapse.free');
     } else {
       this.setLives(lives, maxLives, 'lost', livesEl);
-      $('col-note').textContent = lives === 1 ? 'Last life. Make it count.' : `${lives} lives left.`;
+      $('col-note').textContent = lives === 1 ? t('collapse.lastLife') : tn('collapse.lives', lives);
     }
     this.show('collapse');
   }
 
   over(victory: boolean, score: number, levels: number, chapter: ChapterDef): void {
-    const t = $('over-title');
-    t.textContent = victory ? 'CHALLENGE COMPLETE' : 'CHALLENGE OVER';
-    t.classList.toggle('win', victory);
-    $('over-score').textContent = score.toLocaleString('en-US');
-    $('over-sub').textContent = victory
-      ? `Every crossing in ${chapter.name} held.`
-      : `You cleared ${levels} of ${chapter.levels.length} level${levels === 1 ? '' : 's'} in ${chapter.name}.`;
+    const title = $('over-title');
+    title.textContent = t(victory ? 'over.complete' : 'over.over');
+    title.classList.toggle('win', victory);
+    $('over-score').textContent = fmt.num(score);
+    const name = chapterText(chapter, 'name');
+    $('over-sub').textContent = victory ? t('over.held', { name }) : tn('over.cleared', chapter.levels.length, { cleared: levels, name });
     $('over-rank').textContent = '';
     this.show('over');
   }
 
   overRank(rank: number): void {
-    $('over-rank').textContent = rank >= 0 ? `New high score! #${rank + 1} on the board.` : '';
+    $('over-rank').textContent = rank >= 0 ? t('over.rank', { rank: rank + 1 }) : '';
   }
 }
 
@@ -649,20 +653,22 @@ export function offeredInOrder(level: LevelDef): MaterialId[] {
 /** Marks the bonus star wherever it is shown. */
 export const BONUS_MARK = '✦';
 
+/** The ⚑ button that starts a chapter's challenge. */
+function challengeButton(c: ChapterDef): string {
+  return `<button class="btn small ch-challenge" data-act="challenge" data-chapter="${c.id}" aria-label="${t('map.challenge')}" title="${tn('map.challengeTitle', c.levels.length)}">⚑</button>`;
+}
+
 /** Difficulty as filled and empty pips. */
 function pips(n: number): string {
-  return `<span class="pips" aria-label="Difficulty ${n} of ${CHAPTERS.length}">${'<i class="on"></i>'.repeat(n)}${'<i></i>'.repeat(CHAPTERS.length - n)}</span>`;
+  return `<span class="pips" aria-label="${t('chapter.difficulty', { n, of: CHAPTERS.length })}">${'<i class="on"></i>'.repeat(n)}${'<i></i>'.repeat(CHAPTERS.length - n)}</span>`;
 }
 
 /** A record run's cost and peak stress, e.g. "$12,340 · peak 62%", or '' for records from before they were kept. */
 export function recordDetail(r: { cost?: number; peak?: number }): string {
-  return [r.cost === undefined ? '' : money(r.cost), r.peak === undefined ? '' : `peak ${Math.round(r.peak * 100)}%`].filter(Boolean).join(' · ');
+  return [r.cost === undefined ? '' : money(r.cost), r.peak === undefined ? '' : t('record.peak', { pct: fmt.pct(r.peak) })].filter(Boolean).join(' · ');
 }
 
 function starText(n: number): string {
   return '★'.repeat(n) + '☆'.repeat(3 - n);
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-}

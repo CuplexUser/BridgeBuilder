@@ -1,3 +1,5 @@
+import { fmt, t, tn } from './i18n';
+import { matInline } from './i18n/data';
 import { Design, segmentsOverlap, type DMember, type GridPt } from './design';
 import type { LevelDef } from './levels';
 import { bow, defaultSag, mainPathIn, mainRuns, MIN_MAIN_SPAN, MIN_SAG, resag, sagHandle } from './maincable';
@@ -90,7 +92,16 @@ const MAX_RUN = 40;
 /** Farthest a main cable reaches in one drag, m. */
 const MAX_MAIN_REACH = 80;
 /** What stops a block that would touch nothing. */
-export const UNSUPPORTED = 'Must touch rock or a block';
+/** Why a drag can't be built: it costs more than is left. */
+export function overBudget(by: number): string {
+  return t('edit.overBudget', { money: money(by) });
+}
+
+/** Whether a reason from the editor is the over-budget one, which also shakes the material button. */
+export function isOverBudget(why: string): boolean {
+  const [pre, post = ''] = t('edit.overBudget', { money: '\u0000' }).split('\u0000');
+  return why.length > pre.length + post.length && why.startsWith(pre) && why.endsWith(post);
+}
 /** How far apart the rises an arch's handle steps between, m; a main cable's sag steps a tenth of a meter. */
 const RISE_STEP = 0.25;
 
@@ -167,9 +178,9 @@ export function fitDesign(level: LevelDef, saved: Design): { design: Design; rem
   return { design: d, removed: Math.max(0, before - d.parts()) };
 }
 
-/** Formats dollars the way the whole UI shows them, e.g. $12,500. */
+/** Formats dollars the way the whole UI shows them, e.g. $12,500 (or 12.500 $ in German). */
 export function money(v: number): string {
-  return `$${Math.round(v).toLocaleString('en-US')}`;
+  return fmt.money(v);
 }
 
 /** Build-mode rules: snapping, budgets, validity and undo. */
@@ -276,8 +287,8 @@ export class Editor {
       const b = nodes[m.b];
       const dx = b.x - a.x;
       const dy = b.y - a.y;
-      const t = Math.max(0, Math.min(1, ((wx - a.x) * dx + (wy - a.y) * dy) / (dx * dx + dy * dy)));
-      const d = Math.hypot(a.x + dx * t - wx, a.y + dy * t - wy);
+      const f = Math.max(0, Math.min(1, ((wx - a.x) * dx + (wy - a.y) * dy) / (dx * dx + dy * dy)));
+      const d = Math.hypot(a.x + dx * f - wx, a.y + dy * f - wy);
       if (d < bd) {
         bd = d;
         best = i;
@@ -299,9 +310,9 @@ export class Editor {
       const b = nodes[m.b];
       const dx = b.x - a.x;
       const dy = b.y - a.y;
-      const t = ((wx - a.x) * dx + (wy - a.y) * dy) / (dx * dx + dy * dy);
-      if (t < 0.25 || t > 0.75) return;
-      const d = Math.hypot(a.x + dx * t - wx, a.y + dy * t - wy);
+      const f = ((wx - a.x) * dx + (wy - a.y) * dy) / (dx * dx + dy * dy);
+      if (f < 0.25 || f > 0.75) return;
+      const d = Math.hypot(a.x + dx * f - wx, a.y + dy * f - wy);
       if (d < bd) {
         bd = d;
         best = i;
@@ -480,52 +491,52 @@ export class Editor {
     const path = drag.path;
     const [sx, sy] = path[0];
     const [ex, ey] = path[path.length - 1];
-    if (sx === ex && sy === ey) return 'Too short';
+    if (sx === ex && sy === ey) return t('edit.tooShort');
     const segs = path.length - 1;
     const mat = MATERIALS[this.mat];
     const left = this.left();
-    if (drag.cost > left) return `Over budget by ${money(drag.cost - left)}`;
+    if (drag.cost > left) return overBudget(drag.cost - left);
     const curved = !!mat.curved;
-    if (curved && Math.abs(ex - sx) < MIN_MAIN_SPAN - 1e-9) return 'Needs 2 m of span';
-    if (curved && segs === 1) return 'Too long';
+    if (curved && Math.abs(ex - sx) < MIN_MAIN_SPAN - 1e-9) return t('edit.needSpan', { v: MIN_MAIN_SPAN });
+    if (curved && segs === 1) return t('edit.tooLong');
     if (mat.cell === 'ring') {
       const ring = ringPath(this.design, [sx, sy], [ex, ey], ringRise(this.design, [sx, sy], [ex, ey], this.level));
-      if (!ring) return 'Too short';
+      if (!ring) return t('edit.tooShort');
       const partsLeft = this.partsLeft();
-      if (partsLeft !== null && partsLeft < 1) return `Only ${this.level.limits![this.mat]} ${mat.name.toLowerCase()} parts on this level`;
+      if (partsLeft !== null && partsLeft < 1) return tn('edit.onlyParts', this.level.limits![this.mat]!, { mat: matInline(this.mat) });
       return ringProblem(this.level, this.design, ring);
     }
     // A run lays several parts; a single beam, or a main cable, is one.
     const newParts = this.runs ? path.length - 1 : 1;
     const partsLeft = this.partsLeft();
-    if (partsLeft !== null && newParts > partsLeft) return `Only ${this.level.limits![this.mat]} ${mat.name.toLowerCase()} parts on this level`;
+    if (partsLeft !== null && newParts > partsLeft) return tn('edit.onlyParts', this.level.limits![this.mat]!, { mat: matInline(this.mat) });
     const { nodes, members } = this.design;
     for (let i = 0; i < segs; i++) {
       const [ax, ay] = path[i];
       const [bx, by] = path[i + 1];
       const last = i === segs - 1;
-      if (Math.hypot(bx - ax, by - ay) > mat.maxLen + 1e-9) return 'Too long';
-      if (mat.maxGrade !== undefined && Math.abs(by - ay) > mat.maxGrade * Math.abs(bx - ax) + 1e-6) return `Too steep for a train: ${Math.round(mat.maxGrade * 100)}% at most`;
+      if (Math.hypot(bx - ax, by - ay) > mat.maxLen + 1e-9) return t('edit.tooLong');
+      if (mat.maxGrade !== undefined && Math.abs(by - ay) > mat.maxGrade * Math.abs(bx - ax) + 1e-6) return t('edit.tooSteep', { pct: fmt.pct(mat.maxGrade) });
       // A main cable's own joints may hang low over an anchor strip as it rises from a block; nothing else may join them there.
       const low = lowOverStrip(this.level, bx, by);
-      if (!(last && drag.toSplit >= 0) && !this.pointAllowed(bx, by) && !(curved && !last && low)) return 'Out of bounds';
-      if (low && (i === 0 ? false : !curved || last)) return 'Out of bounds';
-      if (i === 0 && lowOverStrip(this.level, ax, ay) && !curved) return 'Out of bounds';
+      if (!(last && drag.toSplit >= 0) && !this.pointAllowed(bx, by) && !(curved && !last && low)) return t('edit.outOfBounds');
+      if (low && (i === 0 ? false : !curved || last)) return t('edit.outOfBounds');
+      if (i === 0 && lowOverStrip(this.level, ax, ay) && !curved) return t('edit.outOfBounds');
       const ia = this.design.findNode(ax, ay);
       const ib = this.design.findNode(bx, by);
-      if (ib < 0 && nodes.some((n) => Math.hypot(n.x - bx, n.y - by) < MIN_JOINT_GAP)) return 'Too close to a joint';
-      if (curved && !last && ib >= 0) return 'Runs into a joint';
-      if (ia >= 0 && ib >= 0 && this.design.findMember(ia, ib) >= 0) return 'Already joined';
+      if (ib < 0 && nodes.some((n) => Math.hypot(n.x - bx, n.y - by) < MIN_JOINT_GAP)) return t('edit.tooClose');
+      if (curved && !last && ib >= 0) return t('edit.intoJoint');
+      if (ia >= 0 && ib >= 0 && this.design.findMember(ia, ib) >= 0) return t('edit.joined');
       const ground = this.groundSide(ax, ay);
-      if (ground && ground === this.groundSide(bx, by)) return 'Lies on the ground';
+      if (ground && ground === this.groundSide(bx, by)) return t('edit.onGround');
       for (const m of members) {
         const c = nodes[m.a];
         const e = nodes[m.b];
-        if (segmentsOverlap(ax, ay, bx, by, c.x, c.y, e.x, e.y)) return MATERIALS[m.mat].drivable ? 'Overlaps the road' : 'Overlaps a beam';
+        if (segmentsOverlap(ax, ay, bx, by, c.x, c.y, e.x, e.y)) return MATERIALS[m.mat].drivable ? t('edit.overlapsRoad') : t('edit.overlapsBeam');
       }
-      if (crossesChannel(this.level, ax, ay, bx, by)) return 'Keep the channel clear';
-      if (mat.tensionOnly && (cableBolt(this.level, ax, ay) || cableBolt(this.level, bx, by))) return 'Anchor cables in concrete';
-      if (!mat.prestress && hitsCells(this.design, [ax, ay], [bx, by])) return 'Runs through a block';
+      if (crossesChannel(this.level, ax, ay, bx, by)) return t('edit.channel');
+      if (mat.tensionOnly && (cableBolt(this.level, ax, ay) || cableBolt(this.level, bx, by))) return t('edit.anchorCables');
+      if (!mat.prestress && hitsCells(this.design, [ax, ay], [bx, by])) return t('edit.throughBlock');
     }
     return '';
   }
@@ -648,9 +659,9 @@ export class Editor {
     const { nodes } = this.design;
     const a = nodes[s.chain[0]];
     const b = nodes[s.chain[s.chain.length - 1]];
-    const t = (s.x - a.x) / (b.x - a.x);
-    const w = 4 * t * (1 - t);
-    const chord = a.y + (b.y - a.y) * t;
+    const f = (s.x - a.x) / (b.x - a.x);
+    const w = 4 * f * (1 - f);
+    const chord = a.y + (b.y - a.y) * f;
     // Sag in tenths of a meter, so the handle steps like the grid does. An arch rises: its sag is
     // negative, in steps of RISE_STEP, and it stays between the flattest it may be and the top.
     const arch = s.extra.length > 0;
@@ -705,28 +716,28 @@ export class Editor {
       const own = new Set(this.design.cells.flatMap((c, k) => (c.part === part ? [k] : [])));
       for (const k of own) {
         const why = cellProblem(this.level, this.design, cellPoly(this.design, this.design.cells[k]), own);
-        if (why && why !== 'Too close to a joint') return why;
+        if (why && why !== t('edit.tooClose')) return why;
       }
     }
     for (const i of moved) {
       const n = nodes[i];
       const onlyMain = members.every((m) => (m.a !== i && m.b !== i) || MATERIALS[m.mat].curved);
-      if (!pointAllowed(this.level, n.x, n.y) && !(onlyMain && lowOverStrip(this.level, n.x, n.y))) return 'Out of bounds';
-      if (nodes.some((o, j) => j !== i && Math.hypot(o.x - n.x, o.y - n.y) < MIN_JOINT_GAP)) return 'Too close to a joint';
+      if (!pointAllowed(this.level, n.x, n.y) && !(onlyMain && lowOverStrip(this.level, n.x, n.y))) return t('edit.outOfBounds');
+      if (nodes.some((o, j) => j !== i && Math.hypot(o.x - n.x, o.y - n.y) < MIN_JOINT_GAP)) return t('edit.tooClose');
     }
     for (const m of members) {
       if (!moved.has(m.a) && !moved.has(m.b)) continue;
       const [p, r] = [nodes[m.a], nodes[m.b]];
-      if (Math.hypot(r.x - p.x, r.y - p.y) > MATERIALS[m.mat].maxLen + 1e-9) return MATERIALS[m.mat].curved ? (MATERIALS[m.mat].arch ? 'Too high' : 'Too deep') : 'A hanger would be too long';
-      if (crossesChannel(this.level, p.x, p.y, r.x, r.y)) return 'Keep the channel clear';
+      if (Math.hypot(r.x - p.x, r.y - p.y) > MATERIALS[m.mat].maxLen + 1e-9) return MATERIALS[m.mat].curved ? (MATERIALS[m.mat].arch ? t('edit.tooHigh') : t('edit.tooDeep')) : t('edit.hangerLong');
+      if (crossesChannel(this.level, p.x, p.y, r.x, r.y)) return t('edit.channel');
       for (const o of members) {
         if (o === m || (o.part !== undefined && o.part === m.part)) continue;
         const [c, e] = [nodes[o.a], nodes[o.b]];
-        if (segmentsOverlap(p.x, p.y, r.x, r.y, c.x, c.y, e.x, e.y)) return 'Overlaps a beam';
+        if (segmentsOverlap(p.x, p.y, r.x, r.y, c.x, c.y, e.x, e.y)) return t('edit.overlapsBeam');
       }
     }
     const over = this.design.cost() - this.level.money;
-    if (over > 0) return `Over budget by ${money(over)}`;
+    if (over > 0) return overBudget(over);
     return '';
   }
 
@@ -815,11 +826,11 @@ export class Editor {
   blockProblem(x: number, y: number): string {
     const why = cellProblem(this.level, this.design, blockPoly(x, y));
     if (why) return why;
-    if (!blockSupported(this.level, this.design, x, y)) return UNSUPPORTED;
+    if (!blockSupported(this.level, this.design, x, y)) return t('edit.unsupported');
     const price = MATERIALS[this.mat].price;
-    if (price > this.left()) return `Over budget by ${money(price - this.left())}`;
+    if (price > this.left()) return overBudget(price - this.left());
     const left = this.partsLeft();
-    if (left !== null && left < 1) return `Only ${this.level.limits![this.mat]} ${MATERIALS[this.mat].name.toLowerCase()} parts on this level`;
+    if (left !== null && left < 1) return tn('edit.onlyParts', this.level.limits![this.mat]!, { mat: matInline(this.mat) });
     return '';
   }
 
@@ -869,7 +880,7 @@ export class Editor {
     }
     const why = this.blockProblem(x, y);
     if (why) {
-      if (first || why.startsWith('Over budget')) this.ev.invalid(why, x + 0.5, y + 0.5);
+      if (first || isOverBudget(why)) this.ev.invalid(why, x + 0.5, y + 0.5);
       return;
     }
     addBlock(this.design, x, y);
