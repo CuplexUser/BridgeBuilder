@@ -553,6 +553,8 @@ export class Game {
     }
     this.persistDesign();
     this.run = new TestRun(this.editor.design, this.level);
+    // Its poses let the stress graph show the bridge as it stood, not where the pieces landed.
+    this.run.log.poses = [];
     this.state = 'test';
     this.developTarget = 1;
     this.endTimer = -1;
@@ -1191,6 +1193,11 @@ export class Game {
 
   render(): void {
     const sim = this.run ?? this.demo;
+    this.stress.posed(() => this.drawScene(sim));
+    this.clip?.frame(this.canvas);
+  }
+
+  private drawScene(sim: TestRun | null): void {
     this.renderer.draw({
       level: this.level,
       editor: this.state === 'build' || (!this.run && this.editor) ? this.editor : null,
@@ -1205,7 +1212,7 @@ export class Game {
       flash: this.flash,
       wheelAngles: this.drive.wheelAngles,
       floats: this.floats,
-      highlight: this.stress.graphOpen && this.stress.pick ? { member: this.stress.pick.member, node: this.stress.pick.node, ghost: this.stress.ghostOf(this.stress.pick.member) } : null,
+      highlight: this.stress.highlight(),
       maker: this.maker.makerView(),
       loupe: this.loupeView(),
       hoverCell: this.state === 'build' ? this.hoverCell : -1,
@@ -1213,7 +1220,6 @@ export class Game {
       reviewHint: this.state === 'build' && this.mode === 'play' && this.hintsShown().length ? this.hintsShown().flatMap((i) => this.allGhosts()?.slice(i, i + 1) ?? []) : null,
       marks: this.state === 'build' && this.marks && this.marks.revision === this.editor?.revision ? this.marks : null,
     });
-    this.clip?.frame(this.canvas);
   }
 
   /** While a finger places something, a magnifier shows the point the finger hides. */

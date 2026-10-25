@@ -1,5 +1,6 @@
 import { fmt, t } from '../i18n';
 import { matName } from '../i18n/data';
+import type { SceneView } from '../render/renderer';
 import { StressGraph, type GraphPick } from '../ui/graph';
 import type { Game } from './game';
 
@@ -99,11 +100,35 @@ export class StressView {
     this.graph.draw(log, p);
   }
 
-  /** Where a broken member stood in the design, so the graph can show it after it fell. */
-  ghostOf(member: number): [number, number, number, number] | null {
+  /** Draws the run as the bridge stood at the picked moment, rather than as it ended. */
+  posed(draw: () => void): void {
+    const run = this.game.run;
+    if (!this.graphOpen || !this.pick || !run) return draw();
+    run.log.posed(run.world, this.pick.sample, draw);
+  }
+
+  /** What the graph rings on the bridge, and the members that had broken by the picked moment. */
+  highlight(): SceneView['highlight'] {
+    const p = this.pick;
+    const log = this.game.run?.log;
+    if (!this.graphOpen || !p || !log) return null;
+    const time = log.t[p.sample];
+    const broken = log.breaks.filter((b) => b.t <= time && b.member !== p.member).map((b) => this.ghostOf(b.member)).filter((g) => g !== null);
+    return { member: p.member, node: p.node, ghost: this.ghostOf(p.member, time), broken };
+  }
+
+  /**
+   * Where a broken member stood just before it broke, so the graph can show it after it fell;
+   * null while it still stands at `time`.
+   */
+  ghostOf(member: number, time = Infinity): [number, number, number, number] | null {
     const run = this.game.run;
     const d = this.game.editor?.design;
-    if (!run || !d || member < 0 || !run.log.breaks.some((b) => b.member === member)) return null;
+    const broke = run?.log.breaks.find((b) => b.member === member);
+    if (!run || !d || member < 0 || !broke || broke.t > time) return null;
+    const pose = run.log.poses?.[Math.max(0, run.log.sampleAt(broke.t) - 1)];
+    const l = run.world.links.find((k) => k.bridge && k.member === member);
+    if (pose && l) return [pose.x[l.a], pose.y[l.a], pose.x[l.b], pose.y[l.b]];
     const m = d.members[member];
     return [d.nodes[m.a].x, d.nodes[m.a].y, d.nodes[m.b].x, d.nodes[m.b].y];
   }

@@ -6,6 +6,29 @@ export const SAMPLE_EVERY = 0.1;
 /** Keep recording this long after a run fails, so the graph shows the collapse. */
 const TAIL = 1.5;
 
+/** The bridge as it stood at one sample, so the graph can show it there instead of as it ended. */
+export interface Pose {
+  /** Every particle's position: the bridge, the traffic and whatever else moves. */
+  x: Float32Array;
+  y: Float32Array;
+  /** Every link's stress, and whether it had broken. */
+  stress: Float32Array;
+  broken: Uint8Array;
+  /** The load on each bridge joint. */
+  joints: Float32Array;
+  openness: number;
+}
+
+/** What a pose overwrites, kept at full precision while it's shown so the world comes back exactly. */
+interface Held {
+  x: Float64Array;
+  y: Float64Array;
+  stress: Float64Array;
+  broken: Uint8Array;
+  joints: Float64Array;
+  openness: number;
+}
+
 /**
  * A test drive's stress over time, for the graph after the run: every bridge member's load
  * ratio at each sample, the busiest joint, when members broke, and the drawbridge phases.
@@ -21,6 +44,9 @@ export class StressLog {
   members: Float32Array[] = [];
   breaks: { t: number; member: number }[] = [];
   phases: { t: number; phase: Phase }[] = [];
+  /** The bridge's pose at each sample, when asked for: the game shows it on the graph, headless runs don't need it. */
+  poses: Pose[] | null = null;
+  private held: Held | null = null;
   private broken = new Set<number>();
   /** Block links already logged as broken: one sample at 100% marks the crack. */
   private brokenCells = new Set<object>();
@@ -82,6 +108,44 @@ export class StressLog {
     this.peak.push(peak);
     this.who.push(who);
     this.members.push(row);
+    if (this.poses) this.poses.push(poseOf(world));
+  }
+
+  /** Runs `draw` with the world as it stood at a sample, then puts it back as it was. */
+  posed(world: World, sample: number, draw: () => void): void {
+    const p = this.poses?.[sample];
+    if (!p) return draw();
+    const { links } = world;
+    const n = p.x.length;
+    const nl = Math.min(links.length, p.stress.length);
+    const nj = p.joints.length;
+    const h = (this.held ??= { x: new Float64Array(n), y: new Float64Array(n), stress: new Float64Array(nl), broken: new Uint8Array(nl), joints: new Float64Array(nj), openness: 0 });
+    h.x.set(world.x.subarray(0, n));
+    h.y.set(world.y.subarray(0, n));
+    h.joints.set(world.jointLoad.subarray(0, nj));
+    h.openness = world.openness;
+    world.x.set(p.x);
+    world.y.set(p.y);
+    world.jointLoad.set(p.joints);
+    world.openness = p.openness;
+    for (let i = 0; i < nl; i++) {
+      h.stress[i] = links[i].stress;
+      h.broken[i] = links[i].broken ? 1 : 0;
+      links[i].stress = p.stress[i];
+      links[i].broken = p.broken[i] === 1;
+    }
+    try {
+      draw();
+    } finally {
+      world.x.set(h.x);
+      world.y.set(h.y);
+      world.jointLoad.set(h.joints);
+      world.openness = h.openness;
+      for (let i = 0; i < nl; i++) {
+        links[i].stress = h.stress[i];
+        links[i].broken = h.broken[i] === 1;
+      }
+    }
   }
 
   get length(): number {
@@ -128,4 +192,22 @@ export class StressLog {
     });
     return { value, t };
   }
+}
+
+function poseOf(world: World): Pose {
+  const { links } = world;
+  const stress = new Float32Array(links.length);
+  const broken = new Uint8Array(links.length);
+  links.forEach((l, i) => {
+    stress[i] = l.stress;
+    broken[i] = l.broken ? 1 : 0;
+  });
+  return {
+    x: Float32Array.from(world.x.subarray(0, world.count)),
+    y: Float32Array.from(world.y.subarray(0, world.count)),
+    stress,
+    broken,
+    joints: Float32Array.from(world.jointLoad.subarray(0, world.bridgeCount)),
+    openness: world.openness,
+  };
 }

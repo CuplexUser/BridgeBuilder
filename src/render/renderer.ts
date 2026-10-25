@@ -45,8 +45,11 @@ export interface SceneView {
   /** Wheel spin per vehicle: rear, front. */
   wheelAngles: [number, number][];
   floats: FloatText[];
-  /** A member or joint picked on the stress graph, ringed on the bridge. */
-  highlight?: { member: number; node: number; ghost?: [number, number, number, number] | null } | null;
+  /**
+   * A member or joint picked on the stress graph, ringed on the bridge, and where the members that
+   * had broken by then stood. The run is drawn as it was at that moment.
+   */
+  highlight?: { member: number; node: number; ghost?: [number, number, number, number] | null; broken?: [number, number, number, number][] } | null;
   /** The level editor's cursor: the grid point, what the tool would do there, and a channel being dragged. */
   maker?: { x: number; y: number; label: string; ok: boolean; channel: [number, number, number] | null } | null;
   /** A magnifier for touch: the screen point to enlarge (x, y) and the finger hiding it (fx, fy). */
@@ -277,7 +280,8 @@ export class Renderer extends ScenePart {
       }
       if (this.turn) this.members.drawTurning(v.run, v.time, this.turn);
       else this.members.drawRunMembers(v.run, v.time);
-      this.effects.drawDebris(this.debris.items);
+      // Over the stress graph the bridge stands as it was at the picked moment: no wreckage yet.
+      if (!v.highlight) this.effects.drawDebris(this.debris.items);
       this.traffic.drawVehicleRun(v.run, v.wheelAngles);
       if (shade) {
         this.stage.ctx = ctx;
@@ -289,7 +293,7 @@ export class Renderer extends ScenePart {
         for (const handle of v.run.vehicles) this.traffic.drawLights(v.run, handle, v.develop);
       }
       // Snapping cables stay bright even at night: the eye should catch them.
-      this.effects.drawWhips(v.run, this.debris.whips);
+      if (!v.highlight) this.effects.drawWhips(v.run, this.debris.whips);
       this.structures.drawLogs(v.run, v.time);
       this.scenery.drawWaterFront(v);
       if (v.highlight) this.blueprint.drawHighlight(v.run, v.highlight, v.time);

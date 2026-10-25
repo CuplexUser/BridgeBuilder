@@ -491,6 +491,19 @@ export class Blueprint extends ScenePart {
     const pulse = 0.6 + 0.4 * Math.sin(time * 6);
     ctx.save();
     ctx.lineCap = 'round';
+    // What had broken by then, dashed in red where it stood.
+    if (h.broken?.length) {
+      ctx.strokeStyle = PAL.bad;
+      ctx.lineWidth = Math.max(2, 0.12 * cam.scale);
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      for (const [ax, ay, bx, by] of h.broken) {
+        ctx.moveTo(cam.sx(ax), cam.sy(ay));
+        ctx.lineTo(cam.sx(bx), cam.sy(by));
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
     if (h.member >= 0) {
       const l = w.links.find((k) => k.bridge && k.member === h.member);
       // A broken member is shown dashed where it stood, not stretched between its scattered ends.

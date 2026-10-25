@@ -457,4 +457,31 @@ describe('stress log', () => {
     const b = run.log.breaks[0];
     expect(Number.isNaN(run.log.members.at(-1)![b.member])).toBe(true);
   });
+
+  it('shows a collapsed bridge as it stood, then puts the wreck back', () => {
+    const level = L(7);
+    const d = new Design(level);
+    for (let x = 0; x < 12; x += 2) d.add([x, 0], [x + 2, 0], 'road');
+    const run = new TestRun(d, level);
+    run.log.poses = [];
+    for (let i = 0; i < 40 * 60 && run.status === 'running'; i++) run.step();
+    for (let i = 0; i < 60; i++) run.step();
+    const { log, world: w } = run;
+    expect(log.poses).toHaveLength(log.length);
+    const link = w.links.find((l) => l.bridge && l.member === log.breaks[0].member)!;
+    expect(link.broken).toBe(true);
+    const wreck = { x: w.x.slice(), y: w.y.slice(), stress: w.links.map((l) => l.stress) };
+    // The first sample, before anything broke: the member stands, at its loaded stress.
+    let seen = { broken: true, y: new Float64Array(), stress: Number.NaN };
+    log.posed(w, 0, () => (seen = { broken: link.broken, y: w.y.slice(0, w.bridgeCount), stress: link.stress }));
+    expect(seen.broken).toBe(false);
+    seen.y.forEach((y, p) => expect(y).toBeCloseTo(log.poses![0].y[p], 5));
+    // The deck was up at the banks then; by now some of it lies in the river.
+    expect(Math.max(...seen.y.map((y, p) => Math.abs(y - wreck.y[p])))).toBeGreaterThan(1);
+    expect(Math.abs(seen.stress)).toBeCloseTo(log.members[0][link.member], 5);
+    expect(link.broken).toBe(true);
+    expect(w.x).toEqual(wreck.x);
+    expect(w.y).toEqual(wreck.y);
+    expect(w.links.map((l) => l.stress)).toEqual(wreck.stress);
+  });
 });
