@@ -580,6 +580,12 @@ export class Game {
 
   backToBuild(): void {
     if (!this.editor) return;
+    // A challenge run that has failed costs its life now: leaving before the collapse card can't dodge it.
+    if (this.mode === 'challenge' && this.state === 'test' && this.run?.status === 'fail') {
+      this.paused = false;
+      this.results.finishCollapse();
+      return;
+    }
     if (this.example) {
       this.example = false;
       this.ui.showToast(t(this.level.hintSolves ? 'toast.yourTurnGhost' : 'toast.yourTurn'), 4000);
