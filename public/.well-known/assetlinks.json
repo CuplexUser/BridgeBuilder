@@ -4,7 +4,7 @@
     "target": {
       "namespace": "android_app",
       "package_name": "se.cuplex.bridgebuilder",
-      "sha256_cert_fingerprints": ["REPLACE_WITH_PLAY_APP_SIGNING_KEY_SHA256"]
+      "sha256_cert_fingerprints": ["81:29:03:38:1A:E1:74:B8:CD:7D:D7:F7:DB:36:C9:AC:9D:10:FB:BB:FB:F2:70:7A:83:E8:5A:F3:4D:37:24:94"]
     }
   }
 ]
