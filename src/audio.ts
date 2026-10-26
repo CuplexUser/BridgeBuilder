@@ -23,9 +23,6 @@ export class Sfx {
   /** What every sound effect plays into: the effects volume. */
   private fx: GainNode | null = null;
   private buses: Partial<Record<VolumeBus, GainNode>> = {};
-  /** The mix after the compressor, as heard: what a recording taps. */
-  private out: AudioNode | null = null;
-  private tap: MediaStreamAudioDestinationNode | null = null;
   private noise: AudioBuffer | null = null;
   private engine: { osc: OscillatorNode; osc2: OscillatorNode; gain: GainNode; filter: BiquadFilterNode } | null = null;
   private lastCreak = 0;
@@ -53,7 +50,6 @@ export class Sfx {
     this.fx = this.buses.sfx!;
     const comp = this.ctx.createDynamicsCompressor();
     this.main.connect(comp).connect(this.ctx.destination);
-    this.out = comp;
     // Two seconds, so a looped bed of it doesn't audibly repeat.
     const len = this.ctx.sampleRate * 2;
     this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
@@ -73,16 +69,6 @@ export class Sfx {
   /** Whether anything on this bus can be heard: not muted, and neither it nor the master turned down. */
   audible(bus: VolumeBus): boolean {
     return !this.muted && this.volume.master > 0 && this.volume[bus] > 0;
-  }
-
-  /** The game's sound as a stream, for a recording to carry. Null until audio has started. */
-  stream(): MediaStream | null {
-    if (!this.ctx || !this.out) return null;
-    if (!this.tap) {
-      this.tap = this.ctx.createMediaStreamDestination();
-      this.out.connect(this.tap);
-    }
-    return this.tap.stream;
   }
 
   setMuted(m: boolean): void {

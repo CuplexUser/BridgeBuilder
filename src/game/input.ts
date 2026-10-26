@@ -528,7 +528,7 @@ export class Input {
           return;
         }
         if (this.game.state === 'collapse') {
-          if (lower === 's') this.game.act('share-clip');
+          if (lower === 's') this.game.act('share');
           else if (lower === 'r' || k === 'Enter' || k === ' ') {
             e.preventDefault();
             this.game.act('retry');
@@ -538,11 +538,12 @@ export class Input {
         if (k === 'Enter' || k === ' ' || lower === 'n') {
           e.preventDefault();
           this.game.act('next');
-        } else if (lower === 'r' && this.game.mode === 'play') this.game.act('retry');
+        } else if (lower === 's') this.game.act('share');
+        else if (lower === 'r' && this.game.mode === 'play') this.game.act('retry');
         else if (k === 'Escape') this.game.act('quit');
         return;
       case 'over':
-        if (lower === 's') this.game.act('share-clip');
+        if (lower === 's') this.game.act('share');
         else if (lower === 'r' || k === 'Enter') {
           e.preventDefault();
           this.game.act('restart');

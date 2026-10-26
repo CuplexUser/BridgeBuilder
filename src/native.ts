@@ -62,7 +62,10 @@ export interface Native {
   version: string;
   bindApp(game: AppHooks): void;
   exportFile(name: string, text: string): Promise<void>;
-  shareVideo(name: string, video: Blob): Promise<void>;
+  /** Opens the share sheet on a picture, with a message (and its link) to go with it. */
+  shareImage(name: string, image: Blob, text: string): Promise<void>;
+  /** Calls back with each link the app is opened with, the one that launched it first. */
+  onLink(fn: (url: string) => void): void;
   copyText(text: string): Promise<void>;
   vibrate(pulse: Pulse): void;
   games: {
@@ -106,10 +109,10 @@ async function nativeStorage(): Promise<KeyValue> {
 }
 
 /** Writes a file to the app's cache and opens the share sheet on it. */
-async function shareCached(name: string, data: string, encoding: Encoding | undefined, dialogTitle: string): Promise<void> {
+async function shareCached(name: string, data: string, encoding: Encoding | undefined, dialogTitle: string, text?: string): Promise<void> {
   const { uri } = await Filesystem.writeFile({ path: name, data, directory: Directory.Cache, encoding });
   try {
-    await Share.share({ title: name, files: [uri], dialogTitle });
+    await Share.share({ title: name, text, files: [uri], dialogTitle });
   } catch {
     // Closing the share sheet without picking anything isn't an error.
   }
@@ -119,7 +122,7 @@ function base64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
     r.addEventListener('load', () => resolve(String(r.result).slice(String(r.result).indexOf(',') + 1)));
-    r.addEventListener('error', () => reject(r.error ?? new Error('Could not read the video')));
+    r.addEventListener('error', () => reject(r.error ?? new Error('Could not read the file')));
     r.readAsDataURL(blob);
   });
 }
@@ -140,8 +143,12 @@ export async function createNative(): Promise<Native> {
       void App.addListener('pause', () => game.suspend());
     },
     exportFile: (name, text) => shareCached(name, text, Encoding.UTF8, t('share.levelTitle')),
-    async shareVideo(name, video) {
-      await shareCached(name, await base64(video), undefined, t('share.clipTitle'));
+    async shareImage(name, image, text) {
+      await shareCached(name, await base64(image), undefined, t('share.bridgeTitle'), text);
+    },
+    onLink(fn) {
+      void App.getLaunchUrl().then((launch) => launch?.url && fn(launch.url));
+      void App.addListener('appUrlOpen', (e) => fn(e.url));
     },
     copyText: (text) => Clipboard.write({ string: text }),
     vibrate(pulse) {

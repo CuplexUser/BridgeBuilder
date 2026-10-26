@@ -2,13 +2,15 @@
  * Differences between the three builds of the one game: the web build, the Android app (Capacitor)
  * and the desktop app (Tauri). The game itself is the same code on all three. This module decides
  * the UI profile (touch-first or dense desktop) and the level editor's size caps, and swaps device
- * storage, file and video export, the clipboard, the back button, haptics, Play Games and the store.
+ * storage, file export, shared bridges and their links, the clipboard, the back button, haptics,
+ * Play Games and the store.
  * Each shell's side is loaded on demand, so the web build carries none of it.
  */
 import { Capacitor } from '@capacitor/core';
 import type { DesktopBridge } from './desktop';
 import { LIMITS } from './maker';
 import type { BillingStatus, GamesStatus, Native } from './native';
+import { hasShareLink } from './share';
 import { useDeviceStorage } from './storage';
 
 export type PlatformKind = 'web' | 'android' | 'desktop';
@@ -67,6 +69,21 @@ export function bindApp(game: AppHooks): void {
   native?.bindApp(game);
 }
 
+/**
+ * Calls back with each shared-bridge link the game is opened with: App Links in the app, the
+ * page's own address on the web. The web address drops the link afterwards, so a reload doesn't
+ * drive the same bridge again.
+ */
+export function onLink(fn: (url: string) => void): void {
+  if (native) return native.onLink(fn);
+  if (desktopBridge || !hasShareLink(location.search)) return;
+  const url = location.href;
+  const rest = new URLSearchParams(location.search);
+  rest.delete('b');
+  history.replaceState(null, '', `${location.pathname}${rest.size ? `?${rest}` : ''}${location.hash}`);
+  fn(url);
+}
+
 /** Hands a text file to the player: a download in the browser, a save dialog on desktop, the share sheet in the app. */
 export async function exportFile(name: string, text: string): Promise<void> {
   if (native) return native.exportFile(name, text);
@@ -77,26 +94,35 @@ export async function exportFile(name: string, text: string): Promise<void> {
   download(name, new Blob([text], { type: 'application/json' }));
 }
 
+/** What became of a shared bridge: handed to a share sheet, or its link copied and the picture saved. */
+export type ShareOutcome = 'shared' | 'copied';
+
 /**
- * Hands a video to the player: the share sheet in the app and in browsers that can share files,
- * a save dialog on desktop, and a download elsewhere.
+ * Hands a picture and a link to the player: the share sheet in the app and in browsers that can
+ * share; elsewhere the link goes on the clipboard and the picture to a save dialog (desktop) or
+ * a download.
  */
-export async function shareVideo(name: string, video: Blob): Promise<void> {
-  if (native) return native.shareVideo(name, video);
-  if (desktopBridge) {
-    await desktopBridge.saveFile(name, new Uint8Array(await video.arrayBuffer()));
-    return;
+export async function shareBridge(name: string, image: Blob, text: string, url: string): Promise<ShareOutcome> {
+  if (native) {
+    await native.shareImage(name, image, `${text} ${url}`);
+    return 'shared';
   }
-  const file = new File([video], name, { type: video.type });
-  if (navigator.canShare?.({ files: [file] })) {
+  if (!desktopBridge) {
+    const withPicture = { files: [new File([image], name, { type: image.type })], text: `${text} ${url}`, title: 'Bridge Builder' };
     try {
-      await navigator.share({ files: [file], title: 'Bridge Builder' });
-    } catch {
-      // Closing the share sheet without picking anything isn't an error.
+      if (navigator.canShare?.(withPicture)) await navigator.share(withPicture);
+      else if (typeof navigator.share === 'function') await navigator.share({ text, url, title: 'Bridge Builder' });
+      else throw new Error('No share sheet');
+      return 'shared';
+    } catch (e) {
+      // Closing the share sheet without picking anything isn't an error; anything else falls back to the clipboard.
+      if (e instanceof DOMException && e.name === 'AbortError') return 'shared';
     }
-    return;
   }
-  download(name, video);
+  await copyText(url);
+  if (desktopBridge) await desktopBridge.saveFile(name, new Uint8Array(await image.arrayBuffer()));
+  else download(name, image);
+  return 'copied';
 }
 
 function download(name: string, blob: Blob): void {

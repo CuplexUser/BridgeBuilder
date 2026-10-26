@@ -7,9 +7,6 @@ import { MAX_LIVES, type Board, type Game } from './game';
 import { fmt, t } from '../i18n';
 import { chapterText } from '../i18n/data';
 
-/** A collapse clip runs on this long after the collapse card comes up, ms. */
-const CLIP_TAIL = 1200;
-
 /** How a run ends: the result card and its score, a collapse, the next level, game over, and the leaderboards. */
 export class Results {
   board: Board = 'career';
@@ -27,6 +24,8 @@ export class Results {
   pendingDone: ChapterDef | null = null;
   /** The chapter card showing, over the result. */
   doneOpen: ChapterDef | null = null;
+  /** The score of the last crossing, for sharing it. */
+  lastScore: LevelScore | null = null;
 
   constructor(private game: Game) {}
 
@@ -40,6 +39,8 @@ export class Results {
       this.game.playGames.moment('playtest');
       this.game.state = 'result';
       this.game.drive.stopEngine();
+      this.lastScore = s;
+      this.game.ui.setShare(false);
       this.game.ui.result(level, s, run.peakStress, t('res.playtest'), true, t('res.editLevel'), this.game.review(level, run, true));
       this.resultAnim = this.startAnim(s, false);
       return;
@@ -92,6 +93,8 @@ export class Results {
 
     this.game.state = 'result';
     this.game.drive.stopEngine();
+    this.lastScore = score;
+    this.game.ui.setShare(this.game.sharing.available);
     const next = nextInChapter(level.id);
     const nextLabel = t(next ? 'res.next' : this.game.mode === 'challenge' ? 'res.finish' : 'res.chapters');
     this.game.ui.result(level, score, run.peakStress, lines.join(' · '), this.game.mode === 'play', nextLabel, this.game.review(level, run, this.game.mode === 'play'));
@@ -127,10 +130,7 @@ export class Results {
     this.game.drive.stopEngine();
     const run = this.game.run!;
     if (run.collapsed) this.game.playGames.moment('collapse');
-    this.game.ui.setClip(false);
-    void this.game.clip?.finish(CLIP_TAIL).then((clip) => {
-      if (clip && (this.game.state === 'collapse' || this.game.state === 'over')) this.game.ui.setClip(true);
-    });
+    this.game.ui.setShare(this.game.sharing.available);
     if (this.game.mode === 'challenge') {
       this.game.lifeLost = true;
       this.game.lives--;

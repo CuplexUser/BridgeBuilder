@@ -2,7 +2,7 @@
 //! Tauri serves dist/ from its own origin, so modules, workers and storage behave as on the web.
 //! The window's WebView keeps saves in its storage under the user's app data. This shell remembers
 //! the window, opens outside links in the browser, and adds a save dialog for exported levels and
-//! collapse clips.
+//! shared bridge pictures.
 //!
 //!   npm run desktop        build, then run the app
 //!   npm run desktop:dev    run the app against the Vite dev server, with reloads

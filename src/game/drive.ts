@@ -119,7 +119,6 @@ export class Drive {
       if (!this.game.demo) {
         sfx.crack(mat);
         this.game.haptics.snap();
-        this.game.clip?.markBreak();
         this.game.shake.add(0.45);
         this.game.flash = Math.max(this.game.flash, 0.25);
         const word = t(
@@ -155,7 +154,6 @@ export class Drive {
       if (!this.game.demo) {
         sfx.crack('heavy');
         this.game.haptics.snap();
-        this.game.clip?.markBreak();
         this.game.shake.add(0.5);
         this.game.float(x, y + 1.2, t('fx.pulledOut'), PAL.bad, 24, 0.9);
         if (!this.game.anyBreak) this.game.slowmo = 0.7;
@@ -224,7 +222,6 @@ export class Drive {
           this.game.confetti(x, y + 3, 90);
           this.game.float(x - 2, y + 3.5, t('result.banner'), PAL.ok, 30, 1.6);
           this.game.shake.add(0.2);
-          this.game.clip?.cancel();
         } else {
           sfx.fail();
           sfx.engineStop();

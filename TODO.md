@@ -39,7 +39,7 @@ Features and improvements, by priority. Finished items stay checked for a releas
 
 ### Next
 
-- [ ] **Design sharing** through a short code or URL that loads a design. Custom levels could share the same way. Moved up from P3: a shared design or collapse clip is how players find the game, and paying players are the ones who share. A code carries the level id, the save format version and the members, so an old code still loads into a changed level the way a saved design does.
+- [x] **Design sharing.** SHARE THE BRIDGE on the result, collapse and game over cards sends a picture of the bridge at its key moment and a link (`bridgebuilder.cuplex.org/?b=…`) that carries the level, the design in its save format and the builder's name. Opening it drives the bridge in the recipient's game, on the site or in the app through an App Link. It replaced the collapse clip, which often held only a second or two. Still to do: custom levels could share the same way.
 
 ## P2: Gameplay depth
 
@@ -112,8 +112,8 @@ Let the optimizer teach:
 ## P4: Platforms and tech
 
 - [x] **Desktop and Android from one codebase.** One game, three builds, with every difference behind `src/platform.ts`:
-  - **Desktop:** the web build in Tauri, a Rust shell around WebView2 (`npm run desktop`, `desktop:dist` for a Windows installer and portable .exe). It started in Electron; the Tauri build is a 3.6 MB executable rather than about 100 MB. It serves `dist/` from its own origin, keeps saves in the app's data folder, remembers the window, saves levels and clips through a save dialog, and goes full screen on F11.
-  - **Android:** the web build in Capacitor, as before, now with haptics, clips, Play Games and the store (below).
+  - **Desktop:** the web build in Tauri, a Rust shell around WebView2 (`npm run desktop`, `desktop:dist` for a Windows installer and portable .exe). It started in Electron; the Tauri build is a 3.6 MB executable rather than about 100 MB. It serves `dist/` from its own origin, keeps saves in the app's data folder, remembers the window, saves levels and shared pictures through a save dialog, and goes full screen on F11.
+  - **Android:** the web build in Capacitor, as before, now with haptics, shared bridges, Play Games and the store (below).
   - **UI profiles:** `touch` (the app, phones and tablets) hides key hints and keeps finger-sized targets; `desktop` shows keys and, on wide screens, tightens buttons and the toolbar. The stylesheet follows `data-ui` rather than guessing from hover.
   - **Level caps:** levels may be 96 m wide (they were 64). The editor grows them that far on desktop and stops at 64 m on touch devices; a wider level edited on a phone keeps its width.
 - [ ] Profile physics on the 30 m+ levels on low-end phones. If needed, lower substeps adaptively, or move the simulation to a worker.
@@ -121,7 +121,6 @@ Let the optimizer teach:
 - [x] **Batched member painting.** Measured first: with the CPU slowed 4×, a test drive on 9-5 spent 1.4 ms of a 21 ms frame on the static scenery (hills, trees, banks), so caching it wasn't worth it, and 11 ms painting members a few strokes at a time. Members and joints are now painted a few strokes per material and shade, which brought that to under 5 ms. Physics is most of what's left.
 - [x] **Android extras.**
   - **Haptics synced to stress:** a light buzz as members creak (quicker near breaking), a hard pulse when something snaps or an anchor tears out, and a long one when the bridge goes down. A switch in the pause menu turns them off.
-  - **Collapse clip export:** every test drive is recorded into a 1280 px MP4 with the game's sound and a caption naming the level. While nothing has broken, the recording restarts every 12 s, so a clip is the lead-in and the whole collapse. SHARE THE CLIP (S) opens the share sheet, a save dialog on desktop, or a download. Works in every build, not only Android.
   - **Play Games Services:** sign-in at launch, 22 achievements (progress-based ones come back on a new phone), leaderboards for career, stars and each chapter's challenge, and a cloud save merged level by level with the phone's. A fresh install plays under the Play Games name without a profile screen. Google's own leaderboards stand in for the server boards, which the app never reached.
   - **Monetization:** chapters 1–3 free, then one in-app product (`full_game`) for the rest and every chapter to come, through Play Billing. Locked chapters say FULL GAME; no ads. Web and desktop stay free.
 - [ ] **Play Console setup and a phone test**, once the account is verified: create the Play Games achievements and leaderboards from `games-ids.xml` and paste in their ids, turn on saved games, add the `full_game` product, then check haptics, sign-in, the cloud save, a license-tester purchase and a restore on a real phone. Until `app_id` is filled in, Play Games stays off.

@@ -50,6 +50,8 @@ export interface SceneView {
    * had broken by then stood. The run is drawn as it was at that moment.
    */
   highlight?: { member: number; node: number; ghost?: [number, number, number, number] | null; broken?: [number, number, number, number][] } | null;
+  /** The run as it stood at a logged moment (the stress graph's, or a shared picture's): no wreckage or sparks yet. */
+  still?: boolean;
   /** The level editor's cursor: the grid point, what the tool would do there, and a channel being dragged. */
   maker?: { x: number; y: number; label: string; ok: boolean; channel: [number, number, number] | null } | null;
   /** A magnifier for touch: the screen point to enlarge (x, y) and the finger hiding it (fx, fy). */
@@ -121,6 +123,26 @@ export class Renderer extends ScenePart {
     this.cam.resize(this.w, this.h);
     this.stage.dpr = dpr;
     this.buildLayers(dpr);
+  }
+
+  /**
+   * Draws one frame at a size of its own, one canvas pixel to the CSS pixel, for a picture:
+   * `draw` renders and takes the pixels, then the canvas goes back to the window's size.
+   */
+  atSize(w: number, h: number, draw: () => void): void {
+    this.stage.w = w;
+    this.stage.h = h;
+    this.canvas.width = w;
+    this.canvas.height = h;
+    this.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    this.cam.resize(w, h);
+    this.stage.dpr = 1;
+    this.buildLayers(1);
+    try {
+      draw();
+    } finally {
+      this.resize();
+    }
   }
 
   get theme(): Theme {
@@ -280,8 +302,7 @@ export class Renderer extends ScenePart {
       }
       if (this.turn) this.members.drawTurning(v.run, v.time, this.turn);
       else this.members.drawRunMembers(v.run, v.time);
-      // Over the stress graph the bridge stands as it was at the picked moment: no wreckage yet.
-      if (!v.highlight) this.effects.drawDebris(this.debris.items);
+      if (!v.still) this.effects.drawDebris(this.debris.items);
       this.traffic.drawVehicleRun(v.run, v.wheelAngles);
       if (shade) {
         this.stage.ctx = ctx;
@@ -293,7 +314,7 @@ export class Renderer extends ScenePart {
         for (const handle of v.run.vehicles) this.traffic.drawLights(v.run, handle, v.develop);
       }
       // Snapping cables stay bright even at night: the eye should catch them.
-      if (!v.highlight) this.effects.drawWhips(v.run, this.debris.whips);
+      if (!v.still) this.effects.drawWhips(v.run, this.debris.whips);
       this.structures.drawLogs(v.run, v.time);
       this.scenery.drawWaterFront(v);
       if (v.highlight) this.blueprint.drawHighlight(v.run, v.highlight, v.time);
@@ -305,7 +326,7 @@ export class Renderer extends ScenePart {
       if (v.maker) this.blueprint.drawMakerCursor(v.maker, v.level, v.time);
     }
 
-    this.effects.drawParticles();
+    if (!v.still) this.effects.drawParticles();
     if (v.develop > 0) this.scenery.drawWeather(v);
     if (v.level.wind) this.scenery.drawWind(v, v.level.wind);
     this.effects.drawFloats(v.floats);

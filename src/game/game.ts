@@ -2,21 +2,20 @@ import { ambience } from '../ambience';
 import { sfx } from '../audio';
 import { bonusStatus } from '../brief';
 import { chapterById, chapterComplete, chapterOf, CHAPTERS, chapterUnlocked, continueLevel, crossed, inFullGame, levelById, levelCode, levelUnlocked, sceneOf, type ChapterDef } from '../chapters';
-import { ClipRecorder } from '../clip';
 import { Design } from '../design';
 import { Editor, fitDesign, isOverBudget, money, type AttachPick } from '../editor';
 import { efficiency, IDLE_LOAD } from '../efficiency';
 import { DebrisField, Particles, PK, Shake } from '../fx/particles';
 import { HapticFeel } from '../haptics';
 import { fmt, t, tn } from '../i18n';
-import { chapterText, levelName, matInline } from '../i18n/data';
+import { chapterText, matInline } from '../i18n/data';
 import { bankY, goalX, LEVELS, START_X, type LevelDef } from '../levels';
 import { isCustom, loadCustom, saveCustom, type CustomSave } from '../maker';
 import { motion } from '../motion';
 import { music, type MusicState } from '../music';
 import { type MaterialId } from '../physics/materials';
 import { TestRun } from '../physics/testrun';
-import { billing, games, hasPaywall, shareVideo, vibrate, type BillingStatus } from '../platform';
+import { billing, games, hasPaywall, vibrate, type BillingStatus } from '../platform';
 import { PlayGamesLink } from '../playgames';
 import { Camera, type Rect } from '../render/camera';
 import { MATERIAL_CHALK, PAL } from '../render/palette';
@@ -32,6 +31,7 @@ import { Input } from './input';
 import { Maker } from './maker';
 import { Results } from './results';
 import { Settings } from './settings';
+import { Sharing } from './sharing';
 import { StressView } from './stress';
 
 export type State = 'title' | 'profile' | 'chapters' | 'chapter' | 'scores' | 'workshop' | 'maker' | 'build' | 'test' | 'result' | 'collapse' | 'over';
@@ -86,9 +86,8 @@ export class Game {
   /** Quitting a challenge is waiting on a yes or no, asked over this screen. */
   quitAsk: ScreenId | null = null;
 
-  // Platform extras: haptics, collapse clips, Play Games and the full-game unlock.
+  // Platform extras: haptics, Play Games and the full-game unlock.
   haptics = new HapticFeel(vibrate);
-  clip = ClipRecorder.create(() => sfx.stream());
   playGames: PlayGamesLink;
   /** The full game is bought, where there's a paywall at all. */
   private owned = false;
@@ -150,6 +149,7 @@ export class Game {
   readonly results = new Results(this);
   readonly stress = new StressView(this);
   readonly settings = new Settings(this);
+  readonly sharing = new Sharing(this);
 
   constructor(canvas: HTMLCanvasElement, store: Store) {
     this.canvas = canvas;
@@ -275,6 +275,8 @@ export class Game {
     this.state = 'title';
     this.ui.title(this.profile, this.data, continueLevel(this.data.best));
     this.ui.show('title');
+    // A bridge that came in by link waited for a profile.
+    this.sharing.watchPending();
   }
 
   /** Stops whatever was being built or driven and brings the demo back behind the menus. */
@@ -284,7 +286,7 @@ export class Game {
     this.briefing = false;
     this.stress.hideGraph();
     this.drive.stopEngine();
-    this.clip?.cancel();
+    this.sharing.leaveAfter = false;
     this.editor = null;
     this.customLevel = null;
     this.maker.channelFrom = null;
@@ -321,6 +323,8 @@ export class Game {
     this.ui.show('chapters');
     this.showChapters(opened);
     if (this.chaptersView === 'map') this.ui.showNextOnMap(this.data.best, !!opened);
+    // Or for the challenge running when it came to end.
+    this.sharing.watchPending();
   }
 
   get chaptersView(): ChaptersView {
@@ -573,9 +577,6 @@ export class Game {
     this.ui.testBtn.classList.remove('pulse');
     this.hoverMember = this.hoverNode = -1;
     this.fitCamera(false);
-    // Recorded in case it comes down: the collapse card offers the clip.
-    this.clip?.start(this.canvas, `${this.codeOf(this.level)} ${fmt.upper(levelName(this.level))}`);
-    this.ui.setClip(false);
     sfx.whoosh();
     sfx.engineStart(this.drive.engineBase());
   }
@@ -590,11 +591,16 @@ export class Game {
     }
     if (this.example) {
       this.example = false;
+      // A bridge shared from a level this player can't build on yet: back to the chapters.
+      if (this.sharing.leaveAfter) {
+        this.enterChapters();
+        this.ui.showToast(t('share.locked'), 4500);
+        return;
+      }
       this.ui.showToast(t(this.level.hintSolves ? 'toast.yourTurnGhost' : 'toast.yourTurn'), 4000);
     }
     this.stress.hideGraph();
     this.drive.stopEngine();
-    this.clip?.cancel();
     this.run = null;
     this.state = 'build';
     this.paused = false;
@@ -640,18 +646,6 @@ export class Game {
     }
   }
 
-  /** Shares the clip of the last collapse through the share sheet, or saves it. */
-  private async shareClip(): Promise<void> {
-    const clip = this.clip?.clip;
-    if (!clip || !this.clip) return;
-    const name = `bridge-builder-${this.codeOf(this.level).toLowerCase()}-collapse.${this.clip.extension}`;
-    try {
-      await shareVideo(name, clip);
-    } catch {
-      this.ui.showToast(t('toast.clipFail'));
-    }
-  }
-
   /** Signs in to Play Games from the leaderboards, pulling in the cloud save as it does. */
   private async signInPlayGames(): Promise<void> {
     if (await this.playGames.signIn()) await this.afterCloudSave();
@@ -682,7 +676,7 @@ export class Game {
   // ───────────────────────────── Full game ─────────────────────────────
 
   /** A chapter past the free ones in a build with a paywall, while the full game isn't bought. */
-  private forSale(ch: ChapterDef): boolean {
+  forSale(ch: ChapterDef): boolean {
     return hasPaywall && !this.owned && inFullGame(ch);
   }
 
@@ -878,9 +872,9 @@ export class Game {
         sfx.select();
         this.startChallenge(this.chapter);
         break;
-      case 'share-clip':
+      case 'share':
         sfx.ui();
-        void this.shareClip();
+        void this.sharing.share();
         break;
       case 'unlock':
         this.offerFullGame();
@@ -1138,7 +1132,7 @@ export class Game {
     return [-side, L.width + side, L.waterY - 0.5, top + 0.5];
   }
 
-  private testBounds(): [number, number, number, number] {
+  testBounds(): [number, number, number, number] {
     const L = this.level;
     // Tall towers the player raised count too, so their peaks stay in view.
     const built = this.editor?.design.nodes.map((n) => n.y + 1.5) ?? [];
@@ -1194,10 +1188,13 @@ export class Game {
   render(): void {
     const sim = this.run ?? this.demo;
     this.stress.posed(() => this.drawScene(sim));
-    this.clip?.frame(this.canvas);
   }
 
-  private drawScene(sim: TestRun | null): void {
+  /**
+   * Draws the scene. `still` draws a logged moment of the run for a picture: no cursor, rings or
+   * floating words. The stress graph's moments are still too, as far as the wreckage goes.
+   */
+  drawScene(sim: TestRun | null, still = false): void {
     this.renderer.draw({
       level: this.level,
       editor: this.state === 'build' || (!this.run && this.editor) ? this.editor : null,
@@ -1209,12 +1206,13 @@ export class Game {
       showCursor: this.keyboardMode && this.state === 'build' && !this.paused,
       showHint: this.state === 'build' && !!this.level.hint && this.attempts === 0,
       time: this.time,
-      flash: this.flash,
+      flash: still ? 0 : this.flash,
       wheelAngles: this.drive.wheelAngles,
-      floats: this.floats,
-      highlight: this.stress.highlight(),
+      floats: still ? [] : this.floats,
+      highlight: still ? null : this.stress.highlight(),
+      still: still || this.stress.graphOpen,
       maker: this.maker.makerView(),
-      loupe: this.loupeView(),
+      loupe: still ? null : this.loupeView(),
       hoverCell: this.state === 'build' ? this.hoverCell : -1,
       brush: this.state === 'build' && !this.paused && this.brushAt && this.editor && !this.editor.paint ? { x: this.brushAt[0], y: this.brushAt[1], why: this.editor.blockProblem(...this.brushAt) } : null,
       reviewHint: this.state === 'build' && this.mode === 'play' && this.hintsShown().length ? this.hintsShown().flatMap((i) => this.allGhosts()?.slice(i, i + 1) ?? []) : null,

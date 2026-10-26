@@ -1,7 +1,7 @@
 import { Game } from './game/game';
 import { detectLocale, registerLocales, setLocale } from './i18n';
 import { applyStatic } from './i18n/dom';
-import { appVersion, bindApp, initPlatform, platform } from './platform';
+import { appVersion, bindApp, initPlatform, onLink, platform } from './platform';
 import { loadPrefs, LocalStore, pickStore } from './storage';
 
 await initPlatform();
@@ -16,6 +16,8 @@ const canvas = document.getElementById('game') as HTMLCanvasElement;
 // The Android and desktop apps have no server to look for: they keep everything on the device.
 const game = new Game(canvas, platform === 'web' ? await pickStore() : new LocalStore());
 bindApp(game.input);
+// A shared bridge's link, as the game opens or (in the app) while it runs.
+onLink((url) => void game.sharing.open(url));
 
 let last = performance.now();
 function frame(now: number): void {

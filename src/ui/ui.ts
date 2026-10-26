@@ -683,9 +683,9 @@ export class Ui {
     this.show('unlock');
   }
 
-  /** Shows the buttons that share the last collapse's clip, once it's ready. */
-  setClip(ready: boolean): void {
-    for (const b of document.querySelectorAll<HTMLElement>('.clip-share')) b.classList.toggle('hidden', !ready);
+  /** Shows the buttons that share the bridge on the result, collapse and game over cards. */
+  setShare(can: boolean): void {
+    for (const b of document.querySelectorAll<HTMLElement>('.share-btn')) b.classList.toggle('hidden', !can);
   }
 
   /** The pause menu's vibration switch, on devices that can vibrate. */

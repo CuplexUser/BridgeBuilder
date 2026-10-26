@@ -3636,7 +3636,7 @@ label.btn {
   color: var(--muted);
 }
 
-.panel .clip-share {
+.panel .share-btn {
   margin: 4px auto 0;
   display: block;
 }

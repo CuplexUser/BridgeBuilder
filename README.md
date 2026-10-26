@@ -44,7 +44,7 @@ The profile screen tells you which storage is in use. The last-used profile resu
 
 ### GitHub Pages
 
-`.github/workflows/pages.yml` lints, tests and builds, then publishes `dist/` on every push to `main`. Enable it once under **Settings → Pages → Source: GitHub Actions**. The build uses relative paths, so it works from the `/<repo>/` sub-path.
+`.github/workflows/pages.yml` lints, tests and builds, then publishes `dist/` on every push to `main`. Enable it once under **Settings → Pages → Source: GitHub Actions**. The build uses relative paths, so it works from the `/<repo>/` sub-path. Shared bridge links point at `https://bridgebuilder.cuplex.org`, so the site belongs there: a DNS `CNAME` record from `bridgebuilder` to `cuplexuser.github.io`, and that domain under **Settings → Pages → Custom domain**, with **Enforce HTTPS**. The site then serves `/.well-known/assetlinks.json` for the Android App Link.
 
 ### One codebase, three builds
 
@@ -53,20 +53,24 @@ The web build, the Android app and the desktop app are the same game code. Every
 - **Which build** (`platform`: `web`, `android` or `desktop`), also set on `<html data-platform>`.
 - **UI profile** (`uiProfile`, on `<html data-ui>`): `touch` in the Android app and in browsers whose main pointer is a finger, `desktop` otherwise. Touch hides key hints and doesn't move focus to buttons. Desktop shows the keys and, on screens 900 px and wider, tightens buttons and the toolbar so more of the screen is bridge.
 - **Level caps** (`levelCaps`): any build loads a custom level up to 96 m wide, but on a touch device the editor stops growing one at 64 m, where a phone's screen and physics still keep up. A wider level from a desktop keeps its width when edited on a phone.
-- **Storage, files and sharing**: device storage, level export and collapse clips (a download in the browser, a save dialog on desktop, the share sheet on Android), and the clipboard.
+- **Storage, files and sharing**: device storage, level export and shared bridges (a download in the browser, a save dialog on desktop, the share sheet on Android and in browsers that have one), links that open a shared bridge, and the clipboard.
 - **Android only**: the back button, haptics, Google Play Games and the full-game unlock.
 
 Each shell's side is loaded on demand (`src/native.ts` for Android, `desktop/src/bridge.js` for desktop), so the web build carries none of it.
 
-### Collapse clips and haptics
+### Shared bridges and haptics
 
-Every test drive is recorded off the canvas into a 1280 px video with the game's sound and a caption naming the level (`src/clip.ts`). While nothing has broken, the recording restarts every 12 s, so a clip holds at most that much lead-in and then the whole collapse. When the bridge comes down, the collapse card offers **SHARE THE CLIP** (S). The clip is an MP4 where the browser can record one (Chrome, Edge, the desktop app's WebView2 and the Android WebView), and WebM otherwise. A bridge that holds throws its recording away.
+The result, collapse and game over cards offer **SHARE THE BRIDGE** (S): a 1200×675 picture of the bridge and a link that drives it. The picture is drawn at its own size from the run's stress log, at the moment it peaked for a crossing or half a second into a collapse, with the level, the score or what failed, and who built it (`src/sharecard.ts`, `src/game/sharing.ts`). The link is `https://bridgebuilder.cuplex.org/?b=…`, with the level, the design and the builder's name compressed into it (`src/share.ts`), a few hundred characters for most bridges. There's no server to look it up on. In the app and in browsers with a share sheet both go to it; elsewhere the link goes on the clipboard and the picture is downloaded, or saved through a dialog on desktop.
+
+Opening a link (on the site, or in the Android app through an App Link) drives that bridge on its level the way a level's example does, under whatever profile is playing, or once one is picked. Anyone can watch, on any level. Afterwards the player builds there if that level is open to them, and goes back to the chapters otherwise. Custom levels aren't shared this way: export them from the workshop.
+
+The site has to be served from `bridgebuilder.cuplex.org` for links to work, and Android only opens them in the app once `public/.well-known/assetlinks.json` carries the SHA-256 of the Play app signing key (the **App signing** page under **App integrity** in the Play Console). Until then they open in the browser.
 
 On phones, members creak with a light buzz, every snap is a hard pulse, and a collapse is a long one (`src/haptics.ts` paces them). On devices that can vibrate, the pause menu has a switch for it.
 
 ### Android
 
-The Android app is the same web build wrapped with [Capacitor](https://capacitorjs.com) (app ID `se.cuplex.bridgebuilder`). The native project lives in `android/`. `src/native.ts` covers device storage, the back button (it does what Escape does, and leaves the app from the title screen), level export and clips through the share sheet, the clipboard, haptics, saving when the app goes to the background, and the game's two Java plugins in `android/app/src/main/java/se/cuplex/bridgebuilder/`:
+The Android app is the same web build wrapped with [Capacitor](https://capacitorjs.com) (app ID `se.cuplex.bridgebuilder`). The native project lives in `android/`. `src/native.ts` covers device storage, the back button (it does what Escape does, and leaves the app from the title screen), level export and shared bridges through the share sheet, links that open a shared bridge, the clipboard, haptics, saving when the app goes to the background, and the game's two Java plugins in `android/app/src/main/java/se/cuplex/bridgebuilder/`:
 
 - **`PlayGamesPlugin`**: Google Play Games Services v2. Players are signed in as the app starts. Achievements (`src/achievements.ts`) mostly follow from progress, so they come back on a new phone. A few come from moments in play: a first collapse, a finished or flawless challenge, crossing your own level. Leaderboards take the career score, total stars and each chapter's challenge. The profiles and progress on the phone go to a Play Games saved game, and a save from another phone is merged in, keeping the better result on every level. A fresh install signed in to Play Games plays under the player's Play Games name, with no profile screen. The Play Games bar on the leaderboards screen opens Google's leaderboards and achievements, or signs in.
 - **`PlayBillingPlugin`**: Google Play Billing for the full game. The first three chapters are free (`FREE_CHAPTERS` in `src/chapters.ts`). The rest are one in-app product, `full_game`, bought once. Locked chapters show **FULL GAME** on the map and in the book, and opening one shows the offer with Play's price, a buy button and a restore link. Ownership is read from Play at every start, and the last answer is kept for when Play can't be reached. There are no ads. The web and desktop builds have no paywall.
@@ -88,7 +92,7 @@ Run `npm run android` after every web change before building in Android Studio. 
 
 ### Desktop
 
-The desktop app wraps the same web build in [Tauri](https://tauri.app), a small Rust shell around the system's WebView (WebView2 on Windows) (`desktop/`). It serves `dist/` from its own origin, so modules, the tuner worker and storage work as on the web. It keeps saves in the app's data folder, remembers the window's size and place, and saves exported levels and collapse clips through a save dialog. F11 toggles full screen. There's no paywall, and the level editor goes up to 96 m.
+The desktop app wraps the same web build in [Tauri](https://tauri.app), a small Rust shell around the system's WebView (WebView2 on Windows) (`desktop/`). It serves `dist/` from its own origin, so modules, the tuner worker and storage work as on the web. It keeps saves in the app's data folder, remembers the window's size and place, and saves exported levels and shared bridge pictures through a save dialog. F11 toggles full screen. There's no paywall, and the level editor goes up to 96 m.
 
 ```sh
 npm run desktop       # build, then run the app
