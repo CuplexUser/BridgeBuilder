@@ -1,2 +1,4 @@
 # Packed level resource: never diff or convert line endings.
 *.res binary
+# Shell scripts run in bash, which trips on CRLF.
+*.sh text eol=lf

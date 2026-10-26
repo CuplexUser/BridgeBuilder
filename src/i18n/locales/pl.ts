@@ -699,6 +699,7 @@ const pl: Table = {
   'share.copied': 'Link skopiowany do schowka, obraz zapisany.',
   'share.fail': 'Nie można udostępnić mostu.',
   'share.bad': 'Ten link nie zawiera mostu, który ta wersja gry potrafi otworzyć.',
+  'share.offline': 'Nie udało się pobrać udostępnionego mostu. Sprawdź połączenie i otwórz link ponownie.',
   'share.watch': 'Most gracza {name}. Twój plan jest zachowany. Naciśnij T, by wrócić.',
   'share.watchLocked': 'Most gracza {name} na poziomie, do którego jeszcze nie dotarłeś. Naciśnij T, by przestać oglądać.',
   'share.crossedCustom': 'Gracz {name} zbudował most na poziomie {level}, własnym poziomie w Bridge Builder. Zobacz, jak wytrzymuje:',

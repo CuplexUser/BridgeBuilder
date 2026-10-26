@@ -654,6 +654,7 @@ const fr: Table = {
   'share.copied': 'Lien copié dans le presse-papiers, image enregistrée.',
   'share.fail': 'Impossible de partager le pont.',
   'share.bad': 'Ce lien ne contient aucun pont que cette version du jeu peut ouvrir.',
+  'share.offline': 'Impossible de récupérer le pont partagé. Vérifiez votre connexion et rouvrez le lien.',
   'share.watch': 'Le pont de {name}. Votre propre plan est conservé. Appuyez sur T pour revenir.',
   'share.watchLocked': 'Le pont de {name}, sur un niveau que vous n’avez pas encore atteint. Appuyez sur T pour arrêter.',
   'share.crossedCustom': '{name} a construit un pont sur {level}, un niveau personnalisé de Bridge Builder. Regardez-le tenir :',

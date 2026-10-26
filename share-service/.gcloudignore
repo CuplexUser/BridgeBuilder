@@ -1,0 +1,5 @@
+node_modules/
+hosting/
+firebase.json
+.firebaserc
+deploy.sh

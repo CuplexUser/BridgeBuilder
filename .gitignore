@@ -22,3 +22,7 @@ release/
 # The desktop app's Rust build and the schemas Tauri generates
 desktop/target/
 desktop/gen/
+# A copy of public/.well-known that share-service/deploy.sh puts on b.cuplex.org
+share-service/hosting/
+# The Firebase CLI's deploy cache
+share-service/.firebase/

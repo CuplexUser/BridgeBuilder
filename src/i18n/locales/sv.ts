@@ -629,6 +629,7 @@ const sv: Table = {
   'share.copied': 'Länken är kopierad och bilden sparad.',
   'share.fail': 'Kunde inte dela bron.',
   'share.bad': 'Länken innehåller ingen bro som den här versionen av spelet kan öppna.',
+  'share.offline': 'Kunde inte hämta den delade bron. Kontrollera anslutningen och öppna länken igen.',
   'share.watch': '{name}s bro. Din egen ritning sparas. Tryck T för att gå tillbaka.',
   'share.watchLocked': '{name}s bro, på en bana du inte har nått än. Tryck T för att sluta titta.',
   'share.crossedCustom': '{name} byggde en bro över {level}, en egen bana i Bridge Builder. Se den hålla:',

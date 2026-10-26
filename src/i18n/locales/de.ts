@@ -629,6 +629,7 @@ const de: Table = {
   'share.copied': 'Link in die Zwischenablage kopiert und Bild gespeichert.',
   'share.fail': 'Die Brücke ließ sich nicht teilen.',
   'share.bad': 'Dieser Link enthält keine Brücke, die diese Version des Spiels öffnen kann.',
+  'share.offline': 'Die geteilte Brücke konnte nicht geladen werden. Prüfe deine Verbindung und öffne den Link erneut.',
   'share.watch': 'Die Brücke von {name}. Dein eigener Bauplan bleibt erhalten. Drücke T, um zurückzukehren.',
   'share.watchLocked': 'Die Brücke von {name}, auf einem Level, das du noch nicht erreicht hast. Drücke T, um aufzuhören.',
   'share.crossedCustom': '{name} hat in Bridge Builder eine Brücke über {level} gebaut, ein eigenes Level. Sieh zu, wie sie hält:',

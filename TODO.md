@@ -39,7 +39,7 @@ Features and improvements, by priority. Finished items stay checked for a releas
 
 ### Next
 
-- [x] **Design sharing.** SHARE THE BRIDGE on the result, collapse and game over cards sends a picture of the bridge at its key moment and a link (`bridgebuilder.cuplex.org/?b=…`) that carries the level, the design in its save format and the builder's name. Opening it drives the bridge in the recipient's game, on the site or in the app through an App Link. A custom level goes in the link whole and is saved in the recipient's level editor. It replaced the collapse clip, which often held only a second or two.
+- [x] **Design sharing.** SHARE THE BRIDGE on the result, collapse and game over cards sends a picture of the bridge at its key moment and a link (`bridgebuilder.cuplex.org/?b=…`) that carries the level, the design in its save format and the builder's name. Opening it drives the bridge in the recipient's game, on the site or in the app through an App Link. A custom level goes in the link whole and is saved in the recipient's level editor. Links are short (`b.cuplex.org/<code>`) through the share service on Cloud Run, with picture previews in chat apps, and fall back to the long link when it can't be reached. It replaced the collapse clip, which often held only a second or two.
 
 ## P2: Gameplay depth
 

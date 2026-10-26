@@ -1,0 +1,16 @@
+{
+  "name": "bridge-builder-share",
+  "private": true,
+  "type": "module",
+  "description": "Short links for shared bridges: stores them in Cloud Storage and answers b.cuplex.org.",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "@google-cloud/storage": "^8.4.0"
+  }
+}

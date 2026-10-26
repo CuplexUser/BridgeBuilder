@@ -60,11 +60,36 @@ Each shell's side is loaded on demand (`src/native.ts` for Android, `desktop/src
 
 ### Shared bridges and haptics
 
-The result, collapse and game over cards offer **SHARE THE BRIDGE** (S): a 1200×675 picture of the bridge and a link that drives it. The picture is drawn at its own size from the run's stress log, at the moment it peaked for a crossing or half a second into a collapse, with the level, the score or what failed, and who built it (`src/sharecard.ts`, `src/game/sharing.ts`). The link is `https://bridgebuilder.cuplex.org/?b=…`, with the level, the design and the builder's name compressed into it (`src/share.ts`), a few hundred characters for most bridges. There's no server to look it up on. In the app and in browsers with a share sheet both go to it; elsewhere the link goes on the clipboard and the picture is downloaded, or saved through a dialog on desktop.
+The result, collapse and game over cards offer **SHARE THE BRIDGE** (S): a 1200×675 picture of the bridge and a link that drives it. The picture is drawn at its own size from the run's stress log, at the moment it peaked for a crossing or half a second into a collapse, with the level, the score or what failed, and who built it (`src/sharecard.ts`, `src/game/sharing.ts`). The link is a short one, `https://b.cuplex.org/Ab3dE9xQ`: the share service (below) keeps the bridge under an 8-character code that is the bridge's own hash (`src/share.ts`), so the game knows the link before the upload is done. The game waits up to 1.5 s for the service to take the bridge, since a browser opens its share sheet only soon after the tap, then uploads the picture as a JPEG for the link's preview. When the service can't be reached, the game shares the long link instead, `https://bridgebuilder.cuplex.org/?b=…`, which carries the level, the design and the builder's name compressed into it, a few hundred characters for most bridges; long links keep working. In the app and in browsers with a share sheet the picture and the link go to it; elsewhere the link goes on the clipboard and the picture is downloaded, or saved through a dialog on desktop.
 
-Opening a link (on the site, or in the Android app through an App Link) drives that bridge on its level the way a level's example does, under whatever profile is playing, or once one is picked. Anyone can watch, on any level. Afterwards the player builds there if that level is open to them, and goes back to the chapters otherwise. A bridge on a custom level, playtested from the level editor, shares the same way with the level itself in the link, a few hundred characters more. Opening one saves that level in the recipient's level editor, once, however often the link is opened, and they build on it after watching.
+A short link opens a page with the bridge's picture, title and score for chat apps' previews, which sends a browser on to `https://bridgebuilder.cuplex.org/?s=<code>`; the game fetches the bridge from the service. Opening a link (on the site, or in the Android app through an App Link for either host) drives that bridge on its level the way a level's example does, under whatever profile is playing, or once one is picked. Anyone can watch, on any level. Afterwards the player builds there if that level is open to them, and goes back to the chapters otherwise. A bridge on a custom level, playtested from the level editor, shares the same way with the level itself in the link, a few hundred characters more. Opening one saves that level in the recipient's level editor, once, however often the link is opened, and they build on it after watching.
 
-The site has to be served from `bridgebuilder.cuplex.org` for links to work, and Android only opens them in the app once `public/.well-known/assetlinks.json` carries the SHA-256 of the Play app signing key (the **App signing** page under **App integrity** in the Play Console). Until then they open in the browser.
+The site has to be served from `bridgebuilder.cuplex.org` for links to work, and Android only opens them in the app once `public/.well-known/assetlinks.json` carries the SHA-256 of the Play app signing key (the **App signing** page under **App integrity** in the Play Console). Until then they open in the browser. `share-service/deploy.sh` puts a copy of that file on `b.cuplex.org` too, so run it again after filling in the key.
+
+### Share service (b.cuplex.org)
+
+`share-service/` is a small Node service for Cloud Run (`app.mjs`, no framework). It stores shared bridges and their pictures in a private Cloud Storage bucket and answers the short links:
+
+| Request | What it does |
+| --- | --- |
+| `PUT /api/bridges/<code>` | Stores a bridge. The code must be the SHA-256 of the body in base 62, the body must look like a bridge, and it's at most 64 KB. |
+| `PUT /api/bridges/<code>/image` | Stores a stored bridge's preview picture: a 1200×675 JPEG, at most 1 MB. |
+| `GET /api/bridges/<code>` | The bridge, for the game. Cached for a year, since a code always means the same bridge. |
+| `GET /<code>`, `/<code>.jpg` | The preview page, which goes on to the game, and its picture. |
+
+Nothing stored is ever overwritten or deleted: the service's account may only create and read objects. One address may store 40 bridges and pictures in 10 minutes. `node share-service/index.mjs` runs it locally on port 8787 with the files in `data/shared/`; start the game with `VITE_SHARE_SERVICE=http://localhost:8787` to share through it.
+
+It runs in project `elemental-apex-511507-g2`, region `europe-west3`. Cloud Run can't map a custom domain itself in that region, so Firebase Hosting answers `b.cuplex.org` and passes every request to the service (`share-service/firebase.json`); its CDN also caches the pictures and pages.
+
+To set it up, or deploy a change:
+
+1. **Billing**: Cloud Run needs a billing account on the project (**Billing** in the Google Cloud console). At this size it stays within the free tiers; a budget alert under **Billing → Budgets & alerts** is a cheap safeguard.
+2. **Sign in** once: `gcloud auth login` and `npx firebase-tools login`.
+3. **Deploy**: `bash share-service/deploy.sh` (Git Bash on Windows). It turns on the APIs, creates the bucket `elemental-apex-511507-g2-shared-bridges` and the account `bridge-share@…`, gives the project's default compute account the Cloud Run Builder role (source deploys build as it, and newer projects give it no roles), deploys the service from the `Dockerfile`, adds Firebase to the project and deploys Hosting. Run again, it only deploys. If Firebase says the project has no Hosting site yet, open the [Firebase console](https://console.firebase.google.com), pick the project, click **Build → Hosting → Get started** once, and run the script again.
+4. **Domain**: in the Firebase console, **Hosting → Add custom domain**, enter `b.cuplex.org`, and add the DNS records it lists (a `TXT` record to prove the domain is yours, and the `A` records or `CNAME` it shows for `b`) where `cuplex.org`'s DNS is kept. Firebase provisions the certificate itself once they resolve, which can take from minutes to a day. If `cuplex.org` has `CAA` records, they must allow `letsencrypt.org` and `pki.goog`.
+5. **Check**: `https://b.cuplex.org/health` answers `ok` (not `/healthz`: Cloud Run keeps paths ending in z for itself). Before the domain is connected, the same works at `https://elemental-apex-511507-g2.web.app`.
+
+The service's logs are under **Cloud Run → bridge-share → Logs**. Shared bridges include the builder's profile name, shown in link previews; the privacy policy (`public/privacy.html`) says so.
 
 On phones, members creak with a light buzz, every snap is a hard pulse, and a collapse is a long one (`src/haptics.ts` paces them). On devices that can vibrate, the pause menu has a switch for it.
 

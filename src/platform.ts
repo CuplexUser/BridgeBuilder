@@ -80,6 +80,7 @@ export function onLink(fn: (url: string) => void): void {
   const url = location.href;
   const rest = new URLSearchParams(location.search);
   rest.delete('b');
+  rest.delete('s');
   history.replaceState(null, '', `${location.pathname}${rest.size ? `?${rest}` : ''}${location.hash}`);
   fn(url);
 }

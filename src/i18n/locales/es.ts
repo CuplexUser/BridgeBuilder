@@ -654,6 +654,7 @@ const es: Table = {
   'share.copied': 'Enlace copiado al portapapeles e imagen guardada.',
   'share.fail': 'No se pudo compartir el puente.',
   'share.bad': 'Este enlace no contiene ningún puente que esta versión del juego pueda abrir.',
+  'share.offline': 'No se pudo cargar el puente compartido. Comprueba tu conexión y vuelve a abrir el enlace.',
   'share.watch': 'El puente de {name}. Tu propio plano se conserva. Pulsa T para volver.',
   'share.watchLocked': 'El puente de {name}, en un nivel al que aún no has llegado. Pulsa T para dejar de mirar.',
   'share.crossedCustom': '{name} construyó un puente en {level}, un nivel personalizado de Bridge Builder. Míralo aguantar:',

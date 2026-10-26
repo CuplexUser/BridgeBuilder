@@ -1,0 +1,7 @@
+{
+  "hosting": {
+    "public": "hosting",
+    "ignore": [],
+    "rewrites": [{ "source": "**", "run": { "serviceId": "bridge-share", "region": "europe-west3" } }]
+  }
+}

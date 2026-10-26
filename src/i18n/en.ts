@@ -668,6 +668,7 @@ export const en = {
   'share.copied': 'Link copied to the clipboard, and the picture saved.',
   'share.fail': 'Could not share the bridge.',
   'share.bad': 'That link holds no bridge this version of the game can open.',
+  'share.offline': 'Couldn’t fetch the shared bridge. Check your connection and open the link again.',
   'share.watch': '{name}’s bridge. Your own blueprint is kept. Press T to go back.',
   'share.watchLocked': '{name}’s bridge, on a level you haven’t reached yet. Press T to stop watching.',
   'share.crossedCustom': '{name} built a bridge over {level}, a custom level in Bridge Builder. Watch it cross:',

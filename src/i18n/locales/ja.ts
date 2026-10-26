@@ -614,6 +614,7 @@ const ja: Table = {
   'share.copied': 'リンクをコピーし、画像を保存しました。',
   'share.fail': '橋を共有できませんでした。',
   'share.bad': 'このリンクには、このバージョンのゲームで開ける橋がありません。',
+  'share.offline': '共有された橋を読み込めませんでした。接続を確認して、もう一度リンクを開いてください。',
   'share.watch': '{name}さんの橋。あなたの設計図はそのまま残っています。T で戻ります。',
   'share.watchLocked': '{name}さんの橋（まだ到達していないステージ）。T で見るのをやめます。',
   'share.crossedCustom': '{name}さんが Bridge Builder のカスタムステージ {level} に橋を架けました。渡るところを見てみよう：',

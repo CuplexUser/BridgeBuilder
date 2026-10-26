@@ -8,12 +8,17 @@ import { exportLevel, isCustom, makerIssues, nextCustomId, parseLevel, saveCusto
 import type { TestRun } from '../physics/testrun';
 import { shareBridge } from '../platform';
 import { PAL } from '../render/palette';
-import { readShareLink, shareLink, type SharedBridge } from '../share';
-import { CARD_H, CARD_W, shareCard, type CardText } from '../sharecard';
+import { readShareLink, shareLink, storeBridge, storePicture, type SharedBridge } from '../share';
+import { CARD_H, CARD_W, cardImage, shareCard, type CardText } from '../sharecard';
 import type { Game } from './game';
 
 /** How long into a collapse the picture is taken, s after the first part breaks. */
 const INTO_COLLAPSE = 0.5;
+/**
+ * How long sharing waits for the share service to take a bridge, ms, before handing on its short
+ * link anyway. A browser's share sheet only opens soon after the tap, so it can't wait long.
+ */
+const SHORT_WAIT = 1500;
 
 /**
  * Sharing a bridge as a picture and a link, and watching one that came in by link: it drives
@@ -49,14 +54,16 @@ export class Sharing {
       const name = g.profile.name;
       const crossed = run.status === 'success';
       const score = crossed ? g.results.lastScore : null;
-      const image = this.picture(run, {
+      const words: CardText = {
         title: custom ? fmt.upper(levelName(level)) : `${code} ${fmt.upper(levelName(level))}`,
         line: score ? t('share.cardScore', { score: fmt.num(score.total), cost: fmt.money(score.spent) }) : `${t(run.collapsed ? 'collapse.collapsed' : 'collapse.failed')} · ${run.reason}`,
         by: t('share.by', { name }),
         stars: score ? score.stars : null,
         tone: crossed ? PAL.ok : PAL.bad,
-      });
-      const url = await shareLink({ level: level.id, design: design.serialize(), name, custom: custom ? exportLevel(level) : undefined });
+      };
+      const card = this.picture(run, words);
+      const image = cardImage(card, 'image/png');
+      const url = await this.linkFor({ level: level.id, design: design.serialize(), name, custom: custom ? exportLevel(level) : undefined }, words, card);
       const said = custom ? (crossed ? 'share.crossedCustom' : 'share.collapsedCustom') : crossed ? 'share.crossed' : 'share.collapsed';
       const text = t(said, { name, code, level: levelName(level) });
       const outcome = await shareBridge(`bridge-builder-${code || 'custom'}.png`, await image, text, url);
@@ -69,17 +76,37 @@ export class Sharing {
   }
 
   /**
+   * The short link, once the share service has the bridge or is still taking it after SHORT_WAIT,
+   * and the long one when the service can't be reached. The preview picture follows the bridge.
+   */
+  private async linkFor(bridge: SharedBridge, words: CardText, card: HTMLCanvasElement): Promise<string> {
+    if (navigator.onLine !== false) {
+      try {
+        const stored = await storeBridge(bridge, { title: words.title, line: words.line, by: words.by });
+        const jpeg = cardImage(card, 'image/jpeg');
+        // A link without its picture still opens the bridge: a failed upload costs only the preview.
+        stored.saved.then(async () => storePicture(stored.code, await jpeg)).catch(() => {});
+        const timeout = new Promise<boolean>((resolve) => setTimeout(() => resolve(true), SHORT_WAIT));
+        if (await Promise.race([stored.saved.then(() => true, () => false), timeout])) return stored.url;
+      } catch {
+        // The long link, below.
+      }
+    }
+    return shareLink(bridge);
+  }
+
+  /**
    * The run drawn at its key moment at the card's size, then made into the card. The canvas is
    * back to the window's size and drawn over before the next frame paints, so nobody sees it.
    */
-  private picture(run: TestRun, text: CardText): Promise<Blob> {
+  private picture(run: TestRun, text: CardText): HTMLCanvasElement {
     const g = this.game;
     const log = run.log;
     const first = log.breaks[0];
     const sample = run.status === 'success' ? log.peakSample() : first ? log.sampleAt(first.t + INTO_COLLAPSE) : log.length - 1;
     const cam = g.cam;
     const kept = { cx: cam.cx, cy: cam.cy, scale: cam.scale, tcx: cam.tcx, tcy: cam.tcy, tscale: cam.tscale, ox: cam.ox, oy: cam.oy };
-    let card: Promise<Blob> | null = null;
+    let card: HTMLCanvasElement | null = null;
     try {
       g.renderer.atSize(CARD_W, CARD_H, () => {
         cam.ox = cam.oy = 0;
@@ -91,12 +118,20 @@ export class Sharing {
     } finally {
       Object.assign(cam, kept);
     }
-    return card ?? Promise.reject(new Error('No picture'));
+    const made = card as HTMLCanvasElement | null;
+    if (!made) throw new Error('No picture');
+    return made;
   }
 
   /** Reads a link the game was opened with, and watches its bridge as soon as it can. */
   async open(url: string): Promise<void> {
-    const s = await readShareLink(url);
+    let s: SharedBridge | null;
+    try {
+      s = await readShareLink(url);
+    } catch {
+      this.game.ui.showToast(t('share.offline'), 4000);
+      return;
+    }
     if (!s || (!s.custom && !LEVELS.some((l) => l.id === s.level))) {
       this.game.ui.showToast(t('share.bad'), 4000);
       return;

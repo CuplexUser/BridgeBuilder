@@ -654,6 +654,7 @@ const ptBR: Table = {
   'share.copied': 'Link copiado para a área de transferência e imagem salva.',
   'share.fail': 'Não foi possível compartilhar a ponte.',
   'share.bad': 'Este link não tem nenhuma ponte que esta versão do jogo consiga abrir.',
+  'share.offline': 'Não foi possível carregar a ponte compartilhada. Verifique sua conexão e abra o link de novo.',
   'share.watch': 'A ponte de {name}. Sua própria planta foi guardada. Aperte T para voltar.',
   'share.watchLocked': 'A ponte de {name}, numa fase que você ainda não alcançou. Aperte T para parar de assistir.',
   'share.crossedCustom': '{name} construiu uma ponte em {level}, uma fase personalizada do Bridge Builder. Veja ela aguentar:',

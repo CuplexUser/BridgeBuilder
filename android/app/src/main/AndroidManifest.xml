@@ -33,6 +33,14 @@
                 <data android:scheme="https" android:host="bridgebuilder.cuplex.org" android:path="/" />
             </intent-filter>
 
+            <!-- Short links to shared bridges: b.cuplex.org/ and an 8-character code. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="b.cuplex.org" android:pathPattern="/........" />
+            </intent-filter>
+
         </activity>
 
         <!-- Play Games project id from res/values/games-ids.xml; empty until the Play Console is set up. -->

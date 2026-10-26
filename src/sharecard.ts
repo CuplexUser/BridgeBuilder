@@ -22,9 +22,9 @@ export interface CardText {
 
 /**
  * The picture that goes with a shared link: a frame of the game, drawn at the card's size, under
- * a band naming the level and what happened. A PNG.
+ * a band naming the level and what happened.
  */
-export function shareCard(source: HTMLCanvasElement, text: CardText): Promise<Blob> {
+export function shareCard(source: HTMLCanvasElement, text: CardText): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
@@ -58,7 +58,12 @@ export function shareCard(source: HTMLCanvasElement, text: CardText): Promise<Bl
   c.fillText(fitText(c, text.by, 280), W - pad, H - band + 108);
   if (text.stars !== null) for (let i = 0; i < 3; i++) star(c, W - pad - 20 - (2 - i) * 50, H - band + 52, 20, i < text.stars);
 
-  return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('No image'))), 'image/png'));
+  return canvas;
+}
+
+/** The card as a file: a PNG for the share sheet, a JPEG for a link's preview. */
+export function cardImage(card: HTMLCanvasElement, type: 'image/png' | 'image/jpeg'): Promise<Blob> {
+  return new Promise((resolve, reject) => card.toBlob((b) => (b ? resolve(b) : reject(new Error('No image'))), type, 0.86));
 }
 
 /** Cuts text that runs wider than the room, with an ellipsis. */
