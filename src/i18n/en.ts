@@ -670,6 +670,9 @@ export const en = {
   'share.bad': 'That link holds no bridge this version of the game can open.',
   'share.watch': '{name}’s bridge. Your own blueprint is kept. Press T to go back.',
   'share.watchLocked': '{name}’s bridge, on a level you haven’t reached yet. Press T to stop watching.',
+  'share.crossedCustom': '{name} built a bridge over {level}, a custom level in Bridge Builder. Watch it cross:',
+  'share.collapsedCustom': '{name}’s bridge over {level}, a custom level in Bridge Builder, came down. Watch it fall:',
+  'share.watchNew': '{name}’s bridge, on a custom level now saved in your level editor. Press T to build your own.',
   'share.locked': 'Unlock this level to build your own bridge on it.',
 
   // ── Engineer's review ──

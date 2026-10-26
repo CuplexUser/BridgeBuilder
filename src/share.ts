@@ -1,8 +1,8 @@
 /**
  * Shared bridges: a link that carries a level, a design and who built it, so whoever opens it
  * watches that bridge drive in their own game. Everything is in the link itself, compressed:
- * there's no server to look it up on. The design keeps its save format version, so an old link
- * still loads into a changed level the way a saved design does.
+ * there's no server to look it up on, and a custom level travels whole. The design keeps its
+ * save format version, so an old link still loads into a changed level the way a saved design does.
  */
 
 /** Where links point: the web game, and the host the Android app opens links for. */
@@ -13,7 +13,10 @@ const PARAM = 'b';
 const VERSION = 1;
 
 export interface SharedBridge {
+  /** A built-in level's id; for a custom level, its id on the sharer's side. */
   level: number;
+  /** A custom level, as exportLevel writes it; absent for a built-in one. */
+  custom?: string;
   /** The design as Design.serialize writes it. */
   design: string;
   /** The profile name of whoever built it. */
@@ -22,7 +25,7 @@ export interface SharedBridge {
 
 /** The link that opens a bridge. */
 export async function shareLink(s: SharedBridge): Promise<string> {
-  const json = JSON.stringify({ v: VERSION, l: s.level, n: s.name, d: JSON.parse(s.design) as unknown });
+  const json = JSON.stringify({ v: VERSION, l: s.level, n: s.name, d: JSON.parse(s.design) as unknown, c: s.custom ? (JSON.parse(s.custom) as unknown) : undefined });
   return `${SHARE_ORIGIN}/?${PARAM}=${base64url(await squeeze(new TextEncoder().encode(json), 'compress'))}`;
 }
 
@@ -32,9 +35,11 @@ export async function readShareLink(url: string): Promise<SharedBridge | null> {
     const query = url.includes('?') ? url.slice(url.indexOf('?')) : url;
     const payload = new URLSearchParams(query.split('#')[0]).get(PARAM);
     if (!payload) return null;
-    const o = JSON.parse(new TextDecoder().decode(await squeeze(unbase64url(payload), 'decompress'))) as { v?: unknown; l?: unknown; n?: unknown; d?: unknown };
+    const o = JSON.parse(new TextDecoder().decode(await squeeze(unbase64url(payload), 'decompress'))) as { v?: unknown; l?: unknown; n?: unknown; d?: unknown; c?: unknown };
     if (o.v !== VERSION || typeof o.l !== 'number' || !o.d || typeof o.d !== 'object') return null;
-    return { level: o.l, design: JSON.stringify(o.d), name: typeof o.n === 'string' ? o.n.slice(0, 40) : '' };
+    const shared: SharedBridge = { level: o.l, design: JSON.stringify(o.d), name: typeof o.n === 'string' ? o.n.slice(0, 40) : '' };
+    if (o.c && typeof o.c === 'object') shared.custom = JSON.stringify(o.c);
+    return shared;
   } catch {
     return null;
   }

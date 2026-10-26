@@ -62,7 +62,7 @@ Each shell's side is loaded on demand (`src/native.ts` for Android, `desktop/src
 
 The result, collapse and game over cards offer **SHARE THE BRIDGE** (S): a 1200×675 picture of the bridge and a link that drives it. The picture is drawn at its own size from the run's stress log, at the moment it peaked for a crossing or half a second into a collapse, with the level, the score or what failed, and who built it (`src/sharecard.ts`, `src/game/sharing.ts`). The link is `https://bridgebuilder.cuplex.org/?b=…`, with the level, the design and the builder's name compressed into it (`src/share.ts`), a few hundred characters for most bridges. There's no server to look it up on. In the app and in browsers with a share sheet both go to it; elsewhere the link goes on the clipboard and the picture is downloaded, or saved through a dialog on desktop.
 
-Opening a link (on the site, or in the Android app through an App Link) drives that bridge on its level the way a level's example does, under whatever profile is playing, or once one is picked. Anyone can watch, on any level. Afterwards the player builds there if that level is open to them, and goes back to the chapters otherwise. Custom levels aren't shared this way: export them from the workshop.
+Opening a link (on the site, or in the Android app through an App Link) drives that bridge on its level the way a level's example does, under whatever profile is playing, or once one is picked. Anyone can watch, on any level. Afterwards the player builds there if that level is open to them, and goes back to the chapters otherwise. A bridge on a custom level, playtested from the level editor, shares the same way with the level itself in the link, a few hundred characters more. Opening one saves that level in the recipient's level editor, once, however often the link is opened, and they build on it after watching.
 
 The site has to be served from `bridgebuilder.cuplex.org` for links to work, and Android only opens them in the app once `public/.well-known/assetlinks.json` carries the SHA-256 of the Play app signing key (the **App signing** page under **App integrity** in the Play Console). Until then they open in the browser.
 
@@ -121,7 +121,7 @@ Building it needs [Rust](https://rustup.rs) as well as Node. The first build com
 | Pause | II button | P / Esc |
 | Menus | Buttons | Title: Enter continue, C chapters, H leaderboards, L level editor. Chapters: V switches between the map and the book, Enter plays the next level, 1–9 and 0 open the first ten chapters, ←/→ turn the book's pages. Chapter: 1–7 plays a level. Leaderboards: ←/→ tabs, 1–9 and 0 chapter. |
 | Mute | Speaker button | M |
-| Share a collapse | SHARE THE CLIP on the collapse card | S |
+| Share a bridge | SHARE THE BRIDGE on the result, collapse or game over card | S |
 
 Members can cross each other (X-bracing), but they can't lie along an existing member. For example, a wood beam can't run on top of the road.
 

@@ -11,7 +11,7 @@ android {
         applicationId "se.cuplex.bridgebuilder"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 22
+        versionCode 23
         versionName "1.1.2"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {

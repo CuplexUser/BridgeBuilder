@@ -40,7 +40,7 @@ export class Results {
       this.game.state = 'result';
       this.game.drive.stopEngine();
       this.lastScore = s;
-      this.game.ui.setShare(false);
+      this.game.ui.setShare(this.game.sharing.available);
       this.game.ui.result(level, s, run.peakStress, t('res.playtest'), true, t('res.editLevel'), this.game.review(level, run, true));
       this.resultAnim = this.startAnim(s, false);
       return;

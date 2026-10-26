@@ -3,7 +3,8 @@ import { Design } from '../design';
 import { fitDesign } from '../editor';
 import { fmt, t } from '../i18n';
 import { levelName } from '../i18n/data';
-import { LEVELS } from '../levels';
+import { LEVELS, type LevelDef } from '../levels';
+import { exportLevel, isCustom, makerIssues, nextCustomId, parseLevel, saveCustom } from '../maker';
 import type { TestRun } from '../physics/testrun';
 import { shareBridge } from '../platform';
 import { PAL } from '../render/palette';
@@ -27,10 +28,10 @@ export class Sharing {
 
   constructor(private game: Game) {}
 
-  /** Whether the run on screen can be shared: a built-in level, with its moments logged. */
+  /** Whether the run on screen can be shared: one of the player's own, with its moments logged. */
   get available(): boolean {
     const g = this.game;
-    return g.mode !== 'custom' && !g.example && !!g.run?.log.poses?.length && !!g.profile;
+    return !g.example && !!g.run?.log.poses?.length && !!g.profile;
   }
 
   /** Shares the run on screen: a picture of its key moment, and a link that drives it. */
@@ -42,20 +43,23 @@ export class Sharing {
     this.busy = true;
     try {
       const level = g.level;
-      const code = levelCode(level.id);
+      // A custom level has no code, and goes in the link whole.
+      const custom = isCustom(level.id);
+      const code = custom ? '' : levelCode(level.id);
       const name = g.profile.name;
       const crossed = run.status === 'success';
       const score = crossed ? g.results.lastScore : null;
       const image = this.picture(run, {
-        title: `${code} ${fmt.upper(levelName(level))}`,
+        title: custom ? fmt.upper(levelName(level)) : `${code} ${fmt.upper(levelName(level))}`,
         line: score ? t('share.cardScore', { score: fmt.num(score.total), cost: fmt.money(score.spent) }) : `${t(run.collapsed ? 'collapse.collapsed' : 'collapse.failed')} · ${run.reason}`,
         by: t('share.by', { name }),
         stars: score ? score.stars : null,
         tone: crossed ? PAL.ok : PAL.bad,
       });
-      const url = await shareLink({ level: level.id, design: design.serialize(), name });
-      const text = crossed ? t('share.crossed', { name, code, level: levelName(level) }) : t('share.collapsed', { name, code, level: levelName(level) });
-      const outcome = await shareBridge(`bridge-builder-${code}.png`, await image, text, url);
+      const url = await shareLink({ level: level.id, design: design.serialize(), name, custom: custom ? exportLevel(level) : undefined });
+      const said = custom ? (crossed ? 'share.crossedCustom' : 'share.collapsedCustom') : crossed ? 'share.crossed' : 'share.collapsed';
+      const text = t(said, { name, code, level: levelName(level) });
+      const outcome = await shareBridge(`bridge-builder-${code || 'custom'}.png`, await image, text, url);
       if (outcome === 'copied') g.ui.showToast(t('share.copied'), 3200);
     } catch {
       g.ui.showToast(t('share.fail'));
@@ -93,7 +97,7 @@ export class Sharing {
   /** Reads a link the game was opened with, and watches its bridge as soon as it can. */
   async open(url: string): Promise<void> {
     const s = await readShareLink(url);
-    if (!s || !LEVELS.some((l) => l.id === s.level)) {
+    if (!s || (!s.custom && !LEVELS.some((l) => l.id === s.level))) {
       this.game.ui.showToast(t('share.bad'), 4000);
       return;
     }
@@ -108,6 +112,11 @@ export class Sharing {
     const inChallenge = g.mode === 'challenge' && (g.state === 'build' || g.state === 'test' || g.state === 'result' || g.state === 'collapse');
     if (!s || !g.profile || g.state === 'profile' || inChallenge) return;
     this.pending = null;
+    if (g.state === 'build') g.persistDesign();
+    if (s.custom) {
+      this.watchCustom(s, s.custom);
+      return;
+    }
     let design: Design;
     try {
       // Fitted to the level as it is now, in case it changed since the link was made.
@@ -116,7 +125,6 @@ export class Sharing {
       g.ui.showToast(t('share.bad'), 4000);
       return;
     }
-    if (g.mode === 'play' && g.state === 'build') g.persistDesign();
     const open = levelUnlocked(s.level, g.data.best) && !g.forSale(chapterOf(s.level));
     g.leavePlay();
     g.mode = 'play';
@@ -125,4 +133,38 @@ export class Sharing {
     this.leaveAfter = !open;
     g.startExample({ design, note: t(open ? 'share.watch' : 'share.watchLocked', { name: s.name || '?' }) });
   }
+
+  /** A custom level from a link goes in the workshop, the first time, and its bridge drives on it there. */
+  private watchCustom(s: SharedBridge, custom: string): void {
+    const g = this.game;
+    let level: LevelDef;
+    let design: Design;
+    let added = false;
+    try {
+      const read = parseLevel(custom, nextCustomId(g.custom.levels));
+      if (makerIssues(read).length) throw new Error('Not playable');
+      // The same level opened again, or one already imported by hand, isn't added twice.
+      const key = levelKey(read);
+      level = g.custom.levels.find((l) => levelKey(l) === key) ?? read;
+      design = fitDesign(level, Design.deserialize(s.design)).design;
+      if (level === read) {
+        g.custom.levels.push(read);
+        added = true;
+        if (!saveCustom(g.custom)) g.ui.showToast(t('mkr.noStorage'));
+      }
+    } catch {
+      g.ui.showToast(t('share.bad'), 4000);
+      return;
+    }
+    g.leavePlay();
+    g.mode = 'custom';
+    g.customLevel = level;
+    g.loadLevel(g.levelIdx);
+    g.startExample({ design, note: t(added ? 'share.watchNew' : 'share.watch', { name: s.name || '?' }) });
+  }
+}
+
+/** A custom level as it reads after import, so two copies of one level compare equal. */
+function levelKey(l: LevelDef): string {
+  return exportLevel(parseLevel(exportLevel(l), 0));
 }
