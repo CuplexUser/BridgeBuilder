@@ -26,3 +26,4 @@ desktop/gen/
 share-service/hosting/
 # The Firebase CLI's deploy cache
 share-service/.firebase/
+firebase-debug.log

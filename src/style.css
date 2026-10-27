@@ -2880,6 +2880,18 @@ h2 {
   color: var(--chalk);
 }
 
+.done-rate {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-faint);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.done-rate p {
+  margin: 0 0 10px;
+}
+
 .reason {
   font-size: 17px;
   margin: 4px 0 12px;

@@ -48,8 +48,13 @@ interface BillingPlugin {
   addListener(event: 'change', fn: (s: BillingStatus) => void): Promise<unknown>;
 }
 
+interface StorePlugin {
+  openListing(): Promise<void>;
+}
+
 const PlayGames = registerPlugin<GamesPlugin>('PlayGames');
 const PlayBilling = registerPlugin<BillingPlugin>('PlayBilling');
+const PlayStore = registerPlugin<StorePlugin>('PlayStore');
 
 /** The one-time in-app product that opens every chapter, as set up in the Play Console. */
 const FULL_GAME = 'full_game';
@@ -84,6 +89,8 @@ export interface Native {
     restore(): Promise<BillingStatus>;
     onChange(fn: (s: BillingStatus) => void): void;
   };
+  /** Opens the game's page on Google Play, where it can be rated. */
+  openListing(): Promise<void>;
 }
 
 /**
@@ -171,5 +178,6 @@ export async function createNative(): Promise<Native> {
       restore: () => PlayBilling.restore({ product: FULL_GAME }),
       onChange: (fn) => quiet(PlayBilling.addListener('change', fn)),
     },
+    openListing: () => PlayStore.openListing(),
   };
 }

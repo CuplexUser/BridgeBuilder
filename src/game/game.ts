@@ -15,8 +15,9 @@ import { motion } from '../motion';
 import { music, type MusicState } from '../music';
 import { type MaterialId } from '../physics/materials';
 import { TestRun } from '../physics/testrun';
-import { billing, games, hasPaywall, vibrate, type BillingStatus } from '../platform';
+import { billing, games, hasPaywall, openListing, vibrate, type BillingStatus } from '../platform';
 import { PlayGamesLink } from '../playgames';
+import { loadRate, saveRate } from '../rating';
 import { Camera, type Rect } from '../render/camera';
 import { MATERIAL_CHALK, PAL } from '../render/palette';
 import { Renderer, type FloatText, type SceneView } from '../render/renderer';
@@ -837,6 +838,12 @@ export class Game {
         break;
       case 'done-close':
         this.results.closeDone();
+        break;
+      case 'rate':
+        sfx.select();
+        saveRate({ ...loadRate(), rated: true });
+        this.ui.rated();
+        openListing().catch(() => this.ui.showToast(t('toast.playUnreachable'), 3200));
         break;
       case 'quit':
         sfx.ui();

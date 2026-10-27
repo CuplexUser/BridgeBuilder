@@ -1,6 +1,8 @@
 import { sfx } from '../audio';
 import { challengeBoard, chapterById, chapterComplete, CHAPTERS, highestUnlocked, levelById, nextInChapter, totals, type ChapterDef } from '../chapters';
 import { LEVELS } from '../levels';
+import { canRate } from '../platform';
+import { loadRate, saveRate, shouldAsk } from '../rating';
 import { scoreLevel, type LevelScore } from '../scoring';
 import { bestPerLevel, rankProfiles } from '../storage';
 import { MAX_LIVES, type Board, type Game } from './game';
@@ -113,7 +115,11 @@ export class Results {
     this.doneOpen = ch;
     sfx.fanfare();
     this.game.haptics.celebrate();
-    this.game.ui.chapterDone(ch, this.game.data.best, CHAPTERS[CHAPTERS.indexOf(ch) + 1]);
+    // A chapter finished well, a while into the game, is when a rating on Google Play is asked for.
+    const rate = loadRate();
+    const ask = canRate && shouldAsk(ch, this.game.data.best, rate);
+    if (ask) saveRate({ ...rate, asked: rate.asked + 1 });
+    this.game.ui.chapterDone(ch, this.game.data.best, CHAPTERS[CHAPTERS.indexOf(ch) + 1], ask);
   }
 
   /** On to the map, where the road into the next chapter is laid. */

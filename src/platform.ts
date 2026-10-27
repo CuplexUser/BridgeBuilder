@@ -199,3 +199,11 @@ export const billing = {
   /** Called when a purchase completes outside a buy() call, such as a pending one that went through later. */
   onChange: (fn: (s: BillingStatus) => void): void => native?.billing.onChange(fn),
 };
+
+/** The Android app can send players to its page on Google Play to rate it. */
+export const canRate = platform === 'android';
+
+/** Opens the game's page on Google Play. Rejects where there is no Play Store to open. */
+export function openListing(): Promise<void> {
+  return native?.openListing() ?? Promise.reject(new Error('No Google Play here'));
+}
