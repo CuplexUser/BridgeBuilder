@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Design, type GridPt } from '../src/design';
 import { LEVELS, type LevelDef } from '../src/levels';
 import { MATERIALS } from '../src/physics/materials';
-import { VEHICLES } from '../src/physics/vehicles';
+import { deckLoad, VEHICLES } from '../src/physics/vehicles';
 import { TestRun } from '../src/physics/testrun';
 import { World } from '../src/physics/world';
 import { deck, prattAbove, roadRun, SOLUTIONS, trussOver, type TrussMats } from '../src/solutions';
@@ -147,11 +147,11 @@ describe('deck ratings', () => {
     for (const v of Object.values(VEHICLES).filter((d) => d.rail)) expect(v.tonnes, `${v.name}`).toBeLessThanOrEqual(MATERIALS.track.rating);
   });
 
-  it('only the semi needs heavy deck', () => {
-    // Trains run on track, rated for them.
+  it('only the semi and the heavy transporter need heavy deck', () => {
+    // Trains run on track, rated for them. The transporter's load is spread over its axle lines.
     for (const v of Object.values(VEHICLES).filter((d) => !d.rail)) {
-      expect(v.tonnes <= MATERIALS.road.rating, `${v.name}`).toBe(v.id !== 'semi');
-      expect(v.tonnes).toBeLessThanOrEqual(MATERIALS.heavy.rating);
+      expect(deckLoad(v) <= MATERIALS.road.rating, `${v.name}`).toBe(v.id !== 'semi' && v.id !== 'transporter');
+      expect(deckLoad(v)).toBeLessThanOrEqual(MATERIALS.heavy.rating);
     }
   });
 

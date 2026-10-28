@@ -184,9 +184,9 @@ describe('marching', () => {
 
 describe('test drives', () => {
   it('last 30 s, or long enough for the slowest convoy to get its tail across', () => {
-    const marches = LEVELS.filter((l) => l.convoy?.includes('troop'));
-    expect(LEVELS.filter((l) => !marches.includes(l) && testSeconds(l) !== 30).map((l) => l.id)).toEqual([]);
-    expect(Math.min(...marches.map(testSeconds))).toBeGreaterThan(30);
+    const slow = LEVELS.filter((l) => l.convoy?.includes('troop') || l.vehicle === 'transporter');
+    expect(LEVELS.filter((l) => !slow.includes(l) && testSeconds(l) !== 30).map((l) => l.id)).toEqual([]);
+    expect(Math.min(...slow.map(testSeconds))).toBeGreaterThan(30);
   });
 
   it('give the march levels time to finish', () => {

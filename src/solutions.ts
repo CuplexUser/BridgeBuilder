@@ -718,7 +718,87 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
   82: (l) => blockGirder(deck(new Design(l), 0, l.width), l, 2, 'draped'),
   83: (l) => floodTrusses(l, LIGHT),
   84: (l) => floodTrusses(l),
+  // Heavy Haul. Two 2 m trusses meeting over the pier, on steel chords, with wood in the web wherever it is enough.
+  85: (l) => {
+    const d = new Design(l);
+    roadRun(d, [0, 0], [16, 0], 'heavy');
+    for (const x of [2, 4, 10, 12]) d.add([x, 2], [x + 2, 2], 'steel');
+    for (const x of [4, 6, 12, 14]) d.add([x, 0], [x, 2], 'wood');
+    d.add([0, 0], [2, 2], 'wood').add([2, 2], [4, 0], 'wood').add([14, 2], [12, 0], 'wood');
+    d.add([6, 2], [8, 0], 'steel').add([8, 0], [10, 2], 'steel').add([14, 2], [16, 0], 'steel').add([10, 0], [10, 2], 'steel');
+    return d.add([0, -3], [2, 0], 'steel');
+  },
+  // A steel truss 3 m deep on each span, wood only in its middle post, and concrete posts that take the turbine's
+  // push where steel ones buckle.
+  86: (l) => {
+    const d = new Design(l);
+    roadRun(d, [0, 0], [l.width, 0], 'heavy');
+    for (let x = 0; x < l.width; x += 8) {
+      d.add([x, 0], [x + 2, 3], 'steel').add([x + 2, 3], [x + 4, 3], 'steel').add([x + 4, 3], [x + 6, 3], 'steel').add([x + 6, 3], [x + 8, 0], 'steel');
+      d.add([x + 2, 3], [x + 4, 0], 'steel').add([x + 6, 3], [x + 4, 0], 'steel').add([x + 4, 0], [x + 4, 3], 'wood');
+    }
+    for (const [x, y] of l.piers) d.add([x, y], [x, 0], 'concrete');
+    return d;
+  },
+  // The train's deck hangs from the road's on a post and a pair of steel ties, and a truss over the road carries both.
+  87: (l) => {
+    const d = new Design(l);
+    const y = l.lower!.y;
+    roadRun(d, [0, 0], [l.width, 0], 'heavy');
+    for (let x = 0; x < l.width; x++) d.add([x, y], [x + 1, y], 'track');
+    d.add([6, 0], [6, y], 'steel').add([8, 0], [9, y], 'steel').add([10, 0], [9, y], 'steel');
+    d.add([0, 0], [2, 3], 'steel').add([2, 3], [4, 3], 'steel').add([4, 3], [6, 3], 'steel').add([6, 3], [8, 3], 'steel').add([8, 3], [10, 0], 'steel');
+    d.add([2, 3], [4, 0], 'steel').add([8, 3], [6, 0], 'steel').add([4, 0], [4, 3], 'wood').add([6, 0], [6, 3], 'wood');
+    return d;
+  },
+  // A truss over the middle span only, steel at its ends and wood inside; the outer spans are bare heavy deck
+  // from the end struts to the posts. Each post is jointed halfway up and braced from there to the deck both ways.
+  88: (l) => {
+    const d = new Design(l);
+    roadRun(d, [0, 0], [l.width, 0], 'heavy');
+    const [a, b] = l.piers.map(([x]) => x).toSorted((m, n) => m - n);
+    for (let x = a; x < b; x += 2) d.add([x, 3], [x + 2, 3], 'wood');
+    for (let x = a + 2; x < b; x += 2) d.add([x, 0], [x, 3], 'wood');
+    d.add([a, 0], [a, 3], 'steel').add([b, 0], [b, 3], 'steel').add([a, 3], [a + 2, 0], 'steel').add([b, 3], [b - 2, 0], 'steel');
+    for (const [x, y] of l.piers) {
+      d.add([x, y], [x, y + 2], 'concrete').add([x, y + 2], [x, 0], 'concrete');
+      d.add([x, y + 2], [x - 2, 0], 'steel').add([x, y + 2], [x + 2, 0], 'steel');
+    }
+    return d.add([0, -3], [2, 0], 'concrete').add([l.width, -3], [l.width - 2, 0], 'concrete');
+  },
+  // The cable sags right down to the middle of the deck, and a truss 2 m under the deck stiffens it against the
+  // gale's flutter: wood posts, steel in the chord and wherever the web works hardest.
+  89: (l) => {
+    const d = new Design(l);
+    roadRun(d, [0, 0], [28, 0], 'heavy');
+    suspend(d, [[6, 12], [8, 7], [10, 3], [12, 1], [14, 0], [16, 1], [18, 3], [20, 7], [22, 12]]);
+    for (const [x, y] of [[10, 3], [12, 1], [16, 1], [18, 3]]) hang(d, [x, y], [[x, 0]]);
+    for (let x = 2; x <= 26; x += 2) d.add([x, 0], [x, -2], 'wood');
+    for (let x = 2; x < 26; x += 2) if (x !== 4 && x !== 22) d.add([x, -2], [x + 2, -2], x === 8 ? 'wood' : 'steel');
+    for (const [top, low] of [[0, 2], [4, 2], [6, 4], [10, 8], [14, 16], [18, 20], [24, 26], [28, 26]]) d.add([top, 0], [low, -2], 'wood');
+    for (const [top, low] of [[8, 6], [12, 10], [16, 18], [20, 22], [22, 24]]) d.add([top, 0], [low, -2], 'steel');
+    return d;
+  },
+  // A pile every 4 m across the mud and a king-post truss over each span between them, out of the flood: wood
+  // except over the banks.
+  90: (l) => {
+    const d = new Design(l);
+    roadRun(d, [0, 0], [l.width, 0], 'heavy');
+    for (const x of [6, 10, 14, 18, 22, 26]) {
+      d.ensureBlock(x, -3);
+      d.add([x, -3], [x, 0], 'steel');
+    }
+    for (let x = 6; x < 26; x += 4) kingPost(d, x, x + 4, 2, 'wood', x === 22 ? 'steel' : 'wood');
+    d.add([0, 0], [2, 2], 'steel').add([2, 0], [2, 2], 'steel').add([4, 2], [6, 0], 'steel');
+    d.add([2, 2], [4, 2], 'wood').add([2, 2], [4, 0], 'wood').add([4, 0], [4, 2], 'wood');
+    d.add([26, 0], [28, 2], 'steel').add([28, 2], [30, 2], 'steel').add([30, 2], [32, 0], 'steel');
+    d.add([28, 0], [28, 2], 'wood').add([28, 2], [30, 0], 'wood').add([30, 0], [30, 2], 'wood');
+    return d;
+  },
+  // Grand Viaduct's design: block arches between towers of blocks, which take the turbine's push to the rock.
+  91: (l) => SOLUTIONS[50](l),
 };
+
 
 /** Out of a flood's way: a truss over the road on each span, on bare posts up from the piers. */
 function floodTrusses(l: LevelDef, m: TrussMats = HEAVY): Design {

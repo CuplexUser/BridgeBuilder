@@ -3,7 +3,7 @@ import { bankY, mudAt, type BonusGoal, type GeometryKey, type LevelDef } from '.
 import { rings } from '../../src/masonry';
 import { MATERIALS, type MaterialId } from '../../src/physics/materials';
 import { crossesChannel } from '../../src/rules';
-import { archBridge, blockArch, blockGirder, blockTower, deck, doubleBascule, doubleDeck, hang, liftOff, pileBridge, roadRun, SOLUTIONS, swingBridge, trussOver, warrenAbove, type TrussMats } from '../../src/solutions';
+import { archBridge, blockArch, blockGirder, blockTower, deck, doubleBascule, doubleDeck, hang, liftOff, pileBridge, roadRun, SOLUTIONS, suspend, swingBridge, trussOver, warrenAbove, type TrussMats } from '../../src/solutions';
 
 /** A level's geometry for one choice of its tunable parameters. */
 export type Shape = Partial<Pick<LevelDef, GeometryKey>>;
@@ -486,7 +486,142 @@ export const INTENTS: Record<number, Intent> = {
   // A deck truss under the road stands in the flood.
   83: { shortcuts: [{ name: 'a deck truss under the road', build: deckTrussUnder }] },
   84: { shortcuts: [{ name: 'a deck truss under the road', build: deckTrussUnder }] },
+  // Heavy Haul: road crushes under the transporter's axle lines.
+  85: { requires: ['heavy'] },
+  // A steel post buckles under the turbine, and a span over the middle pier is too long to hold.
+  86: {
+    requires: ['concrete'],
+    shortcuts: [
+      {
+        name: 'steel posts on the piers',
+        build: (l) => {
+          const d = SOLUTIONS[86](l);
+          for (const m of d.members) if (m.mat === 'concrete') m.mat = 'steel';
+          return d;
+        },
+      },
+      {
+        name: 'no post on the middle pier',
+        build: (l) => {
+          const d = SOLUTIONS[86](l);
+          d.members = d.members.filter((m) => d.nodes[m.a].x !== l.width / 2 || d.nodes[m.b].x !== l.width / 2 || d.nodes[m.a].y > 0 || d.nodes[m.b].y > 0);
+          d.pruneNodes();
+          return d;
+        },
+      },
+    ],
+  },
+  87: {
+    requires: ['heavy'],
+    shortcuts: [
+      { name: 'decks on posts, a truss over the road', build: (l) => withoutWeb(SOLUTIONS[87](l)) },
+      { name: 'a web between the decks, nothing over the road', build: (l) => withoutTop(SOLUTIONS[87](l)) },
+    ],
+  },
+  // Tall posts with nothing bracing them sway apart in the quake.
+  88: {
+    shortcuts: [
+      {
+        name: 'unbraced posts',
+        build: (l) => {
+          const d = withoutTop(SOLUTIONS[88](l), -2);
+          for (const [x, y] of l.piers) d.add([x, y], [x, 0], 'concrete');
+          return d;
+        },
+      },
+    ],
+  },
+  // Under two semis the gale's flutter shakes apart a stiffening truss less than 3 m deep.
+  89: {
+    shortcuts: [
+      { name: 'no stiffening truss', build: (l) => galeTrusses(l, 0) },
+      { name: 'a stiffening truss 2 m deep', build: (l) => galeTrusses(l, 2) },
+    ],
+  },
+  // Piles too far apart leave spans too long for the turbine; a truss under the road stands in the flood.
+  90: {
+    requires: ['piles', 'heavy'],
+    shortcuts: [
+      { name: 'piles 6 to 8 m apart', build: (l) => pileBridge(l, [0, 6, 12, 20, 26, 32], [6, 12, 20, 26], 'heavy', () => [3, STEELY]) },
+      { name: 'a deck truss under the road', build: underRoadPiles },
+      fannedPiles,
+      { name: 'no trusses, posts braced in the water', build: bracedPiles },
+    ],
+  },
+  91: {
+    requires: ['arch', 'masonry'],
+    shortcuts: [
+      {
+        name: 'one arch over the road from bank to bank',
+        build: (l) => {
+          const d = new Design(l);
+          roadRun(d, [0, 0], [l.width, 0], 'heavy');
+          blockArch(d, l, [0, 0], [l.width, 0], 'cable');
+          return d;
+        },
+      },
+    ],
+  },
 };
+
+/** Level 89 on Gale's cable: steel trusses out to the towers and, between them, a steel truss `h` m deep (none at 0). */
+function galeTrusses(l: LevelDef, h: number): Design {
+  const d = new Design(l);
+  const run = roadRun(d, [0, 0], [28, 0], 'heavy');
+  suspend(d, [[6, 12], [10, 7], [14, 5], [18, 7], [22, 12]]);
+  hang(d, [10, 7], [[8, 0], [10, 0]]);
+  hang(d, [14, 5], [[12, 0], [14, 0], [16, 0]]);
+  hang(d, [18, 7], [[18, 0], [20, 0]]);
+  trussOver(d, run.filter(([x]) => x <= 6), 2, STEELY);
+  trussOver(d, run.filter(([x]) => x >= 22), 2, STEELY);
+  if (h) warrenAbove(d, 6, 22, h, 'steel');
+  return d.add([0, -3], [2, 0], 'steel').add([28, -3], [26, 0], 'steel');
+}
+
+/** A design without what stands `top` meters over the road (or under it, when negative). */
+function withoutTop(d: Design, top = 3): Design {
+  d.members = d.members.filter((m) => d.nodes[m.a].y !== top && d.nodes[m.b].y !== top);
+  d.pruneNodes();
+  return d;
+}
+
+/** A double deck's design with only straight posts between its decks, no diagonals. */
+function withoutWeb(d: Design): Design {
+  d.members = d.members.filter((m) => {
+    const [a, b] = [d.nodes[m.a], d.nodes[m.b]];
+    return a.y === b.y || a.x === b.x || (a.y > 0 || b.y > 0);
+  });
+  d.pruneNodes();
+  return d;
+}
+
+/** Level 90's piles every 4 m, with a Warren truss 2 m deep under the road between them, where the flood reaches it. */
+/** Level 90's deck on posts up from piles and steel braces in the water, with no truss over it. */
+function bracedPiles(l: LevelDef): Design {
+  const d = new Design(l);
+  roadRun(d, [0, 0], [l.width, 0], 'heavy');
+  for (const x of [6, 8, 12, 16, 20, 26]) {
+    d.ensureBlock(x, -3);
+    d.add([x, -3], [x, 0], 'steel');
+  }
+  for (const [x, top] of [[8, 6], [8, 10], [12, 10], [20, 18], [26, 24], [26, 28]]) d.add([x, -3], [top, 0], 'steel');
+  return d;
+}
+
+function underRoadPiles(l: LevelDef): Design {
+  const d = new Design(l);
+  const stations = [0, 6, 10, 14, 18, 22, 26, 32];
+  roadRun(d, [0, 0], [l.width, 0], 'heavy');
+  for (let i = 0; i < stations.length - 1; i++) {
+    for (let x = stations[i]; x < stations[i + 1]; x += 2) d.add([x, 0], [x + 1, -2], 'steel').add([x + 1, -2], [x + 2, 0], 'steel');
+    for (let x = stations[i] + 1; x + 2 < stations[i + 1]; x += 2) d.add([x, -2], [x + 2, -2], 'steel');
+  }
+  for (const x of stations.slice(1, -1)) {
+    d.ensureBlock(x, -3);
+    d.add([x, -3], [x, 0], 'steel');
+  }
+  return d;
+}
 
 /** Struts from the low bolts at each bank up to the deck's first joints. */
 function struts(d: Design, l: LevelDef): Design {

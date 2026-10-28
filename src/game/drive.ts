@@ -302,7 +302,7 @@ export class Drive {
   }
 
   engineBase(): number {
-    return { car: 70, van: 58, truck: 44, bus: 40, semi: 34, loco: 30, wagon: 30, troop: 0 }[this.game.level.vehicle];
+    return { car: 70, van: 58, truck: 44, bus: 40, semi: 34, loco: 30, wagon: 30, troop: 0, transporter: 26 }[this.game.level.vehicle];
   }
 
   resetWheels(run: TestRun): void {

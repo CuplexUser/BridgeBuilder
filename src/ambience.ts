@@ -70,6 +70,7 @@ export class Ambience {
     if (th.birds) layers.push(this.gulls());
     if (storm) layers.push(this.thunder());
     if (HORNS.has(th.id)) layers.push(this.horn());
+    if (th.land === 'volcano') layers.push(this.rumble(), this.steam());
     return layers;
   }
 
@@ -213,6 +214,43 @@ export class Ambience {
     o.connect(g).connect(this.level!);
     o.start(t);
     o.stop(t + 0.3);
+  }
+
+  /** The ground's low rumble near a volcano, swelling and settling. */
+  private rumble(): Layer {
+    const b = this.noiseBed('lowpass', 70, 0.8, 0.14);
+    b.wobble(0.06, 0.08, b.gain.gain);
+    b.wobble(0.11, 25, b.filter.frequency);
+    return b.layer;
+  }
+
+  /** A wellhead venting steam every so often: a hiss that swells, holds and dies away. */
+  private steam(): Layer {
+    let next = 0;
+    return {
+      stop: () => {},
+      tick: (t) => {
+        if (!next) next = t + 3 + Math.random() * 5;
+        if (t < next) return;
+        next = t + 7 + Math.random() * 9;
+        const { ctx, noise } = this.bed!;
+        const long = 1.5 + Math.random() * 2.5;
+        const src = ctx.createBufferSource();
+        src.buffer = noise;
+        src.loop = true;
+        const f = ctx.createBiquadFilter();
+        f.type = 'highpass';
+        f.frequency.setValueAtTime(2600 + Math.random() * 1200, t);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.05, t + 0.5);
+        g.gain.setValueAtTime(0.05, t + long);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + long + 1.2);
+        src.connect(f).connect(g).connect(this.level!);
+        src.start(t, Math.random() * 1.5);
+        src.stop(t + long + 1.3);
+      },
+    };
   }
 
   /** A far roll of thunder every so often. */

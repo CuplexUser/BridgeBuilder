@@ -1,4 +1,4 @@
-export type VehicleId = 'car' | 'van' | 'truck' | 'bus' | 'semi' | 'loco' | 'wagon' | 'troop';
+export type VehicleId = 'car' | 'van' | 'truck' | 'bus' | 'semi' | 'loco' | 'wagon' | 'troop' | 'transporter';
 
 export interface VehicleDef {
   id: VehicleId;
@@ -6,6 +6,11 @@ export interface VehicleDef {
   mass: number;
   /** Weight as players read it, checked against a deck's rating. */
   tonnes: number;
+  /**
+   * A load spread over many axle lines presses a deck piece with less than its whole weight:
+   * this much, checked against the deck's rating in place of `tonnes`.
+   */
+  deckTonnes?: number;
   wheelbase: number;
   /** Extra axles between the rear and front wheels, as distances from the rear wheel. */
   midAxles?: number[];
@@ -35,4 +40,25 @@ export const VEHICLES: Record<VehicleId, VehicleDef> = {
   // A squad of soldiers, two abreast and five deep: a light load, but every boot lands at once.
   troop: { id: 'troop', name: 'Marching squad', mass: 800, tonnes: 8, wheelbase: 3.2, wheelR: 0.3, height: 1.5, speed: 1.6, accel: 3, color: '#5a6b3c', trim: '#c9b98a', marches: true },
   bus: { id: 'bus', name: 'School bus', mass: 3000, tonnes: 30, wheelbase: 3.8, wheelR: 0.5, height: 1.8, speed: 4.2, accel: 5.5, color: '#f7c832', trim: '#2b2b2b' },
+  // An abnormal load: a steam turbine for the power plant on a modular trailer of nine axle lines, crawling.
+  transporter: {
+    id: 'transporter',
+    name: 'Heavy transporter',
+    mass: 12000,
+    tonnes: 120,
+    deckTonnes: 45,
+    wheelbase: 10,
+    midAxles: [1.25, 2.5, 3.75, 5, 6.25, 7.5, 8.75],
+    wheelR: 0.4,
+    height: 2.6,
+    speed: 1.3,
+    accel: 1.5,
+    color: '#e0a526',
+    trim: '#5a6470',
+  },
 };
+
+/** What a vehicle presses a deck piece with, tonnes, checked against the deck's rating. */
+export function deckLoad(def: VehicleDef): number {
+  return def.deckTonnes ?? def.tonnes;
+}

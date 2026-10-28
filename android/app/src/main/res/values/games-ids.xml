@@ -39,6 +39,8 @@
     <string name="achievement_chapter_both_ways" translatable="false"></string>
     <!-- Chapter Grand Finale: Cross every level in Grand Finale. -->
     <string name="achievement_chapter_grand_finale" translatable="false">CgkIur-apMQTEAIQCA</string>
+    <!-- Chapter Heavy Haul: Cross every level in Heavy Haul. -->
+    <string name="achievement_chapter_heavy_haul" translatable="false"></string>
     <!-- Chief Engineer: Cross every level. -->
     <string name="achievement_chief_engineer" translatable="false">CgkIur-apMQTEAIQAQ</string>
     <!-- Perfectionist: Earn three stars on every level. -->
@@ -82,4 +84,6 @@
     <string name="leaderboard_challenge_both_ways" translatable="false"></string>
     <!-- Challenge Grand Finale: Grand Finale in a row, from scratch, with three lives. -->
     <string name="leaderboard_challenge_grand_finale" translatable="false">CgkIur-apMQTEAIQIg</string>
+    <!-- Challenge Heavy Haul: Heavy Haul in a row, from scratch, with three lives. -->
+    <string name="leaderboard_challenge_heavy_haul" translatable="false"></string>
 </resources>

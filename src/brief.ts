@@ -1,7 +1,7 @@
 import { money } from './editor';
 import { seatPiers, type LevelDef } from './levels';
 import { blockOf, MATERIALS, type MaterialId } from './physics/materials';
-import { VEHICLES, type VehicleId } from './physics/vehicles';
+import { deckLoad, VEHICLES, type VehicleId } from './physics/vehicles';
 import { bonusLabel, SAFE_STRESS } from './scoring';
 import type { Design } from './design';
 import { fmt, t, tn } from './i18n';
@@ -143,13 +143,20 @@ function rules(l: LevelDef): string[] {
   }
   // A vehicle heavier than a deck's rating crushes it: say which deck to use.
   const ids = [l.vehicle, ...(l.convoy ?? [])];
-  const heaviest = ids.reduce((a, b) => (VEHICLES[b].tonnes > VEHICLES[a].tonnes ? b : a));
-  const tonnes = VEHICLES[heaviest].tonnes;
+  const heaviest = ids.reduce((a, b) => (deckLoad(VEHICLES[b]) > deckLoad(VEHICLES[a]) ? b : a));
+  const def = VEHICLES[heaviest];
+  const tonnes = deckLoad(def);
   const decks = l.materials.filter((m) => MATERIALS[m].drivable);
   const weak = decks.filter((m) => MATERIALS[m].rating < tonnes);
   const strong = decks.filter((m) => MATERIALS[m].rating >= tonnes);
   if (weak.length && strong.length) {
-    out.push(t('rule.weight', { name: vehicleInline(heaviest), t: tonnes, weak: matNames(weak), rating: MATERIALS[weak[0]].rating, strong: matNames(strong) }));
+    const rating = MATERIALS[weak[0]].rating;
+    if (def.deckTonnes) {
+      const axles = 2 + (def.midAxles?.length ?? 0);
+      out.push(t('rule.spread', { name: vehicleInline(heaviest), t: def.tonnes, axles, press: tonnes, weak: matNames(weak), rating, strong: matNames(strong) }));
+    } else {
+      out.push(t('rule.weight', { name: vehicleInline(heaviest), t: tonnes, weak: matNames(weak), rating, strong: matNames(strong) }));
+    }
   }
   return out;
 }

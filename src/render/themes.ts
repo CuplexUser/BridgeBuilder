@@ -4,10 +4,10 @@
  */
 
 /** Silhouette of the distant land layers. */
-export type Land = 'hills' | 'mesa' | 'flat' | 'dunes' | 'peaks' | 'city';
+export type Land = 'hills' | 'mesa' | 'flat' | 'dunes' | 'peaks' | 'city' | 'volcano';
 /** What grows (or stands) along the banks. */
-export type Flora = 'mixed' | 'cactus' | 'willow' | 'palm' | 'pine' | 'lamps';
-export type Weather = 'clear' | 'rain' | 'snow';
+export type Flora = 'mixed' | 'cactus' | 'willow' | 'palm' | 'pine' | 'lamps' | 'vents';
+export type Weather = 'clear' | 'rain' | 'snow' | 'ash';
 
 export interface Theme {
   id: string;
@@ -49,6 +49,8 @@ export interface Theme {
   night: boolean;
   /** Gulls wheeling over the water. */
   birds: boolean;
+  /** Lava glowing in the distant cones' craters and down their flanks, as "r,g,b". */
+  lava?: string;
 }
 
 export const THEMES: Theme[] = [
@@ -457,5 +459,35 @@ export const THEMES: Theme[] = [
     weather: 'clear',
     night: false,
     birds: true,
+  },
+  {
+    id: 'highland',
+    name: 'Volcanic highland',
+    sky: ['#1d1a2e', '#7a3448', '#e8794a'],
+    sun: { x: 0.84, y: 0.78, r: 0.05, color: '#ffc27a', glow: '255,120,70' },
+    stars: false,
+    clouds: { rgb: '74,60,68', alpha: 0.55, count: 9, scale: 1.6 },
+    land: 'volcano',
+    mountain: '#3a2e38',
+    hillFar: '#2c2630',
+    hillNear: '#1f1c22',
+    snowCaps: false,
+    flora: 'vents',
+    tree: '#5a5a60',
+    grass: '#6b7048',
+    grassDark: '#454a2e',
+    tufts: true,
+    rock: '#3d3a40',
+    rockDark: '#232127',
+    waterTop: '#4f6a7a',
+    waterDeep: '#1b2630',
+    waterFront: 'rgba(60,90,110,0.55)',
+    foam: '#e6eef2',
+    glint: 'rgba(255,150,90,0.5)',
+    vignette: 'rgba(20,8,10,0.5)',
+    weather: 'ash',
+    night: false,
+    birds: false,
+    lava: '255,96,40',
   },
 ];

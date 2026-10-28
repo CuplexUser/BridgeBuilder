@@ -2,7 +2,7 @@
 import type { Design } from '../design';
 import { bankY, mudAt, seatPiers, START_X, type LevelDef } from '../levels';
 import { blockOf, compressionLimit, MAST, MATERIALS } from './materials';
-import { VEHICLES, type VehicleDef, type VehicleId } from './vehicles';
+import { deckLoad, VEHICLES, type VehicleDef, type VehicleId } from './vehicles';
 import { CONVOY_GAP, COUPLER, JOINT_MASS, LOGS, RAIL_GAP, TUNNEL_HEIGHT, World, type Link } from './world';
 
 export interface VehicleHandle {
@@ -28,7 +28,7 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
   const split = cellSplit(design);
   const joints = design.nodes.length + extra.length;
   const masts = level.masts ?? [];
-  const world = new World(joints + masts.length + split.copies.length + 6 * defs.length + 2 + (level.flood ? LOGS : 0), level.waterY - 8);
+  const world = new World(joints + masts.length + split.copies.length + defs.reduce((n, d) => n + 4 + Math.max(2, d.midAxles?.length ?? 0), 0) + 2 + (level.flood ? LOGS : 0), level.waterY - 8);
   const mass = new Float64Array(joints).fill(JOINT_MASS);
   design.members.forEach((m, i) => {
     const a = design.nodes[m.a];
@@ -179,6 +179,9 @@ export interface StartPlace {
   lane: number;
 }
 
+/** The longest wheelbase that waits at START_X with its front wheels still on the bank. */
+const LONGEST_WAIT = 5.4;
+
 /**
  * Where each vehicle waits at the start, lane by lane, each lane's lead vehicle first. Oncoming
  * traffic waits on the right bank as far out as the rest wait on the left, so at one speed the
@@ -190,7 +193,8 @@ export function convoyLayout(level: LevelDef): StartPlace[] {
   if (level.lower) lanes.push([[level.lower.vehicle, ...(level.lower.convoy ?? [])], level.lower.y, 1]);
   if (level.oncoming) lanes.push([[level.oncoming.vehicle, ...(level.oncoming.convoy ?? [])], bankY(level), -1]);
   lanes.forEach(([ids, y, dir], lane) => {
-    let x = dir > 0 ? START_X : level.width - START_X;
+    // A vehicle longer than a wagon waits further back, so its front wheels start on the bank too.
+    let x = (dir > 0 ? START_X : level.width - START_X) - dir * Math.max(0, VEHICLES[ids[0]].wheelbase - LONGEST_WAIT);
     ids.forEach((id, i) => {
       const def = VEHICLES[id];
       // Rail vehicles couple up close behind the one ahead.
@@ -437,7 +441,7 @@ function addVehicle(world: World, def: VehicleDef, x0: number, speed: number, y0
     world.drive[w] = dir * speed;
     world.accel[w] = def.accel;
   }
-  for (const p of [...wheels, rearTop, frontTop]) world.tonnes[p] = def.tonnes;
+  for (const p of [...wheels, rearTop, frontTop]) world.tonnes[p] = deckLoad(def);
   if (def.rail) for (const w of wheels) world.rail[w] = 1;
   const rigid = 1e-8;
   const spring = 4e-6 * (1500 / def.mass);

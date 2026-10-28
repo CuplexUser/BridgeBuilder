@@ -1,7 +1,7 @@
 import { ambience } from '../ambience';
 import { sfx } from '../audio';
 import { bonusStatus } from '../brief';
-import { chapterById, chapterComplete, chapterOf, CHAPTERS, chapterUnlocked, continueLevel, crossed, inFullGame, levelById, levelCode, levelUnlocked, sceneOf, type ChapterDef } from '../chapters';
+import { chapterById, chapterComplete, chapterOf, CHAPTERS, chapterUnlocked, continueLevel, crossed, inFullGame, levelById, levelCode, levelUnlocked, sceneOf, sceneVariant, type ChapterDef } from '../chapters';
 import { Design } from '../design';
 import { Editor, fitDesign, isOverBudget, money, type AttachPick } from '../editor';
 import { efficiency, IDLE_LOAD } from '../efficiency';
@@ -1062,7 +1062,9 @@ export class Game {
     const inLevel = s === 'build' || s === 'maker' || s === 'test' || s === 'result' || s === 'collapse' || s === 'over';
     const state: MusicState = this.paused ? 'pause' : s === 'test' ? 'test' : s === 'result' ? 'result' : s === 'collapse' || s === 'over' ? 'collapse' : inLevel ? 'build' : 'menu';
     const theme = this.renderer.theme;
-    music.update(state, theme.id, this.run?.peakStress ?? 0);
+    const level = inLevel ? this.level : null;
+    const variant = level && !isCustom(level.id) ? sceneVariant(level.id) : 0;
+    music.update(state, theme.id, this.run?.peakStress ?? 0, { variant, tense: this.mode === 'challenge' && inLevel });
     ambience.update(theme, this.paused ? 0.35 : !inLevel ? 0.3 : s === 'build' || s === 'maker' ? 0.75 : 1);
   }
 

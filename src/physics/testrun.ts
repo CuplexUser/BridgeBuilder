@@ -3,6 +3,7 @@ import { segmentHitsRect, type Design } from '../design';
 import { goalX, type LevelDef } from '../levels';
 import { buildWorld, convoyLayout, type VehicleHandle } from './build';
 import { MATERIALS } from './materials';
+import { deckLoad } from './vehicles';
 import { t as msg } from '../i18n';
 import { matInline, matName, vehicleInline } from '../i18n/data';
 import { StressLog } from './stresslog';
@@ -311,8 +312,11 @@ export class TestRun {
     this.status = 'fail';
     const crushed = this.world.links.find((l) => l.crushed && l.broken);
     if (crushed) {
-      const def = this.vehicles.map((v) => v.def).find((d) => d.tonnes === crushed.crushedBy) ?? this.vehicle.def;
-      reason = msg('fail.crushed', { name: vehicleInline(def.id), t: def.tonnes, mat: matName(crushed.mat!), rating: MATERIALS[crushed.mat!].rating });
+      const def = this.vehicles.map((v) => v.def).find((d) => deckLoad(d) === crushed.crushedBy) ?? this.vehicle.def;
+      const rating = MATERIALS[crushed.mat!].rating;
+      reason = def.deckTonnes
+        ? msg('fail.crushedSpread', { name: vehicleInline(def.id), t: def.deckTonnes, mat: matName(crushed.mat!), rating })
+        : msg('fail.crushed', { name: vehicleInline(def.id), t: def.tonnes, mat: matName(crushed.mat!), rating });
     } else if (this.world.blocks.some((b) => b.loose)) {
       reason = msg('fail.anchor');
     }

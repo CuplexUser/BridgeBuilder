@@ -10,7 +10,7 @@ import type { Land } from './themes';
 import { shade as tint } from './vehicles';
 
 /** Profile of one land layer. */
-type Ridge = 'round' | 'peaks' | 'mesa' | 'dunes' | 'city';
+type Ridge = 'round' | 'peaks' | 'mesa' | 'dunes' | 'city' | 'cone';
 
 /** Per land type: the shapes of the far, middle and near layers, and how tall each is. */
 const LAND_LAYERS: Record<Land, [Ridge, Ridge, Ridge, number, number, number]> = {
@@ -20,6 +20,7 @@ const LAND_LAYERS: Record<Land, [Ridge, Ridge, Ridge, number, number, number]> =
   dunes: ['round', 'round', 'dunes', 0.7, 0.5, 0.8],
   peaks: ['peaks', 'peaks', 'round', 1.7, 1.25, 0.9],
   city: ['city', 'city', 'city', 1.3, 1, 0.55],
+  volcano: ['cone', 'peaks', 'round', 1.9, 1, 0.55],
 };
 
 /** Height of a land layer at u, in units of its amplitude. */
@@ -36,6 +37,13 @@ function ridge(shape: Ridge, u: number, seed: number): number {
     }
     case 'dunes':
       return 0.45 + 0.35 * Math.sin(u * 0.7 + seed) + 0.12 * Math.sin(u * 1.9 + seed * 2);
+    case 'cone': {
+      // Volcanic cones out of a low ridge, one where (u × 2.1 + seed) passes 3.5 beyond a
+      // multiple of 7, each with a crater dipping into its top.
+      const d = Math.abs(((((u * 2.1 + seed) % 7) + 7) % 7) - 3.5);
+      const cone = d < 0.25 ? 1.45 + 0.3 * d : 1.75 - 0.9 * d;
+      return Math.max(0.35 + 0.18 * Math.sin(u * 1.7 + seed), cone);
+    }
     default:
       return round;
   }
@@ -306,6 +314,7 @@ export class Scenery extends ScenePart {
     path.closePath();
     ctx.fillStyle = color;
     ctx.fill(path);
+    if (shape === 'cone' && this.look.lava) this.lava(base, off, amp, freq, seed, this.look.lava);
     if (!snow) return;
     // Snow above a wavy snowline, clipped to the ridge.
     ctx.save();
@@ -319,6 +328,51 @@ export class Scenery extends ScenePart {
     }
     ctx.lineTo(this.w, 0);
     ctx.fill();
+    ctx.restore();
+  }
+
+  /** Lava (`rgb`, as "r,g,b") glowing in each cone's crater and running in seams down its flanks. */
+  private lava(base: number, off: number, amp: number, freq: number, seed: number, rgb: string): void {
+    const { ctx } = this;
+    const surface = (x: number) => base - amp * ridge('cone', (x + off) * freq, seed);
+    // The cones' tops, n of them in from the left: where (u × 2.1 + seed) is 7n + 3.5.
+    const apex = (n: number) => (7 * n + 3.5 - seed) / 2.1 / freq - off;
+    const first = Math.floor((off * freq * 2.1 + seed - 3.5) / 7) - 1;
+    // The crater's rim, this far either side of the top: see ridge's cone.
+    const rim = 0.25 / 2.1 / freq;
+    const seams = new Path2D();
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let n = first; apex(n) < this.w + 300; n++) {
+      const ax = apex(n);
+      if (ax < -300) continue;
+      const top = surface(ax);
+      const reach = 0.3 * amp;
+      const glow = ctx.createRadialGradient(ax, top, 0, ax, top, reach);
+      glow.addColorStop(0, `rgba(${rgb},0.5)`);
+      glow.addColorStop(1, `rgba(${rgb},0)`);
+      ctx.fillStyle = glow;
+      ctx.fillRect(ax - reach, top - reach, 2 * reach, 2 * reach);
+      // Three seams from the crater rim, each wandering down a flank for its own distance.
+      for (let k = 0; k < 3; k++) {
+        const r = hash(n * 31.7 + k * 5.3 + seed);
+        const side = k === 1 ? -1 : 1;
+        const len = (0.25 + 0.35 * r) * amp;
+        const x0 = ax + side * (rim + k * 5);
+        seams.moveTo(x0, surface(x0) + 2);
+        for (let t = 6; t < len; t += 6) {
+          const x = x0 + side * t;
+          seams.lineTo(x + Math.sin(t * 0.21 + r * 9) * 3, surface(x) + 3 + t * 0.12);
+        }
+      }
+    }
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = `rgba(${rgb},0.28)`;
+    ctx.lineWidth = 6;
+    ctx.stroke(seams);
+    ctx.strokeStyle = 'rgba(255,196,120,0.8)';
+    ctx.lineWidth = 1.6;
+    ctx.stroke(seams);
     ctx.restore();
   }
 
@@ -409,11 +463,12 @@ export class Scenery extends ScenePart {
     const snow = new Path2D();
     const willows: WillowLayers = { shade: new Path2D(), wood: new Path2D(), leaves: new Path2D(), lit: new Path2D() };
     const glows: [number, number][] = [];
+    const plumes: [number, number, number][] = [];
     for (let i = 0, x = x0; (x1 - x) * dir > 0 && i < 40; i++) {
       const r = hash(seed * 100 + i);
       const h = 1.8 + r * 2.6;
       const sx = cam.sx(x);
-      const gap = T.flora === 'lamps' ? 5 : T.flora === 'cactus' ? 2.4 + hash(seed * 50 + i) * 4 : 1.4 + hash(seed * 50 + i) * 2.6;
+      const gap = T.flora === 'lamps' ? 5 : T.flora === 'vents' ? 3.5 + r * 3 : T.flora === 'cactus' ? 2.4 + hash(seed * 50 + i) * 4 : 1.4 + hash(seed * 50 + i) * 2.6;
       x += dir * gap;
       const margin = 80 + 2.5 * s;
       if (sx < -margin || sx > this.w + margin) continue;
@@ -462,7 +517,22 @@ export class Scenery extends ScenePart {
           glows.push([sx + reach, top + 0.14 * s]);
           break;
         }
+        case 'vents':
+          // The power plant's steam pipe on its posts, and now and then a wellhead with a plume.
+          path.rect(sx - 0.06 * s, sy - 1.05 * s, 0.12 * s, 1.05 * s);
+          if (r < 0.45) {
+            path.rect(sx - 0.4 * s, sy - 0.75 * s, 0.8 * s, 0.75 * s);
+            path.rect(sx - 0.12 * s, sy - 1.6 * s, 0.24 * s, 0.85 * s);
+            plumes.push([sx, sy - 1.6 * s, r]);
+          }
+          break;
       }
+    }
+    if (T.flora === 'vents') {
+      // The pipe itself, along the whole bank on screen.
+      const a = Math.max(-10, cam.sx(Math.min(x0, x1)));
+      const b = Math.min(this.w + 10, cam.sx(Math.max(x0, x1)));
+      if (b > a) path.rect(a, sy - 1.2 * s, b - a, 0.24 * s);
     }
     ctx.fillStyle = T.tree;
     ctx.fill(path);
@@ -481,6 +551,7 @@ export class Scenery extends ScenePart {
       ctx.fillStyle = 'rgba(245,250,255,0.9)';
       ctx.fill(snow);
     }
+    if (plumes.length) this.plumes(plumes, s, time);
     if (glows.length === 0) return;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
@@ -494,6 +565,20 @@ export class Scenery extends ScenePart {
       ctx.fillRect(gx - 0.1 * s, gy, 0.2 * s, 0.06 * s);
     }
     ctx.restore();
+  }
+
+  /** Steam rising from wellheads at screen points [x, y, seed]: puffs that swell, drift and thin out as they climb. */
+  private plumes(at: [number, number, number][], s: number, time: number): void {
+    const { ctx } = this;
+    for (const [x, y, r] of at) {
+      for (let k = 0; k < 6; k++) {
+        const p = (time * (0.18 + r * 0.1) + k / 6 + r) % 1;
+        ctx.fillStyle = `rgba(232,232,238,${(0.32 * (1 - p)).toFixed(3)})`;
+        ctx.beginPath();
+        ctx.arc(x + (p * 1.6 + Math.sin(time * 0.7 + k + r * 7) * 0.25) * s, y - p * 5 * s, (0.3 + p * 1.3) * s, 0, TAU);
+        ctx.fill();
+      }
+    }
   }
 
   /** A saguaro: a trunk with one or two upturned arms. */
@@ -632,6 +717,30 @@ export class Scenery extends ScenePart {
         ctx.globalAlpha = v.develop * 0.8;
         ctx.stroke();
       }
+    } else if (kind === 'ash') {
+      // Ash drifting slowly down, and embers carried up from the vents, flickering.
+      ctx.fillStyle = 'rgba(70,64,70,0.55)';
+      ctx.beginPath();
+      for (let i = 0; i < 90; i++) {
+        const depth = 0.4 + hash(i + 4500) * 0.9;
+        const y = ((hash(i + 4600) * H + t * 22 * depth) % H) - 30;
+        const x = ((((hash(i + 4700) * W - t * 16 * depth - pan * 0.35 * depth + Math.sin(t * 0.6 + i) * 14) % W) + W) % W) - 60;
+        const r = 0.8 + depth * 1.2;
+        ctx.moveTo(x + r, y);
+        ctx.arc(x, y, r, 0, TAU);
+      }
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,150,70,0.85)';
+      ctx.beginPath();
+      for (let i = 0; i < 14; i++) {
+        const depth = 0.5 + hash(i + 4800);
+        const y = H - ((hash(i + 4900) * H + t * 30 * depth) % H) - 30;
+        const x = ((((hash(i + 5000) * W + Math.sin(t * 1.3 + i * 2) * 20 - pan * 0.35 * depth) % W) + W) % W) - 60;
+        const r = 0.6 + depth * 0.7 * (0.6 + 0.4 * Math.sin(t * 9 + i));
+        ctx.moveTo(x + r, y);
+        ctx.arc(x, y, r, 0, TAU);
+      }
+      ctx.fill();
     } else {
       ctx.fillStyle = 'rgba(250,252,255,0.85)';
       ctx.beginPath();

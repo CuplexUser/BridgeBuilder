@@ -130,6 +130,15 @@ export const CHAPTERS: ChapterDef[] = [
     effort: 'Grand builds · 20–90 parts',
     levels: [69, 59, 66, 60, 68, 67, 70],
   },
+  // After the finale, for those who want more: it opens once the finale is crossed.
+  {
+    id: 13,
+    name: 'Heavy Haul',
+    blurb: 'A turbine for the power plant on a transporter of 120 tonnes, through every hazard you have met: tolls, trains, quakes, gales, floods and a gorge.',
+    difficulty: 13,
+    effort: 'Expert builds · 20–85 parts',
+    levels: [85, 86, 87, 88, 89, 90, 91],
+  },
 ];
 
 /**
@@ -151,10 +160,16 @@ const SCENES: number[][] = [
   [56, 57, 58, 59, 60, 68],
   [61, 62, 63, 64, 65, 70],
   [78, 79, 80, 81, 82, 83, 84],
+  [85, 86, 87, 88, 89, 90, 91],
 ];
 
 export function sceneOf(levelId: number): number {
   return Math.max(0, SCENES.findIndex((ids) => ids.includes(levelId)));
+}
+
+/** Which of its scene's tunes a level plays: the scene's levels take them in turn. */
+export function sceneVariant(levelId: number): number {
+  return Math.max(0, SCENES[sceneOf(levelId)].indexOf(levelId));
 }
 
 /**

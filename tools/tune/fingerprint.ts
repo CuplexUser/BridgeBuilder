@@ -25,8 +25,8 @@ function hash(s: string): string {
  */
 /** Materials added after levels 1–40 were tuned: they count only where offered. */
 const LATER = new Set<MaterialId>(['main', 'concrete', 'masonry', 'arch', 'track', 'damper', 'tendon']);
-/** Vehicles added after levels 1–50 were tuned. */
-const LATER_VEHICLES = new Set(['loco', 'wagon', 'troop']);
+/** Vehicles added after levels 1–50 were tuned: they count only where used. */
+const LATER_VEHICLES = new Set(['loco', 'wagon', 'troop', 'transporter']);
 
 export function levelFingerprint(id: number): string {
   const base = BASE_LEVELS.find((l) => l.id === id);

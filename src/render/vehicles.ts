@@ -488,6 +488,94 @@ function semi(p: Painter, def: VehicleDef): void {
   p.headlight(wb + 1.3, 0.34, 0.16);
 }
 
+/**
+ * The heavy transporter: a ballasted tractor pulling a low modular trailer, a bogie over each
+ * axle line, with a steam turbine for the power plant chained down on cradles. Its split casing
+ * steps up from the high-pressure end to the low-pressure end, the rotor's shaft showing at both.
+ */
+function transporter(p: Painter, def: VehicleDef): void {
+  const wb = def.wheelbase;
+  const axles = [0, ...(def.midAxles ?? []), wb];
+  // Trailer bed from the rear to the gooseneck, which rises onto the tractor's fifth wheel.
+  const tL = -0.9;
+  const tR = wb - 3.1;
+  p.fill(rrect(new Path2D(), tL, 0.32, tR - tL, 0.36, 0.04), shade(def.color, -0.25), true);
+  const neck = poly([
+    [tR - 0.2, 0.32],
+    [tR + 0.4, 0.32],
+    [wb - 1.4, 1.05],
+    [wb - 1.4, 1.35],
+    [tR - 0.2, 1.35],
+  ]);
+  p.panel(neck, def.color, 1.35, 0.32);
+  p.lamp(tL, 0.44, tR - tL, 0.08, '#1d1e22');
+  // A bogie over each trailer axle line, and the tractor's arches.
+  for (const ax of axles) {
+    if (ax > tR) continue;
+    p.fill(rrect(new Path2D(), ax - 0.42, 0.12, 0.84, 0.24, 0.05), '#2b2d33', true);
+    p.lamp(ax - 0.05, 0.12, 0.1, 0.22, '#4a4d55');
+  }
+  // The turbine: three casing sections of growing size on two cradles.
+  const cy = 1.78;
+  const sections: [number, number, number][] = [
+    [-0.4, 1.6, 0.5],
+    [1.6, 3.5, 0.66],
+    [3.5, 6.2, 0.82],
+  ];
+  for (const x of [0.6, 4.9]) p.fill(poly([[x - 0.55, 0.68], [x + 0.55, 0.68], [x + 0.3, cy - 0.5], [x - 0.3, cy - 0.5]]), '#3b3e45', true);
+  p.fill(rrect(new Path2D(), sections[0][0] - 0.35, cy - 0.09, sections[2][1] - sections[0][0] + 0.7, 0.18, 0.05), CHROME, true);
+  for (const [x0, x1, r] of sections) {
+    const shell = rrect(new Path2D(), x0, cy - r, x1 - x0, 2 * r, Math.min(0.35, r * 0.5));
+    p.panel(shell, def.trim, cy + r, cy - r);
+    // The split line's flange and its bolts.
+    p.lamp(x0, cy - 0.04, x1 - x0, 0.08, shade(def.trim, -0.3));
+    for (let x = x0 + 0.2; x < x1 - 0.1; x += 0.3) p.lamp(x - 0.03, cy - 0.03, 0.06, 0.06, CHROME);
+  }
+  // Exhaust hood on the low-pressure end, and the chains holding it all down.
+  p.panel(rrect(new Path2D(), 4.2, cy + 0.72, 1.4, 0.28, 0.06), def.trim, cy + 1.0, cy + 0.72);
+  for (const [x0, x1] of [[-0.2, 0.3], [2.3, 1.8], [3.9, 4.4], [6.0, 5.5]]) p.line(x0, 0.68, x1, cy + 0.3, '#24262b', 1.6);
+  // Black and yellow board and lamps at the rear.
+  const board = rrect(new Path2D(), tL - 0.12, 0.3, 0.12, 0.9, 0.02);
+  p.fill(board, '#f2c230', true);
+  for (let y = 0.36; y < 1.15; y += 0.2) p.lamp(tL - 0.12, y, 0.12, 0.09, '#1d1e22');
+  p.lamp(tL - 0.06, 0.42, 0.06, 0.18, '#ff4a3d');
+  // Tractor: ballast box behind a tall cab, a short hood, grille and stacks.
+  const box = rrect(new Path2D(), wb - 2.75, 0.55, 1.5, 1.05, 0.06);
+  p.panel(box, shade(def.color, -0.12), 1.6, 0.55);
+  p.line(wb - 2.0, 0.6, wb - 2.0, 1.55, 'rgba(0,0,0,0.25)', 1.5);
+  p.fill(rrect(new Path2D(), wb - 2.9, 0.15, 4.35, 0.4, 0.05), '#2b2d33', true);
+  const cab = new Path2D();
+  cab.moveTo(wb - 1.15, 0.2);
+  cab.lineTo(wb - 1.15, 2.55);
+  cab.quadraticCurveTo(wb - 1.1, 2.75, wb - 0.7, 2.76);
+  cab.lineTo(wb + 0.2, 2.7);
+  cab.lineTo(wb + 0.45, 1.35);
+  cab.lineTo(wb + 1.3, 1.25);
+  cab.quadraticCurveTo(wb + 1.42, 1.2, wb + 1.44, 1.0);
+  cab.lineTo(wb + 1.44, 0.2);
+  cab.closePath();
+  p.panel(cab, def.color, 2.76, 0.2);
+  p.arch(axles[axles.length - 2], def.wheelR);
+  p.arch(wb, def.wheelR);
+  const wind = poly([
+    [wb - 0.45, 1.45],
+    [wb + 0.36, 1.45],
+    [wb + 0.16, 2.4],
+    [wb - 0.45, 2.4],
+  ]);
+  p.glass(wind, 2.4, 1.45, [wb - 0.15, 1.72, 0.12]);
+  p.line(wb - 0.55, 0.3, wb - 0.55, 2.5);
+  p.handle(wb - 0.45, 1.25);
+  p.fill(rrect(new Path2D(), wb + 1.34, 0.3, 0.1, 0.85, 0.02), CHROME);
+  for (let y = 0.38; y < 1.1; y += 0.1) p.line(wb + 1.34, y, wb + 1.44, y, 'rgba(0,0,0,0.35)', 1);
+  for (const dx of [0, 0.12]) p.fill(rrect(new Path2D(), wb - 1.32 + dx, 0.6, 0.08, 2.6, 0.03), CHROME);
+  // Amber beacons on the cab roof and at the trailer's tail.
+  for (const x of [wb - 0.95, wb - 0.1]) p.lamp(x, 2.76, 0.18, 0.12, '#ffae2b');
+  p.lamp(tL + 0.05, 0.68, 0.16, 0.12, '#ffae2b');
+  p.bumper(wb + 1.25, -0.06, 0.32, 0.24);
+  p.headlight(wb + 1.44, 0.45, 0.16);
+}
+
 /** A diesel locomotive: a long hood, the cab at the front, a livery stripe and a headlight. */
 function loco(p: Painter, def: VehicleDef): void {
   const wb = def.wheelbase;
@@ -618,7 +706,7 @@ export function drawSoldier(ctx: Ctx, def: VehicleDef, px: number, stride: numbe
   soldier(new Painter(ctx, px, false), def, 0, 0, stride, flail);
 }
 
-const BODIES: Record<VehicleDef['id'], (p: Painter, def: VehicleDef, stride?: number) => void> = { car, van, truck: dumpTruck, bus, semi, loco, wagon, troop };
+const BODIES: Record<VehicleDef['id'], (p: Painter, def: VehicleDef, stride?: number) => void> = { car, van, truck: dumpTruck, bus, semi, loco, wagon, troop, transporter };
 
 /** Draws a body in the current transform (vehicle frame, meters, y up). */
 export function drawBody(ctx: Ctx, def: VehicleDef, px: number, chalk: boolean, stride = 0, shadow = 1): void {

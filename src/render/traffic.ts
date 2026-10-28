@@ -184,7 +184,7 @@ export class Traffic extends ScenePart {
     if (def.marches) return;
 
     const R = def.wheelR;
-    const heavy = def.id === 'truck' || def.id === 'bus' || def.id === 'semi';
+    const heavy = def.id === 'truck' || def.id === 'bus' || def.id === 'semi' || def.id === 'transporter';
     const rail = !!def.rail;
     this.wheel(rwx, rwy, R, angles[0], chalk, heavy, rail);
     for (const [mx, my] of mids) this.wheel(mx, my, R, angles[0], chalk, heavy, rail);

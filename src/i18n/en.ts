@@ -388,6 +388,7 @@ export const en = {
   'rule.toll': 'Toll bolts: building from any bolt off the road costs {money}, once per bolt.',
   'rule.limit': { one: 'At most {n} {mat} part.', other: 'At most {n} {mat} parts.' },
   'rule.weight': 'The {name} weighs {t} t: {weak} carries only {rating} t. Drive it on {strong}.',
+  'rule.spread': 'The {name} weighs {t} t, spread over {axles} axle lines so each presses {press} t on the deck: {weak} carries only {rating} t. Drive it on {strong}.',
 
   // ── Toasts and HUD lines during play ──
   'unit.point': '{x}, {y}',
@@ -482,6 +483,7 @@ export const en = {
   'fail.flipped': 'The vehicle flipped over.',
   'fail.stuck': 'The vehicle got stuck.',
   'fail.crushed': 'The {name} weighs {t} t. {mat} carries only {rating} t.',
+  'fail.crushedSpread': 'The {name} presses {t} t on each piece of deck. {mat} carries only {rating} t.',
   'fail.anchor': 'A concrete anchor tore loose. Too steep a pull lifts it, too flat a pull slides it; or share it between two.',
 
   // ── Why a drag can't be built ──
