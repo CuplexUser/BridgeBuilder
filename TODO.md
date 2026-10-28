@@ -83,7 +83,7 @@ Features and improvements, by priority. Finished items stay checked for a releas
 
 ### Next
 
-- [ ] **Play Games ids for the new chapters.** Create `achievement_chapter_both_ways`, `achievement_chapter_heavy_haul`, `leaderboard_challenge_both_ways` and `leaderboard_challenge_heavy_haul` in the Play Console and paste their ids into `games-ids.xml`.
+- [x] **Play Games ids for the new chapters.** `achievement_chapter_both_ways`, `achievement_chapter_heavy_haul`, `leaderboard_challenge_both_ways` and `leaderboard_challenge_heavy_haul` are in the Play Console and in `games-ids.xml`. Grand Finale's achievement icon now reads 12, its chapter number since Both Ways came before it.
 - [ ] **Floods on the older piled levels.** *Floodtide*, *Delta Haul* and *Last Crossing* still shrug off their floods; *Driftwood* and *Both Ways in Flood* show what a flood that reaches the deck does, and the older three could rise the same way.
 
 ## P3: Polish and social
