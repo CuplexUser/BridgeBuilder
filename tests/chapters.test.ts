@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { challengeBoard, chapterById, chapterNumber, chapterUnlocked, CHAPTERS, continueLevel, levelCode, levelUnlocked, nextInChapter, sceneOf, totals, type BestMap } from '../src/chapters';
+import { challengeBoard, chapterById, chapterNumber, chapterUnlocked, CHAPTERS, continueLevel, highestUnlocked, levelCode, levelUnlocked, nextInChapter, sceneOf, setOpenAll, totals, type BestMap } from '../src/chapters';
 import { LEVELS } from '../src/levels';
 import { THEMES } from '../src/render/themes';
 import { mapLayout, perRow } from '../src/ui/chaptermap';
@@ -49,6 +49,19 @@ describe('chapters', () => {
 
   it('get harder chapter by chapter', () => {
     CHAPTERS.forEach((c, i) => expect(c.difficulty).toBe(i + 1));
+  });
+
+  it('open every level in test mode, without counting it as earned', () => {
+    setOpenAll(true);
+    try {
+      expect(levelUnlocked(LEVELS[LEVELS.length - 1].id, {})).toBe(true);
+      expect(chapterUnlocked(CHAPTERS[CHAPTERS.length - 1], {})).toBe(true);
+      expect(highestUnlocked({})).toBe(1);
+      expect(continueLevel({})).toBe(1);
+    } finally {
+      setOpenAll(false);
+    }
+    expect(levelUnlocked(2, {})).toBe(false);
   });
 
   it('open the first level only, at the start', () => {

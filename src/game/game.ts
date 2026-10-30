@@ -1,7 +1,7 @@
 import { ambience } from '../ambience';
 import { sfx } from '../audio';
 import { bonusStatus } from '../brief';
-import { chapterById, chapterComplete, chapterOf, CHAPTERS, chapterUnlocked, continueLevel, crossed, inFullGame, levelById, levelCode, levelUnlocked, sceneOf, sceneVariant, type ChapterDef } from '../chapters';
+import { chapterById, chapterComplete, chapterOf, CHAPTERS, chapterUnlocked, continueLevel, crossed, inFullGame, levelById, levelCode, levelUnlocked, sceneOf, sceneVariant, setOpenAll, type ChapterDef } from '../chapters';
 import { Design } from '../design';
 import { Editor, fitDesign, isOverBudget, money, type AttachPick } from '../editor';
 import { efficiency, IDLE_LOAD } from '../efficiency';
@@ -15,7 +15,7 @@ import { motion } from '../motion';
 import { music, type MusicState } from '../music';
 import { type MaterialId } from '../physics/materials';
 import { TestRun } from '../physics/testrun';
-import { billing, games, hasPaywall, openListing, vibrate, type BillingStatus } from '../platform';
+import { billing, canOpenAll, games, hasPaywall, openListing, vibrate, type BillingStatus } from '../platform';
 import { PlayGamesLink } from '../playgames';
 import { loadRate, saveRate } from '../rating';
 import { Camera, type Rect } from '../render/camera';
@@ -160,6 +160,7 @@ export class Game {
     sfx.muted = this.prefs.muted;
     this.ui.setMuted(this.prefs.muted);
     this.haptics.enabled = this.prefs.haptics !== false;
+    setOpenAll(canOpenAll && this.prefs.openAll === true);
     this.settings.apply();
     this.ui.forSale = (c) => this.forSale(c);
     this.ui.fps.classList.toggle('hidden', !this.debug);
@@ -653,6 +654,17 @@ export class Game {
     if (this.state === 'scores') this.ui.playGames(this.playGames.status);
     if (this.playGames.signedIn) this.playGames.progress(this.data.best);
     else this.ui.showToast(t('toast.notSignedIn'));
+  }
+
+  /** Opens every level for testing, or closes them again; players are never told about it. Not on Android. */
+  toggleOpenAll(): void {
+    if (!canOpenAll) return;
+    this.prefs.openAll = !this.prefs.openAll;
+    setOpenAll(this.prefs.openAll);
+    savePrefs(this.prefs);
+    sfx.select();
+    this.ui.title(this.profile, this.data, continueLevel(this.data.best));
+    this.ui.showToast(this.prefs.openAll ? 'Test mode: every level open' : 'Test mode off', 3200);
   }
 
   toggleMute(): void {

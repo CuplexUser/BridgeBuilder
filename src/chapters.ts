@@ -226,8 +226,22 @@ export function chapterComplete(chapter: ChapterDef, best: BestMap): boolean {
  * with a level already crossed stays open too, so regrouping the chapters locks no one out.
  */
 export function chapterUnlocked(chapter: ChapterDef, best: BestMap): boolean {
+  return openAll || chapterEarned(chapter, best);
+}
+
+function chapterEarned(chapter: ChapterDef, best: BestMap): boolean {
   const i = CHAPTERS.indexOf(chapter);
   return i <= 0 || chapterComplete(CHAPTERS[i - 1], best) || chapter.levels.some((id) => crossed(best, id));
+}
+
+/**
+ * A testing aid, hidden from players: every chapter and level open without crossing the ones
+ * before. It only changes what can be picked; the save keeps what was really earned.
+ */
+let openAll = false;
+
+export function setOpenAll(on: boolean): void {
+  openAll = on;
 }
 
 /** Chapters free to play, in play order, where the game has a paywall (the Android app). */
@@ -240,9 +254,13 @@ export function inFullGame(chapter: ChapterDef): boolean {
 
 /** Inside an open chapter, levels open one after another; a level once crossed stays open. */
 export function levelUnlocked(levelId: number, best: BestMap): boolean {
+  return openAll || levelEarned(levelId, best);
+}
+
+function levelEarned(levelId: number, best: BestMap): boolean {
   if (crossed(best, levelId)) return true;
   const c = chapterOf(levelId);
-  if (!chapterUnlocked(c, best)) return false;
+  if (!chapterEarned(c, best)) return false;
   const i = c.levels.indexOf(levelId);
   return i === 0 || crossed(best, c.levels[i - 1]);
 }
@@ -289,9 +307,9 @@ export function totals(best: BestMap, levelIds: number[] = LEVELS.map((l) => l.i
   return { score, stars, bonus, crossed: n };
 }
 
-/** Highest level id currently open, kept for the `unlocked` field older saves and the server still store. */
+/** Highest level id earned open, kept for the `unlocked` field older saves and the server still store. */
 export function highestUnlocked(best: BestMap): number {
   let hi = 1;
-  for (const l of LEVELS) if (levelUnlocked(l.id, best)) hi = Math.max(hi, l.id);
+  for (const l of LEVELS) if (levelEarned(l.id, best)) hi = Math.max(hi, l.id);
   return hi;
 }

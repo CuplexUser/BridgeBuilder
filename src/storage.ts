@@ -440,6 +440,8 @@ export interface Prefs {
   reduceMotion?: boolean;
   /** The colors stress is drawn in: green to red, or a ramp colorblind players can tell apart. */
   stressPalette?: StressPalette;
+  /** Every level open, for testing later chapters; switched by a code typed on the title screen. */
+  openAll?: boolean;
 }
 
 export type VolumeBus = 'master' | 'sfx' | 'music' | 'ambience';

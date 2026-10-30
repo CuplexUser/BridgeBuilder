@@ -17,6 +17,13 @@ interface PointerInfo {
   downAt: number;
 }
 
+/**
+ * Typed on the title screen, opens every level for testing (and typed again, closes them). Its
+ * letters are none of the title's shortcuts, so typing it does nothing else on the way. The
+ * Android app ignores it.
+ */
+const OPEN_ALL_CODE = 'warpzone';
+
 /** The chapter a digit key picks, 1–9 then 0 for the tenth, as an index into CHAPTERS; -1 for any other key. */
 function chapterKey(k: string): number {
   if (k.length !== 1 || k < '0' || k > '9') return -1;
@@ -41,6 +48,8 @@ export class Input {
   private pendingBrush: [number, number] | null = null;
   /** How far above the pointer the sag or rise handle being dragged sits, so it doesn't jump to it. */
   private sagOffset = 0;
+  /** The last letters typed on the title screen, watched for OPEN_ALL_CODE. */
+  private typed = '';
   pinchDist = 0;
   private lastMid: [number, number] = [0, 0];
 
@@ -477,7 +486,11 @@ export class Input {
 
     switch (this.game.state) {
       case 'title':
-        if (k === 'Enter' || k === ' ') {
+        this.typed = (this.typed + (k.length === 1 ? lower : '')).slice(-OPEN_ALL_CODE.length);
+        if (this.typed === OPEN_ALL_CODE) {
+          this.typed = '';
+          this.game.toggleOpenAll();
+        } else if (k === 'Enter' || k === ' ') {
           e.preventDefault();
           this.game.act('continue');
         } else if (lower === 'c') this.game.act('chapters');

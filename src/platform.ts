@@ -200,6 +200,9 @@ export const billing = {
   onChange: (fn: (s: BillingStatus) => void): void => native?.billing.onChange(fn),
 };
 
+/** The hidden code that opens every level for testing works on the web and desktop builds only. */
+export const canOpenAll = platform !== 'android';
+
 /** The Android app can send players to its page on Google Play to rate it. */
 export const canRate = platform === 'android';
 
