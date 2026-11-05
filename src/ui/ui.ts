@@ -36,6 +36,7 @@ export class Ui {
   hudGoal = $('hud-goal');
   muteBtn = $<HTMLButtonElement>('btn-mute');
   pauseBtn = $<HTMLButtonElement>('btn-pause');
+  rotateBtn = $<HTMLButtonElement>('btn-rotate');
   undoBtn = $<HTMLButtonElement>('btn-undo');
   redoBtn = $<HTMLButtonElement>('btn-redo');
   clearBtn = $<HTMLButtonElement>('btn-clear');

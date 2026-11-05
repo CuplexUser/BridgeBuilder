@@ -9,10 +9,11 @@ import { MATERIALS, type MaterialId } from '../physics/materials';
 import type { TestRun } from '../physics/testrun';
 import { blockSpots, pileSpots } from '../rules';
 import { font } from './fonts';
+import { bilerp, cellLooks, quadOf } from './stone';
 import type { Members } from './members';
 import { MATERIAL_CHALK, PAL } from './palette';
 import type { SceneView } from './renderer';
-import { curveControls, footings, inside, MEMBER_WIDTH, mudPoly, overhangPoly, PILE_DEPTH, rockPoly, runControls, TAU, type Ctl, type Pt2 } from './shapes';
+import { curveControls, footings, inside, insetPoly, MEMBER_WIDTH, mudPoly, overhangPoly, PILE_DEPTH, rockPoly, runControls, TAU, type Ctl, type Pt2 } from './shapes';
 import { ScenePart, type Stage } from './stage';
 import type { Structures } from './structures';
 
@@ -416,17 +417,22 @@ export class Blueprint extends ScenePart {
     }
   }
 
-  /** Blocks and arch wedges in chalk: a tinted face, a firm outline, a red one when a tap would take it off; and the brush's square. */
+  /**
+   * Blocks and arch wedges in chalk: a tinted face, a firm outline, a red one when a tap would
+   * take it off, and faintly the stone they will be: a bevel line inside each and the cuts between
+   * a wedge's stones. Then the brush's square.
+   */
   private chalkCells(ed: Editor, v: SceneView): void {
     const { ctx, cam } = this;
     const { nodes, cells } = ed.design;
+    const looks = cam.scale >= 12 ? cellLooks(ed.design) : [];
     const hoverPart = v.hoverCell !== undefined && v.hoverCell >= 0 ? cells[v.hoverCell] : null;
     const path = (poly: [number, number][]) => {
       ctx.beginPath();
       poly.forEach(([x, y], i) => (i ? ctx.lineTo(cam.sx(x), cam.sy(y)) : ctx.moveTo(cam.sx(x), cam.sy(y))));
       ctx.closePath();
     };
-    for (const c of cells) {
+    for (const [k, c] of cells.entries()) {
       const poly = c.n.map((i): [number, number] => [nodes[i].x, nodes[i].y]);
       const hot = !!hoverPart && (c === hoverPart || (c.mat === 'arch' && c.part !== undefined && c.part === hoverPart.part));
       path(poly);
@@ -438,6 +444,21 @@ export class Blueprint extends ScenePart {
       ctx.lineWidth = hot ? 2.5 : 1.5;
       ctx.lineJoin = 'round';
       ctx.stroke();
+      const look = looks[k];
+      if (!look) continue;
+      const pts = poly.map(([x, y]): Pt2 => [cam.sx(x), cam.sy(y)]);
+      const q = quadOf(pts, look.shape);
+      ctx.beginPath();
+      insetPoly(pts, 0.1 * cam.scale).forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      ctx.closePath();
+      for (const u of look.cuts) {
+        ctx.moveTo(...bilerp(q, u, 0));
+        ctx.lineTo(...bilerp(q, u, 1));
+      }
+      ctx.globalAlpha = 0.35;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
     }
     const b = v.brush;
     if (b) {

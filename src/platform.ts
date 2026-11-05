@@ -206,6 +206,18 @@ export const canOpenAll = platform !== 'android';
 /** The Android app can send players to its page on Google Play to rate it. */
 export const canRate = platform === 'android';
 
+/**
+ * The Android app can turn its screen between portrait and landscape from a button, for a phone
+ * whose auto-rotate is off: build upright, then turn it sideways to watch the traffic cross. The
+ * turn holds until the app closes; it opens following the phone again.
+ */
+export const canRotate = platform === 'android';
+
+/** Turns the screen to the other orientation. Rejects where it can't. */
+export function rotateScreen(): Promise<void> {
+  return native?.rotate() ?? Promise.reject(new Error('No screen to turn here'));
+}
+
 /** Opens the game's page on Google Play. Rejects where there is no Play Store to open. */
 export function openListing(): Promise<void> {
   return native?.openListing() ?? Promise.reject(new Error('No Google Play here'));

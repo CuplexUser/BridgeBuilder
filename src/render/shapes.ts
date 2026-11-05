@@ -107,3 +107,43 @@ export function runControls(segs: { a: number; b: number; run: number }[], at: (
   segs.forEach((g, i) => out.set(i, curveControls(beyond(i, g.a), at(g.a), at(g.b), beyond(i, g.b))));
   return out;
 }
+
+/** Where the painted scene's light comes from, as a unit vector on the screen: above and a little left. */
+export const LIGHT: Pt2 = [-0.447, -0.894];
+
+/**
+ * A convex polygon shrunk by `d` px on every side, as a stone's face inside its bevel. A sharp
+ * corner moves in no more than three bevels' width, nor past most of the way to the middle, so a
+ * thin wedge keeps a face.
+ */
+export function insetPoly(pts: Pt2[], d: number): Pt2[] {
+  const n = pts.length;
+  const cx = pts.reduce((s, p) => s + p[0], 0) / n;
+  const cy = pts.reduce((s, p) => s + p[1], 0) / n;
+  // Each side's inward normal, whichever way the polygon winds.
+  const normals = pts.map((p, i): Pt2 => {
+    const q = pts[(i + 1) % n];
+    const len = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1;
+    let nx = -(q[1] - p[1]) / len;
+    let ny = (q[0] - p[0]) / len;
+    if (nx * (cx - (p[0] + q[0]) / 2) + ny * (cy - (p[1] + q[1]) / 2) < 0) {
+      nx = -nx;
+      ny = -ny;
+    }
+    return [nx, ny];
+  });
+  return pts.map((p, i): Pt2 => {
+    const [ax, ay] = normals[(i + n - 1) % n];
+    const [bx, by] = normals[i];
+    const k = d / Math.max(0.15, 1 + ax * bx + ay * by);
+    let mx = (ax + bx) * k;
+    let my = (ay + by) * k;
+    const reach = Math.min(3 * d, 0.6 * Math.hypot(cx - p[0], cy - p[1]));
+    const m = Math.hypot(mx, my);
+    if (m > reach) {
+      mx *= reach / m;
+      my *= reach / m;
+    }
+    return [p[0] + mx, p[1] + my];
+  });
+}

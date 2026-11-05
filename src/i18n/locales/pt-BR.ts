@@ -9,6 +9,8 @@ const ptBR: Table = {
   'hud.briefTitle': 'Objetivos e regras (I)',
   'hud.muteAria': 'Ligar ou desligar o som',
   'hud.muteTitle': 'Som (M)',
+  'hud.rotateAria': 'Girar a tela',
+  'hud.rotateTitle': 'Alternar a tela entre retrato e paisagem',
   'hud.pauseAria': 'Pausar',
   'hud.pauseTitle': 'Pausar (P / Esc)',
   'tool.undoAria': 'Desfazer',

@@ -5,6 +5,7 @@ import { registerPlugin } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Preferences } from '@capacitor/preferences';
+import { ScreenOrientation } from '@capacitor/screen-orientation';
 import { Share } from '@capacitor/share';
 import type { AppHooks, Pulse } from './platform';
 import type { KeyValue } from './storage';
@@ -91,6 +92,8 @@ export interface Native {
   };
   /** Opens the game's page on Google Play, where it can be rated. */
   openListing(): Promise<void>;
+  /** Turns the screen to landscape from portrait or back, and holds it there whatever the phone's auto-rotate says. */
+  rotate(): Promise<void>;
 }
 
 /**
@@ -158,6 +161,10 @@ export async function createNative(): Promise<Native> {
       void App.addListener('appUrlOpen', (e) => fn(e.url));
     },
     copyText: (text) => Clipboard.write({ string: text }),
+    async rotate() {
+      const { type } = await ScreenOrientation.orientation();
+      await ScreenOrientation.lock({ orientation: type.startsWith('landscape') ? 'portrait' : 'landscape' });
+    },
     vibrate(pulse) {
       if (pulse === 'long') quiet(Haptics.vibrate({ duration: 220 }));
       else quiet(Haptics.impact({ style: pulse === 'light' ? ImpactStyle.Light : ImpactStyle.Heavy }));

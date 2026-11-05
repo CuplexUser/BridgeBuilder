@@ -9,6 +9,8 @@ const fr: Table = {
   'hud.briefTitle': 'Objectifs et règles (I)',
   'hud.muteAria': 'Activer ou couper le son',
   'hud.muteTitle': 'Son (M)',
+  'hud.rotateAria': 'Faire pivoter l’écran',
+  'hud.rotateTitle': 'Passer l’écran du mode portrait au mode paysage et inversement',
   'hud.pauseAria': 'Pause',
   'hud.pauseTitle': 'Pause (P / Échap)',
   'tool.undoAria': 'Annuler',

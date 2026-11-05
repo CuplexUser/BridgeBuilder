@@ -9,6 +9,8 @@ const ja: Table = {
   'hud.briefTitle': '目標とルール (I)',
   'hud.muteAria': 'サウンドのオン／オフ',
   'hud.muteTitle': 'サウンド (M)',
+  'hud.rotateAria': '画面を回転',
+  'hud.rotateTitle': '画面を縦向きと横向きで切り替え',
   'hud.pauseAria': '一時停止',
   'hud.pauseTitle': '一時停止 (P / Esc)',
   'tool.undoAria': '元に戻す',

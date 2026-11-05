@@ -9,6 +9,8 @@ const es: Table = {
   'hud.briefTitle': 'Objetivos y reglas (I)',
   'hud.muteAria': 'Activar o silenciar el sonido',
   'hud.muteTitle': 'Sonido (M)',
+  'hud.rotateAria': 'Girar la pantalla',
+  'hud.rotateTitle': 'Girar la pantalla entre vertical y horizontal',
   'hud.pauseAria': 'Pausa',
   'hud.pauseTitle': 'Pausa (P / Esc)',
   'tool.undoAria': 'Deshacer',

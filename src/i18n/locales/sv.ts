@@ -9,6 +9,8 @@ const sv: Table = {
   'hud.briefTitle': 'Mål och regler (I)',
   'hud.muteAria': 'Ljud av/på',
   'hud.muteTitle': 'Ljud (M)',
+  'hud.rotateAria': 'Rotera skärmen',
+  'hud.rotateTitle': 'Växla skärmen mellan stående och liggande',
   'hud.pauseAria': 'Paus',
   'hud.pauseTitle': 'Paus (P / Esc)',
   'tool.undoAria': 'Ångra',

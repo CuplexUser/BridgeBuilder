@@ -9,6 +9,8 @@ const de: Table = {
   'hud.briefTitle': 'Ziele und Regeln (I)',
   'hud.muteAria': 'Ton an/aus',
   'hud.muteTitle': 'Ton (M)',
+  'hud.rotateAria': 'Bildschirm drehen',
+  'hud.rotateTitle': 'Bildschirm zwischen Hoch- und Querformat drehen',
   'hud.pauseAria': 'Pause',
   'hud.pauseTitle': 'Pause (P / Esc)',
   'tool.undoAria': 'Rückgängig',

@@ -22,6 +22,8 @@ export const en = {
   'hud.briefTitle': 'Goals and rules (I)',
   'hud.muteAria': 'Toggle sound',
   'hud.muteTitle': 'Sound (M)',
+  'hud.rotateAria': 'Rotate screen',
+  'hud.rotateTitle': 'Turn the screen between portrait and landscape',
   'hud.pauseAria': 'Pause',
   'hud.pauseTitle': 'Pause (P / Esc)',
   'tool.undoAria': 'Undo',

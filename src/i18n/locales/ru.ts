@@ -9,6 +9,8 @@ const ru: Table = {
   'hud.briefTitle': 'Цели и правила (I)',
   'hud.muteAria': 'Включить или выключить звук',
   'hud.muteTitle': 'Звук (M)',
+  'hud.rotateAria': 'Повернуть экран',
+  'hud.rotateTitle': 'Переключить экран между книжной и альбомной ориентацией',
   'hud.pauseAria': 'Пауза',
   'hud.pauseTitle': 'Пауза (P / Esc)',
   'tool.undoAria': 'Отменить',

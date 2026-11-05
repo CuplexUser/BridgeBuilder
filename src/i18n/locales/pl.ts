@@ -9,6 +9,8 @@ const pl: Table = {
   'hud.briefTitle': 'Cele i zasady (I)',
   'hud.muteAria': 'Włącz lub wycisz dźwięk',
   'hud.muteTitle': 'Dźwięk (M)',
+  'hud.rotateAria': 'Obróć ekran',
+  'hud.rotateTitle': 'Przełącz ekran między pionem a poziomem',
   'hud.pauseAria': 'Pauza',
   'hud.pauseTitle': 'Pauza (P / Esc)',
   'tool.undoAria': 'Cofnij',

@@ -1,4 +1,5 @@
 import { PK, WHIP_LIFE, type Debris, type Particles, type Whip } from '../fx/particles';
+import type { MaterialId } from '../physics/materials';
 import type { TestRun } from '../physics/testrun';
 import { font } from './fonts';
 import type { Members } from './members';
@@ -7,8 +8,12 @@ import type { FloatText } from './renderer';
 import { hash, MEMBER_WIDTH, TAU } from './shapes';
 import { ScenePart, type Stage } from './stage';
 
-/** Shades of broken concrete deck. */
+/** Shades of broken concrete deck, and of broken stone from blocks and arch rings. */
 const CHUNK_SHADES = ['#8d939c', '#6f757e', '#a4a9b1', '#5d6168'];
+const STONE_SHADES: Partial<Record<MaterialId, string[]>> = {
+  masonry: ['#aea89a', '#958f81', '#bdb7a8', '#837d70'],
+  arch: ['#c2a983', '#a98f6b', '#d0b994', '#8a7253'],
+};
 
 /** Effects over the scene: particles, floating text, wreckage and snapping cables. */
 export class Effects extends ScenePart {
@@ -92,19 +97,32 @@ export class Effects extends ScenePart {
         const x = cam.sx(d.x);
         const y = cam.sy(d.y);
         ctx.globalAlpha = Math.min(1, d.life);
-        ctx.fillStyle = CHUNK_SHADES[Math.floor(d.seed * CHUNK_SHADES.length)];
-        ctx.strokeStyle = '#3a3e45';
+        const shades = STONE_SHADES[d.mat] ?? CHUNK_SHADES;
+        const stone = shades !== CHUNK_SHADES;
+        ctx.fillStyle = shades[Math.floor(d.seed * shades.length)];
+        ctx.strokeStyle = stone ? PAL.archDark : '#3a3e45';
         ctx.lineWidth = 1;
-        ctx.beginPath();
+        const pts: [number, number][] = [];
         for (let k = 0; k < 6; k++) {
           const a = d.ang + (k / 6) * TAU;
           const rr = r * (0.65 + 0.35 * hash(d.seed * 97 + k));
-          if (k) ctx.lineTo(x + Math.cos(a) * rr, y - Math.sin(a) * rr);
-          else ctx.moveTo(x + Math.cos(a) * rr, y - Math.sin(a) * rr);
+          pts.push([x + Math.cos(a) * rr, y - Math.sin(a) * rr]);
         }
+        ctx.beginPath();
+        pts.forEach(([px, py], k) => (k ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
+        // The facet facing the sky catches the light as it tumbles.
+        const top = pts.reduce((best, p, k) => (p[1] < pts[best][1] ? k : best), 0);
+        ctx.fillStyle = PAL.stoneLitSoft;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(...pts[(top + 5) % 6]);
+        ctx.lineTo(...pts[top]);
+        ctx.lineTo(...pts[(top + 1) % 6]);
+        ctx.closePath();
+        ctx.fill();
         ctx.globalAlpha = 1;
         continue;
       }

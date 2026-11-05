@@ -3,6 +3,7 @@ import { CHAPTERS, continueLevel } from '../chapters';
 import { MATERIALS } from '../physics/materials';
 import type { SagHandle } from '../editor';
 import { PAL } from '../render/palette';
+import { canRotate, rotateScreen } from '../platform';
 import { offeredInOrder } from '../ui/ui';
 import { sideRoom, type Board, type Game } from './game';
 import { t } from '../i18n';
@@ -81,6 +82,14 @@ export class Input {
       this.game.setPaused(!this.game.paused);
     });
     this.game.ui.muteBtn.addEventListener('click', () => this.game.toggleMute());
+    if (canRotate) {
+      const rotate = this.game.ui.rotateBtn;
+      rotate.classList.remove('hidden');
+      rotate.addEventListener('click', () => {
+        sfx.ui();
+        rotateScreen().catch(() => sfx.invalid());
+      });
+    }
     // Level editor settings: text fields update live, everything else on change.
     this.game.maker.makerUi.onChange((live) => {
       if (live && this.game.customLevel) {
