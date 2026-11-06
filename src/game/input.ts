@@ -83,12 +83,13 @@ export class Input {
     });
     this.game.ui.muteBtn.addEventListener('click', () => this.game.toggleMute());
     if (canRotate) {
-      const rotate = this.game.ui.rotateBtn;
-      rotate.classList.remove('hidden');
-      rotate.addEventListener('click', () => {
-        sfx.ui();
-        rotateScreen().catch(() => sfx.invalid());
-      });
+      for (const rotate of document.querySelectorAll('.rotate-btn')) {
+        rotate.classList.remove('hidden');
+        rotate.addEventListener('click', () => {
+          sfx.ui();
+          rotateScreen().catch(() => sfx.invalid());
+        });
+      }
     }
     // Level editor settings: text fields update live, everything else on change.
     this.game.maker.makerUi.onChange((live) => {
@@ -360,6 +361,7 @@ export class Input {
       ed.aimSag(wy + this.sagOffset);
       if (ed.sag.y !== before) {
         sfx.tick();
+        this.game.haptics.tick();
         this.game.refreshHud();
       }
       return;
@@ -368,7 +370,10 @@ export class Input {
       if (this.pendingDelete >= 0 && p && Math.hypot(e.clientX - p.startX, e.clientY - p.startY) > 10) this.pendingDelete = -1;
       const before = `${ed.drag.tx},${ed.drag.ty}`;
       ed.aim(wx, wy);
-      if (`${ed.drag.tx},${ed.drag.ty}` !== before) sfx.tick();
+      if (`${ed.drag.tx},${ed.drag.ty}` !== before) {
+        sfx.tick();
+        this.game.haptics.tick();
+      }
       return;
     }
     if (this.panning && p) {

@@ -67,8 +67,13 @@ function quakePhase(q: Quake, t: number): number {
 }
 
 /** Shakes a second t seconds into a quake. */
-function quakeFreq(q: Quake, t: number): number {
+export function quakeFreq(q: Quake, t: number): number {
   return q.freq + (((q.sweep ?? q.freq) - q.freq) * Math.min(Math.max(t, 0), q.dur)) / q.dur;
+}
+
+/** How hard a quake feels t seconds in, 0 to 1: only the game's strongest quakes reach 1. */
+export function quakeStrength(q: Quake, t: number): number {
+  return quakeEnvelope(q, t) * Math.min(1, q.g / 0.45);
 }
 
 /** The ground's acceleration t seconds into a quake, m/s²: mostly sideways, a little up and down. */

@@ -56,6 +56,241 @@ describe('haptics', () => {
     h.collapse();
     expect(pulses).toEqual([]);
   });
+
+  it('adds nothing on a phone that can only pulse', () => {
+    const { h, pulses, at } = feel();
+    at(1000);
+    h.load(1);
+    h.quake(1, 2);
+    h.footfall(1);
+    h.thud();
+    h.tick();
+    h.stop();
+    expect(pulses).toEqual([]);
+  });
+});
+
+/** A HapticFeel with a phone that can vary its strength, recording what it's told to play. */
+function richFeel() {
+  const base = feel();
+  const played: { timings: number[]; amplitudes: number[] }[] = [];
+  const calls: string[] = [];
+  base.h.rich = {
+    wave: (timings, amplitudes) => {
+      played.push({ timings, amplitudes });
+      calls.push('wave');
+    },
+    tick: () => calls.push('tick'),
+    thud: () => calls.push('thud'),
+    stop: () => calls.push('stop'),
+  };
+  return { ...base, played, calls };
+}
+
+describe('rich haptics', () => {
+  it('rumbles with the load, in finite segments, and sends nothing while it stays the same', () => {
+    const { h, played, at } = richFeel();
+    at(1000);
+    h.load(0.2);
+    expect(played).toEqual([]);
+    h.load(0.65);
+    expect(played).toHaveLength(1);
+    expect(played[0].timings).toEqual([400]);
+    for (const t of [1016, 1100, 1200, 1249]) {
+      at(t);
+      h.load(0.65);
+    }
+    expect(played).toHaveLength(1);
+    // Refreshed before the segment runs out, so a stalled game goes quiet by itself.
+    at(1250);
+    h.load(0.65);
+    expect(played).toHaveLength(2);
+    expect(played[1].timings[0]).toBeGreaterThan(250);
+  });
+
+  it('keeps the rumble well under a snap, and follows it down when the load eases', () => {
+    const { h, played, calls, at } = richFeel();
+    at(1000);
+    h.load(1.4);
+    const strongest = played[0].amplitudes[0];
+    expect(strongest).toBeLessThanOrEqual(140);
+    // It eases off rather than dropping at once with a stress that wobbles.
+    at(1300);
+    h.load(0.4);
+    expect(played[1].amplitudes[0]).toBeLessThan(strongest);
+    at(3000);
+    h.load(0.1);
+    expect(calls.at(-1)).toBe('stop');
+  });
+
+  it('holds a change of strength back so as not to restart the motor every frame', () => {
+    const { h, played, at } = richFeel();
+    at(1000);
+    h.load(0.5);
+    at(1016);
+    h.load(0.9);
+    expect(played).toHaveLength(1);
+    at(1100);
+    h.load(0.9);
+    expect(played).toHaveLength(2);
+  });
+
+  it('turns a creak into a spike in the rumble instead of a pulse that would cut it', () => {
+    const { h, pulses, played, at } = richFeel();
+    at(1000);
+    h.load(0.8);
+    at(1020);
+    h.creak(0.8);
+    h.load(0.8);
+    expect(pulses).toEqual([]);
+    expect(played[1].timings).toEqual([30, 370]);
+    expect(played[1].amplitudes[0]).toBeGreaterThan(played[1].amplitudes[1]);
+    // The next segment is plain again.
+    at(1270);
+    h.load(0.8);
+    expect(played[2].timings).toEqual([400]);
+  });
+
+  it('lets a snap interrupt the rumble, which picks up again after the gap', () => {
+    const { h, pulses, played, at } = richFeel();
+    at(1000);
+    h.load(0.8);
+    at(1100);
+    h.snap();
+    expect(pulses).toEqual(['heavy']);
+    at(1200);
+    h.load(0.8);
+    expect(played).toHaveLength(1);
+    at(1180 + 100);
+    h.load(0.8);
+    expect(played).toHaveLength(2);
+  });
+
+  it('puts the quake over the rumble, and the rumble back when it ends', () => {
+    const { h, played, at } = richFeel();
+    at(1000);
+    h.load(0.8);
+    at(1300);
+    h.quake(1, 2);
+    expect(played).toHaveLength(2);
+    expect(played[1].timings).toHaveLength(8);
+    expect(Math.max(...played[1].amplitudes)).toBeLessThanOrEqual(200);
+    expect(Math.min(...played[1].amplitudes)).toBeGreaterThan(0);
+    at(1350);
+    h.load(0.8);
+    expect(played).toHaveLength(2);
+    // The shaking has stopped reporting: the rumble takes over.
+    at(1800);
+    h.load(0.8);
+    expect(played).toHaveLength(3);
+    expect(played[2].timings).toEqual([400]);
+  });
+
+  it('feels a quicker quake quicken', () => {
+    const swings = (freq: number) => {
+      const { h, played, at } = richFeel();
+      at(1000);
+      h.quake(1, freq);
+      const a = played[0].amplitudes;
+      return a.filter((v, i) => i > 0 && i < a.length - 1 && v >= a[i - 1] && v > a[i + 1]).length;
+    };
+    expect(swings(3)).toBeGreaterThan(swings(1));
+  });
+
+  it('ranks a quake over footfalls and thuds, and a snap over the quake', () => {
+    const { h, pulses, calls, at } = richFeel();
+    at(1000);
+    h.quake(1, 2);
+    calls.length = 0;
+    at(1050);
+    h.footfall(1);
+    h.thud();
+    expect(calls).toEqual([]);
+    h.snap();
+    expect(pulses).toEqual(['heavy']);
+  });
+
+  it('lets footfalls and thuds cut into the rumble, but not into a snap', () => {
+    const { h, played, calls, at } = richFeel();
+    at(1000);
+    h.load(0.8);
+    at(1100);
+    h.footfall(0.5);
+    expect(played).toHaveLength(2);
+    expect(played[1].timings).toEqual([40]);
+    at(1150);
+    h.snap();
+    calls.length = 0;
+    at(1160);
+    h.footfall(1);
+    h.thud();
+    expect(calls).toEqual([]);
+  });
+
+  it('plays the collapse over everything, and nothing cuts it short', () => {
+    const { h, pulses, played, at } = richFeel();
+    at(1000);
+    h.load(0.8);
+    at(1100);
+    h.collapse();
+    const shape = played.at(-1)!;
+    const length = shape.timings.reduce((a, b) => a + b);
+    expect(shape.amplitudes[0]).toBe(255);
+    expect(pulses).toEqual([]);
+    at(1300);
+    h.snap();
+    h.load(1);
+    h.quake(1, 2);
+    expect(played.at(-1)).toBe(shape);
+    expect(pulses).toEqual([]);
+    at(1100 + length);
+    h.snap();
+    expect(pulses).toEqual(['heavy']);
+  });
+
+  it('rations the ticks of a fast drag', () => {
+    const { h, calls, at } = richFeel();
+    at(1000);
+    h.tick();
+    at(1010);
+    h.tick();
+    at(1030);
+    h.tick();
+    expect(calls).toEqual(['tick', 'tick']);
+  });
+
+  it('goes silent on stop, and forgets the load', () => {
+    const { h, played, calls, at } = richFeel();
+    at(1000);
+    h.load(1);
+    at(1050);
+    h.stop();
+    expect(calls.at(-1)).toBe('stop');
+    at(1060);
+    h.load(0.1);
+    expect(played).toHaveLength(1);
+  });
+
+  it('silences everything the moment vibration is switched off, and stays silent', () => {
+    const { h, pulses, played, calls, at } = richFeel();
+    at(1000);
+    h.load(1);
+    h.enabled = false;
+    expect(calls.at(-1)).toBe('stop');
+    calls.length = 0;
+    at(2000);
+    h.load(1);
+    h.quake(1, 2);
+    h.footfall(1);
+    h.thud();
+    h.tick();
+    h.creak(1);
+    h.snap();
+    h.collapse();
+    expect(calls).toEqual([]);
+    expect(pulses).toEqual([]);
+    expect(played).toHaveLength(1);
+  });
 });
 
 const crossedAll = (stars: number, bonus: boolean): BestMap => Object.fromEntries(LEVELS.map((l) => [l.id, { score: 1000, stars, ...(bonus ? { bonus } : {}) }]));

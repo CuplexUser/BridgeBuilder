@@ -2,7 +2,7 @@ import { sfx } from '../audio';
 import { PK } from '../fx/particles';
 import { bankY, goalX } from '../levels';
 import type { VehicleHandle } from '../physics/build';
-import { marchAccel, quakeAccel, windGust } from '../physics/hazards';
+import { marchAccel, quakeAccel, quakeFreq, quakeStrength, windGust } from '../physics/hazards';
 import { TestRun } from '../physics/testrun';
 import { STEP } from '../physics/world';
 import { PAL } from '../render/palette';
@@ -29,6 +29,8 @@ export class Drive {
   floodSaid = false;
   lastStep = 0;
   gustSaid = false;
+  /** Arch joint edges already cracked. */
+  lastCracks = 0;
   /** Wheel spin and last wheel x per vehicle: rear, front. */
   wheelAngles: [number, number][] = [[0, 0]];
   private lastWheelX: [number, number][] = [[0, 0]];
@@ -196,10 +198,18 @@ export class Drive {
 
     this.trackDynamics(dt);
 
+    // Arch joints cracking open, counted from the world's flags so the physics needn't report them.
+    let cracks = 0;
+    for (const f of w.faces) cracks += Number(f.crack1) + Number(f.crack2);
+    if (cracks > this.lastCracks) this.game.haptics.thud();
+    this.lastCracks = cracks;
+
     // Creaks and dust from heavily loaded members.
+    let busiest = 0;
     for (const l of w.links) {
       if (!l.bridge || l.broken) continue;
       const s = Math.abs(l.stress);
+      if (s > busiest) busiest = s;
       if (s > 0.7 && Math.random() < dt * 6 * s) {
         sfx.creak(s);
         this.game.haptics.creak(s);
@@ -207,6 +217,8 @@ export class Drive {
         this.game.particles.spawn(PK.Dust, w.x[l.a] + (w.x[l.b] - w.x[l.a]) * f, w.y[l.a] + (w.y[l.b] - w.y[l.a]) * f, (Math.random() - 0.5) * 0.4, -0.5, 0.8, 0.08, '#e8dcc8');
       }
     }
+
+    if (run.status === 'running') this.game.haptics.load(busiest);
 
     // Keep the vehicle in frame when the level is wider than the screen.
     this.game.frameTest(run, this.game.viewRect());
@@ -217,6 +229,7 @@ export class Drive {
         if (run.status === 'success') {
           sfx.engineStop();
           sfx.success();
+          this.game.haptics.stop();
           const x = goalX(this.game.level);
           const y = bankY(this.game.level);
           this.game.confetti(x, y + 3, 90);
@@ -259,6 +272,7 @@ export class Drive {
       const marching = run.vehicles.filter((m) => m.def.marches && !run.lost.has(m) && w.x[m.frontWheel] > -2 && w.x[m.rearWheel] < L.width + 2);
       if (a > 0 && this.lastStep <= 0 && marching.length) {
         sfx.tramp(Math.min(1, marching.length / 3));
+        this.game.haptics.footfall(Math.min(1, marching.length / 3));
         if (!this.stepSaid) {
           this.stepSaid = true;
           this.game.float(w.x[marching[0].frontWheel], w.y[marching[0].frontWheel] + 3.5, t('fx.inStep'), PAL.gold, 24, 1.4);
@@ -287,6 +301,7 @@ export class Drive {
     w.washed.length = 0;
     if (L.quake && w.quakeStart < Infinity) {
       const [ax] = quakeAccel(L.quake, w.time - w.quakeStart);
+      this.game.haptics.quake(quakeStrength(L.quake, w.time - w.quakeStart), quakeFreq(L.quake, w.time - w.quakeStart));
       if (!this.quakeSaid) {
         this.quakeSaid = true;
         sfx.rumble(L.quake.dur);

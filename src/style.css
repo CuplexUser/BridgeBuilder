@@ -708,14 +708,14 @@ kbd {
   pointer-events: none;
 }
 
-/* A feature players may not expect, so it stands apart from the HUD's other buttons. */
-#btn-rotate {
+/* A feature players may not expect, so it stands apart from the buttons around it. */
+.rotate-btn {
   color: var(--cyan);
   background: color-mix(in srgb, var(--cyan) 16%, var(--panel));
   border-color: color-mix(in srgb, var(--cyan) 60%, transparent);
 }
 
-#btn-rotate:hover {
+.rotate-btn:hover {
   background: color-mix(in srgb, var(--cyan) 26%, var(--panel));
 }
 
@@ -2113,7 +2113,8 @@ h2 {
 }
 
 /* Settings, in the card's corner beside the tag line. */
-#scr-title .title-gear {
+#scr-title .title-gear,
+#scr-title .title-rotate {
   position: absolute;
   top: 10px;
   right: 10px;
@@ -2122,7 +2123,14 @@ h2 {
   border-radius: var(--r-sm);
 }
 
-#scr-title .title-gear svg {
+/* Across from the gear, in the corner the title's padding keeps as clear as the gear's. */
+#scr-title .title-rotate {
+  right: auto;
+  left: 10px;
+}
+
+#scr-title .title-gear svg,
+#scr-title .title-rotate svg {
   width: 20px;
   height: 20px;
 }
@@ -2211,6 +2219,15 @@ h2 {
     align-items: center;
     width: min(780px, 100%);
     padding: 14px 20px 12px;
+  }
+  /* The tag now fills the left column's top, so the button joins the gear over the menu. */
+  #scr-title .title-rotate {
+    left: auto;
+    right: 52px;
+  }
+  #scr-title .title-rotate,
+  #scr-title .title-gear {
+    top: 6px;
   }
   .title-tag {
     grid-area: 1 / 1;

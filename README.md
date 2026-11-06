@@ -54,7 +54,7 @@ The web build, the Android app and the desktop app are the same game code. Every
 - **UI profile** (`uiProfile`, on `<html data-ui>`): `touch` in the Android app and in browsers whose main pointer is a finger, `desktop` otherwise. Touch hides key hints and doesn't move focus to buttons. Desktop shows the keys and, on screens 900 px and wider, tightens buttons and the toolbar so more of the screen is bridge.
 - **Level caps** (`levelCaps`): any build loads a custom level up to 96 m wide, but on a touch device the editor stops growing one at 64 m, where a phone's screen and physics still keep up. A wider level from a desktop keeps its width when edited on a phone.
 - **Storage, files and sharing**: device storage, level export and shared bridges (a download in the browser, a save dialog on desktop, the share sheet on Android and in browsers that have one), links that open a shared bridge, and the clipboard.
-- **Android only** (Android 9 and up): the back button, haptics, app shortcuts, Google Play Games, the full-game unlock and Play's in-app rating card.
+- **Android only** (Android 9 and up): the back button, a rotate button on the title card and in the HUD, haptics, app shortcuts, Google Play Games, the full-game unlock and Play's in-app rating card.
 
 Each shell's side is loaded on demand (`src/native.ts` for Android, `desktop/src/bridge.js` for desktop), so the web build carries none of it.
 
@@ -91,7 +91,7 @@ To set it up, or deploy a change:
 
 The service's logs are under **Cloud Run → bridge-share → Logs**. Shared bridges include the builder's profile name, shown in link previews; the privacy policy (`public/privacy.html`) says so.
 
-On phones, members creak with a light buzz, every snap is a hard pulse, and a collapse is a long one (`src/haptics.ts` paces them). On devices that can vibrate, the pause menu has a switch for it.
+On phones, members creak with a light buzz, every snap is a hard pulse, and a collapse is a long one (`src/haptics.ts` paces them). Android phones that can vary the strength of their vibration get more through `RumblePlugin.java`: a rumble that follows the load on the busiest member, the quake's shaking, marchers' footfalls, a thud as an arch joint cracks and a tick as a drag snaps to the grid. The rumble plays in 400 ms segments it keeps refreshing, so it stops by itself if the game stalls, and none of this touches the physics. On devices that can vibrate, the pause menu has a switch for it.
 
 ### Android
 

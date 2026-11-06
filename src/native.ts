@@ -7,7 +7,7 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { Preferences } from '@capacitor/preferences';
 import { ScreenOrientation } from '@capacitor/screen-orientation';
 import { Share } from '@capacitor/share';
-import type { AppHooks, Pulse } from './platform';
+import type { AppHooks, Pulse, RichHaptics } from './platform';
 import type { KeyValue } from './storage';
 import { t } from './i18n';
 
@@ -54,9 +54,17 @@ interface StorePlugin {
   openListing(): Promise<void>;
 }
 
+interface RumblePlugin {
+  capabilities(): Promise<{ tier: 'full' | 'amplitude' | 'basic' }>;
+  play(o: { timings: number[]; amplitudes: number[] }): Promise<void>;
+  primitive(o: { name: 'tick' | 'thud'; scale: number }): Promise<void>;
+  stop(): Promise<void>;
+}
+
 const PlayGames = registerPlugin<GamesPlugin>('PlayGames');
 const PlayBilling = registerPlugin<BillingPlugin>('PlayBilling');
 const PlayStore = registerPlugin<StorePlugin>('PlayStore');
+const Rumble = registerPlugin<RumblePlugin>('Rumble');
 
 /** The one-time in-app product that opens every chapter, as set up in the Play Console. */
 const FULL_GAME = 'full_game';
@@ -75,6 +83,8 @@ export interface Native {
   onLink(fn: (url: string) => void): void;
   copyText(text: string): Promise<void>;
   vibrate(pulse: Pulse): void;
+  /** What the phone's vibrator can do beyond plain pulses; null if nothing. */
+  richHaptics(): Promise<RichHaptics | null>;
   games: {
     status(): Promise<GamesStatus>;
     signIn(): Promise<GamesStatus>;
@@ -171,6 +181,19 @@ export async function createNative(): Promise<Native> {
     vibrate(pulse) {
       if (pulse === 'long') quiet(Haptics.vibrate({ duration: 220 }));
       else quiet(Haptics.impact({ style: pulse === 'light' ? ImpactStyle.Light : ImpactStyle.Heavy }));
+    },
+    async richHaptics() {
+      const { tier } = await Rumble.capabilities().catch(() => ({ tier: 'basic' }));
+      if (tier === 'basic') return null;
+      const wave = (timings: number[], amplitudes: number[]) => quiet(Rumble.play({ timings, amplitudes }));
+      // Phones without the primitives get the closest a short waveform can do.
+      const full = tier === 'full';
+      return {
+        wave,
+        tick: () => (full ? quiet(Rumble.primitive({ name: 'tick', scale: 0.6 })) : wave([12], [90])),
+        thud: () => (full ? quiet(Rumble.primitive({ name: 'thud', scale: 1 })) : wave([50], [200])),
+        stop: () => quiet(Rumble.stop()),
+      };
     },
     games: {
       status: () => PlayGames.status().catch(() => ({ available: false, signedIn: false })),

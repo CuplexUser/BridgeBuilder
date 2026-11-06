@@ -15,7 +15,7 @@ import { motion } from '../motion';
 import { music, type MusicState } from '../music';
 import { type MaterialId } from '../physics/materials';
 import { TestRun } from '../physics/testrun';
-import { billing, canOpenAll, games, hasPaywall, openListing, vibrate, type BillingStatus } from '../platform';
+import { billing, canOpenAll, games, hasPaywall, openListing, richHaptics, vibrate, type BillingStatus } from '../platform';
 import { PlayGamesLink } from '../playgames';
 import { loadRate, saveRate } from '../rating';
 import { Camera, type Rect } from '../render/camera';
@@ -165,6 +165,7 @@ export class Game {
     sfx.muted = this.prefs.muted;
     this.ui.setMuted(this.prefs.muted);
     this.haptics.enabled = this.prefs.haptics !== false;
+    void richHaptics().then((rich) => (this.haptics.rich = rich));
     setOpenAll(canOpenAll && this.prefs.openAll === true);
     this.settings.apply();
     this.ui.forSale = (c) => this.forSale(c);
@@ -307,6 +308,7 @@ export class Game {
     this.briefing = false;
     this.stress.hideGraph();
     this.drive.stopEngine();
+    this.haptics.stop();
     this.sharing.leaveAfter = false;
     this.editor = null;
     this.customLevel = null;
@@ -549,6 +551,7 @@ export class Game {
     this.drive.lastBrake = 'none';
     this.drive.quakeSaid = this.drive.stepSaid = this.drive.gustSaid = this.drive.floodSaid = false;
     this.drive.lastStep = 0;
+    this.drive.lastCracks = 0;
     this.drive.acc = 0;
     this.particles.clear();
     this.debris.clear();
@@ -587,6 +590,7 @@ export class Game {
     this.drive.lastBrake = 'none';
     this.drive.quakeSaid = this.drive.stepSaid = this.drive.gustSaid = this.drive.floodSaid = false;
     this.drive.lastStep = 0;
+    this.drive.lastCracks = 0;
     this.drive.acc = 0;
     this.attempts++;
     this.particles.clear();
@@ -621,6 +625,7 @@ export class Game {
     }
     this.stress.hideGraph();
     this.drive.stopEngine();
+    this.haptics.stop();
     this.run = null;
     this.state = 'build';
     this.paused = false;
@@ -644,6 +649,7 @@ export class Game {
     if (p) this.closeBrief();
     if (p === this.paused) return;
     this.paused = p;
+    if (p) this.haptics.stop();
     if (p) this.ui.pauseMenu(this.state === 'test', this.mode === 'custom');
     this.ui.show(p ? 'pause' : null);
     if (p) this.editor?.cancel();
@@ -1142,7 +1148,7 @@ export class Game {
       this.flash = Math.max(0, this.flash - dt * 3);
     }
 
-    if (this.state === 'test' && this.run) this.drive.trackRun(dt);
+    if (this.state === 'test' && this.run && !this.paused) this.drive.trackRun(dt);
     if (this.results.resultAnim && this.state === 'result') this.results.animateResult(dt);
 
     if (this.demo) this.demoCamera();

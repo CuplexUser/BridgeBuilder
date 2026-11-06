@@ -12,6 +12,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(PlayGamesPlugin.class);
         registerPlugin(PlayBillingPlugin.class);
         registerPlugin(PlayStorePlugin.class);
+        registerPlugin(RumblePlugin.class);
         super.onCreate(savedInstanceState);
         // Draw behind the system bars on every Android version, as Capacitor's SystemBars docs advise.
         // The page keeps its HUD clear of them with env(safe-area-inset-*).

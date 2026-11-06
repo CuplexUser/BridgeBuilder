@@ -144,6 +144,20 @@ export async function copyText(text: string): Promise<void> {
 /** How hard a haptic pulse is: a creak, a member snapping, or the whole bridge going down. */
 export type Pulse = 'light' | 'heavy' | 'long';
 
+/** Vibration with a shape, on phones that can vary its strength. Each effect replaces the last and ends by itself. */
+export interface RichHaptics {
+  /** Plays a waveform once: how long each step lasts, ms, and how hard, 0 to 255. */
+  wave(timings: number[], amplitudes: number[]): void;
+  tick(): void;
+  thud(): void;
+  stop(): void;
+}
+
+/** What this device's vibrator can do beyond plain pulses; null if nothing. */
+export function richHaptics(): Promise<RichHaptics | null> {
+  return native ? native.richHaptics() : Promise.resolve(null);
+}
+
 /** True where the device can buzz: the app, and phone browsers with the Vibration API. */
 export const canVibrate = isNative || (uiProfile === 'touch' && typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function');
 
