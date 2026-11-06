@@ -17,6 +17,8 @@ const es: Table = {
   'tool.undoTitle': 'Deshacer (Z)',
   'tool.redoAria': 'Rehacer',
   'tool.redoTitle': 'Rehacer (Y)',
+  'tool.fitAria': 'Encuadrar el nivel',
+  'tool.fitTitle': 'Encuadrar el nivel (F)',
   'tool.clearAria': 'Borrar todo',
   'tool.clearTitle': 'Borrar (Mayús+C)',
   'tool.test': 'PROBAR',
@@ -74,7 +76,7 @@ const es: Table = {
   'mkhelp.channel':
     '<b>Canal <kbd>5</kbd></b> Toca agua abierta para llenar el tramo entre las pilas y las orillas a cada lado, hasta la carretera. O arrastra para marcar tu propio tramo, libre hasta la altura donde empiezas. Un contorno discontinuo muestra dónde caerá antes de soltar.',
   'mkhelp.erase': '<b>Borrar <kbd>6</kbd></b> Toca un perno, apoyo, pilón, mástil o canal para quitarlo.',
-  'mkhelp.touch': 'Un toque actúa donde levantas el dedo, así que puedes deslizarlo primero a su sitio mirando la lupa. Dos dedos desplazan y hacen zoom sin colocar nada.',
+  'mkhelp.touch': 'Un toque rápido actúa al instante, y arrastrar un dedo desplaza la vista; con dos dedos también haces zoom. Para apuntar, o para arrastrar un canal o un banco de barro, mantén el dedo quieto hasta que aparezca la lupa, deslízalo a su sitio y levántalo.',
   'mkhelp.drawbridges': 'Puentes levadizos y cilindros',
   'mkhelp.step1':
     '<b>Marca el canal.</b> El primer canal trae un barco alto con un mástil de 3 m y ofrece cilindros. Cambia el mástil en <i>Ajustes › Tráfico</i>; un mástil de 0 significa que no hay barco, solo agua que mantener despejada.',

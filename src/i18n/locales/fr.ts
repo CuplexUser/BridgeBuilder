@@ -17,6 +17,8 @@ const fr: Table = {
   'tool.undoTitle': 'Annuler (Z)',
   'tool.redoAria': 'Rétablir',
   'tool.redoTitle': 'Rétablir (Y)',
+  'tool.fitAria': 'Recadrer le niveau',
+  'tool.fitTitle': 'Recadrer le niveau (F)',
   'tool.clearAria': 'Tout effacer',
   'tool.clearTitle': 'Effacer (Maj+C)',
   'tool.test': 'TESTER',
@@ -74,7 +76,7 @@ const fr: Table = {
   'mkhelp.channel':
     '<b>Chenal <kbd>5</kbd></b> Touchez l’eau libre pour remplir l’espace entre les piles et les rives de chaque côté, jusqu’à la route. Ou glissez pour tracer votre propre portée, dégagée jusqu’à la hauteur de départ. Un contour en pointillés montre où il tombera avant de relâcher.',
   'mkhelp.erase': '<b>Gomme <kbd>6</kbd></b> Touchez un boulon, un appui, un pylône, un mât ou un chenal pour le retirer.',
-  'mkhelp.touch': 'Une touche agit là où le doigt se lève : vous pouvez donc glisser jusqu’à la bonne place en regardant la loupe. Deux doigts déplacent et zooment sans rien poser.',
+  'mkhelp.touch': 'Une touche rapide agit aussitôt, et glisser un doigt déplace la vue ; deux doigts zooment aussi. Pour viser, ou pour tracer un chenal ou un banc de vase, gardez le doigt immobile jusqu’à ce que la loupe apparaisse, glissez jusqu’à la bonne place et levez-le.',
   'mkhelp.drawbridges': 'Ponts-levis et vérins',
   'mkhelp.step1':
     '<b>Tracez le chenal.</b> Le premier chenal amène un grand navire au mât de 3 m et propose des vérins. Changez le mât dans <i>Réglages › Circulation</i> ; un mât de 0 signifie aucun navire, juste de l’eau à garder dégagée.',

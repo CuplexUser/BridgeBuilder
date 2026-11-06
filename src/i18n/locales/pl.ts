@@ -17,6 +17,8 @@ const pl: Table = {
   'tool.undoTitle': 'Cofnij (Z)',
   'tool.redoAria': 'Ponów',
   'tool.redoTitle': 'Ponów (Y)',
+  'tool.fitAria': 'Dopasuj poziom',
+  'tool.fitTitle': 'Dopasuj poziom (F)',
   'tool.clearAria': 'Wyczyść wszystko',
   'tool.clearTitle': 'Wyczyść (Shift+C)',
   'tool.test': 'TESTUJ',
@@ -74,7 +76,7 @@ const pl: Table = {
   'mkhelp.channel':
     '<b>Kanał <kbd>5</kbd></b> Dotknij otwartej wody, by wypełnić odcinek między filarami a brzegami po obu stronach, aż do drogi. Albo przeciągnij, by zaznaczyć własny odcinek, wolny do wysokości, od której zaczynasz. Przerywany obrys pokazuje, gdzie wyląduje, zanim puścisz.',
   'mkhelp.erase': '<b>Gumka <kbd>6</kbd></b> Dotknij sworznia, łożyska, pylonu, masztu lub kanału, by go usunąć.',
-  'mkhelp.touch': 'Dotknięcie działa tam, gdzie podnosisz palec, więc możesz najpierw przesunąć go na miejsce, patrząc w lupę. Dwa palce przesuwają i powiększają, nic nie stawiając.',
+  'mkhelp.touch': 'Szybkie dotknięcie działa od razu, a przeciąganie jednym palcem przesuwa widok; dwa palce także powiększają. Aby wycelować albo przeciągnąć kanał lub ławicę mułu, przytrzymaj palec nieruchomo, aż pojawi się lupa, przesuń go na miejsce i podnieś.',
   'mkhelp.drawbridges': 'Mosty zwodzone i siłowniki',
   'mkhelp.step1':
     '<b>Zaznacz kanał.</b> Pierwszy kanał przynosi wysoki statek z masztem 3 m i udostępnia siłowniki. Zmień maszt w <i>Ustawienia › Ruch</i>; maszt 0 oznacza brak statku, tylko wodę do utrzymania w czystości.',

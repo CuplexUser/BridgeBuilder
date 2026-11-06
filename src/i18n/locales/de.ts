@@ -17,6 +17,8 @@ const de: Table = {
   'tool.undoTitle': 'Rückgängig (Z)',
   'tool.redoAria': 'Wiederholen',
   'tool.redoTitle': 'Wiederholen (Y)',
+  'tool.fitAria': 'Level einpassen',
+  'tool.fitTitle': 'Level einpassen (F)',
   'tool.clearAria': 'Alles löschen',
   'tool.clearTitle': 'Löschen (Shift+C)',
   'tool.test': 'TESTEN',
@@ -74,7 +76,7 @@ const de: Table = {
   'mkhelp.channel':
     '<b>Fahrrinne <kbd>5</kbd></b> Tippe auf offenes Wasser, um den Abschnitt zwischen den Pfeilern und Ufern beiderseits bis zur Straße zu füllen. Oder ziehe einen eigenen Bereich, frei bis zur Höhe, an der du beginnst. Ein gestrichelter Umriss zeigt vor dem Loslassen, wo sie landet.',
   'mkhelp.erase': '<b>Löschen <kbd>6</kbd></b> Tippe auf einen Bolzen, ein Lager, einen Pylon, einen Mast oder eine Fahrrinne, um sie zu entfernen.',
-  'mkhelp.touch': 'Ein Tippen wirkt dort, wo der Finger abhebt; du kannst also erst an die Stelle gleiten und dabei die Lupe beobachten. Zwei Finger verschieben und zoomen, ohne etwas zu setzen.',
+  'mkhelp.touch': 'Kurzes Tippen wirkt sofort, und Ziehen mit einem Finger verschiebt die Ansicht; zwei Finger zoomen auch. Zum Zielen oder um eine Fahrrinne oder Schlammbank zu ziehen, halte den Finger still, bis die Lupe erscheint, gleite an die Stelle und hebe ihn ab.',
   'mkhelp.drawbridges': 'Klappbrücken und Hubzylinder',
   'mkhelp.step1':
     '<b>Fahrrinne markieren.</b> Die erste Fahrrinne bringt ein hohes Schiff mit 3 m Mast und bietet Hubzylinder an. Ändere den Mast unter <i>Einstellungen › Verkehr</i>; ein Mast von 0 heißt kein Schiff, nur Wasser, das frei bleiben muss.',

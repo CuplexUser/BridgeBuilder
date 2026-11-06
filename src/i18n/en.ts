@@ -30,6 +30,8 @@ export const en = {
   'tool.undoTitle': 'Undo (Z)',
   'tool.redoAria': 'Redo',
   'tool.redoTitle': 'Redo (Y)',
+  'tool.fitAria': 'Fit the level to the screen',
+  'tool.fitTitle': 'Fit the level to the screen (F)',
   'tool.clearAria': 'Clear all',
   'tool.clearTitle': 'Clear (Shift+C)',
   'tool.test': 'TEST',
@@ -87,7 +89,7 @@ export const en = {
   'mkhelp.channel':
     '<b>Channel <kbd>5</kbd></b> Tap open water to fill the stretch between the piers and banks either side, up to the road. Or drag to mark your own span, kept clear up to the height you start at. A dashed outline shows where it lands before you let go.',
   'mkhelp.erase': '<b>Erase <kbd>6</kbd></b> Tap a bolt, seat, pylon, mast or channel to remove it.',
-  'mkhelp.touch': 'A tap acts where your finger lifts, so you can slide it into place first, watching the magnifier. Two fingers pan and zoom without placing anything.',
+  'mkhelp.touch': 'A quick tap acts at once, and dragging one finger moves the view; two fingers also zoom. To aim, or to drag a channel or mud bank, hold your finger still until the magnifier appears, slide it into place and lift.',
   'mkhelp.drawbridges': 'Drawbridges and rams',
   'mkhelp.step1':
     '<b>Mark the channel.</b> The first channel brings a tall ship with a 3 m mast and offers rams. Change the mast under <i>Settings › Traffic</i>; a mast of 0 means no ship, just water to keep clear.',

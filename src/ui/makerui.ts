@@ -51,6 +51,16 @@ export class MakerUi {
       $('mk-tune-show').addEventListener('change', () => this.tuneViews());
     }
     $('mk-form').addEventListener('submit', (e) => e.preventDefault());
+    const bars = new ResizeObserver(() => this.measureBars());
+    bars.observe($('maker-bar'));
+    bars.observe($('maker-tools'));
+  }
+
+  /** The bars' heights change with the language and the level's status, so the panel's CSS reads them from here. */
+  private measureBars(): void {
+    const root = document.documentElement.style;
+    root.setProperty('--mk-bar-h', `${$('maker-bar').offsetHeight}px`);
+    root.setProperty('--mk-tools-h', `${$('maker-tools').offsetHeight}px`);
   }
 
   /** Writes the tools, options and labels in the current language, keeping what each select had picked. */
@@ -100,10 +110,20 @@ export class MakerUi {
     $('maker-panel').classList.toggle('hidden', !this.panelOpen);
   }
 
-  /** Width the settings panel takes on the right, so the camera can frame around it. */
-  panelWidth(): number {
-    const p = $('maker-panel');
-    return p.classList.contains('hidden') ? 0 : p.getBoundingClientRect().width + 12;
+  /** How far the bars and the settings panel reach in from each edge, so the camera can frame around them. */
+  margins(): { top: number; right: number; bottom: number } {
+    this.measureBars();
+    const top = $('maker-bar').getBoundingClientRect().bottom;
+    let bottom = innerHeight - $('maker-tools').getBoundingClientRect().top;
+    let right = 0;
+    const panel = $('maker-panel');
+    if (!panel.classList.contains('hidden')) {
+      const box = panel.getBoundingClientRect();
+      // On a narrow screen the panel is a sheet above the toolbar, with the level over it.
+      if (matchMedia('(max-width: 560px)').matches) bottom = innerHeight - box.top;
+      else right = innerWidth - box.left;
+    }
+    return { top, right, bottom };
   }
 
   setTool(tool: MakerTool): void {

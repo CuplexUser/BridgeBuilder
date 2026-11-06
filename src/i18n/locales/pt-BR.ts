@@ -17,6 +17,8 @@ const ptBR: Table = {
   'tool.undoTitle': 'Desfazer (Z)',
   'tool.redoAria': 'Refazer',
   'tool.redoTitle': 'Refazer (Y)',
+  'tool.fitAria': 'Enquadrar o nível',
+  'tool.fitTitle': 'Enquadrar o nível (F)',
   'tool.clearAria': 'Apagar tudo',
   'tool.clearTitle': 'Apagar (Shift+C)',
   'tool.test': 'TESTAR',
@@ -74,7 +76,7 @@ const ptBR: Table = {
   'mkhelp.channel':
     '<b>Canal <kbd>5</kbd></b> Toque em água aberta para preencher o trecho entre os pilares e as margens de cada lado, até a estrada. Ou arraste para marcar seu próprio trecho, livre até a altura onde você começa. Um contorno tracejado mostra onde ele vai ficar antes de soltar.',
   'mkhelp.erase': '<b>Apagar <kbd>6</kbd></b> Toque num pino, apoio, pilone, mastro ou canal para removê-lo.',
-  'mkhelp.touch': 'Um toque age onde você levanta o dedo, então dá para deslizá-lo até o lugar primeiro, olhando a lupa. Dois dedos movem e dão zoom sem colocar nada.',
+  'mkhelp.touch': 'Um toque rápido age na hora, e arrastar um dedo move a visão; dois dedos também dão zoom. Para mirar, ou para arrastar um canal ou banco de lama, segure o dedo parado até a lupa aparecer, deslize até o lugar e levante.',
   'mkhelp.drawbridges': 'Pontes levadiças e cilindros',
   'mkhelp.step1':
     '<b>Marque o canal.</b> O primeiro canal traz um navio alto com mastro de 3 m e oferece cilindros. Mude o mastro em <i>Configurações › Tráfego</i>; um mastro de 0 significa nenhum navio, só água para manter livre.',

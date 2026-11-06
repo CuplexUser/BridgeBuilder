@@ -206,7 +206,7 @@
           <li data-i18n="mkhelp.channel"><b>Channel <kbd>5</kbd></b> Tap open water to fill the stretch between the piers and banks either side, up to the road. Or drag to mark your own span, kept clear up to the height you start at. A dashed outline shows where it lands before you let go.</li>
           <li data-i18n="mkhelp.erase"><b>Erase <kbd>6</kbd></b> Tap a bolt, seat, pylon, mast or channel to remove it.</li>
         </ul>
-        <p class="dock-note" data-i18n="mkhelp.touch">A tap acts where your finger lifts, so you can slide it into place first, watching the magnifier. Two fingers pan and zoom without placing anything.</p>
+        <p class="dock-note" data-i18n="mkhelp.touch">A quick tap acts at once, and dragging one finger moves the view; two fingers also zoom. To aim, or to drag a channel or mud bank, hold your finger still until the magnifier appears, slide it into place and lift.</p>
         <h3 data-i18n="mkhelp.drawbridges">Drawbridges and rams</h3>
         <ol class="mk-steps">
           <li data-i18n="mkhelp.step1"><b>Mark the channel.</b> The first channel brings a tall ship with a 3 m mast and offers rams. Change the mast under <i>Settings › Traffic</i>; a mast of 0 means no ship, just water to keep clear.</li>
@@ -267,6 +267,9 @@
         </button>
         <button class="icon-btn" data-act="mk-redo" aria-label="Redo" title="Redo (Y)" data-i18n-aria="tool.redoAria" data-i18n-title="tool.redoTitle">
           <svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5" /><path d="M20 9H10a6 6 0 0 0 0 12h3" /></svg>
+        </button>
+        <button class="icon-btn" data-act="mk-fit" aria-label="Fit the level to the screen" title="Fit the level to the screen (F)" data-i18n-aria="tool.fitAria" data-i18n-title="tool.fitTitle">
+          <svg viewBox="0 0 24 24"><path d="M4 9V4h5" /><path d="M15 4h5v5" /><path d="M20 15v5h-5" /><path d="M9 20H4v-5" /></svg>
         </button>
       </div>
       <button class="go-btn" data-act="mk-play"><svg class="go-icon" viewBox="0 0 24 24" aria-hidden="true"><path class="play" d="M3.5 2.6v18.8a1 1 0 0 0 1.52.85l16.2-9.4a1 1 0 0 0 0-1.7L5.02 1.75A1 1 0 0 0 3.5 2.6z" /><path class="edit" d="M14.6 4.2a2.4 2.4 0 0 1 3.4 0l1.8 1.8a2.4 2.4 0 0 1 0 3.4L9.2 20 3 21l1-6.2z" /></svg><span class="go-label" data-i18n="mk.playtest">PLAYTEST</span><kbd>P</kbd></button>

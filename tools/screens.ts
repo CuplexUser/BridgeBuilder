@@ -11,7 +11,8 @@
  * language (de, ja, pt-BR…), so the game picks it up as a player's device would; without it, English.
  *
  * Text that runs out of its box is listed as it is first seen and again at the end, and fails the
- * run: a translation the layout cannot hold. Boxes that end in an ellipsis are only listed.
+ * run: a translation the layout cannot hold. So does a button pushed off the side of the screen.
+ * Boxes that end in an ellipsis are only listed.
  */
 import { mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -59,6 +60,11 @@ const OVERFLOWS = `(() => {
     if (![...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) continue;
     const name = el.id ? '#' + el.id : [el.tagName.toLowerCase(), ...el.classList].join('.');
     found.push((s.textOverflow === 'ellipsis' ? '~' : '') + name + ' "' + el.textContent.trim().replace(/\\s+/g, ' ').slice(0, 48) + '" ' + el.scrollWidth + '>' + el.clientWidth);
+  }
+  for (const b of document.querySelectorAll('button')) {
+    if (!b.getClientRects().length || b.closest('.hidden') || getComputedStyle(b).visibility === 'hidden') continue;
+    const r = b.getBoundingClientRect();
+    if (r.left < -1 || r.right > innerWidth + 1) found.push('button off screen ' + (b.id || b.dataset.tool || b.dataset.act || b.textContent.trim().slice(0, 24)) + ' ' + Math.round(r.left) + '..' + Math.round(r.right));
   }
   const page = document.documentElement;
   if (page.scrollWidth > innerWidth + 1) found.push('the page scrolls sideways ' + page.scrollWidth + '>' + innerWidth);
@@ -200,6 +206,10 @@ async function main(): Promise<void> {
     await game(page, (g) => g.act('ws-new'));
     await page.locator('#maker-bar:not(.hidden)').waitFor();
     await shot(page, 'maker');
+    // Open for the shot and closed again; a wide window starts with it open.
+    await game(page, (g) => g.act('mk-settings'));
+    await shot(page, 'maker-settings');
+    await game(page, (g) => g.act('mk-settings'));
     await game(page, (g) => g.act('mk-help'));
     await visible(page, 'scr-mkhelp');
     await shot(page, 'mkhelp');

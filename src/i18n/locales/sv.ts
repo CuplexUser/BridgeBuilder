@@ -17,6 +17,8 @@ const sv: Table = {
   'tool.undoTitle': 'Ångra (Z)',
   'tool.redoAria': 'Gör om',
   'tool.redoTitle': 'Gör om (Y)',
+  'tool.fitAria': 'Anpassa banan',
+  'tool.fitTitle': 'Anpassa banan (F)',
   'tool.clearAria': 'Rensa allt',
   'tool.clearTitle': 'Rensa (Shift+C)',
   'tool.test': 'TESTA',
@@ -74,7 +76,7 @@ const sv: Table = {
   'mkhelp.channel':
     '<b>Farled <kbd>5</kbd></b> Tryck på öppet vatten för att fylla sträckan mellan pelarna och stränderna på var sida, upp till vägen. Eller dra för att markera ett eget spann, fritt upp till höjden där du börjar. En streckad kontur visar var den hamnar innan du släpper.',
   'mkhelp.erase': '<b>Sudda <kbd>6</kbd></b> Tryck på en bult, ett säte, en pylon, en mast eller en farled för att ta bort den.',
-  'mkhelp.touch': 'Ett tryck verkar där fingret lyfts, så du kan glida på plats först och följa förstoringsglaset. Två fingrar panorerar och zoomar utan att placera något.',
+  'mkhelp.touch': 'Ett snabbt tryck verkar direkt, och att dra med ett finger flyttar vyn; två fingrar zoomar också. För att sikta, eller dra en farled eller lerbank, håll fingret stilla tills förstoringsglaset visas, glid på plats och lyft.',
   'mkhelp.drawbridges': 'Klaffbroar och kolvar',
   'mkhelp.step1':
     '<b>Markera farleden.</b> Den första farleden ger ett högt fartyg med en 3 m hög mast och erbjuder kolvar. Ändra masten under <i>Inställningar › Trafik</i>; en mast på 0 betyder inget fartyg, bara vatten att hålla fritt.',

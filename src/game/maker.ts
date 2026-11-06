@@ -33,6 +33,11 @@ const PREVIEWS: [Key, Key][] = [
 const NO_EVENTS = { place() {}, remove() {}, invalid() {} };
 
 /** The level editor: its tools, undo history, quick tune, sharing, and playtesting a custom level. */
+/** How long a finger has to stay put before it aims the tool; a drag that starts sooner moves the view. */
+const HOLD_MS = 200;
+/** How far, in CSS pixels, a finger can wander and still count as staying put. */
+const SLOP_PX = 10;
+
 export class Maker {
   makerUi = new MakerUi();
   private tool: MakerTool = 'bolt';
@@ -43,6 +48,9 @@ export class Maker {
   channelFrom: [number, number] | null = null;
   /** A finger or button is down in the level editor and the tool acts where it lifts. */
   makerPending = false;
+  /** What a lone finger is doing: too soon to tell, aiming the tool, or moving the view. */
+  private finger: 'waiting' | 'aiming' | 'panning' | null = null;
+  private holdTimer = 0;
   /** The quick tune running in the level editor. */
   tuning: TunePool | null = null;
   /** What the last quick tune of each custom level found, for the level as it was then. */
@@ -264,37 +272,86 @@ export class Maker {
     return [Math.round(wx), Math.round(wy)];
   }
 
-  /**
-   * In the level editor a finger aims the tool and lifting it acts, so a slip can be slid right
-   * before it lands. A second finger turns the touch into pinch and pan, and nothing is placed.
-   */
-  makerPointerDown(e: PointerEvent): void {
-    if (this.game.input.pointers.size >= 2) {
-      this.makerPending = false;
-      this.channelFrom = null;
-      this.game.input.startPinch();
-      return;
-    }
-    if (e.button !== 0) return;
-    const p = this.snapAt(e.clientX, e.clientY);
+  /** The tool starts aiming at this screen point, and acts where the pointer lifts. */
+  private startAim(sx: number, sy: number): void {
+    const p = this.snapAt(sx, sy);
     this.makerHover = p;
     this.makerPending = true;
     if (this.tool === 'channel' || this.tool === 'mud') this.channelFrom = p;
   }
 
-  makerPointerUp(e: PointerEvent, cancelled: boolean): void {
-    if (this.game.input.pointers.size > 0) {
-      // A finger left over from a pinch: the next pinch starts afresh.
-      this.game.input.pinchDist = 0;
-      return;
-    }
-    const act = this.makerPending && !cancelled;
-    const from = this.channelFrom;
+  /** Forgets whatever a pointer was doing, so that nothing happens when it lifts. */
+  stopAim(): void {
+    clearTimeout(this.holdTimer);
+    this.finger = null;
     this.makerPending = false;
     this.channelFrom = null;
+  }
+
+  /**
+   * A mouse or stylus aims the tool from the moment it presses. A finger first has to show what it
+   * means: a quick tap acts, a drag moves the view, and holding still aims the tool with the
+   * magnifier, so the view can be moved without placing anything. A second finger pinches and pans.
+   */
+  makerPointerDown(e: PointerEvent): void {
+    const input = this.game.input;
+    if (input.pointers.size >= 2) {
+      this.stopAim();
+      input.startPinch();
+      return;
+    }
+    if (e.button !== 0) return;
+    if (e.pointerType !== 'touch') {
+      this.startAim(e.clientX, e.clientY);
+      return;
+    }
+    this.finger = 'waiting';
+    this.makerHover = null;
+    this.holdTimer = window.setTimeout(() => {
+      const f = input.pointers.get(e.pointerId);
+      if (this.finger !== 'waiting' || !f) return;
+      this.finger = 'aiming';
+      this.startAim(f.x, f.y);
+    }, HOLD_MS);
+  }
+
+  /** (px, py) is where the pointer was before this move. */
+  makerPointerMove(e: PointerEvent, px: number, py: number): void {
+    if (e.pointerType !== 'touch' || this.finger === 'aiming') {
+      this.makerHover = this.snapAt(e.clientX, e.clientY);
+      return;
+    }
+    if (this.finger === 'panning') {
+      this.game.cam.pan(e.clientX - px, e.clientY - py);
+      return;
+    }
+    const f = this.game.input.pointers.get(e.pointerId);
+    if (this.finger !== 'waiting' || !f || Math.hypot(e.clientX - f.startX, e.clientY - f.startY) < SLOP_PX) return;
+    clearTimeout(this.holdTimer);
+    this.finger = 'panning';
+    // From where the finger went down, so the level stays under it.
+    this.game.cam.pan(e.clientX - f.startX, e.clientY - f.startY);
+  }
+
+  makerPointerUp(e: PointerEvent, cancelled: boolean): void {
+    const left = this.game.input.pointers.size;
+    if (left > 0) {
+      // A finger left over from a pinch carries on moving the view; the next pinch starts afresh.
+      this.game.input.pinchDist = 0;
+      if (left === 1 && e.pointerType === 'touch') this.finger = 'panning';
+      return;
+    }
+    const tapped = this.finger === 'waiting';
+    const act = (this.makerPending || tapped) && !cancelled;
+    const held = this.channelFrom;
+    this.stopAim();
+    const touch = e.pointerType === 'touch';
+    // A finger leaves no cursor behind: there is nothing to point at until it comes back.
+    if (touch) this.makerHover = null;
     if (!act) return;
     const p = this.snapAt(e.clientX, e.clientY);
-    this.makerHover = p;
+    if (!touch) this.makerHover = p;
+    const from = tapped && (this.tool === 'channel' || this.tool === 'mud') ? p : held;
     if (!from) {
       this.makerChange((l) => this.applyTool(l, p[0], p[1]), p);
       return;
@@ -313,11 +370,8 @@ export class Maker {
   fitMaker(snap: boolean): void {
     const l = this.game.customLevel;
     if (!l || !this.game.editor) return;
-    const w = this.game.renderer.w;
-    const top = w < 560 ? 136 : 64;
-    const bottom = 86;
-    const right = w < 560 ? 0 : this.makerUi.panelWidth();
-    const rect = { x: 12, y: top, w: Math.max(120, w - 24 - right), h: Math.max(100, this.game.renderer.h - top - bottom) };
+    const { top, right, bottom } = this.makerUi.margins();
+    const rect = { x: 12, y: top, w: Math.max(120, this.game.renderer.w - 24 - right), h: Math.max(100, this.game.renderer.h - top - bottom) };
     // Leave headroom above the banks for pylons.
     this.game.cam.fit(-sideRoom(l), l.width + sideRoom(l), l.waterY - 0.5, Math.max(this.game.editor.topY + 0.5, 10), rect, snap);
   }
@@ -440,6 +494,10 @@ export class Maker {
         break;
       case 'mk-redo':
         this.makerHistory(1);
+        break;
+      case 'mk-fit':
+        sfx.ui();
+        this.fitMaker(false);
         break;
       case 'mk-help':
         sfx.ui();

@@ -310,8 +310,7 @@ export class Game {
     this.sharing.leaveAfter = false;
     this.editor = null;
     this.customLevel = null;
-    this.maker.channelFrom = null;
-    this.maker.makerPending = false;
+    this.maker.stopAim();
     this.maker.tuning?.close();
     this.maker.makerUi.show(false);
     this.run = null;

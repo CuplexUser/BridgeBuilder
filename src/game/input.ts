@@ -340,7 +340,7 @@ export class Input {
       return;
     }
     if (this.game.state === 'maker') {
-      this.game.maker.makerHover = this.game.maker.snapAt(e.clientX, e.clientY);
+      this.game.maker.makerPointerMove(e, px, py);
       return;
     }
 
