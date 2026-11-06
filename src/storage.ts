@@ -432,6 +432,8 @@ export interface Prefs {
   chaptersView?: 'map' | 'book';
   /** Haptics on devices that can buzz; on unless turned off. */
   haptics?: boolean;
+  /** How strong they are, on phones that can vary it; unset is hard. */
+  hapticLevel?: HapticLevel;
   /** The language picked in Settings, e.g. "de"; unset follows the device. */
   lang?: string;
   /** Volume per bus, 0 to 1 as the slider sits; unset is full. */
@@ -446,6 +448,7 @@ export interface Prefs {
 
 export type VolumeBus = 'master' | 'sfx' | 'music' | 'ambience';
 export type StressPalette = 'classic' | 'colorblind';
+export type HapticLevel = 'low' | 'medium' | 'hard';
 
 export function loadPrefs(): Prefs {
   try {

@@ -3249,6 +3249,10 @@ h2 {
   flex: none;
 }
 
+[data-ui='touch'] .set-row .seg-btn {
+  min-height: 38px;
+}
+
 .ramp {
   display: block;
   width: 96px;

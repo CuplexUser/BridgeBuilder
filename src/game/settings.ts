@@ -2,9 +2,9 @@ import { sfx } from '../audio';
 import { available, detectLocale, LANGUAGES, setLocale, t, type Lang } from '../i18n';
 import { applyStatic } from '../i18n/dom';
 import { motion } from '../motion';
-import { canVibrate, vibrate } from '../platform';
+import { canVibrate } from '../platform';
 import { setStressPalette } from '../render/palette';
-import { savePrefs, type StressPalette, type VolumeBus } from '../storage';
+import { savePrefs, type HapticLevel, type StressPalette, type VolumeBus } from '../storage';
 import type { ScreenId } from '../ui/ui';
 import type { Game } from './game';
 
@@ -37,6 +37,7 @@ export class Settings {
   apply(): void {
     const p = this.game.prefs;
     for (const [bus, v] of Object.entries(p.volume ?? {})) sfx.setVolume(bus as VolumeBus, v);
+    if (p.hapticLevel) this.game.haptics.level = p.hapticLevel;
     if (p.reduceMotion !== undefined) motion.reduced = p.reduceMotion;
     document.documentElement.dataset.motion = motion.reduced ? 'reduce' : 'full';
     setStressPalette(p.stressPalette ?? 'classic');
@@ -71,8 +72,16 @@ export class Settings {
     for (const el of document.querySelectorAll<HTMLInputElement>('.set-volume')) el.value = String(sfx.volume[el.dataset.bus as VolumeBus]);
     $('set-haptics-row').classList.toggle('hidden', !canVibrate);
     $<HTMLInputElement>('set-haptics').checked = this.game.haptics.enabled;
+    this.renderHapticLevel();
     $<HTMLInputElement>('set-motion').checked = motion.reduced;
     this.renderPalette(p.stressPalette ?? 'classic');
+  }
+
+  /** Offered only where the phone can vary its strength, and while vibration is on. */
+  private renderHapticLevel(): void {
+    const { rich, enabled, level } = this.game.haptics;
+    $('set-haptic-level-row').classList.toggle('hidden', !rich || !enabled);
+    for (const b of document.querySelectorAll<HTMLElement>('#scr-settings [data-level]')) b.classList.toggle('on', b.dataset.level === level);
   }
 
   private renderPalette(palette: StressPalette): void {
@@ -104,7 +113,18 @@ export class Settings {
     this.game.haptics.enabled = on;
     this.game.prefs.haptics = on;
     savePrefs(this.game.prefs);
-    if (on) vibrate('heavy');
+    this.game.haptics.celebrate();
+    this.renderHapticLevel();
+  }
+
+  /** Plays a hard pulse at the new level, so the choice is felt as it's made. */
+  setHapticLevel(level: HapticLevel): void {
+    this.game.haptics.level = level;
+    this.game.prefs.hapticLevel = level;
+    savePrefs(this.game.prefs);
+    this.renderHapticLevel();
+    sfx.select();
+    this.game.haptics.celebrate();
   }
 
   private setReduceMotion(on: boolean): void {

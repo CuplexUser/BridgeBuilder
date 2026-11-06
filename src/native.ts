@@ -190,8 +190,8 @@ export async function createNative(): Promise<Native> {
       const full = tier === 'full';
       return {
         wave,
-        tick: () => (full ? quiet(Rumble.primitive({ name: 'tick', scale: 0.6 })) : wave([12], [90])),
-        thud: () => (full ? quiet(Rumble.primitive({ name: 'thud', scale: 1 })) : wave([50], [200])),
+        tick: (k) => (full ? quiet(Rumble.primitive({ name: 'tick', scale: 0.6 * k })) : wave([12], [Math.round(90 * k)])),
+        thud: (k) => (full ? quiet(Rumble.primitive({ name: 'thud', scale: k })) : wave([50], [Math.round(200 * k)])),
         stop: () => quiet(Rumble.stop()),
       };
     },

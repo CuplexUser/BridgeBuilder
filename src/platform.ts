@@ -148,8 +148,9 @@ export type Pulse = 'light' | 'heavy' | 'long';
 export interface RichHaptics {
   /** Plays a waveform once: how long each step lasts, ms, and how hard, 0 to 255. */
   wave(timings: number[], amplitudes: number[]): void;
-  tick(): void;
-  thud(): void;
+  /** The phone's lightest tap and heaviest knock. `strength` is 1 as designed, and weaker below that. */
+  tick(strength: number): void;
+  thud(strength: number): void;
   stop(): void;
 }
 

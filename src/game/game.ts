@@ -940,6 +940,9 @@ export class Game {
       case 'settings-close':
         this.settings.close();
         break;
+      case 'set-haptic-level':
+        this.settings.setHapticLevel(el?.dataset.level === 'low' ? 'low' : el?.dataset.level === 'hard' ? 'hard' : 'medium');
+        break;
       case 'set-palette':
         this.settings.setPalette(el?.dataset.palette === 'colorblind' ? 'colorblind' : 'classic');
         break;

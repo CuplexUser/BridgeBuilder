@@ -91,7 +91,7 @@ To set it up, or deploy a change:
 
 The service's logs are under **Cloud Run → bridge-share → Logs**. Shared bridges include the builder's profile name, shown in link previews; the privacy policy (`public/privacy.html`) says so.
 
-On phones, members creak with a light buzz, every snap is a hard pulse, and a collapse is a long one (`src/haptics.ts` paces them). Android phones that can vary the strength of their vibration get more through `RumblePlugin.java`: a rumble that follows the load on the busiest member, the quake's shaking, marchers' footfalls, a thud as an arch joint cracks and a tick as a drag snaps to the grid. The rumble plays in 400 ms segments it keeps refreshing, so it stops by itself if the game stalls, and none of this touches the physics. On devices that can vibrate, the pause menu has a switch for it.
+On phones, members creak with a light buzz, every snap is a hard pulse, and a collapse is a long one (`src/haptics.ts` paces them). Android phones that can vary the strength of their vibration get more through `RumblePlugin.java`: a rumble that follows the load on the busiest member, the quake's shaking, marchers' footfalls, a thud as an arch joint cracks and a tick as a drag snaps to the grid. The rumble plays in 400 ms segments it keeps refreshing, so it stops by itself if the game stalls, and none of this touches the physics. On devices that can vibrate, Settings has a switch for it, and phones that can vary the strength also offer low, medium or hard. Hard, the default, plays every effect as written, and the other two weaken them all.
 
 ### Android
 

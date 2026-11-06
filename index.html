@@ -409,6 +409,14 @@
             <span data-i18n="settings.vibration">Vibration</span>
             <input type="checkbox" class="switch" id="set-haptics" />
           </label>
+          <div class="set-row hidden" id="set-haptic-level-row">
+            <span data-i18n="settings.hapticLevel">Vibration strength</span>
+            <div class="seg">
+              <button class="seg-btn" data-act="set-haptic-level" data-level="low" data-i18n="settings.hapticLow">LOW</button>
+              <button class="seg-btn" data-act="set-haptic-level" data-level="medium" data-i18n="settings.hapticMedium">MEDIUM</button>
+              <button class="seg-btn" data-act="set-haptic-level" data-level="hard" data-i18n="settings.hapticHard">HARD</button>
+            </div>
+          </div>
           <label class="set-row">
             <span class="set-name"><span data-i18n="settings.motion">Reduce motion</span><small data-i18n="settings.motionNote">No camera shake, flashes or wipes</small></span>
             <input type="checkbox" class="switch" id="set-motion" />

@@ -1,4 +1,5 @@
 import type { Pulse, RichHaptics } from './platform';
+import type { HapticLevel } from './storage';
 
 /** Shortest gap between creak buzzes, ms: a groaning bridge hums rather than rattles. */
 const CREAK_GAP = 160;
@@ -50,6 +51,13 @@ const COLLAPSE: [number[], number[]] = [
   [255, 210, 140, 70],
 ];
 
+/** How strongly each level plays every effect on a phone that can vary its strength. Hard plays them as written. */
+const STRENGTH: Record<HapticLevel, number> = {
+  low: 0.45,
+  medium: 0.7,
+  hard: 1,
+};
+
 /** What may interrupt what. A lower rank waits for a higher one to finish. */
 const enum Rank {
   None,
@@ -72,6 +80,8 @@ const enum Rank {
 export class HapticFeel {
   /** Set once the phone has said what it can do. Stays null where it can only pulse. */
   rich: RichHaptics | null = null;
+  /** Scales everything `rich` plays. Plain pulses have no strength to scale. */
+  level: HapticLevel = 'hard';
   private on = true;
   private lastLight = -Infinity;
   private lastHeavy = -Infinity;
@@ -86,7 +96,7 @@ export class HapticFeel {
   private felt = 0;
   private feltAt = 0;
   /** The strength step of the segment playing, 0 for none, -1 when something else cut it off. */
-  private level = -1;
+  private step = -1;
   private sentAt = -Infinity;
   private spike = false;
 
@@ -109,8 +119,21 @@ export class HapticFeel {
     if (t < this.busyUntil && rank < this.rank) return false;
     this.rank = rank;
     this.busyUntil = t + ms;
-    this.level = -1;
+    this.step = -1;
     this.sentAt = -Infinity;
+    return true;
+  }
+
+  /** Plays a waveform at the player's chosen strength. */
+  private play(timings: number[], amplitudes: number[]): void {
+    const strength = STRENGTH[this.level];
+    this.rich?.wave(timings, amplitudes.map((a) => Math.round(a * strength)));
+  }
+
+  /** A hard pulse on a phone that can vary its strength, holding the phone for its length and `gap` after it. */
+  private hardPulse(gap: number, t: number): boolean {
+    if (!this.claim(Rank.Snap, SNAP_MS + gap, t)) return false;
+    this.play([SNAP_MS], [255]);
     return true;
   }
 
@@ -128,9 +151,12 @@ export class HapticFeel {
   snap(): void {
     const t = this.now();
     if (!this.on || t - this.lastHeavy < SNAP_GAP) return;
-    if (this.rich && !this.claim(Rank.Snap, SNAP_MS + AFTER_SNAP, t)) return;
+    if (this.rich) {
+      if (!this.hardPulse(AFTER_SNAP, t)) return;
+    } else {
+      this.pulse('heavy');
+    }
     this.lastHeavy = t;
-    this.pulse('heavy');
   }
 
   /** A three-star result. */
@@ -138,8 +164,8 @@ export class HapticFeel {
     if (!this.on) return;
     const t = this.now();
     this.lastHeavy = t;
-    if (this.rich) this.claim(Rank.Snap, SNAP_MS, t);
-    this.pulse('heavy');
+    if (this.rich) this.hardPulse(0, t);
+    else this.pulse('heavy');
   }
 
   /** The run failed: the bridge is down. */
@@ -152,7 +178,7 @@ export class HapticFeel {
       return;
     }
     this.claim(Rank.Collapse, COLLAPSE[0].reduce((a, b) => a + b), t);
-    this.rich.wave(...COLLAPSE);
+    this.play(...COLLAPSE);
   }
 
   /** The bridge's busiest member right now, as a stress ratio; reported once a frame during a run. */
@@ -162,19 +188,19 @@ export class HapticFeel {
     this.felt = Math.max(Math.min(1, stress), this.felt - ((t - this.feltAt) / 1000) * RELEASE);
     this.feltAt = t;
     if (t < this.busyUntil || t < this.quakeUntil) return;
-    const level = Math.min(RUMBLE_STEPS, Math.ceil(((this.felt - RUMBLE_FROM) / (1 - RUMBLE_FROM)) * RUMBLE_STEPS));
-    if (level <= 0) {
-      if (this.level > 0) this.rich.stop();
-      this.level = 0;
+    const step = Math.min(RUMBLE_STEPS, Math.ceil(((this.felt - RUMBLE_FROM) / (1 - RUMBLE_FROM)) * RUMBLE_STEPS));
+    if (step <= 0) {
+      if (this.step > 0) this.rich.stop();
+      this.step = 0;
       this.spike = false;
       return;
     }
     const since = t - this.sentAt;
-    if (!this.spike && since < REFRESH_MS && (level === this.level || since < CHANGE_GAP)) return;
-    const amp = Math.round(RUMBLE_MIN + ((RUMBLE_MAX - RUMBLE_MIN) * (level - 1)) / (RUMBLE_STEPS - 1));
-    if (this.spike) this.rich.wave([SPIKE_MS, SEGMENT_MS - SPIKE_MS], [Math.min(255, amp + SPIKE), amp]);
-    else this.rich.wave([SEGMENT_MS], [amp]);
-    this.level = level;
+    if (!this.spike && since < REFRESH_MS && (step === this.step || since < CHANGE_GAP)) return;
+    const amp = Math.round(RUMBLE_MIN + ((RUMBLE_MAX - RUMBLE_MIN) * (step - 1)) / (RUMBLE_STEPS - 1));
+    if (this.spike) this.play([SPIKE_MS, SEGMENT_MS - SPIKE_MS], [Math.min(255, amp + SPIKE), amp]);
+    else this.play([SEGMENT_MS], [amp]);
+    this.step = step;
     this.sentAt = t;
     this.spike = false;
   }
@@ -195,8 +221,8 @@ export class HapticFeel {
       const angle = this.quakeAngle + (2 * Math.PI * freq * i * QUAKE_STEP_MS) / 1000;
       return Math.round(QUAKE_MAX * strength * (0.25 + 0.75 * Math.abs(Math.sin(angle))));
     });
-    this.rich.wave(new Array<number>(steps).fill(QUAKE_STEP_MS), amps);
-    this.level = -1;
+    this.play(new Array<number>(steps).fill(QUAKE_STEP_MS), amps);
+    this.step = -1;
     this.sentAt = t;
   }
 
@@ -205,7 +231,7 @@ export class HapticFeel {
     if (!this.on || !this.rich) return;
     const t = this.now();
     if (t < this.quakeUntil || !this.claim(Rank.Knock, STEP_MS, t)) return;
-    this.rich.wave([STEP_MS], [Math.round(90 + 80 * strength)]);
+    this.play([STEP_MS], [Math.round(90 + 80 * strength)]);
   }
 
   /** An arch joint cracks open. */
@@ -213,7 +239,7 @@ export class HapticFeel {
     if (!this.on || !this.rich) return;
     const t = this.now();
     if (t < this.quakeUntil || !this.claim(Rank.Knock, THUD_MS, t)) return;
-    this.rich.thud();
+    this.rich.thud(STRENGTH[this.level]);
   }
 
   /** A drag snaps to the next point on the grid. */
@@ -222,7 +248,7 @@ export class HapticFeel {
     const t = this.now();
     if (t - this.lastTick < TICK_GAP) return;
     this.lastTick = t;
-    this.rich.tick();
+    this.rich.tick(STRENGTH[this.level]);
   }
 
   /** Silences everything: on pause, on leaving a run, and when vibration is switched off. */
@@ -232,7 +258,7 @@ export class HapticFeel {
     this.busyUntil = 0;
     this.quakeUntil = 0;
     this.felt = 0;
-    this.level = -1;
+    this.step = -1;
     this.sentAt = -Infinity;
     this.spike = false;
   }

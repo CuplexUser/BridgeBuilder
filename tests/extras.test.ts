@@ -4,7 +4,7 @@ import { CHAPTERS, FREE_CHAPTERS, inFullGame, type BestMap } from '../src/chapte
 import { HapticFeel } from '../src/haptics';
 import { LEVELS } from '../src/levels';
 import type { Pulse } from '../src/platform';
-import { blankProgress, LocalStore, mergeLocalData, type KeyValue, type LocalData } from '../src/storage';
+import { blankProgress, LocalStore, mergeLocalData, type HapticLevel, type KeyValue, type LocalData } from '../src/storage';
 
 function memoryKv(): KeyValue {
   const m = new Map<string, string>();
@@ -75,16 +75,23 @@ function richFeel() {
   const base = feel();
   const played: { timings: number[]; amplitudes: number[] }[] = [];
   const calls: string[] = [];
+  const scales: number[] = [];
   base.h.rich = {
     wave: (timings, amplitudes) => {
       played.push({ timings, amplitudes });
       calls.push('wave');
     },
-    tick: () => calls.push('tick'),
-    thud: () => calls.push('thud'),
+    tick: (k) => {
+      scales.push(k);
+      calls.push('tick');
+    },
+    thud: (k) => {
+      scales.push(k);
+      calls.push('thud');
+    },
     stop: () => calls.push('stop'),
   };
-  return { ...base, played, calls };
+  return { ...base, played, calls, scales };
 }
 
 describe('rich haptics', () => {
@@ -157,13 +164,14 @@ describe('rich haptics', () => {
     h.load(0.8);
     at(1100);
     h.snap();
-    expect(pulses).toEqual(['heavy']);
+    expect(pulses).toEqual([]);
+    expect(played[1]).toEqual({ timings: [60], amplitudes: [255] });
     at(1200);
     h.load(0.8);
-    expect(played).toHaveLength(1);
+    expect(played).toHaveLength(2);
     at(1180 + 100);
     h.load(0.8);
-    expect(played).toHaveLength(2);
+    expect(played).toHaveLength(3);
   });
 
   it('puts the quake over the rumble, and the rumble back when it ends', () => {
@@ -198,7 +206,7 @@ describe('rich haptics', () => {
   });
 
   it('ranks a quake over footfalls and thuds, and a snap over the quake', () => {
-    const { h, pulses, calls, at } = richFeel();
+    const { h, calls, at } = richFeel();
     at(1000);
     h.quake(1, 2);
     calls.length = 0;
@@ -207,7 +215,7 @@ describe('rich haptics', () => {
     h.thud();
     expect(calls).toEqual([]);
     h.snap();
-    expect(pulses).toEqual(['heavy']);
+    expect(calls).toEqual(['wave']);
   });
 
   it('lets footfalls and thuds cut into the rumble, but not into a snap', () => {
@@ -245,7 +253,7 @@ describe('rich haptics', () => {
     expect(pulses).toEqual([]);
     at(1100 + length);
     h.snap();
-    expect(pulses).toEqual(['heavy']);
+    expect(played.at(-1)!.timings).toEqual([60]);
   });
 
   it('rations the ticks of a fast drag', () => {
@@ -290,6 +298,94 @@ describe('rich haptics', () => {
     expect(calls).toEqual([]);
     expect(pulses).toEqual([]);
     expect(played).toHaveLength(1);
+  });
+});
+
+describe('vibration strength', () => {
+  /** Everything the game can play at one level, as the phone is told to play it. */
+  function everything(level: HapticLevel) {
+    const { h, played, scales, at } = richFeel();
+    h.level = level;
+    at(1000);
+    h.load(1);
+    at(1400);
+    h.quake(1, 2);
+    at(2000);
+    h.footfall(1);
+    at(3000);
+    h.snap();
+    at(4000);
+    h.collapse();
+    at(5000);
+    h.creak(0.8);
+    h.load(1);
+    at(9000);
+    h.tick();
+    h.thud();
+    const [rumble, quake, step, snap, collapse, spike] = played;
+    return { rumble, quake, step, snap, collapse, spike, scales };
+  }
+
+  it('starts at hard, which plays everything just as it did before there was a choice', () => {
+    expect(richFeel().h.level).toBe('hard');
+    const x = everything('hard');
+    expect(x.rumble).toEqual({ timings: [400], amplitudes: [140] });
+    expect(x.step).toEqual({ timings: [40], amplitudes: [170] });
+    expect(x.snap).toEqual({ timings: [60], amplitudes: [255] });
+    expect(x.collapse).toEqual({ timings: [90, 130, 180, 250], amplitudes: [255, 210, 140, 70] });
+    expect(x.spike).toEqual({ timings: [30, 370], amplitudes: [220, 140] });
+    expect(x.quake.timings).toHaveLength(8);
+    expect(Math.max(...x.quake.amplitudes)).toBeLessThanOrEqual(200);
+    expect(x.scales).toEqual([1, 1]);
+  });
+
+  it('weakens every effect a step at a time, without shortening any', () => {
+    for (const [weak, strong] of [['low', 'medium'], ['medium', 'hard']] as const) {
+      const [a, b] = [everything(weak), everything(strong)];
+      for (const k of ['rumble', 'quake', 'step', 'snap', 'collapse', 'spike'] as const) {
+        expect(a[k].timings).toEqual(b[k].timings);
+        a[k].amplitudes.forEach((v, i) => expect(v).toBeLessThan(b[k].amplitudes[i]));
+      }
+      expect(a.scales[0]).toBeLessThan(b.scales[0]);
+      expect(a.scales[1]).toBeLessThan(b.scales[1]);
+    }
+  });
+
+  it('still plays the faintest rumble on low', () => {
+    const { h, played, at } = richFeel();
+    h.level = 'low';
+    at(1000);
+    h.load(0.31);
+    expect(played[0].amplitudes[0]).toBeGreaterThan(0);
+  });
+
+  it('keeps a snap above the rumble at every level', () => {
+    for (const level of ['low', 'medium', 'hard'] as const) {
+      const e = everything(level);
+      expect(e.snap.amplitudes[0]).toBeGreaterThan(e.rumble.amplitudes[0]);
+    }
+  });
+
+  it('lets the level change between one effect and the next', () => {
+    const { h, played, at } = richFeel();
+    at(1000);
+    h.celebrate();
+    h.level = 'low';
+    at(1100);
+    h.celebrate();
+    expect(played.map((p) => p.amplitudes[0])).toEqual([255, 115]);
+  });
+
+  it('changes nothing on a phone that can only pulse', () => {
+    const { h, pulses, at } = feel();
+    h.level = 'low';
+    at(1000);
+    h.snap();
+    at(2000);
+    h.collapse();
+    at(3000);
+    h.celebrate();
+    expect(pulses).toEqual(['heavy', 'long', 'heavy']);
   });
 });
 
