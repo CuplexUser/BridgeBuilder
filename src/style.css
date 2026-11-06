@@ -699,6 +699,17 @@ kbd {
   pointer-events: none;
 }
 
+/* A feature players may not expect, so it stands apart from the HUD's other buttons. */
+#btn-rotate {
+  color: var(--cyan);
+  background: color-mix(in srgb, var(--cyan) 16%, var(--panel));
+  border-color: color-mix(in srgb, var(--cyan) 60%, transparent);
+}
+
+#btn-rotate:hover {
+  background: color-mix(in srgb, var(--cyan) 26%, var(--panel));
+}
+
 .icon-btn svg,
 .book-arrow svg {
   width: 22px;
