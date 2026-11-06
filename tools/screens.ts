@@ -66,6 +66,13 @@ const OVERFLOWS = `(() => {
     const r = b.getBoundingClientRect();
     if (r.left < -1 || r.right > innerWidth + 1) found.push('button off screen ' + (b.id || b.dataset.tool || b.dataset.act || b.textContent.trim().slice(0, 24)) + ' ' + Math.round(r.left) + '..' + Math.round(r.right));
   }
+  const hud = [...document.querySelectorAll('#hud:not(.hidden) .hud-block')].map((b) => b.getBoundingClientRect());
+  for (let i = 0; i + 1 < hud.length; i++) {
+    for (let j = i + 1; j < hud.length; j++) {
+      const [p, q] = [hud[i], hud[j]];
+      if (p.left < q.right - 1 && q.left < p.right - 1 && p.top < q.bottom - 1 && q.top < p.bottom - 1) found.push('HUD blocks ' + i + ' and ' + j + ' overlap');
+    }
+  }
   const page = document.documentElement;
   if (page.scrollWidth > innerWidth + 1) found.push('the page scrolls sideways ' + page.scrollWidth + '>' + innerWidth);
   return found;

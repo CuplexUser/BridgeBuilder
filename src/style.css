@@ -226,14 +226,15 @@ kbd {
 
 /* ───────── HUD ───────── */
 
+/* Equal side columns keep the budget centered, and the level's name and goal stop short of it. */
 #hud {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(max-content, 1fr);
+  align-items: start;
   padding: calc(10px + var(--safe-t)) calc(16px + var(--safe-r)) 0 calc(16px + var(--safe-l));
   pointer-events: none;
   gap: 8px;
@@ -245,18 +246,19 @@ kbd {
   gap: 4px;
   pointer-events: auto;
   min-width: 0;
+  max-width: 100%;
+  /* As wide as its text, so the rest of the column still reaches the blueprint under it. */
+  justify-self: start;
 }
 
 .hud-block.center {
   align-items: center;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
 }
 
 .hud-block.right {
   flex-direction: row;
   gap: 8px;
+  justify-self: end;
 }
 
 .hud-level {
@@ -266,6 +268,7 @@ kbd {
   font-weight: 700;
   white-space: nowrap;
   text-shadow: 0 2px 6px var(--shade);
+  min-width: 0;
 }
 
 #hud-num {
@@ -276,6 +279,7 @@ kbd {
 
 #hud-name {
   font-size: 16px;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -294,6 +298,10 @@ kbd {
   color: var(--gold);
   letter-spacing: 0.06em;
   text-shadow: 0 2px 8px var(--shade);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .hud-goal {
@@ -304,6 +312,7 @@ kbd {
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+  max-width: 100%;
   padding: 1px 6px;
   border: 1px solid color-mix(in srgb, var(--bonus) 35%, transparent);
   border-radius: var(--r-sm);
@@ -1028,12 +1037,12 @@ kbd {
 @media (max-width: 560px) {
   /* The budget meter gets its own row under the level name and buttons. */
   #hud {
+    display: flex;
+    justify-content: space-between;
     flex-wrap: wrap;
     row-gap: 6px;
   }
   .hud-block.center {
-    position: static;
-    transform: none;
     order: 3;
     flex: 1 0 100%;
     flex-direction: row;
@@ -1984,6 +1993,19 @@ kbd {
   align-items: center;
   gap: 8px;
   min-height: 18px;
+  min-width: 0;
+}
+
+/* The goal takes a line of its own rather than lose its number to an ellipsis. */
+@media (min-width: 561px) {
+  .hud-sub {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+  .hud-goal {
+    white-space: normal;
+    text-align: left;
+  }
 }
 
 @keyframes pop {
