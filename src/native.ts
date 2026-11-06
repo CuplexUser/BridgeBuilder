@@ -50,6 +50,7 @@ interface BillingPlugin {
 }
 
 interface StorePlugin {
+  requestReview(): Promise<void>;
   openListing(): Promise<void>;
 }
 
@@ -90,6 +91,8 @@ export interface Native {
     restore(): Promise<BillingStatus>;
     onChange(fn: (s: BillingStatus) => void): void;
   };
+  /** Asks Google Play for its rating card, which it may or may not show. */
+  requestReview(): Promise<void>;
   /** Opens the game's page on Google Play, where it can be rated. */
   openListing(): Promise<void>;
   /** Turns the screen to landscape from portrait or back, and holds it there whatever the phone's auto-rotate says. */
@@ -185,6 +188,7 @@ export async function createNative(): Promise<Native> {
       restore: () => PlayBilling.restore({ product: FULL_GAME }),
       onChange: (fn) => quiet(PlayBilling.addListener('change', fn)),
     },
+    requestReview: () => PlayStore.requestReview(),
     openListing: () => PlayStore.openListing(),
   };
 }

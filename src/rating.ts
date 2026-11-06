@@ -5,7 +5,8 @@ import { safeLocalStorage } from './storage';
  * Asking for a rating on Google Play. Google's rules forbid asking players what they think first,
  * so the ask goes only where they're likely to be happy with the game: the card for a chapter just
  * finished, from the last free chapter on, with most of its stars won. It's kept for the device,
- * not the profile, since a rating belongs to the phone's Google account.
+ * not the profile, since a rating belongs to the phone's Google account. The ask is Play's own
+ * rating card, or a button to the game's page if Play can't be asked.
  */
 const RATE_KEY = 'bridgebuilder.rate';
 
@@ -19,7 +20,7 @@ const MIN_STARS = 2;
 export interface RateState {
   /** Chapter cards that have asked. */
   asked: number;
-  /** The player went to Google Play from one. */
+  /** The player went to Google Play from one. Play's own card doesn't say whether it was used, so it never sets this. */
   rated?: boolean;
 }
 

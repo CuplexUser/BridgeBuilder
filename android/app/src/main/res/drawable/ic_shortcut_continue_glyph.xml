@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The play arrow of the game's TEST button, inside an adaptive icon's safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="2"
+        android:scaleY="2"
+        android:translateX="30"
+        android:translateY="30">
+        <path
+            android:fillColor="#6CC6FF"
+            android:pathData="M3.5 2.6v18.8a1 1 0 0 0 1.52.85l16.2-9.4a1 1 0 0 0 0-1.7L5.02 1.75A1 1 0 0 0 3.5 2.6z" />
+    </group>
+</vector>

@@ -152,6 +152,11 @@ export class Game {
   readonly settings = new Settings(this);
   readonly sharing = new Sharing(this);
 
+  /** The last profile has been resumed, or the player asked who they are. */
+  private booted = false;
+  /** An app shortcut waiting for the title screen. */
+  private pendingShortcut: string | null = null;
+
   constructor(canvas: HTMLCanvasElement, store: Store) {
     this.canvas = canvas;
     this.store = store;
@@ -176,7 +181,18 @@ export class Game {
     const last = list.find((p) => p.id === this.prefs.profileId);
     if (last) await this.useProfile(last.name);
     else this.enterProfiles(list);
+    this.booted = true;
     void this.startServices();
+  }
+
+  /**
+   * An app shortcut, pressing a title screen button. Before the title first comes up it waits,
+   * through a new player naming a profile if need be. Once the game is past the title it's dropped:
+   * it mustn't go off when the player next comes back there.
+   */
+  openShortcut(action: string): void {
+    if (!this.booted || this.state === 'profile') this.pendingShortcut = action;
+    else if (this.state === 'title') this.act(action);
   }
 
   /**
@@ -279,6 +295,9 @@ export class Game {
     this.ui.show('title');
     // A bridge that came in by link waited for a profile.
     this.sharing.watchPending();
+    const shortcut = this.pendingShortcut;
+    this.pendingShortcut = null;
+    if (shortcut && this.state === 'title') this.act(shortcut);
   }
 
   /** Stops whatever was being built or driven and brings the demo back behind the menus. */

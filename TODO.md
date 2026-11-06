@@ -85,6 +85,7 @@ Features and improvements, by priority. Finished items stay checked for a releas
 
 - [x] **Play Games ids for the new chapters.** `achievement_chapter_both_ways`, `achievement_chapter_heavy_haul`, `leaderboard_challenge_both_ways` and `leaderboard_challenge_heavy_haul` are in the Play Console and in `games-ids.xml`. Grand Finale's achievement icon now reads 12, its chapter number since Both Ways came before it.
 - [ ] **Floods on the older piled levels.** *Floodtide*, *Delta Haul* and *Last Crossing* still shrug off their floods; *Driftwood* and *Both Ways in Flood* show what a flood that reaches the deck does, and the older three could rise the same way.
+- [ ] **Phone as a shake table.** In a level-editor playtest, the accelerometer (`DeviceMotionEvent`) drives the ground motion: shake the phone and the bank bolts move with it, a hands-on way to learn why braced towers and dampers matter. The game has no sandbox mode, so the editor is its home, and it must never affect a scored run.
 
 ## P3: Polish and social
 
@@ -109,6 +110,7 @@ Features and improvements, by priority. Finished items stay checked for a releas
 ### Next
 
 - [ ] **Replay and ghost** of your best run, plus a slow-motion replay of the moment of collapse. The stress graph could scrub through it.
+- [ ] **Full-length collapse and crossing videos.** Re-run the test offline at a fixed step (the physics is deterministic), render it frame by frame, encode with WebCodecs and an MP4 muxer, and send it through the share sheet. This also gives slow motion for free. It would start silent. It needs chunked file writes, since the base64 path in `shareCached` won't cope with video, and an off-screen renderer, since `Renderer.resize` reads `window` directly.
 - [ ] **Level editor extras:** rock overhangs and raised road ends as tools, a solvability check that runs the optimizer on a custom level, and saving custom levels to the server profile.
 
 Let the optimizer teach:
@@ -122,12 +124,27 @@ Let the optimizer teach:
   - **Android:** the web build in Capacitor, as before, now with haptics, shared bridges, Play Games and the store (below).
   - **UI profiles:** `touch` (the app, phones and tablets) hides key hints and keeps finger-sized targets; `desktop` shows keys and, on wide screens, tightens buttons and the toolbar. The stylesheet follows `data-ui` rather than guessing from hover.
   - **Level caps:** levels may be 96 m wide (they were 64). The editor grows them that far on desktop and stops at 64 m on touch devices; a wider level edited on a phone keeps its width.
-- [ ] Profile physics on the 30 m+ levels on low-end phones. If needed, lower substeps adaptively, or move the simulation to a worker.
+- [ ] **Low-end phone performance.** Never by changing the physics: levels are tuned at a fixed `SUBSTEPS = 24`, so lowering it could make the same bridge pass on one phone and collapse on another, and break scores, shared links and replays. A phone that can't keep up already runs the test in slower time (`Drive.stepSim`), with the same result.
+  - Profile physics on the 30 m+ levels on low-end phones first. Then consider moving the simulation to a worker, a big refactor because `Drive` and the renderer read the `World` directly.
+  - A thermal status listener (`PowerManager.addThermalStatusListener`, API 29+) that cuts particles, effects and render resolution before the phone throttles.
+  - `game_mode_config.xml`, so players and the maker's game dashboard can pick battery or performance.
+  - If this works, raise the 64 m editor cap on touch devices for stronger phones.
+- [ ] **Tablets, foldables, Chromebooks and styluses.** About 5.5% of installs on 2026-11-06 (28 of 508). `uiProfile` is always `touch` on Android.
+  - Switch to the desktop profile when a physical keyboard or mouse is attached, so the key hints come back.
+  - Stylus: `pointerType === 'pen'` gives hover events, so an S Pen can show placement without the magnifier while fingers pan.
+  - Large screens: dock the stress graph beside the blueprint.
+  - Foldables: in tabletop posture (Jetpack WindowManager), the bridge on the top half and the toolbar and graph on the bottom.
+  - Play's large-screen quality tiers affect how visible the app is to tablet users.
+- [ ] **Open level files directly.** An intent filter for `application/json` with VIEW and SEND, so a level shared over Discord or Drive imports into the editor. Shared links already carry a custom level whole, and the filter would put the game in the chooser for every JSON file on the phone, so it's worth weighing first.
 - [x] **End-to-end smoke test** (`npm run smoke`): a headless Chrome or Edge builds 1-1 with the keyboard, tests it, and checks the result screen and leaderboards, against its own dev server and database.
 - [x] **Batched member painting.** Measured first: with the CPU slowed 4×, a test drive on 9-5 spent 1.4 ms of a 21 ms frame on the static scenery (hills, trees, banks), so caching it wasn't worth it, and 11 ms painting members a few strokes at a time. Members and joints are now painted a few strokes per material and shade, which brought that to under 5 ms. Physics is most of what's left.
 - [x] **Android extras.**
   - **Haptics synced to stress:** a light buzz as members creak (quicker near breaking), a hard pulse when something snaps or an anchor tears out, and a long one when the bridge goes down. A switch in the pause menu turns them off.
   - **Play Games Services:** sign-in at launch, 22 achievements (progress-based ones come back on a new phone), leaderboards for career, stars and each chapter's challenge, and a cloud save merged level by level with the phone's. A fresh install plays under the Play Games name without a profile screen. Google's own leaderboards stand in for the server boards, which the app never reached.
   - **Monetization:** chapters 1–3 free, then one in-app product (`full_game`) for the rest and every chapter to come, through Play Billing. Locked chapters say FULL GAME; no ads. Web and desktop stay free.
+  - **In-app rating:** Play's own rating card comes up over a chapter's card (the same rule for when to ask, at most three times). Play has a quota and never says whether the card showed, so nothing hangs off a button unless Play can't be asked at all.
+  - **App shortcuts** on a long press of the icon: Continue and Level editor, in all nine languages. A static shortcut always starts the app afresh, even while it's running.
+  - **Android 9 and up** (`minSdk` 28, was 24), which cost 2% of installs. `android:appCategory="game"` keeps the rotate button working on large screens under Android 16.
+- [ ] **Check the Android 16 changes on real devices:** back gesture on every screen and safe areas in both orientations on a phone, the rotate button on a tablet.
 - [ ] **Play Console setup and a phone test**, once the account is verified: create the Play Games achievements and leaderboards from `games-ids.xml` and paste in their ids, turn on saved games, add the `full_game` product, then check haptics, sign-in, the cloud save, a license-tester purchase and a restore on a real phone. Until `app_id` is filled in, Play Games stays off.
 - [x] **Save format versioning.** Designs carry a version, and a saved design is fitted to a changed level instead of discarded: what no longer fits comes off and the player is told, and an over-budget bridge loads for trimming.

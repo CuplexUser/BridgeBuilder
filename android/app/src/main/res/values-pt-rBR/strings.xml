@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_continue">Continuar</string>
+    <string name="shortcut_editor_short">Editor</string>
+    <string name="shortcut_editor_long">Editor de fases</string>
+</resources>

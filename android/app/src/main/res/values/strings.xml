@@ -1,7 +1,11 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Bridge Builder</string>
-    <string name="title_activity_main">Bridge Builder</string>
-    <string name="package_name">se.cuplex.bridgebuilder</string>
-    <string name="custom_url_scheme">se.cuplex.bridgebuilder</string>
+    <string name="app_name" translatable="false">Bridge Builder</string>
+    <string name="title_activity_main" translatable="false">Bridge Builder</string>
+    <string name="package_name" translatable="false">se.cuplex.bridgebuilder</string>
+    <string name="custom_url_scheme" translatable="false">se.cuplex.bridgebuilder</string>
+    <!-- App shortcuts, in every language the game ships. A short label fits in 10 characters. -->
+    <string name="shortcut_continue">Continue</string>
+    <string name="shortcut_editor_short">Editor</string>
+    <string name="shortcut_editor_long">Level editor</string>
 </resources>

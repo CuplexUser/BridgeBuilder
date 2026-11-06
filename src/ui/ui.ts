@@ -623,11 +623,8 @@ export class Ui {
     }
   }
 
-  /**
-   * The card for a chapter just finished: its stars, bonus goals and score, and each level's best.
-   * `ask`: it also asks for a rating on Google Play.
-   */
-  chapterDone(c: ChapterDef, best: BestMap, next: ChapterDef | undefined, ask = false): void {
+  /** The card for a chapter just finished: its stars, bonus goals and score, and each level's best. */
+  chapterDone(c: ChapterDef, best: BestMap, next: ChapterDef | undefined): void {
     const sum = totals(best, c.levels);
     $('done-kicker').textContent = t('chapter.kicker', { n: chapterNumber(c) });
     $('done-name').textContent = chapterText(c, 'name');
@@ -642,12 +639,17 @@ export class Ui {
       })
       .join('');
     $('done-next').innerHTML = !next ? t('done.last') : t(this.forSale(next) ? 'done.nextSale' : 'done.next', { name: escapeHtml(chapterText(next, 'name')) });
-    $('done-rate').classList.toggle('hidden', !ask);
-    $('done-rate-text').textContent = t('rate.ask');
-    $('done-rate-go').classList.remove('hidden');
+    $('done-rate').classList.add('hidden');
     this.show('done');
     const panel = $('scr-done').querySelector<HTMLElement>('.panel')!;
     this.confetti($('scr-done'), panel, 70);
+  }
+
+  /** The chapter card's button to the game's page on Google Play, for when Play's own rating card can't be asked for. */
+  offerRating(): void {
+    $('done-rate-text').textContent = t('rate.ask');
+    $('done-rate-go').classList.remove('hidden');
+    $('done-rate').classList.remove('hidden');
   }
 
   /** The chapter card's rating ask, once the player has gone to rate the game. */

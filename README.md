@@ -54,7 +54,7 @@ The web build, the Android app and the desktop app are the same game code. Every
 - **UI profile** (`uiProfile`, on `<html data-ui>`): `touch` in the Android app and in browsers whose main pointer is a finger, `desktop` otherwise. Touch hides key hints and doesn't move focus to buttons. Desktop shows the keys and, on screens 900 px and wider, tightens buttons and the toolbar so more of the screen is bridge.
 - **Level caps** (`levelCaps`): any build loads a custom level up to 96 m wide, but on a touch device the editor stops growing one at 64 m, where a phone's screen and physics still keep up. A wider level from a desktop keeps its width when edited on a phone.
 - **Storage, files and sharing**: device storage, level export and shared bridges (a download in the browser, a save dialog on desktop, the share sheet on Android and in browsers that have one), links that open a shared bridge, and the clipboard.
-- **Android only**: the back button, haptics, Google Play Games and the full-game unlock.
+- **Android only** (Android 9 and up): the back button, haptics, app shortcuts, Google Play Games, the full-game unlock and Play's in-app rating card.
 
 Each shell's side is loaded on demand (`src/native.ts` for Android, `desktop/src/bridge.js` for desktop), so the web build carries none of it.
 

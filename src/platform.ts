@@ -203,7 +203,7 @@ export const billing = {
 /** The hidden code that opens every level for testing works on the web and desktop builds only. */
 export const canOpenAll = platform !== 'android';
 
-/** The Android app can send players to its page on Google Play to rate it. */
+/** The Android app can ask players to rate it on Google Play. */
 export const canRate = platform === 'android';
 
 /**
@@ -216,6 +216,15 @@ export const canRotate = platform === 'android';
 /** Turns the screen to the other orientation. Rejects where it can't. */
 export function rotateScreen(): Promise<void> {
   return native?.rotate() ?? Promise.reject(new Error('No screen to turn here'));
+}
+
+/**
+ * Asks Google Play for its rating card inside the game. Play has a quota and never says whether the
+ * card showed, so this can't hang off a button, which might then do nothing. Resolves either way;
+ * rejects only when Play can't be asked.
+ */
+export function requestReview(): Promise<void> {
+  return native?.requestReview() ?? Promise.reject(new Error('No Google Play here'));
 }
 
 /** Opens the game's page on Google Play. Rejects where there is no Play Store to open. */

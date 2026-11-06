@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_continue">続ける</string>
+    <string name="shortcut_editor_short">エディター</string>
+    <string name="shortcut_editor_long">ステージエディター</string>
+</resources>

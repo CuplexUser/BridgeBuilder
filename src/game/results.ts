@@ -1,13 +1,16 @@
 import { sfx } from '../audio';
 import { challengeBoard, chapterById, chapterComplete, CHAPTERS, highestUnlocked, levelById, nextInChapter, totals, type ChapterDef } from '../chapters';
 import { LEVELS } from '../levels';
-import { canRate } from '../platform';
+import { canRate, requestReview } from '../platform';
 import { loadRate, saveRate, shouldAsk } from '../rating';
 import { scoreLevel, type LevelScore } from '../scoring';
 import { bestPerLevel, rankProfiles } from '../storage';
 import { MAX_LIVES, type Board, type Game } from './game';
 import { fmt, t } from '../i18n';
 import { chapterText } from '../i18n/data';
+
+/** How long a chapter's card shows before Play's rating card may come up over it, ms: the celebration comes first. */
+const RATING_DELAY = 1200;
 
 /** How a run ends: the result card and its score, a collapse, the next level, game over, and the leaderboards. */
 export class Results {
@@ -115,11 +118,20 @@ export class Results {
     this.doneOpen = ch;
     sfx.fanfare();
     this.game.haptics.celebrate();
+    this.game.ui.chapterDone(ch, this.game.data.best, CHAPTERS[CHAPTERS.indexOf(ch) + 1]);
     // A chapter finished well, a while into the game, is when a rating on Google Play is asked for.
+    if (canRate && shouldAsk(ch, this.game.data.best, loadRate())) setTimeout(() => this.askForRating(ch), RATING_DELAY);
+  }
+
+  /** Play's rating card over the chapter's, or the card's own button if Play can't be asked. */
+  private askForRating(ch: ChapterDef): void {
+    // A player who has already moved on isn't interrupted, and the ask is kept for a later chapter.
+    if (this.doneOpen !== ch) return;
     const rate = loadRate();
-    const ask = canRate && shouldAsk(ch, this.game.data.best, rate);
-    if (ask) saveRate({ ...rate, asked: rate.asked + 1 });
-    this.game.ui.chapterDone(ch, this.game.data.best, CHAPTERS[CHAPTERS.indexOf(ch) + 1], ask);
+    saveRate({ ...rate, asked: rate.asked + 1 });
+    requestReview().catch(() => {
+      if (this.doneOpen === ch) this.game.ui.offerRating();
+    });
   }
 
   /** On to the map, where the road into the next chapter is laid. */

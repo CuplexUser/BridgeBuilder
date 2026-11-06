@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A long press on the app's icon. src/main.ts reads each intent's data and presses that title screen button. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="continue"
+        android:icon="@drawable/ic_shortcut_continue"
+        android:shortcutShortLabel="@string/shortcut_continue"
+        android:shortcutLongLabel="@string/shortcut_continue">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="se.cuplex.bridgebuilder"
+            android:targetClass="se.cuplex.bridgebuilder.MainActivity"
+            android:data="bridgebuilder://continue" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="editor"
+        android:icon="@drawable/ic_shortcut_editor"
+        android:shortcutShortLabel="@string/shortcut_editor_short"
+        android:shortcutLongLabel="@string/shortcut_editor_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="se.cuplex.bridgebuilder"
+            android:targetClass="se.cuplex.bridgebuilder.MainActivity"
+            android:data="bridgebuilder://editor" />
+    </shortcut>
+</shortcuts>

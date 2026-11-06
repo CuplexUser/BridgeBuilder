@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_continue">Fortsätt</string>
+    <string name="shortcut_editor_short">Redigerare</string>
+    <string name="shortcut_editor_long">Banredigerare</string>
+</resources>
