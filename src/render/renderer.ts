@@ -45,6 +45,8 @@ export interface SceneView {
   /** Wheel spin per vehicle: rear, front. */
   wheelAngles: [number, number][];
   floats: FloatText[];
+  /** The screen height under the HUD, which floating words stay below. */
+  floatTop?: number;
   /**
    * A member or joint picked on the stress graph, ringed on the bridge, and where the members that
    * had broken by then stood. The run is drawn as it was at that moment.
@@ -329,7 +331,7 @@ export class Renderer extends ScenePart {
     if (!v.still) this.effects.drawParticles();
     if (v.develop > 0) this.scenery.drawWeather(v);
     if (v.level.wind) this.scenery.drawWind(v, v.level.wind);
-    this.effects.drawFloats(v.floats);
+    this.effects.drawFloats(v.floats, v.floatTop ?? 0);
 
     if (v.develop > 0) {
       ctx.globalAlpha = v.develop;

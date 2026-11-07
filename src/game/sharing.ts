@@ -166,7 +166,7 @@ export class Sharing {
     g.chapter = chapterOf(s.level);
     g.loadLevel(LEVELS.indexOf(levelById(s.level)));
     this.leaveAfter = !open;
-    g.startExample({ design, note: t(open ? 'share.watch' : 'share.watchLocked', { name: s.name || '?' }) });
+    g.startExample({ design, note: t(open ? 'share.watch' : 'share.watchLocked', { name: s.name || '?', key: g.backKey() }) });
   }
 
   /** A custom level from a link goes in the workshop, the first time, and its bridge drives on it there. */
@@ -195,7 +195,7 @@ export class Sharing {
     g.mode = 'custom';
     g.customLevel = level;
     g.loadLevel(g.levelIdx);
-    g.startExample({ design, note: t(added ? 'share.watchNew' : 'share.watch', { name: s.name || '?' }) });
+    g.startExample({ design, note: t(added ? 'share.watchNew' : 'share.watch', { name: s.name || '?', key: g.backKey() }) });
   }
 }
 

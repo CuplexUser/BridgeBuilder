@@ -15,7 +15,7 @@ import { motion } from '../motion';
 import { music, type MusicState } from '../music';
 import { type MaterialId } from '../physics/materials';
 import { TestRun } from '../physics/testrun';
-import { billing, canOpenAll, games, hasPaywall, isDebugApp, openListing, richHaptics, vibrate, type BillingStatus } from '../platform';
+import { billing, canOpenAll, games, hasPaywall, isDebugApp, openListing, richHaptics, uiProfile, vibrate, type BillingStatus } from '../platform';
 import { PlayGamesLink } from '../playgames';
 import { loadRate, saveRate } from '../rating';
 import { Camera, type Rect } from '../render/camera';
@@ -564,11 +564,17 @@ export class Game {
     this.debris.clear();
     this.drive.resetWheels(this.run);
     this.ui.setTesting(true);
+    this.refreshHud();
     // Long enough to read, then out of the way: the point is to watch the bridge.
-    this.ui.showToast(shown?.note ?? t('toast.example'), EXAMPLE_NOTE_MS);
+    this.ui.showToast(shown?.note ?? t('toast.example', { key: this.backKey() }), EXAMPLE_NOTE_MS);
     this.fitCamera(false);
     sfx.whoosh();
     sfx.engineStart(this.drive.engineBase());
+  }
+
+  /** What a note about a bridge being shown tells the player to press to leave it: a key, or the button for a finger. */
+  backKey(): string {
+    return uiProfile === 'touch' ? t('tool.edit') : 'T';
   }
 
   private closeBrief(): void {
@@ -991,7 +997,8 @@ export class Game {
     const r = (await this.store.levelScores().catch(() => [])).find((x) => x.level === id && x.name === name);
     this.playLevel(id);
     const detail = r ? recordDetail(r) : '';
-    this.startExample({ design, note: detail ? t('toast.recordDetail', { name, detail }) : t('toast.record', { name }) });
+    const key = this.backKey();
+    this.startExample({ design, note: detail ? t('toast.recordDetail', { name, detail, key }) : t('toast.record', { name, key }) });
   }
 
   /** Asks before ending a challenge run, over whichever screen asked to quit. */
@@ -1067,7 +1074,8 @@ export class Game {
     const ed = this.editor;
     if (!ed) return;
     this.ui.setMaterials(this.level, ed.mat, ed.left(), (m) => ed.partsLeft(m));
-    this.ui.setBudget(ed.spent(), this.level.money, this.level.target);
+    // A bridge being shown isn't the player's: the meter reads what it cost.
+    this.ui.setBudget(this.example && this.run ? this.run.design.cost() : ed.spent(), this.level.money, this.level.target);
     if (this.mode === 'challenge') {
       this.ui.setLives(this.lives, MAX_LIVES);
       this.ui.setScore(t('hud.challenge', { score: this.runScore }));
@@ -1177,7 +1185,8 @@ export class Game {
     const playing = this.state === 'build' || this.state === 'test';
     // Phones stack the budget meter under the HUD's top row, and the toolbar's tools under its materials.
     const top = playing ? (w < 560 ? 104 : 70) : 20;
-    const bottom = playing ? (w < 560 ? 140 : 96) : 20;
+    // On a phone on its side, only EDIT stays during a run: see #toolbar.running in the stylesheet.
+    const bottom = !playing ? 20 : w < 560 ? 140 : this.state === 'test' && h <= 520 ? 40 : 96;
     return { x: 12, y: top, w: w - 24, h: Math.max(100, h - top - bottom) };
   }
 
@@ -1270,6 +1279,7 @@ export class Game {
       flash: still ? 0 : this.flash,
       wheelAngles: this.drive.wheelAngles,
       floats: still ? [] : this.floats,
+      floatTop: this.viewRect().y,
       highlight: still ? null : this.stress.highlight(),
       still: still || this.stress.graphOpen,
       maker: this.maker.makerView(),

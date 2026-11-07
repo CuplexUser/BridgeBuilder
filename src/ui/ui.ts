@@ -273,6 +273,7 @@ export class Ui {
     this.undoBtn.disabled = this.redoBtn.disabled = this.clearBtn.disabled = testing;
     $<HTMLButtonElement>('btn-brief').disabled = testing;
     this.toast.classList.toggle('running', testing);
+    $('toolbar').classList.toggle('running', testing);
   }
 
   setMuted(m: boolean): void {

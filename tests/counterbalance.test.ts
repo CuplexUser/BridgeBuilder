@@ -83,6 +83,22 @@ describe('Counterbalance chapter', () => {
     });
   }
 
+  it('stands every tower in the game on something: the water, a pier or a bank', () => {
+    const floating: string[] = [];
+    for (const c of CHAPTERS) {
+      for (const id of c.levels) {
+        const l = levelById(id);
+        for (const [x, base] of l.towers ?? []) {
+          const onWater = base <= l.waterY;
+          const onPier = l.piers.some(([px, py]) => px === x && py === base);
+          const onBank = (x <= 0 || x >= l.width) && base >= l.waterY;
+          if (!onWater && !onPier && !onBank) floating.push(`${id} ${l.name}: tower at ${x}, base ${base}, water ${l.waterY}`);
+        }
+      }
+    }
+    expect(floating).toEqual([]);
+  });
+
   it('keeps its English tips to what the level editor allows', () => {
     for (const id of IDS) expect(levelById(id).tip.length).toBeLessThanOrEqual(200);
   });

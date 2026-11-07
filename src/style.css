@@ -1226,12 +1226,34 @@ kbd {
   }
 }
 
-/* A phone on its side has the least room: one slim line where it fits. */
+/*
+ * A phone on its side has the least room. Nothing can be built during a run, so the materials and
+ * tools step aside for the view (Game.viewRect allows for it), leaving EDIT in the corner with the
+ * note beside it.
+ */
 @media (max-height: 520px) and (min-width: 561px) {
+  #toolbar.running {
+    justify-content: flex-end;
+    padding: 0 calc(12px + var(--safe-r)) calc(8px + var(--safe-b)) calc(12px + var(--safe-l));
+    background: none;
+  }
+  #toolbar.running .mats,
+  #toolbar.running .tools {
+    display: none;
+  }
+  #toolbar.running .go-btn {
+    min-height: 44px;
+    padding: 0 16px;
+    font-size: 15px;
+  }
   #toast.running {
-    max-width: min(92vw, 720px);
+    left: calc(12px + var(--safe-l));
+    bottom: calc(8px + var(--safe-b));
+    transform: none;
+    max-width: calc(100vw - 190px - var(--safe-l) - var(--safe-r));
     padding: 5px 12px;
     font-size: 13px;
+    text-align: left;
   }
 }
 

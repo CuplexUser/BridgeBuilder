@@ -68,7 +68,7 @@ export class Effects extends ScenePart {
     ctx.globalAlpha = 1;
   }
 
-  drawFloats(floats: FloatText[]): void {
+  drawFloats(floats: FloatText[], top = 0): void {
     const { ctx, cam } = this;
     for (const f of floats) {
       const t = f.life / f.max;
@@ -78,7 +78,7 @@ export class Effects extends ScenePart {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const x = cam.sx(f.x);
-      const y = cam.sy(f.y);
+      const y = Math.max(cam.sy(f.y), top + f.size * 0.7);
       ctx.lineWidth = 4;
       ctx.strokeStyle = 'rgba(8,16,32,0.8)';
       ctx.strokeText(f.text, x, y);

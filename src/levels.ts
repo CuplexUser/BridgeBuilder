@@ -1950,7 +1950,7 @@ export const BASE_LEVELS: LevelBase[] = [
       [0, 0],
       [2, 7],
     ],
-    towers: [[2, -3, 7]],
+    towers: [[2, -6, 7]],
     piers: [[9, 0]],
     channels: [[5, 8.5, 0]],
     ship: { mast: 4 },
