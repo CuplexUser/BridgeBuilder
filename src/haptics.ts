@@ -221,7 +221,7 @@ export class HapticFeel {
       const angle = this.quakeAngle + (2 * Math.PI * freq * i * QUAKE_STEP_MS) / 1000;
       return Math.round(QUAKE_MAX * strength * (0.25 + 0.75 * Math.abs(Math.sin(angle))));
     });
-    this.play(new Array<number>(steps).fill(QUAKE_STEP_MS), amps);
+    this.play(Array.from({ length: steps }, () => QUAKE_STEP_MS), amps);
     this.step = -1;
     this.sentAt = t;
   }
