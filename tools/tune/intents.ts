@@ -3,7 +3,7 @@ import { bankY, mudAt, type BonusGoal, type GeometryKey, type LevelDef } from '.
 import { rings } from '../../src/masonry';
 import { MATERIALS, type MaterialId } from '../../src/physics/materials';
 import { crossesChannel } from '../../src/rules';
-import { archBridge, blockArch, blockGirder, blockTower, deck, doubleBascule, doubleDeck, hang, liftOff, pileBridge, roadRun, SOLUTIONS, suspend, swingBridge, trussOver, warrenAbove, type TrussMats } from '../../src/solutions';
+import { archBridge, balancedLeaf, blockArch, blockGirder, blockTower, deck, doubleBascule, doubleDeck, hang, liftOff, pileBridge, roadRun, rollingDeck, SOLUTIONS, suspend, swingBridge, trussOver, warrenAbove, winchLeaf, type TrussMats } from '../../src/solutions';
 
 /** A level's geometry for one choice of its tunable parameters. */
 export type Shape = Partial<Pick<LevelDef, GeometryKey>>;
@@ -560,6 +560,35 @@ export const INTENTS: Record<number, Intent> = {
           return d;
         },
       },
+    ],
+  },
+  // Counterbalance. The same leaf with nothing behind its hinge is too much for the small ram.
+  92: { requires: ['ballast'], shortcuts: [{ name: 'no ballast', build: (l) => balancedLeaf(l, 0) }] },
+  // The longer leaf needs all the ballast its tail can carry.
+  93: {
+    requires: ['ballast'],
+    shortcuts: [
+      { name: 'no ballast', build: (l) => balancedLeaf(l, 0, { ...HEAVY, vert: 'steel' }) },
+      { name: 'one meter of ballast', build: (l) => balancedLeaf(l, 1, { ...HEAVY, vert: 'steel' }) },
+    ],
+  },
+  // Tied on close to the hinge, a winch pulls too flat to lift the leaf.
+  94: { requires: ['winch'], shortcuts: [{ name: 'a winch close to the hinge', build: (l) => winchLeaf(l, [4, 2]) }] },
+  // A span joined to its approaches can't rise.
+  95: {
+    requires: ['winch'],
+    shortcuts: [{ name: 'one deck from bank to bank', build: (l) => joinedLift(l, 'road').add([6, 9], [8, 0], 'winch').add([14, 9], [12, 0], 'winch') }],
+  },
+  // A long tail may do instead of ballast, at a price, but a short bare one tips.
+  96: { shortcuts: [{ name: 'a short tail with no ballast', build: (l) => rollingDeck(l, 'road', HEAVY, false) }] },
+  // No room for a long tail here.
+  97: { requires: ['ballast'], shortcuts: [{ name: 'no ballast', build: (l) => rollingDeck(l, 'road', STEELY, false) }] },
+  // The semi needs heavy deck, and heavy deck needs ballast to roll.
+  98: {
+    requires: ['heavy', 'ballast'],
+    shortcuts: [
+      { name: 'road deck', build: (l) => rollingDeck(l, 'road', STEELY) },
+      { name: 'no ballast', build: (l) => rollingDeck(l, 'heavy', STEELY, false) },
     ],
   },
 };

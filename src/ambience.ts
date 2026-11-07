@@ -8,7 +8,7 @@ interface Layer {
 }
 
 /** Scenes where a ship's horn carries over the water. */
-const HORNS = new Set(['harbor', 'estuary']);
+const HORNS = new Set(['harbor', 'estuary', 'canal']);
 /** Scenes with thunder in the rain. */
 const THUNDER = new Set(['storm']);
 
@@ -59,7 +59,7 @@ export class Ambience {
   }
 
   private build(th: Theme): Layer[] {
-    const city = th.land === 'city';
+    const city = th.land === 'city' || th.land === 'port';
     const layers: Layer[] = [];
     const storm = THUNDER.has(th.id);
     layers.push(this.wind(storm ? 0.35 : th.weather === 'snow' ? 0.16 : city ? 0.05 : 0.08, storm ? 900 : th.weather === 'snow' ? 1400 : 500, storm));

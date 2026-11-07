@@ -3,7 +3,7 @@ import { fmt, t as tr } from './i18n';
 import { matInline } from './i18n/data';
 import { q as fine } from './design';
 import { seatPiers, type BonusGoal, type LevelDef, type Overhang, type Pt, type Tower } from './levels';
-import { MATERIAL_ORDER, MATERIALS, type MaterialId } from './physics/materials';
+import { MAKER_MATERIALS, MATERIALS, type MaterialId } from './physics/materials';
 import { VEHICLES, type VehicleId } from './physics/vehicles';
 import { THEMES } from './render/themes';
 import { safeLocalStorage, type KeyValue } from './storage';
@@ -196,7 +196,7 @@ export function toggleRock(l: LevelDef, x: number, y: number): { ok: boolean; ms
   if (l.channels?.some(([c0, c1]) => c0 < b && c1 > a)) return fail(tr('mkr.inChannel'));
   rocks.push([a, b, y]);
   rocks.sort((p, q) => p[0] - q[0]);
-  if (!l.materials.includes('masonry')) l.materials = MATERIAL_ORDER.filter((m) => m === 'masonry' || m === 'arch' || l.materials.includes(m));
+  if (!l.materials.includes('masonry')) l.materials = MAKER_MATERIALS.filter((m) => m === 'masonry' || m === 'arch' || l.materials.includes(m));
   return { ok: true, msg: tr('mkr.rockAdded') };
 }
 
@@ -292,7 +292,7 @@ export function addChannel(l: LevelDef, x0: number, x1: number, top: number): { 
   let msg = tr('mkr.channelAdded', { w: b - a, top: `${t >= 0 ? '+' : ''}${fmt.dec(t)}` });
   if (first && !l.ship) {
     l.ship = { mast: Math.min(20, Math.max(DEFAULT_MAST, Math.ceil(t) + DEFAULT_MAST)) };
-    if (!l.materials.includes('ram')) l.materials = MATERIAL_ORDER.filter((m) => m === 'ram' || l.materials.includes(m));
+    if (!l.materials.includes('ram')) l.materials = MAKER_MATERIALS.filter((m) => m === 'ram' || l.materials.includes(m));
     msg += ` · ${tr('mkr.tallShip', { mast: l.ship.mast })}`;
   }
   return { ok: true, msg };
@@ -491,7 +491,7 @@ export function parseLevel(json: string, id: number): LevelDef {
   });
 
   const offered = new Set(Array.isArray(r.materials) ? r.materials.filter(isMaterial) : []);
-  const materials = MATERIAL_ORDER.filter((m) => offered.has(m));
+  const materials = MAKER_MATERIALS.filter((m) => offered.has(m));
   if (!materials.length) materials.push('road', 'wood');
   const vehicle: VehicleId = isVehicle(r.vehicle) ? r.vehicle : 'car';
   const convoy = (Array.isArray(r.convoy) ? r.convoy.filter(isVehicle) : []).slice(0, LIMITS.maxConvoy - 1);

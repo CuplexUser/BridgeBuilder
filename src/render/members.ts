@@ -155,7 +155,7 @@ export class Members extends ScenePart {
     ctx.save();
     ctx.translate(-LIGHT[0] * drop, -LIGHT[1] * drop);
     for (const [mat, list] of byMat) {
-      if (mat !== 'cable' && mat !== 'tendon') stroke(list, 0, PAL.castShadow, width(mat) + 2, mat === 'concrete' || mat === 'arch' || mat === 'masonry' ? 'butt' : 'round');
+      if (mat !== 'cable' && mat !== 'tendon' && mat !== 'winch') stroke(list, 0, PAL.castShadow, width(mat) + 2, mat === 'concrete' || mat === 'arch' || mat === 'masonry' ? 'butt' : 'round');
     }
     ctx.restore();
     for (const [mat, list] of byMat) {
@@ -243,6 +243,20 @@ export class Members extends ScenePart {
         case 'ram':
           for (const sg of list) this.ramShape(sg.ax, sg.ay, sg.bx, sg.by, w, false);
           break;
+        case 'ballast':
+          // Cast iron slabs stacked along the member, a seam between each.
+          stroke(list, 0, PAL.ballastDark, w + 2, 'butt');
+          stroke(list, 0, PAL.ballast, w, 'butt');
+          stroke(list, w * 0.32, PAL.stoneLit, Math.max(1, w * 0.14), 'butt');
+          stroke(list, -w * 0.32, PAL.stoneShade, Math.max(1, w * 0.18), 'butt');
+          if (w > 5) stroke(list, 0, PAL.ballastDark, w, 'butt', [Math.max(1.5, w * 0.08), Math.max(4, w * 0.5)]);
+          break;
+        case 'winch':
+          stroke(list, 0, PAL.winchDark, w + 1.5);
+          stroke(list, 0, PAL.winch, w);
+          // A drum on whichever end is higher, winding the cable in.
+          for (const sg of list) this.winchDrum(sg.ay < sg.by ? sg.ax : sg.bx, Math.min(sg.ay, sg.by), false);
+          break;
         case 'damper':
           for (const sg of list) this.damperShape(sg.ax, sg.ay, sg.bx, sg.by, w, false, sg.rest, sg.motion);
           break;
@@ -275,7 +289,7 @@ export class Members extends ScenePart {
       const s = Number(key.split(' ')[1]) / 20;
       const w = width(mat);
       const dash = stressLook.dashed && s > SAFE_STRESS ? [w * 0.9, w * 0.6] : null;
-      stroke(list, 0, stressColor(s, 0.35 + 0.6 * Math.min(1, s * 1.3)), Math.max(1.5, w * (MATERIALS[mat].drivable ? 0.3 : mat === 'cable' ? 0.9 : mat === 'main' ? 0.7 : mat === 'concrete' || mat === 'arch' ? 0.35 : 0.55)), 'butt', dash);
+      stroke(list, 0, stressColor(s, 0.35 + 0.6 * Math.min(1, s * 1.3)), Math.max(1.5, w * (MATERIALS[mat].drivable ? 0.3 : mat === 'cable' || mat === 'winch' ? 0.9 : mat === 'main' ? 0.7 : mat === 'concrete' || mat === 'arch' ? 0.35 : 0.55)), 'butt', dash);
     }
     // Members near failure throb, each at its own strength.
     const pulse = 0.75 + 0.25 * Math.sin(time * 18);
@@ -316,11 +330,24 @@ export class Members extends ScenePart {
       this.damperShape(ax, ay, bx, by, w, true);
       return;
     }
-    if (mat === 'cable') ctx.setLineDash([6, 3]);
+    if (mat === 'cable' || mat === 'winch') ctx.setLineDash([6, 3]);
+    ctx.strokeStyle = MATERIAL_CHALK[mat];
     ctx.lineWidth = w;
     ctx.stroke();
     ctx.setLineDash([]);
-    if (MATERIALS[mat].drivable && w > 5) {
+    if (mat === 'winch') {
+      this.winchDrum(ay < by ? ax : bx, Math.min(ay, by), true);
+    } else if (mat === 'ballast' && w > 5) {
+      // Outlined, with a seam between the slabs.
+      ctx.strokeStyle = PAL.paper;
+      ctx.lineWidth = Math.max(1, w - 4);
+      ctx.lineCap = 'butt';
+      ctx.stroke();
+      ctx.strokeStyle = MATERIAL_CHALK.ballast;
+      ctx.setLineDash([1.5, Math.max(4, w * 0.5)]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    } else if (MATERIALS[mat].drivable && w > 5) {
       ctx.setLineDash([w, w]);
       ctx.lineDashOffset = -Math.min(ax, bx);
       ctx.strokeStyle = PAL.paper;
@@ -414,6 +441,27 @@ export class Members extends ScenePart {
       ctx.stroke();
     }
     ctx.restore();
+  }
+
+  /** A winch's drum at its upper end: a round hub with a spoke. Chalk on the blueprint, painted in the scene. */
+  private winchDrum(x: number, y: number, chalk: boolean): void {
+    const { ctx, cam } = this;
+    // Wider than the bolt it usually turns on, so it shows around it.
+    const r = Math.max(5, 0.42 * cam.scale);
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, TAU);
+    ctx.fillStyle = chalk ? PAL.paper : PAL.winch;
+    ctx.fill();
+    ctx.strokeStyle = chalk ? MATERIAL_CHALK.winch : PAL.winchDark;
+    ctx.lineWidth = Math.max(1.5, r * 0.3);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x - r * 0.55, y);
+    ctx.lineTo(x + r * 0.55, y);
+    ctx.moveTo(x, y - r * 0.55);
+    ctx.lineTo(x, y + r * 0.55);
+    ctx.lineWidth = Math.max(1, r * 0.18);
+    ctx.stroke();
   }
 
   /**

@@ -52,6 +52,8 @@
   --heavy: #d6dbe3;
   --cable: #c7a6ff;
   --ram: #ff6ad5;
+  --ballast: #a9b4c2;
+  --winch: #7fe8d4;
   --chrome: #e9eef4;
   --main: #ff8f5a;
   --concrete: #d8cfbe;
@@ -885,6 +887,31 @@ kbd {
   box-shadow: none;
 }
 
+.mat[data-mat='ballast'] {
+  --c: var(--ballast);
+}
+
+.mat[data-mat='ballast'] i {
+  /* Three iron slabs side by side. */
+  width: 22px;
+  height: 11px;
+  border-radius: 1px;
+  background: repeating-linear-gradient(to right, var(--ballast) 0 6px, transparent 6px 8px);
+  box-shadow: none;
+}
+
+.mat[data-mat='winch'] {
+  --c: var(--winch);
+}
+
+.mat[data-mat='winch'] i {
+  /* A drum on the end of a thin cable. */
+  height: 9px;
+  border-radius: 2px;
+  background: radial-gradient(circle at 4.5px center, var(--winch) 0 4px, transparent 4.5px), linear-gradient(var(--winch), var(--winch)) right center / 75% 2px no-repeat;
+  box-shadow: none;
+}
+
 .mat[data-mat='ram'] {
   --c: var(--ram);
 }
@@ -1167,6 +1194,8 @@ kbd {
   left: 50%;
   top: calc(74px + var(--safe-t));
   transform: translate(-50%, -10px);
+  /* Without this, left: 50% leaves it only half the window to wrap in. */
+  width: max-content;
   max-width: min(90vw, 520px);
   padding: 10px 16px;
   border-radius: var(--r);
@@ -1182,6 +1211,28 @@ kbd {
 .toast.show {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+
+/* During a run a note sits low, just above the toolbar, over the water: a raised bridge fills the sky. */
+#toast.running {
+  top: auto;
+  bottom: calc(86px + var(--safe-b));
+}
+
+/* A phone's toolbar has two rows. */
+@media (max-width: 560px) {
+  #toast.running {
+    bottom: calc(138px + var(--safe-b));
+  }
+}
+
+/* A phone on its side has the least room: one slim line where it fits. */
+@media (max-height: 520px) and (min-width: 561px) {
+  #toast.running {
+    max-width: min(92vw, 720px);
+    padding: 5px 12px;
+    font-size: 13px;
+  }
 }
 
 /* ───────── Screens ───────── */

@@ -15,7 +15,7 @@ import { motion } from '../motion';
 import { music, type MusicState } from '../music';
 import { type MaterialId } from '../physics/materials';
 import { TestRun } from '../physics/testrun';
-import { billing, canOpenAll, games, hasPaywall, openListing, richHaptics, vibrate, type BillingStatus } from '../platform';
+import { billing, canOpenAll, games, hasPaywall, isDebugApp, openListing, richHaptics, vibrate, type BillingStatus } from '../platform';
 import { PlayGamesLink } from '../playgames';
 import { loadRate, saveRate } from '../rating';
 import { Camera, type Rect } from '../render/camera';
@@ -42,6 +42,8 @@ export const MAX_LIVES = 5;
 const START_LIVES = 3;
 /** Where the app remembers that the full game was bought, for when Google Play can't be asked. */
 const OWNED_KEY = 'bridgebuilder.fullgame';
+/** How long the note over a level's example or someone else's bridge stays up, ms. */
+const EXAMPLE_NOTE_MS = 7000;
 
 /** A grid point as players read it, e.g. "4, 2.5". */
 function gridText(p: [number, number]): string {
@@ -51,6 +53,11 @@ function gridText(p: [number, number]): string {
 /** How far past each bank edge to frame the build view: a little ground, or the whole anchor strip. */
 export function sideRoom(level: LevelDef): number {
   return level.blocks ? level.blocks.reach + 1.5 : 2.5;
+}
+
+/** The same past the far bank, where a rolling deck's tail may be built too. */
+export function farRoom(level: LevelDef): number {
+  return level.retract ? Math.max(sideRoom(level), level.retract.bay + 1.5) : sideRoom(level);
 }
 
 /**
@@ -166,7 +173,7 @@ export class Game {
     this.ui.setMuted(this.prefs.muted);
     this.haptics.enabled = this.prefs.haptics !== false;
     void richHaptics().then((rich) => (this.haptics.rich = rich));
-    setOpenAll(canOpenAll && this.prefs.openAll === true);
+    setOpenAll(isDebugApp() || (canOpenAll && this.prefs.openAll === true));
     this.settings.apply();
     this.ui.forSale = (c) => this.forSale(c);
     this.ui.fps.classList.toggle('hidden', !this.debug);
@@ -557,7 +564,8 @@ export class Game {
     this.debris.clear();
     this.drive.resetWheels(this.run);
     this.ui.setTesting(true);
-    this.ui.showToast(shown?.note ?? t('toast.example'), 120000);
+    // Long enough to read, then out of the way: the point is to watch the bridge.
+    this.ui.showToast(shown?.note ?? t('toast.example'), EXAMPLE_NOTE_MS);
     this.fitCamera(false);
     sfx.whoosh();
     sfx.engineStart(this.drive.engineBase());
@@ -714,7 +722,7 @@ export class Game {
 
   /** A chapter past the free ones in a build with a paywall, while the full game isn't bought. */
   forSale(ch: ChapterDef): boolean {
-    return hasPaywall && !this.owned && inFullGame(ch);
+    return hasPaywall && !this.owned && !isDebugApp() && inFullGame(ch);
   }
 
   /**
@@ -1176,8 +1184,7 @@ export class Game {
   buildBounds(): [number, number, number, number] {
     const L = this.level;
     const top = this.editor?.topY ?? 4;
-    const side = sideRoom(L);
-    return [-side, L.width + side, L.waterY - 0.5, top + 0.5];
+    return [-sideRoom(L), L.width + farRoom(L), L.waterY - 0.5, top + 0.5];
   }
 
   testBounds(): [number, number, number, number] {
@@ -1187,7 +1194,9 @@ export class Game {
     const top = Math.max(4, bankY(L) + 4, ...L.anchors.map((a) => a[1] + 2.5), ...(L.masts ?? []).map((m) => m[2] + 2.5), ...built);
     // Oncoming traffic waits out on the right bank as far as the rest wait on the left.
     const right = L.oncoming ? L.width - START_X + 2 : goalX(L) + 2.5;
-    return [Math.min(START_X - 2, -sideRoom(L)), Math.max(right, L.width + sideRoom(L)), L.waterY - 1, top];
+    // A rolling deck stays in view all the way back along its rail.
+    const rolled = L.retract ? L.retract.carriage[0] + L.retract.travel + 2 : 0;
+    return [Math.min(START_X - 2, -sideRoom(L)), Math.max(right, rolled, L.width + farRoom(L)), L.waterY - 1, top];
   }
 
   fitCamera(snap: boolean): void {
@@ -1197,7 +1206,11 @@ export class Game {
 
   /** Frames the whole test scene, or tracks the vehicle when that would be too small to read. */
   frameTest(run: TestRun, vr: Rect, padBottom = 0, padTop = 0): void {
-    const [x0, x1, y0, y1] = this.testBounds();
+    const [x0, x1, y0, top] = this.testBounds();
+    // A long leaf swings higher than the bridge stands: ease out to keep its tip in view while it's up.
+    const w = run.world;
+    let y1 = top;
+    if (w.openness > 0 && run.status === 'running') for (let i = 0; i < w.count; i++) y1 = Math.max(y1, w.y[i] + 1);
     this.cam.fit(x0, x1, y0 - padBottom, y1 + padTop, vr);
     const minScale = this.renderer.h > this.renderer.w * 1.2 ? 30 : 22;
     if (this.cam.tscale >= minScale) return;

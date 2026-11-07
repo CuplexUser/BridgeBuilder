@@ -477,7 +477,8 @@ export class Editor {
   private groundSide(x: number, y: number): number {
     const L = this.level;
     if (x <= 1e-9 && Math.abs(y) < 1e-9) return -1;
-    if (x >= L.width - 1e-9 && Math.abs(y - (L.rightY ?? 0)) < 1e-9) return 1;
+    // A rolling deck's tail lies along this bank on purpose, on the rail.
+    if (x >= L.width - 1e-9 && Math.abs(y - (L.rightY ?? 0)) < 1e-9) return L.retract ? 0 : 1;
     return 0;
   }
 

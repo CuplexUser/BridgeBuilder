@@ -88,8 +88,10 @@ export function lowOverStrip(level: LevelDef, x: number, y: number): boolean {
 export function pointAllowed(level: LevelDef, x: number, y: number): boolean {
   if (y > topY(level) || y <= level.waterY + 0.5) return false;
   if (x < -1e-9 || x > level.width + 1e-9) {
-    // Over a bank that offers concrete anchors, high enough to keep the road clear.
     const back = behindBank(level, x);
+    // Over the bay a retractable deck rolls back into, on or above its rail.
+    if (level.retract && x > level.width) return back <= level.retract.bay + 1e-9 && y >= level.retract.carriage[1] - 1e-9;
+    // Over a bank that offers concrete anchors, high enough to keep the road clear.
     if (!level.blocks || back > level.blocks.reach + 1e-6 || y < bankTop(level, x) + BLOCK.clearance - 1e-9) return false;
     return !(level.overhangs ?? []).some((o) => (o.side === 'left') === x < 0 && y > o.bottom - 0.3);
   }
@@ -120,6 +122,11 @@ export function designProblems(level: LevelDef, d: Design, opts: { budget?: bool
   const { nodes, members } = d;
   for (const [x, y] of level.anchors) if (d.findNode(x, y) < 0) out.push(`missing anchor ${x},${y}`);
   for (const [x, , y] of level.masts ?? []) if (d.findNode(x, y) < 0) out.push(`missing mast top ${x},${y}`);
+  // A leaf with no bolt at its far end still has to reach the bank: a stub leaves traffic to hop the gap.
+  if (level.ship && !level.retract && !level.anchors.some(([x, y]) => x === level.width && y === bankY(level))) {
+    const end = d.findNode(level.width, bankY(level));
+    if (!members.some((m) => (m.a === end || m.b === end) && MATERIALS[m.mat].drivable)) out.push('the deck stops short of the far bank');
+  }
   nodes.forEach((n, i) => {
     if (n.block && !blockSpot(level, n.x, n.y)) out.push(`concrete anchor ${n.x},${n.y} not on an anchor spot`);
     if (n.anchor) return;

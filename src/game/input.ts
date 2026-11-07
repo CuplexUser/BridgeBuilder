@@ -5,7 +5,7 @@ import type { SagHandle } from '../editor';
 import { PAL } from '../render/palette';
 import { canRotate, rotateScreen } from '../platform';
 import { offeredInOrder } from '../ui/ui';
-import { sideRoom, type Board, type Game } from './game';
+import { farRoom, sideRoom, type Board, type Game } from './game';
 import { t } from '../i18n';
 
 interface PointerInfo {
@@ -628,7 +628,7 @@ export class Input {
       const nx = ed.cursorX + dx;
       const ny = ed.cursorY + dy;
       const side = sideRoom(this.game.level) - 1.5;
-      if (nx < -side || nx > this.game.level.width + side || ny > ed.topY || ny < this.game.level.waterY + 1) return;
+      if (nx < -side || nx > this.game.level.width + farRoom(this.game.level) - 1.5 || ny > ed.topY || ny < this.game.level.waterY + 1) return;
       ed.cursorX = nx;
       ed.cursorY = ny;
       sfx.tick();

@@ -9,7 +9,7 @@ const WOOD_LOAD = 0.75;
 
 /** What a successful test says about the material in the bridge. */
 export interface Efficiency {
-  /** Members of parts that never carried more than IDLE_LOAD, leaving out the deck, rams and steel that wood could replace. */
+  /** Members of parts that never carried more than IDLE_LOAD, leaving out the deck, what drives the bridge, ballast and steel that wood could replace. */
   idle: number[];
   /** Parts among them, and what they cost. */
   idleParts: number;
@@ -37,7 +37,7 @@ export function efficiency(level: LevelDef, d: Design, pull: ArrayLike<number>, 
   const out: Efficiency = { idle: [], idleParts: 0, idleCost: 0, toWood: [], woodParts: 0, woodSaving: 0 };
   for (const members of groups.values()) {
     const mat = MATERIALS[d.members[members[0]].mat];
-    if (mat.drivable || mat.stroke) continue;
+    if (mat.drivable || mat.stroke || mat.deadWeight) continue;
     // Steel first: the forces it carried, against what wood of the same length can take.
     const woodFits =
       mat.id === 'steel' &&

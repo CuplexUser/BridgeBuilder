@@ -114,7 +114,8 @@ describe('Heavy Haul chapter', () => {
   const ids = [85, 86, 87, 88, 89, 90, 91];
 
   it('comes after the finale, in its own scene', () => {
-    expect(CHAPTERS.at(-1)!.levels).toEqual(ids);
+    expect(CHAPTERS.find((c) => c.name === 'Heavy Haul')!.levels).toEqual(ids);
+    expect(CHAPTERS.findIndex((c) => c.name === 'Heavy Haul')).toBeGreaterThan(CHAPTERS.findIndex((c) => c.name === 'Grand Finale'));
     for (const id of ids) expect(THEMES[sceneOf(id)].id).toBe('highland');
   });
 

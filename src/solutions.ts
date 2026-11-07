@@ -797,7 +797,100 @@ export const SOLUTIONS: Record<number, (l: LevelDef) => Design> = {
   },
   // Grand Viaduct's design: block arches between towers of blocks, which take the turbine's push to the rock.
   91: (l) => SOLUTIONS[50](l),
+  // A small ram, and ballast on a tail behind the hinge to balance the leaf.
+  92: (l) => balancedLeaf(l, 1),
+  // The tail braced from its far end, steel only at the hinge, the ram and the bank's prop.
+  93: (l) =>
+    laid(l, {
+      road: [[0, 0, 2, 0], [2, 0, 3, 0], [3, 0, 5, 0], [5, 0, 7, 0], [7, 0, 9, 0], [9, 0, 11, 0], [11, 0, 13, 0]],
+      steel: [[0, -3, 2, 0], [3, 0, 5, 2], [5, 0, 5, 2], [5, 2, 7, 0], [3, 0, 3, 2], [3, 2, 5, 2], [3, 2, 2, 1], [0, 1, 3, 0]],
+      wood: [[11, 2, 13, 0], [7, 0, 7, 2], [9, 0, 9, 2], [11, 0, 11, 2], [5, 2, 7, 2], [7, 2, 9, 2], [7, 2, 9, 0], [9, 2, 11, 2], [11, 2, 9, 0], [2, 1, 3, 0], [0, 1, 3, 2]],
+      ram: [[5, -2, 5, 0]],
+      ballast: [[2, 1, 0, 1]],
+    }),
+  // A leaf from the bank, hung from the tower by one winch on its top chord, steel only by the hinge: what the ghost traces.
+  94: (l) =>
+    laid(l, {
+      road: [[0, 0, 2, 0], [2, 0, 4, 0], [4, 0, 6, 0], [6, 0, 8, 0], [8, 0, 10, 0]],
+      steel: [[0, 0, 2, 2], [2, 2, 4, 2]],
+      wood: [[8, 2, 10, 0], [2, 0, 2, 2], [4, 0, 4, 2], [6, 0, 6, 2], [8, 0, 8, 2], [2, 2, 4, 0], [4, 2, 6, 2], [4, 2, 6, 0], [6, 2, 8, 2], [8, 2, 6, 0]],
+      winch: [[2, 7, 6, 2]],
+    }),
+  // A lift bridge with a winch from each tower top to the span's king-post truss in place of rams, and
+  // a short wood truss on each approach, steel where it lands on the seat.
+  95: (l) =>
+    laid(l, {
+      road: [[0, 0, 2, 0], [2, 0, 4, 0], [4, 0, 6, 0], [14, 0, 16, 0], [16, 0, 18, 0], [18, 0, 20, 0], [6, 0, 8, 0], [8, 0, 10, 0], [10, 0, 12, 0], [12, 0, 14, 0]],
+      wood: [[0, 0, 2, 2], [2, 0, 2, 2], [4, 0, 4, 2], [2, 2, 4, 2], [2, 2, 4, 0], [14, 0, 16, 2], [16, 0, 16, 2], [18, 0, 18, 2], [16, 2, 18, 2], [16, 2, 18, 0], [8, 0, 8, 2], [12, 0, 12, 2], [8, 2, 10, 0], [12, 2, 10, 0]],
+      steel: [[4, 2, 6, 0], [18, 2, 20, 0]],
+      winch: [[6, 9, 8, 2], [14, 9, 12, 2]],
+    }),
+  // A wood truss over the whole deck, with ballast standing on its tail: what the ghost traces.
+  96: (l) =>
+    laid(l, {
+      road: [[0, 0, 2, 0], [2, 0, 4, 0], [4, 0, 6, 0], [6, 0, 8, 0], [8, 0, 10, 0], [10, 0, 12, 0]],
+      wood: [[0, 0, 2, 2], [10, 2, 12, 0], [2, 0, 2, 2], [4, 0, 4, 2], [8, 0, 8, 2], [2, 2, 4, 2], [2, 2, 4, 0], [4, 2, 6, 2], [4, 2, 6, 0], [6, 2, 8, 2], [8, 2, 6, 0], [8, 2, 10, 2], [10, 2, 8, 0], [12, 2, 10, 2]],
+      ballast: [[12, 0, 12, 2]],
+    }),
+  // Steel from the bank back, where the deck hangs out over the roller; wood toward the nose.
+  97: (l) =>
+    laid(l, {
+      road: [[0, 0, 2, 0], [2, 0, 4, 0], [4, 0, 6, 0], [6, 0, 8, 0], [8, 0, 10, 0], [10, 0, 12, 0], [12, 0, 14, 0]],
+      steel: [[0, 0, 2, 2], [12, 2, 14, 0], [10, 0, 10, 2], [2, 2, 4, 2], [6, 2, 8, 2], [6, 2, 8, 0], [8, 2, 10, 2], [10, 2, 8, 0], [10, 2, 12, 2], [12, 2, 10, 0]],
+      wood: [[2, 0, 2, 2], [4, 0, 4, 2], [6, 0, 6, 2], [2, 2, 4, 0], [4, 2, 6, 2], [4, 2, 6, 0], [14, 2, 12, 2]],
+      ballast: [[14, 0, 14, 2]],
+    }),
+  98: (l) =>
+    laid(l, {
+      heavy: [[0, 0, 2, 0], [2, 0, 4, 0], [4, 0, 6, 0], [6, 0, 8, 0], [8, 0, 10, 0], [10, 0, 12, 0], [12, 0, 14, 0]],
+      steel: [[0, 0, 2, 2], [12, 2, 14, 0], [10, 0, 10, 2], [12, 0, 12, 2], [2, 2, 4, 2], [4, 2, 6, 2], [6, 2, 8, 2], [6, 2, 8, 0], [8, 2, 10, 2], [10, 2, 8, 0], [10, 2, 12, 2]],
+      wood: [[2, 0, 2, 2], [4, 0, 4, 2], [6, 0, 6, 2], [2, 2, 4, 0], [4, 2, 6, 0], [14, 2, 12, 2]],
+      ballast: [[14, 0, 14, 2]],
+    }),
 };
+
+/** A design from lists of members, each [ax, ay, bx, by]: for a lean bridge no pattern describes. */
+function laid(l: LevelDef, parts: Partial<Record<MaterialId, number[][]>>): Design {
+  const d = new Design(l);
+  for (const [mat, list] of Object.entries(parts) as [MaterialId, number[][]][]) for (const [ax, ay, bx, by] of list) d.add([ax, ay], [bx, by], mat);
+  return d;
+}
+
+/**
+ * A leaf on the pier's bolt with a ram 2 m out, and an approach propped from the bank's low bolt.
+ * Behind the hinge, a steel tail loaded with `ballast` meters of ballast; 2 m of it takes a brace.
+ */
+export function balancedLeaf(l: LevelDef, ballast: 0 | 1 | 2, m: TrussMats = STEELY): Design {
+  const d = new Design(l);
+  roadRun(d, [0, 0], [3, 0]);
+  d.add([0, -3], [2, 0], 'steel');
+  trussOver(d, roadRun(d, [3, 0], [l.width, 0]), 2, m);
+  d.add([5, -2], [5, 0], 'ram');
+  if (ballast) {
+    const end: GridPt = [2 - ballast, 1];
+    d.add([3, 0], [3, 2], 'steel').add([3, 2], [5, 2], 'steel').add([3, 2], [2, 1], 'steel').add([2, 1], [3, 0], 'steel');
+    d.add([2, 1], end, 'ballast').add(end, [3, 0], 'steel');
+    if (ballast > 1) d.add(end, [3, 2], 'steel');
+  }
+  return d;
+}
+
+/** A leaf hinged on the bank with a truss over it, and a winch from the tower's top to `at`. */
+export function winchLeaf(l: LevelDef, at: GridPt, m: TrussMats = HEAVY): Design {
+  const d = new Design(l);
+  trussOver(d, roadRun(d, [0, 0], [l.width, 0]), 2, m);
+  const [x, , top] = l.towers![0];
+  return d.add([x, top], at, 'winch');
+}
+
+/** A truss over a deck that runs on to the carriage, with or without ballast standing on its tail. */
+export function rollingDeck(l: LevelDef, deckMat: MaterialId, m: TrussMats, ballast = true): Design {
+  const d = new Design(l);
+  const [c, y] = l.retract!.carriage;
+  trussOver(d, roadRun(d, [0, 0], [c, y], deckMat), 2, m);
+  if (ballast) d.add([c, y], [c, y + 2], 'ballast').add([c, y + 2], [c - 2, y + 2], 'steel');
+  return d;
+}
 
 
 /** Out of a flood's way: a truss over the road on each span, on bare posts up from the piers. */

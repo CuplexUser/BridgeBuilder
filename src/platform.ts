@@ -218,6 +218,14 @@ export const billing = {
 /** The hidden code that opens every level for testing works on the web and desktop builds only. */
 export const canOpenAll = platform !== 'android';
 
+/**
+ * True in a debug APK of the Android app, which has no keyboard for that code and can't buy the
+ * full game: every level is simply open, past the paywall. Android reports it, so a release can't.
+ */
+export function isDebugApp(): boolean {
+  return native?.debuggable === true;
+}
+
 /** The Android app can ask players to rate it on Google Play. */
 export const canRate = platform === 'android';
 

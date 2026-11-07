@@ -4,9 +4,9 @@
  */
 
 /** Silhouette of the distant land layers. */
-export type Land = 'hills' | 'mesa' | 'flat' | 'dunes' | 'peaks' | 'city' | 'volcano';
+export type Land = 'hills' | 'mesa' | 'flat' | 'dunes' | 'peaks' | 'city' | 'volcano' | 'port';
 /** What grows (or stands) along the banks. */
-export type Flora = 'mixed' | 'cactus' | 'willow' | 'palm' | 'pine' | 'lamps' | 'vents';
+export type Flora = 'mixed' | 'cactus' | 'willow' | 'palm' | 'pine' | 'lamps' | 'vents' | 'dock';
 export type Weather = 'clear' | 'rain' | 'snow' | 'ash';
 
 export interface Theme {
@@ -489,5 +489,34 @@ export const THEMES: Theme[] = [
     night: false,
     birds: false,
     lava: '255,96,40',
+  },
+  {
+    id: 'canal',
+    name: 'Canal port',
+    sky: ['#3a5674', '#8aa6b4', '#f0d2a6'],
+    sun: { x: 0.68, y: 0.7, r: 0.055, color: '#fff0cf', glow: '255,214,160' },
+    stars: false,
+    clouds: { rgb: '226,232,236', alpha: 0.3, count: 7, scale: 1.4 },
+    land: 'port',
+    mountain: '#7a8c9c',
+    hillFar: '#566878',
+    hillNear: '#3c4a56',
+    snowCaps: false,
+    flora: 'dock',
+    tree: '#2d3640',
+    grass: '#8c8f90',
+    grassDark: '#5a5e62',
+    tufts: false,
+    rock: '#6b6660',
+    rockDark: '#3e3a36',
+    waterTop: '#46828a',
+    waterDeep: '#143844',
+    waterFront: 'rgba(40,110,120,0.55)',
+    foam: '#dcefee',
+    glint: 'rgba(255,226,180,0.55)',
+    vignette: 'rgba(14,24,34,0.35)',
+    weather: 'clear',
+    night: false,
+    birds: true,
   },
 ];

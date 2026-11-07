@@ -1,4 +1,4 @@
-export type MaterialId = 'road' | 'heavy' | 'track' | 'wood' | 'steel' | 'cable' | 'main' | 'concrete' | 'masonry' | 'arch' | 'ram' | 'damper' | 'tendon';
+export type MaterialId = 'road' | 'heavy' | 'track' | 'wood' | 'steel' | 'cable' | 'main' | 'concrete' | 'masonry' | 'arch' | 'ram' | 'damper' | 'tendon' | 'ballast' | 'winch';
 
 export interface Material {
   id: MaterialId;
@@ -65,8 +65,13 @@ export interface Material {
    * carries bending without cracking where it's pulled apart.
    */
   prestress?: number;
-  /** How much longer it gets when a drawbridge opens, as a share of its built length. 0 for fixed members. */
+  /**
+   * How much longer it gets when a drawbridge opens, as a share of its built length: negative for a
+   * winch, which shortens. 0 for fixed members.
+   */
   stroke: number;
+  /** Carried for its weight, not its strength, so a light load on it is no waste. */
+  deadWeight?: boolean;
   /**
    * A damper: besides its soft spring, it resists how fast its ends move apart or together with
    * this many newtons per m/s, turning a swinging bridge's motion into heat.
@@ -354,9 +359,57 @@ export const MATERIALS: Record<MaterialId, Material> = {
     // 75°; based under the hinge instead, it runs out of reach and breaks something.
     stroke: 0.75,
   },
+  // A counterweight: slabs of concrete and scrap iron, bought for their weight. Laid on a leaf's tail
+  // it balances the leaf about its hinge, so the machinery only has to tip it.
+  ballast: {
+    id: 'ballast',
+    name: 'Ballast',
+    price: 100,
+    short: 'Ballast',
+    maxLen: 2,
+    density: 1600,
+    EA: 2e7,
+    tension: 200000,
+    compression: 320000,
+    buckleRef: 8,
+    bend: 0,
+    bendLimit: 0,
+    rating: 0,
+    drivable: false,
+    runs: false,
+    tensionOnly: false,
+    stroke: 0,
+    deadWeight: true,
+  },
+  // A winch and its cable: pulls only, and winds in as the bridge opens. Gravity lets the load back down.
+  winch: {
+    id: 'winch',
+    name: 'Winch',
+    price: 200,
+    short: 'Winch',
+    maxLen: 10,
+    density: 8,
+    EA: 6e6,
+    tension: 120000,
+    compression: Infinity,
+    buckleRef: 1,
+    bend: 0,
+    bendLimit: 0,
+    rating: 0,
+    drivable: false,
+    runs: false,
+    tensionOnly: true,
+    stroke: -0.7,
+  },
 };
 
-export const MATERIAL_ORDER: MaterialId[] = ['road', 'heavy', 'track', 'wood', 'steel', 'cable', 'ram', 'main', 'concrete', 'masonry', 'arch', 'tendon', 'damper'];
+export const MATERIAL_ORDER: MaterialId[] = ['road', 'heavy', 'track', 'wood', 'steel', 'cable', 'ram', 'winch', 'ballast', 'main', 'concrete', 'masonry', 'arch', 'tendon', 'damper'];
+
+/**
+ * Materials the level editor offers: all but those that came with the Counterbalance chapter, which
+ * it doesn't support yet. See TODO.md.
+ */
+export const MAKER_MATERIALS: MaterialId[] = MATERIAL_ORDER.filter((m) => m !== 'winch' && m !== 'ballast');
 
 /** Effective compressive capacity for a member of the given rest length. */
 export function compressionLimit(m: Material, len: number): number {

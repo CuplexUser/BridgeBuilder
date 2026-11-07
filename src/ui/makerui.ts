@@ -3,7 +3,7 @@ import { traffic } from '../brief';
 import { money } from '../editor';
 import type { BonusGoal, LevelDef } from '../levels';
 import { FLOOD_CURRENT, LIMITS, makerIssues, makerWarnings, MAX_BLOCK_REACH, MAX_FLOOD, setSize, type MakerTool } from '../maker';
-import { MATERIAL_ORDER, type MaterialId } from '../physics/materials';
+import { MAKER_MATERIALS, type MaterialId } from '../physics/materials';
 import { VEHICLES, type VehicleId } from '../physics/vehicles';
 import { levelCaps } from '../platform';
 import { THEMES } from '../render/themes';
@@ -39,7 +39,7 @@ export class MakerUi {
       set.appendChild(b);
       this.toolBtns.set(id, b);
     });
-    $('mk-mats').innerHTML = MATERIAL_ORDER.map(
+    $('mk-mats').innerHTML = MAKER_MATERIALS.map(
       (m) =>
         `<div class="mk-mat" data-mat="${m}"><label><input type="checkbox" id="mk-mat-${m}" /> <span class="mk-mat-name"></span></label>` +
         `<label class="mk-limit"><span class="mk-max"></span> <input type="number" id="mk-limit-${m}" min="0" step="1" placeholder="∞" /></label></div>`,
@@ -84,7 +84,7 @@ export class MakerUi {
       el.querySelector<HTMLElement>('.mk-limit')!.title = t('mkr.limitTitle');
       el.querySelector('.mk-max')!.textContent = t('mkr.max');
     }
-    keep('mk-bonus-mat', MATERIAL_ORDER.map((m) => `<option value="${m}">${escapeHtml(matName(m))}</option>`).join(''));
+    keep('mk-bonus-mat', MAKER_MATERIALS.map((m) => `<option value="${m}">${escapeHtml(matName(m))}</option>`).join(''));
     keep('mk-tune-level', (Object.keys(TUNE_DIFFICULTIES) as TuneDifficulty[]).map((d) => `<option value="${d}">${t(`tune.${d}` as Key)}</option>`).join(''));
     if (!this.tuneTimer) $('mk-tune-btn').textContent = t('mkr.autoTune');
   }
@@ -229,7 +229,7 @@ export class MakerUi {
     for (const i of FOLLOWERS) put(`mk-convoy-${i}`, l.convoy?.[i - 1] ?? '');
     put('mk-mast', l.ship?.mast ?? 0);
     $<HTMLInputElement>('mk-mast').disabled = !l.channels?.length;
-    for (const m of MATERIAL_ORDER) {
+    for (const m of MAKER_MATERIALS) {
       const on = l.materials.includes(m);
       $<HTMLInputElement>(`mk-mat-${m}`).checked = on;
       const lim = $<HTMLInputElement>(`mk-limit-${m}`);
@@ -264,7 +264,7 @@ export class MakerUi {
     const mast = Math.round(n('mk-mast', 0));
     if (mast > 0 && l.channels?.length) l.ship = { mast: Math.min(20, mast) };
     else delete l.ship;
-    const mats = MATERIAL_ORDER.filter((m) => $<HTMLInputElement>(`mk-mat-${m}`).checked);
+    const mats = MAKER_MATERIALS.filter((m) => $<HTMLInputElement>(`mk-mat-${m}`).checked);
     l.materials = mats.length ? mats : ['road'];
     const limits: Partial<Record<MaterialId, number>> = {};
     for (const m of l.materials) {

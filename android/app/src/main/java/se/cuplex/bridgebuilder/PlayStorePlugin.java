@@ -2,7 +2,9 @@ package se.cuplex.bridgebuilder;
 
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
 import android.net.Uri;
+import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
@@ -32,6 +34,16 @@ public class PlayStorePlugin extends Plugin {
             }
             manager.launchReviewFlow(getActivity(), request.getResult()).addOnCompleteListener(flow -> call.resolve());
         });
+    }
+
+    /**
+     * Whether this APK is a debug build, as Android itself records it. A build uploaded to Play can
+     * never say yes, so what this opens for testing can't reach a player.
+     */
+    @PluginMethod
+    public void debuggable(PluginCall call) {
+        boolean debuggable = (getContext().getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+        call.resolve(new JSObject().put("debuggable", debuggable));
     }
 
     @PluginMethod

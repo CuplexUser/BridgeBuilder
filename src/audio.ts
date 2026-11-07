@@ -153,10 +153,10 @@ export class Sfx {
   }
 
   crack(mat: MaterialId | null): void {
-    if (mat === 'steel' || mat === 'ram' || mat === 'damper') {
+    if (mat === 'steel' || mat === 'ram' || mat === 'damper' || mat === 'ballast') {
       this.tone(1900, 0.5, 'sine', 0.12, 700);
       this.burst(0.3, 0.6, 'highpass', 2500, 0.7);
-    } else if (mat === 'main') {
+    } else if (mat === 'main' || mat === 'winch') {
       // A thick cable lets go with a long, falling twang.
       this.tone(420, 0.7, 'sawtooth', 0.1, 140);
       this.burst(0.25, 0.6, 'highpass', 2000, 0.6);

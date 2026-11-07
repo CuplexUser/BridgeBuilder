@@ -7,7 +7,7 @@ export const TAU = Math.PI * 2;
 /** How deep a pile reaches below the mud it stands in, as drawn, m. */
 export const PILE_DEPTH = 6;
 
-export const MEMBER_WIDTH: Record<MaterialId, number> = { road: 0.3, heavy: 0.36, wood: 0.17, steel: 0.15, cable: 0.06, main: 0.14, concrete: 0.34, masonry: 0.3, arch: 0.42, track: 0.36, ram: 0.2, damper: 0.16, tendon: 0.08 };
+export const MEMBER_WIDTH: Record<MaterialId, number> = { road: 0.3, heavy: 0.36, wood: 0.17, steel: 0.15, cable: 0.06, main: 0.14, concrete: 0.34, masonry: 0.3, arch: 0.42, track: 0.36, ram: 0.2, damper: 0.16, tendon: 0.08, ballast: 0.5, winch: 0.09 };
 
 /** Piers, and the footing under each mast's hinge: concrete columns up from the riverbed. */
 export function footings(L: LevelDef): [number, number][] {

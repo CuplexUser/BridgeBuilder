@@ -74,6 +74,14 @@ export const CLOSE_TIME = 3;
 export const SHIP_HALF = 1.2;
 /** How long a waiting ship gives the traffic to clear before the bridge opens, s. */
 export const SHIP_WAIT = 0.5;
+/** How long a retractable deck takes to roll back or home, s: a whole span moves, so slower than a leaf. */
+export const ROLL_TIME = 6;
+/** How far a retractable deck's tail may rise off its rail, m, before the deck has tipped. */
+export const TIP_LIFT = 0.25;
+/** How fast jacks let a retractable deck's nose down off the near bank, m/s. */
+const JACK_LOWER = 0.25;
+/** How far above its jacks a retractable deck's nose has to be, m, to have come off them. */
+const NOSE_CLEAR = 0.05;
 /** A seated joint this far above its pier, m, has lifted off and is no longer held. */
 const SEAT_SLACK = 1e-3;
 /** A member sunk this far below a seat, m, has gone under the pier top rather than onto it. */
@@ -100,6 +108,8 @@ export interface Link {
   stress: number;
   tensionLimit: number;
   compressionLimit: number;
+  /** What it can take while the bridge moves, N, on a level with small machinery; 0 for no such limit. */
+  drive: number;
   /** Seconds since placement, used by the renderer for the settle wobble. */
   age: number;
   /** Weight of the heaviest vehicle whose wheel touched this deck piece this step, tonnes. */
@@ -118,6 +128,31 @@ export interface Link {
   viscous: number;
   /** The damper's force this step so far, summed over substeps, N: tension positive. */
   damp: number;
+}
+
+/** A retractable deck: a carriage on the far bank's rail, and a roller at the bank's edge. */
+export interface Retract {
+  /** The carriage's joint: its x follows the bridge's opening, and it can lift off the rail. */
+  p: number;
+  x0: number;
+  /** The rail's height, and the x of the roller at its end. */
+  y: number;
+  edge: number;
+  travel: number;
+  /** The opening as of the last step, to move the carriage smoothly across this one. */
+  open: number;
+  /** Deck pieces, any of which may be riding over the roller. */
+  deck: Link[];
+  /** Free joints of the bridge: none may go below the rail once over the bank. */
+  joints: number[];
+  /** The deck's joints at rail height, the carriage's among them: one lifting off the rail behind the roller means the deck has tipped. */
+  tail: number[];
+  /** The deck's nose on the near bank, or -1, the height it rests at, and how far its jacks have let it down. */
+  nose: number;
+  noseY: number;
+  jack: number;
+  /** The nose has come off its jacks, and hangs free until the deck is home. */
+  free: boolean;
 }
 
 /** A joint resting on a pier top at (x, y). */
@@ -244,6 +279,8 @@ export class World {
   guides: { p: number; x: number }[] = [];
   /** A double-leaf drawbridge's center lock: the two leaf tips it holds level while the bridge is shut. */
   lock: [number, number] | null = null;
+  /** A retractable bridge's carriage, rail and roller. */
+  retract: Retract | null = null;
   /** Members passing over a pier with no bolt: borne up there while they bear down, free once they lift. */
   rests: Rest[] = [];
   breaks: BreakEvent[] = [];
@@ -372,6 +409,7 @@ export class World {
       stress: 0,
       tensionLimit: Infinity,
       compressionLimit: Infinity,
+      drive: 0,
       age: 0,
       pressTonnes: 0,
       crushed: false,
@@ -454,6 +492,7 @@ export class World {
       this.solveSeats();
       for (const b of this.bearings) this.y[b.p] = b.y;
       for (const rail of this.guides) this.x[rail.p] = rail.x;
+      if (this.retract) this.roll((s + 1) / SUBSTEPS, h);
       if (this.swingEnds.length) this.restEnds(h);
       if (this.lock && this.openness === 0) this.holdLock();
       this.solveRock();
@@ -470,6 +509,7 @@ export class World {
       this.dampMembers(h);
       this.time += h;
     }
+    if (this.retract) this.retract.open = this.openness;
 
     // Particles that fell far below the water are parked so they cost nothing.
     for (let i = 0; i < n; i++) {
@@ -846,6 +886,51 @@ export class World {
     y[q] -= (dy * im[q]) / w;
   }
 
+  /**
+   * A retractable deck: the carriage travels along its rail, `f` of the way through this step's
+   * change of opening, and can only press on it, so a nose-heavy deck lifts it. Nothing may sink
+   * below the rail over the bank, and the roller at the bank's edge carries the deck piece over it.
+   * Jacks ease the nose down off the near bank, so the span takes its weight as a cantilever
+   * gently, and lift it back up once it's home.
+   */
+  private roll(f: number, h: number): void {
+    const r = this.retract!;
+    const { x, y, im } = this;
+    x[r.p] = r.x0 + r.travel * (r.open + (this.openness - r.open) * f);
+    if (y[r.p] < r.y) y[r.p] = r.y;
+    for (const p of r.joints) if (x[p] >= r.edge && y[p] < r.y) y[p] = r.y;
+    if (r.nose >= 0) {
+      const shut = this.openness === 0;
+      // Home again, the jacks come up under the nose where it hangs, and lift it to the bank.
+      if (shut && r.free) {
+        r.free = false;
+        r.jack = Math.max(0, r.noseY - y[r.nose]);
+      }
+      if (!r.free) {
+        r.jack = shut ? Math.max(0, r.jack - JACK_SPEED * h) : r.jack + JACK_LOWER * h;
+        const floor = r.noseY - r.jack;
+        if (y[r.nose] < floor) y[r.nose] = floor;
+        else if (!shut && y[r.nose] > floor + NOSE_CLEAR) r.free = true;
+      }
+    }
+    for (const l of r.deck) {
+      if (l.broken) continue;
+      const { a, b } = l;
+      const dx = x[b] - x[a];
+      if (Math.abs(dx) < 1e-9) continue;
+      const t = (r.edge - x[a]) / dx;
+      if (t <= 0 || t >= 1) continue;
+      const sink = r.y - (y[a] + (y[b] - y[a]) * t);
+      if (sink <= 0 || sink > REST_DEPTH) continue;
+      const wa = im[a] * (1 - t);
+      const wb = im[b] * t;
+      const w = wa * (1 - t) + wb * t;
+      if (w === 0) continue;
+      y[a] += (wa * sink) / w;
+      y[b] += (wb * sink) / w;
+    }
+  }
+
   /** A swing bridge's road ends bear on the banks only while it's shut, lifted back up there by jacks. */
   private restEnds(h: number): void {
     const y = this.y;
@@ -1113,7 +1198,9 @@ export class World {
         force += l.damp / SUBSTEPS;
         l.damp = 0;
       }
-      let ratio = force >= 0 ? force / l.tensionLimit : force / l.compressionLimit;
+      const limit = force >= 0 ? l.tensionLimit : l.compressionLimit;
+      // Small machinery is only at its limit moving the bridge; shut, it's locked at full strength.
+      let ratio = force / (l.drive && this.openness > 0 ? Math.min(limit, l.drive) : limit);
       // A vehicle over the deck's rating crushes each piece it stands on, within a few frames.
       if (l.pressTonnes > 0) {
         const over = l.pressTonnes / mat.rating;

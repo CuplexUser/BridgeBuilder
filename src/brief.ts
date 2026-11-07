@@ -91,16 +91,22 @@ function rules(l: LevelDef): string[] {
   const defs = [l.vehicle, ...(l.convoy ?? [])].map((v) => VEHICLES[v]);
   if (l.swing) {
     out.push(`${t('rule.swing', { mast: l.ship?.mast ?? 0, pivot: l.swing.pivot })} ${t(l.ship?.after ? 'rule.swingAfter' : 'rule.swingThen')}`);
+  } else if (l.retract) {
+    out.push(t(l.ship?.after ? 'rule.retractAfter' : 'rule.retract', { mast: l.ship?.mast ?? 0, travel: l.retract.travel, bay: l.retract.bay }));
   } else if (l.ship?.after) {
     out.push(t('rule.shipAfter', { mast: l.ship.mast }));
+  } else if (l.ship && l.materials.includes('winch')) {
+    out.push(t('rule.winch', { mast: l.ship.mast, pct: fmt.pct(-MATERIALS.winch.stroke) }));
   } else if (l.ship) {
     out.push(t('rule.ship', { mast: l.ship.mast }));
   } else if (l.channels?.length) {
     const top = Math.max(...l.channels.map((c) => c[2]));
     out.push(t('rule.channel', { top: `${top >= 0 ? '+' : ''}${fmt.dec(top)}` }));
   }
+  if (l.drive) out.push(t('rule.drive', { kn: Math.round(l.drive / 1000) }));
+  if (l.materials.includes('ballast')) out.push(t('rule.ballast', { t: fmt.dec(MATERIALS.ballast.density / 1000) }));
   if (l.lock !== undefined) out.push(t('rule.lock', { at: l.lock }));
-  if (l.lift?.length) out.push(t('rule.lift', { where: fmt.list(l.lift.map(meters)) }));
+  if (l.lift?.length) out.push(t(l.materials.includes('winch') ? 'rule.liftWinch' : 'rule.lift', { where: fmt.list(l.lift.map(meters)) }));
   if (l.lower) {
     const low = [l.lower.vehicle, ...(l.lower.convoy ?? [])].map((v) => t('rule.lowerItem', { name: vehicleInline(v) }));
     out.push(t('rule.lower', { who: fmt.list(low), depth: -l.lower.y }));

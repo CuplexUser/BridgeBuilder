@@ -82,9 +82,15 @@ export interface LevelDef {
    * A tall ship sails through the first channel before traffic may go, with its mast up to
    * this height: the bridge has to open for it, on hydraulic rams, and close again. With `after`,
    * the ship waits for the traffic instead: it crosses first, then the bridge opens and the ship
-   * passes.
+   * passes. `time` is how long the bridge takes to open, and again to close, in seconds, for a
+   * heavy bridge that can't be swung at the usual speed.
    */
-  ship?: { mast: number; after?: boolean };
+  ship?: { mast: number; after?: boolean; time?: number };
+  /**
+   * The machinery here is small: every ram and winch breaks past this force, N, however long it is.
+   * A heavy bridge has to be balanced for it to move at all.
+   */
+  drive?: number;
   /**
    * A swing bridge: it opens by turning on the bolt at x = `pivot`, its road ends lifting off the
    * banks, so while it's open the whole bridge hangs from the pivot as a balanced cantilever.
@@ -101,6 +107,14 @@ export interface LevelDef {
    * rails, free to rise and fall but held from swaying along, so rams can lift a span straight up.
    */
   lift?: number[];
+  /**
+   * A retractable bridge: the deck rolls back onto the far bank for the ship, over a roller at the
+   * bank's edge. `carriage` is a bolt on the far bank's rail, listed with the level's anchors, that
+   * travels `travel` m along it as the bridge opens, pulling whatever is built on it. It holds down
+   * nothing, so a deck with too little weight behind the roller tips. Joints may go up to `bay` m
+   * back from the edge, on or above the rail.
+   */
+  retract?: { carriage: Pt; travel: number; bay: number };
   /**
    * The train brakes hard on the bridge once its front reaches x = `at`, comes to a stop, waits
    * `hold` seconds and goes on: its wheels push the deck forward while it stops.
@@ -1856,6 +1870,208 @@ export const BASE_LEVELS: LevelBase[] = [
     oncoming: { vehicle: 'truck' },
     ceiling: 5,
     waterY: -7,
+  },
+  {
+    id: 92,
+    name: 'Balance Beam',
+    tip: "This ram is small: alone it can't lift the leaf. Hang ballast on a short tail behind the hinge, so the leaf is balanced and the ram only has to tip it.",
+    width: 11,
+    anchors: [
+      [0, 0],
+      [0, -3],
+      [3, 0],
+      [5, -2],
+    ],
+    piers: [
+      [3, 0],
+      [5, -2],
+      [10, 0],
+    ],
+    channels: [[7, 9.5, 0]],
+    ship: { mast: 4, time: 4 },
+    drive: 30000,
+    materials: ['road', 'steel', 'ram', 'ballast'],
+    limits: { ram: 1 },
+    vehicle: 'car',
+    waterY: -6,
+    hint: [
+      [[0, 0], [3, 0], 'road'],
+      [[0, -3], [2, 0], 'steel'],
+      [[3, 0], [11, 0], 'road'],
+      [[3, 0], [5, 2], 'steel'],
+      [[5, 2], [7, 2], 'steel'],
+      [[7, 2], [9, 2], 'steel'],
+      [[9, 2], [11, 0], 'steel'],
+      [[5, 0], [5, 2], 'steel'],
+      [[7, 0], [7, 2], 'steel'],
+      [[9, 0], [9, 2], 'steel'],
+      [[5, 2], [7, 0], 'steel'],
+      [[9, 2], [7, 0], 'steel'],
+      [[5, -2], [5, 0], 'ram'],
+      [[3, 0], [3, 2], 'steel'],
+      [[3, 2], [5, 2], 'steel'],
+      [[3, 2], [2, 1], 'steel'],
+      [[2, 1], [3, 0], 'steel'],
+      [[2, 1], [1, 1], 'ballast'],
+      [[1, 1], [3, 0], 'steel'],
+    ],
+    hintSolves: true,
+  },
+  {
+    id: 93,
+    name: 'Long Leaf',
+    tip: 'A longer leaf, a truck to carry, and an even smaller ram. Every meter past the hinge wants more behind it: lay the ballast as far back as the tail reaches, and brace its end.',
+    width: 13,
+    anchors: [
+      [0, 0],
+      [0, -3],
+      [3, 0],
+      [5, -2],
+    ],
+    piers: [
+      [3, 0],
+      [5, -2],
+      [12, 0],
+    ],
+    channels: [[7, 11.5, 0]],
+    ship: { mast: 4, time: 5 },
+    drive: 27000,
+    materials: ['road', 'wood', 'steel', 'ram', 'ballast'],
+    limits: { ram: 1 },
+    vehicle: 'truck',
+    waterY: -6,
+  },
+  {
+    id: 94,
+    name: 'Winch Tower',
+    tip: 'No rams here. A winch is a cable that winds itself in, so the leaf hangs from the tower and rises when it pulls; gravity lowers it. Tie on far along the leaf: near the hinge the pull is too flat.',
+    width: 10,
+    anchors: [
+      [0, 0],
+      [2, 7],
+    ],
+    towers: [[2, -3, 7]],
+    piers: [[9, 0]],
+    channels: [[5, 8.5, 0]],
+    ship: { mast: 4 },
+    materials: ['road', 'wood', 'steel', 'winch'],
+    vehicle: 'truck',
+    waterY: -6,
+    hint: [
+      [[0, 0], [10, 0], 'road'],
+      [[0, 0], [2, 2], 'steel'],
+      [[2, 2], [4, 2], 'steel'],
+      [[4, 2], [6, 2], 'wood'],
+      [[6, 2], [8, 2], 'wood'],
+      [[8, 2], [10, 0], 'wood'],
+      [[2, 0], [2, 2], 'wood'],
+      [[4, 0], [4, 2], 'wood'],
+      [[6, 0], [6, 2], 'wood'],
+      [[8, 0], [8, 2], 'wood'],
+      [[2, 2], [4, 0], 'wood'],
+      [[4, 2], [6, 0], 'wood'],
+      [[8, 2], [6, 0], 'wood'],
+      [[2, 7], [6, 2], 'winch'],
+    ],
+    hintSolves: true,
+  },
+  {
+    id: 95,
+    name: 'Hoist',
+    tip: "A lift bridge with no rams under it. The span rests on the seats, so hang it from the tower tops and let the winches draw it straight up. Keep it apart from the approaches, or it can't rise.",
+    width: 20,
+    anchors: [
+      [0, 0],
+      [20, 0],
+      [0, -3],
+      [20, -3],
+      [6, 9],
+      [14, 9],
+    ],
+    towers: [
+      [6, 0, 9],
+      [14, 0, 9],
+    ],
+    piers: [
+      [6, 0],
+      [14, 0],
+    ],
+    channels: [[8, 12, 0]],
+    ship: { mast: 4 },
+    lift: [6, 14],
+    materials: ['road', 'wood', 'steel', 'winch'],
+    vehicle: 'truck',
+    waterY: -6,
+  },
+  {
+    id: 96,
+    name: 'Rollback',
+    tip: "This deck rolls back along the far bank for the ship, on a carriage bolted to its tail. Over the water it tips on the roller at the bank's edge, so hold the tail down: make it long, or add ballast.",
+    width: 8,
+    anchors: [
+      [0, 0],
+      [12, 0],
+    ],
+    piers: [],
+    channels: [[1.5, 7, 0]],
+    ship: { mast: 4 },
+    retract: { carriage: [12, 0], travel: 7, bay: 9 },
+    materials: ['road', 'wood', 'steel', 'ballast'],
+    vehicle: 'car',
+    waterY: -6,
+    hint: [
+      [[0, 0], [12, 0], 'road'],
+      [[0, 0], [2, 2], 'wood'],
+      [[2, 2], [4, 2], 'wood'],
+      [[4, 2], [6, 2], 'wood'],
+      [[6, 2], [8, 2], 'wood'],
+      [[8, 2], [10, 2], 'wood'],
+      [[10, 2], [12, 0], 'wood'],
+      [[2, 0], [2, 2], 'wood'],
+      [[4, 0], [4, 2], 'wood'],
+      [[8, 0], [8, 2], 'wood'],
+      [[2, 2], [4, 0], 'wood'],
+      [[4, 2], [6, 0], 'wood'],
+      [[8, 2], [6, 0], 'wood'],
+      [[10, 2], [8, 0], 'wood'],
+      [[12, 0], [12, 2], 'ballast'],
+      [[12, 2], [10, 2], 'wood'],
+    ],
+    hintSolves: true,
+  },
+  {
+    id: 97,
+    name: 'Short Bay',
+    tip: 'The quay behind the bank must stay clear while the bridge is shut, so a long tail is out. A truck to carry, and only ballast left to stop the longer deck tipping into the water.',
+    width: 10,
+    anchors: [
+      [0, 0],
+      [14, 0],
+    ],
+    piers: [],
+    channels: [[1.5, 9, 0]],
+    ship: { mast: 4 },
+    retract: { carriage: [14, 0], travel: 9, bay: 5 },
+    materials: ['road', 'heavy', 'wood', 'steel', 'ballast'],
+    vehicle: 'truck',
+    waterY: -6,
+  },
+  {
+    id: 98,
+    name: 'Last Ship',
+    tip: 'A semi crosses first, so heavy deck has to roll too. Then the whole bridge rolls back for the last ship of the day, with all that weight out over the water.',
+    width: 10,
+    anchors: [
+      [0, 0],
+      [14, 0],
+    ],
+    piers: [],
+    channels: [[1.5, 9, 0]],
+    ship: { mast: 4, after: true },
+    retract: { carriage: [14, 0], travel: 9, bay: 5 },
+    materials: ['road', 'heavy', 'wood', 'steel', 'ballast'],
+    vehicle: 'semi',
+    waterY: -6,
   },
 ];
 

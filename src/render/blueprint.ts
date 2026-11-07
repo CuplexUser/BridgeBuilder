@@ -130,6 +130,7 @@ export class Blueprint extends ScenePart {
 
     for (const [px, py] of seatPiers(L)) this.structures.seat(px, py, true);
     if (L.lift?.length) this.structures.liftTowers(L, true);
+    if (L.retract) this.structures.rollingRail(L, L.retract.carriage[0], true);
     // The center lock between two leaves: a short bar across the gap.
     if (L.lock !== undefined) {
       ctx.strokeStyle = PAL.chalk;

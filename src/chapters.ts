@@ -139,6 +139,14 @@ export const CHAPTERS: ChapterDef[] = [
     effort: 'Expert builds · 20–85 parts',
     levels: [85, 86, 87, 88, 89, 90, 91],
   },
+  {
+    id: 14,
+    name: 'Counterbalance',
+    blurb: 'Bridges that move on little power: ballast that balances a leaf, winches that hoist from a tower, and decks that roll back along the bank.',
+    difficulty: 14,
+    effort: 'Medium builds · 15–30 parts',
+    levels: [92, 93, 94, 95, 96, 97, 98],
+  },
 ];
 
 /**
@@ -161,6 +169,7 @@ const SCENES: number[][] = [
   [61, 62, 63, 64, 65, 70],
   [78, 79, 80, 81, 82, 83, 84],
   [85, 86, 87, 88, 89, 90, 91],
+  [92, 93, 94, 95, 96, 97, 98],
 ];
 
 export function sceneOf(levelId: number): number {

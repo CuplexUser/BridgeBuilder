@@ -66,6 +66,7 @@ export const MOODS: Record<string, Mood> = {
   delta: { root: 46, scale: MAJOR, bpm: 114, chords: [0, 2, 3, 4], bridge: [5, 3, 1, 4], lead: 'reed', pad: 'organ', kit: 'shuffle', swing: 0.18 },
   estuary: { root: 52, scale: MAJOR, bpm: 118, chords: [3, 0, 4, 5], bridge: [1, 4, 5, 4], lead: 'bell', pad: 'glass', kit: 'lofi', swing: 0.12 },
   highland: { root: 45, scale: HARMONIC, bpm: 134, chords: [0, 5, 3, 4], bridge: [5, 6, 3, 4], lead: 'brass', pad: 'organ', kit: 'halftime', tense: true },
+  canal: { root: 48, scale: MIXO, bpm: 122, chords: [0, 3, 6, 4], bridge: [3, 6, 0, 4], lead: 'reed', pad: 'glass', kit: 'shuffle', swing: 0.14 },
 };
 
 /** The B section's chords. */

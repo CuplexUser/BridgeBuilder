@@ -37,6 +37,9 @@ describe('chapters', () => {
       [56, [57, 58, 59, 60, 68]],
       [61, [62, 63, 64, 65, 66, 67, 70]],
       [71, [72]],
+      [92, [93]],
+      [94, [95]],
+      [96, [97, 98]],
     ];
     for (const [ghost, uses] of after) for (const id of uses) expect(at(id), `${id} after ${ghost}`).toBeGreaterThan(at(ghost));
   });

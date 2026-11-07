@@ -49,7 +49,9 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
   });
   // Road ends on sliding bearings, or on a swing bridge, move with the bridge, so they have mass.
   const slides = (n: { x: number; y: number; anchor: boolean }) => (!!level.sliding || !!level.swing) && n.anchor && ((n.x === 0 && n.y === 0) || (n.x === level.width && n.y === bankY(level)));
-  design.nodes.forEach((n, i) => world.addParticle(n.x, n.y, n.mast ? mass[i] + MAST.mass : n.anchor && !slides(n) ? 0 : mass[i]));
+  // So do a retractable deck's nose on the near bank and its carriage on the far one.
+  const rolls = (n: { x: number; y: number }) => !!level.retract && ((n.x === 0 && n.y === 0) || (n.x === level.retract.carriage[0] && n.y === level.retract.carriage[1]));
+  design.nodes.forEach((n, i) => world.addParticle(n.x, n.y, n.mast ? mass[i] + MAST.mass : n.anchor && !slides(n) && !rolls(n) ? 0 : mass[i]));
   // The center lock: the leaves' own joints on the lock line, or failing that the deck joints
   // nearest it either side, within a meter of it.
   if (locked.length >= 2) world.lock = [locked[0], locked[1]];
@@ -101,6 +103,7 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
       member: i,
       tensionLimit: mat.tension,
       compressionLimit: compressionLimit(mat, len),
+      drive: mat.stroke && level.drive ? level.drive : 0,
       age: 10,
     });
   });
@@ -115,6 +118,24 @@ export function buildWorld(design: Design, level: LevelDef): { world: World; veh
   for (const [px, py] of level.piers) world.rockPiers.push([px, py]);
   world.rockMasses = (level.rocks ?? []).map(([x0, x1, top]): [number, number, number] => [x0, x1, top]);
   addSeatRests(world, level);
+  if (level.retract) {
+    const [cx, cy] = level.retract.carriage;
+    world.retract = {
+      p: design.findNode(cx, cy),
+      x0: cx,
+      y: cy,
+      edge: level.width,
+      travel: level.retract.travel,
+      open: 0,
+      deck: world.links.filter((l) => l.drivable),
+      joints: design.nodes.flatMap((n, p) => (n.anchor ? [] : [p])),
+      tail: design.nodes.flatMap((n, p) => (n.y === cy ? [p] : [])),
+      nose: design.findNode(0, 0),
+      noseY: 0,
+      jack: 0,
+      free: false,
+    };
+  }
   addDeckBends(world);
   world.indexJoints((p) => p < design.nodes.length && design.nodes[p].anchor);
 

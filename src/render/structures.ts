@@ -396,6 +396,54 @@ export class Structures extends ScenePart {
     }
   }
 
+  /**
+   * A rolling deck's way: the rail along the far bank as far as the carriage goes, a buffer at its
+   * end, the roller at the bank's edge, and the carriage at `x`, where the run has moved it. On the
+   * blueprint a dashed line marks how far back the deck may be built.
+   */
+  rollingRail(L: LevelDef, x: number, chalk: boolean): void {
+    const { ctx, cam } = this;
+    const { carriage, travel, bay } = L.retract!;
+    const y = carriage[1];
+    const W = L.width;
+    const end = carriage[0] + travel + 1;
+    const s = cam.scale;
+    const [x0, x1, top] = [cam.sx(W), cam.sx(end), cam.sy(y) + 0.14 * s];
+    // The rail, with sleepers under it.
+    ctx.fillStyle = chalk ? PAL.chalkDim : PAL.railBed;
+    for (let m = W + 0.25; m < end; m += 0.6) ctx.fillRect(cam.sx(m), top, Math.max(1, 0.2 * s), Math.max(1.5, 0.1 * s));
+    ctx.fillStyle = chalk ? PAL.chalk : PAL.railTop;
+    ctx.fillRect(x0, top - Math.max(1, 0.03 * s), x1 - x0, Math.max(1.5, 0.05 * s));
+    // The buffer at its end.
+    ctx.fillRect(x1 - Math.max(2, 0.12 * s), top - 0.5 * s, Math.max(2, 0.12 * s), 0.5 * s);
+    // The roller, set into the bank's edge.
+    const wheel = (px: number, py: number, r: number) => {
+      ctx.beginPath();
+      ctx.arc(px, py, r, 0, TAU);
+      ctx.fillStyle = chalk ? PAL.paper : PAL.steelDark;
+      ctx.fill();
+      ctx.strokeStyle = chalk ? PAL.chalk : PAL.railTop;
+      ctx.lineWidth = Math.max(1, 0.05 * s);
+      ctx.stroke();
+    };
+    const r = Math.max(3, 0.2 * s);
+    wheel(x0, top + r * 0.2, r);
+    // The carriage: a low frame on two wheels under the deck's bolt.
+    const cx = cam.sx(x);
+    const small = Math.max(2.5, 0.14 * s);
+    wheel(cx - 0.3 * s, top - small * 0.4, small);
+    wheel(cx + 0.3 * s, top - small * 0.4, small);
+    if (!chalk) return;
+    ctx.strokeStyle = PAL.chalkDim;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(cam.sx(W + bay), cam.sy(y));
+    ctx.lineTo(cam.sx(W + bay), cam.sy(y + 4));
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
   /** A lower deck's tunnels through both banks: a dark bore with a lit floor, and a portal arch at each mouth. */
   tunnels(y: number, W: number, chalk: boolean): void {
     const { ctx, cam } = this;

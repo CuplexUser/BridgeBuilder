@@ -97,7 +97,9 @@ export class Ui {
       b.querySelector('.full')!.textContent = matName(id);
       b.querySelector('.short')!.textContent = matShort(id);
       if (MATERIALS[id].drivable) b.title = t('mat.deckTitle', { name: matName(id), t: MATERIALS[id].rating ?? 0 });
+      else if (MATERIALS[id].stroke < 0) b.title = t('mat.winchTitle', { pct: fmt.pct(-MATERIALS[id].stroke) });
       else if (MATERIALS[id].stroke) b.title = t('mat.ramTitle', { pct: fmt.pct(MATERIALS[id].stroke) });
+      else if (MATERIALS[id].deadWeight) b.title = t('mat.ballastTitle');
     }
     for (const p of $('board-chapters').querySelectorAll<HTMLElement>('.pill')) p.title = chapterText(chapterById(Number(p.dataset.chapter))!, 'name');
   }
@@ -270,6 +272,7 @@ export class Ui {
     for (const b of this.matBtns.values()) b.disabled = testing;
     this.undoBtn.disabled = this.redoBtn.disabled = this.clearBtn.disabled = testing;
     $<HTMLButtonElement>('btn-brief').disabled = testing;
+    this.toast.classList.toggle('running', testing);
   }
 
   setMuted(m: boolean): void {

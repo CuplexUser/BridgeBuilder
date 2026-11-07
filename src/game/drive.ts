@@ -103,14 +103,14 @@ export class Drive {
     if (breaks.length === 0) return;
     for (const b of breaks) {
       const mat = b.link.mat!;
-      if (mat === 'heavy' || mat === 'concrete' || mat === 'masonry' || mat === 'arch') this.game.debris.crumble(b.ax, b.ay, b.bx, b.by, b.vx, b.vy, mat);
-      else if (mat === 'cable' || mat === 'main') this.game.debris.whip(b.link.a, b.link.b, b.ax, b.ay, b.bx, b.by);
+      if (mat === 'heavy' || mat === 'concrete' || mat === 'masonry' || mat === 'arch' || mat === 'ballast') this.game.debris.crumble(b.ax, b.ay, b.bx, b.by, b.vx, b.vy, mat);
+      else if (mat === 'cable' || mat === 'main' || mat === 'winch') this.game.debris.whip(b.link.a, b.link.b, b.ax, b.ay, b.bx, b.by);
       else this.game.debris.add(b.ax, b.ay, b.bx, b.by, b.vx, b.vy, mat);
       if (mat === 'wood') {
         this.game.particles.burst(PK.Splinter, b.x, b.y, 22, 7, 1.2, 0.18, [PAL.wood, PAL.woodDark, '#e8b27a'], 2);
-      } else if (mat === 'steel' || mat === 'cable' || mat === 'main' || mat === 'ram' || mat === 'damper' || mat === 'tendon') {
-        this.game.particles.burst(PK.Spark, b.x, b.y, mat === 'cable' ? 18 : mat === 'main' ? 40 : 30, 12, 0.6, 0.04, ['#fff3b0', PAL.gold, '#ff9d3b'], 2);
-      } else if (mat === 'heavy' || mat === 'concrete' || mat === 'masonry' || mat === 'arch') {
+      } else if (mat === 'steel' || mat === 'cable' || mat === 'main' || mat === 'ram' || mat === 'damper' || mat === 'tendon' || mat === 'winch') {
+        this.game.particles.burst(PK.Spark, b.x, b.y, mat === 'cable' || mat === 'winch' ? 18 : mat === 'main' ? 40 : 30, 12, 0.6, 0.04, ['#fff3b0', PAL.gold, '#ff9d3b'], 2);
+      } else if (mat === 'heavy' || mat === 'concrete' || mat === 'masonry' || mat === 'arch' || mat === 'ballast') {
         this.game.particles.burst(PK.Splinter, b.x, b.y, 22, 6, 1.3, 0.22, [PAL.concrete, PAL.concreteDark, PAL.heavy], 2);
         this.game.particles.burst(PK.Dust, b.x, b.y, 16, 2.2, 1.4, 0.35, ['#b9b4aa', '#d8d2c6'], 0.6);
       } else {
@@ -130,9 +130,9 @@ export class Drive {
               ? 'fx.clang'
               : mat === 'cable' || mat === 'tendon'
                 ? 'fx.ping'
-                : mat === 'main'
+                : mat === 'main' || mat === 'winch'
                   ? 'fx.twang'
-                  : mat === 'heavy' || mat === 'concrete' || mat === 'masonry' || mat === 'arch'
+                  : mat === 'heavy' || mat === 'concrete' || mat === 'masonry' || mat === 'arch' || mat === 'ballast'
                     ? 'fx.crack'
                     : 'fx.snap',
         );

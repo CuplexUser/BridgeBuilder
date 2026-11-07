@@ -7,7 +7,13 @@ import { deckLoad } from './vehicles';
 import { t as msg } from '../i18n';
 import { matInline, matName, vehicleInline } from '../i18n/data';
 import { StressLog } from './stresslog';
-import { CLOSE_TIME, OPEN_TIME, SETTLE_TIME, SHIP_HALF, SHIP_TIME, SHIP_WAIT, STEP, World } from './world';
+import { CLOSE_TIME, OPEN_TIME, ROLL_TIME, SETTLE_TIME, SHIP_HALF, SHIP_TIME, SHIP_WAIT, STEP, TIP_LIFT, World } from './world';
+
+/** How long the level's bridge takes to open and to close, s. */
+function moveTimes(level: LevelDef): { open: number; close: number } {
+  const time = level.ship?.time ?? (level.retract ? ROLL_TIME : 0);
+  return time ? { open: time, close: time } : { open: OPEN_TIME, close: CLOSE_TIME };
+}
 
 /**
  * How long a test drive may run before it counts as stuck, s: 30, or longer for a convoy too slow
@@ -18,7 +24,8 @@ export function testSeconds(level: LevelDef): number {
   const speed = Math.min(...lay.map((c) => c.def.speed));
   // How far back the last vehicle waits, from its own lane's side.
   const tail = Math.min(...lay.map((c) => (c.dir > 0 ? c.x : level.width - c.x)));
-  const waits = SETTLE_TIME + (level.ship ? OPEN_TIME + SHIP_TIME + CLOSE_TIME : 0) + (level.brake ? (level.brake.hold ?? 1.5) + 4 : 0);
+  const move = moveTimes(level);
+  const waits = SETTLE_TIME + (level.ship ? move.open + SHIP_TIME + move.close : 0) + (level.brake ? (level.brake.hold ?? 1.5) + 4 : 0);
   // A third more than a steady drive takes, for starting off, braking and climbing.
   return Math.max(30, Math.ceil(waits + ((goalX(level) - tail) / speed) * 4 / 3));
 }
@@ -96,7 +103,8 @@ export class TestRun {
     this.log = new StressLog(design.members.length);
     this.peakPull = new Float32Array(design.members.length);
     this.peakPush = new Float32Array(design.members.length);
-    this.releaseAt = level.ship && !level.ship.after ? SETTLE_TIME + OPEN_TIME + SHIP_TIME + CLOSE_TIME : 0;
+    const move = moveTimes(level);
+    this.releaseAt = level.ship && !level.ship.after ? SETTLE_TIME + move.open + SHIP_TIME + move.close : 0;
     this.speeds = this.vehicles.flatMap((v) => v.wheels.map((p) => this.world.drive[p]));
     if (level.ship) {
       if (!level.ship.after) this.hold(true);
@@ -186,10 +194,11 @@ export class TestRun {
       this.phase = t < SETTLE_TIME ? 'settle' : 'driving';
       return;
     }
+    const move = moveTimes(this.level);
     const openAt = after ? this.trafficAcross + SHIP_WAIT : SETTLE_TIME;
-    const shipAt = openAt + OPEN_TIME;
+    const shipAt = openAt + move.open;
     const closeAt = shipAt + SHIP_TIME;
-    w.openness = t < closeAt ? smooth((t - openAt) / OPEN_TIME) : 1 - smooth((t - closeAt) / CLOSE_TIME);
+    w.openness = t < closeAt ? smooth((t - openAt) / move.open) : 1 - smooth((t - closeAt) / move.close);
     this.phase = t < openAt ? (after ? 'driving' : 'settle') : t < shipAt ? 'opening' : t < closeAt ? 'ship' : after || t < this.releaseAt ? 'closing' : 'driving';
     this.shipProgress = (t - shipAt) / SHIP_TIME;
     // A swing bridge has turned aside, out of the ship's way.
@@ -243,6 +252,11 @@ export class TestRun {
     // still scramble across. A part that breaks off without bringing the deck down is no collapse.
     if (deckBroke) {
       this.fail(msg('fail.deck', { mat: matInline(deckBroke.mat!) }));
+      return;
+    }
+    const r = w.retract;
+    if (r && r.tail.some((p) => w.x[p] >= r.edge && w.y[p] > r.y + TIP_LIFT)) {
+      this.fail(msg('fail.tipped'));
       return;
     }
     for (const v of this.vehicles) {

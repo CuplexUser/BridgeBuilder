@@ -50,6 +50,7 @@ interface BillingPlugin {
 }
 
 interface StorePlugin {
+  debuggable(): Promise<{ debuggable: boolean }>;
   requestReview(): Promise<void>;
   openListing(): Promise<void>;
 }
@@ -75,6 +76,8 @@ export interface Native {
   storage: KeyValue;
   /** The installed app's versionName. */
   version: string;
+  /** True in a debug APK, never in one from Play. */
+  debuggable: boolean;
   bindApp(game: AppHooks): void;
   exportFile(name: string, text: string): Promise<void>;
   /** Opens the share sheet on a picture, with a message (and its link) to go with it. */
@@ -155,9 +158,12 @@ const quiet = (p: Promise<unknown>): void => void p.catch(() => undefined);
 
 export async function createNative(): Promise<Native> {
   const { version } = await App.getInfo();
+  // If the app can't say, it counts as a release: a debug build is the only one that opens everything.
+  const { debuggable } = await PlayStore.debuggable().catch(() => ({ debuggable: false }));
   return {
     storage: await nativeStorage(),
     version,
+    debuggable,
     bindApp(game) {
       // Back where there's nothing left to close sends the app to the background, as Android apps do.
       void App.addListener('backButton', () => {

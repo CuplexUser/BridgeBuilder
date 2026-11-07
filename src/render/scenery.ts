@@ -10,7 +10,7 @@ import type { Land } from './themes';
 import { shade as tint } from './vehicles';
 
 /** Profile of one land layer. */
-type Ridge = 'round' | 'peaks' | 'mesa' | 'dunes' | 'city' | 'cone';
+type Ridge = 'round' | 'peaks' | 'mesa' | 'dunes' | 'city' | 'cone' | 'port';
 
 /** Per land type: the shapes of the far, middle and near layers, and how tall each is. */
 const LAND_LAYERS: Record<Land, [Ridge, Ridge, Ridge, number, number, number]> = {
@@ -21,7 +21,11 @@ const LAND_LAYERS: Record<Land, [Ridge, Ridge, Ridge, number, number, number]> =
   peaks: ['peaks', 'peaks', 'round', 1.7, 1.25, 0.9],
   city: ['city', 'city', 'city', 1.3, 1, 0.55],
   volcano: ['cone', 'peaks', 'round', 1.9, 1, 0.55],
+  port: ['city', 'port', 'port', 0.9, 1, 0.6],
 };
+
+/** Shipping containers stacked on a quay, in their faded paints. */
+const CONTAINERS = ['#8c4238', '#3f6a78', '#b0863c', '#54694a', '#6a6f78'];
 
 /** Height of a land layer at u, in units of its amplitude. */
 function ridge(shape: Ridge, u: number, seed: number): number {
@@ -248,6 +252,10 @@ export class Scenery extends ScenePart {
 
     if (L.lower) this.structures.tunnels(L.lower.y, W, false);
     if (L.lift?.length) this.structures.liftTowers(L, false);
+    if (L.retract) {
+      const w = v.run?.world;
+      this.structures.rollingRail(L, w?.retract ? w.x[w.retract.p] : L.retract.carriage[0], false);
+    }
     for (const o of L.overhangs ?? []) this.overhang(o, W);
     for (const [x0, x1, top] of L.rocks ?? []) this.bank(rockPoly(x0, x1, top, deep));
     for (const [x0, x1, top] of L.mud ?? []) this.mud(x0, x1, top, deep);
@@ -305,6 +313,10 @@ export class Scenery extends ScenePart {
     const off = cam.cx * cam.scale * parallax;
     if (shape === 'city') {
       this.skyline(base, off, amp, color, seed);
+      return;
+    }
+    if (shape === 'port') {
+      this.dockyard(base, off, amp, color, seed);
       return;
     }
     const path = new Path2D();
@@ -374,6 +386,44 @@ export class Scenery extends ScenePart {
     ctx.lineWidth = 1.6;
     ctx.stroke(seams);
     ctx.restore();
+  }
+
+  /** A dockyard: warehouses with sawtooth roofs, and here and there a gantry crane over them. */
+  private dockyard(base: number, off: number, amp: number, color: string, seed: number): void {
+    const { ctx } = this;
+    const slot = 58 + seed * 6;
+    const k0 = Math.floor(off / slot) - 1;
+    const k1 = Math.ceil((off + this.w) / slot) + 1;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    for (let k = k0; k <= k1; k++) {
+      const r = hash(k * 5.71 + seed * 67);
+      const x = k * slot - off;
+      const hgt = amp * (0.35 + 0.3 * hash(k + seed * 23));
+      // The warehouse: a block, and its roof in teeth rising to the right.
+      const teeth = 3 + Math.floor(r * 3);
+      const tooth = slot / teeth;
+      ctx.moveTo(x, base + this.h);
+      ctx.lineTo(x, base - hgt);
+      for (let i = 0; i < teeth; i++) {
+        ctx.lineTo(x + (i + 1) * tooth, base - hgt - tooth * 0.45);
+        ctx.lineTo(x + (i + 1) * tooth, base - hgt);
+      }
+      ctx.lineTo(x + slot, base + this.h);
+      ctx.closePath();
+      if (r < 0.42) {
+        // A gantry crane: two legs, a beam, and a boom reaching out over the water.
+        const leg = amp * (1.05 + 0.4 * hash(k * 3.1 + seed));
+        const cx = x + slot * 0.3;
+        const span = slot * 0.3;
+        const t = Math.max(1.5, amp * 0.03);
+        ctx.rect(cx, base - leg, t, leg + this.h);
+        ctx.rect(cx + span, base - leg, t, leg + this.h);
+        ctx.rect(cx - span * 1.2, base - leg, span * 3.2, t * 1.6);
+        ctx.rect(cx + span * 0.4, base - leg - span * 0.45, span * 0.4, span * 0.45);
+      }
+    }
+    ctx.fill();
   }
 
   /** A city skyline: blocks of buildings, with lit windows at night. */
@@ -464,11 +514,12 @@ export class Scenery extends ScenePart {
     const willows: WillowLayers = { shade: new Path2D(), wood: new Path2D(), leaves: new Path2D(), lit: new Path2D() };
     const glows: [number, number][] = [];
     const plumes: [number, number, number][] = [];
+    const crates: [number, number, string][] = [];
     for (let i = 0, x = x0; (x1 - x) * dir > 0 && i < 40; i++) {
       const r = hash(seed * 100 + i);
       const h = 1.8 + r * 2.6;
       const sx = cam.sx(x);
-      const gap = T.flora === 'lamps' ? 5 : T.flora === 'vents' ? 3.5 + r * 3 : T.flora === 'cactus' ? 2.4 + hash(seed * 50 + i) * 4 : 1.4 + hash(seed * 50 + i) * 2.6;
+      const gap = T.flora === 'lamps' ? 5 : T.flora === 'dock' ? 3.2 + r * 3 : T.flora === 'vents' ? 3.5 + r * 3 : T.flora === 'cactus' ? 2.4 + hash(seed * 50 + i) * 4 : 1.4 + hash(seed * 50 + i) * 2.6;
       x += dir * gap;
       const margin = 80 + 2.5 * s;
       if (sx < -margin || sx > this.w + margin) continue;
@@ -526,7 +577,33 @@ export class Scenery extends ScenePart {
             plumes.push([sx, sy - 1.6 * s, r]);
           }
           break;
+        case 'dock':
+          if (r < 0.3) {
+            // A bollard.
+            path.rect(sx - 0.12 * s, sy - 0.5 * s, 0.24 * s, 0.5 * s);
+            path.rect(sx - 0.19 * s, sy - 0.62 * s, 0.38 * s, 0.14 * s);
+          } else if (r < 0.75) {
+            // A stack of containers.
+            const rows = 1 + Math.floor(hash(seed * 70 + i) * 3);
+            for (let row = 0; row < rows; row++) crates.push([sx, sy - (row + 1) * 1.06 * s, CONTAINERS[Math.floor(hash(seed * 90 + i + row * 3) * CONTAINERS.length)]]);
+          } else {
+            // A jib crane: a post and a boom reaching toward the water, with a hook on a line.
+            const reach = -dir * 1.9 * s;
+            path.rect(sx - 0.1 * s, sy - 4 * s, 0.2 * s, 4 * s);
+            path.rect(Math.min(sx + dir * 0.5 * s, sx + reach), sy - 4 * s, Math.abs(reach) + 0.5 * s, 0.14 * s);
+            path.rect(sx + reach - 0.02 * s, sy - 4 * s, 0.04 * s, 1.5 * s);
+            path.rect(sx + reach - 0.09 * s, sy - 2.5 * s, 0.18 * s, 0.14 * s);
+          }
+          break;
       }
+    }
+    for (const [cx, cy, color] of crates) {
+      ctx.fillStyle = color;
+      ctx.fillRect(cx - 1.2 * s, cy, 2.4 * s, 1.02 * s);
+      // Its corrugations, and a shaded top.
+      ctx.fillStyle = 'rgba(16,20,26,0.2)';
+      for (let k = 1; k < 8; k++) ctx.fillRect(cx - 1.2 * s + k * 0.3 * s, cy, Math.max(1, 0.05 * s), 1.02 * s);
+      ctx.fillRect(cx - 1.2 * s, cy, 2.4 * s, 0.1 * s);
     }
     if (T.flora === 'vents') {
       // The pipe itself, along the whole bank on screen.
